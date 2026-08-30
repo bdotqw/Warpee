@@ -30,21 +30,6 @@ local MISC_CLASS = 15
 local MISC_SUB = { [0] = true, [1] = true, [4] = true }
 local CONSUM_SUB = { [1] = true, [2] = true, [3] = true, [5] = true, [7] = true }
 
-local TOKEN_WORDS = { "vanquisher", "protector", "conqueror", "champion", "defender",
-                      "hero", "sanctification", "crusade", "desecrated",
-                      "mystic", "venerated", "zenith", "dreadful", "anima" }
-
-local function tokenName(name)
-  if type(name) ~= "string" or name == "" then return false end
-  local low = name:lower()
-  for _, w in ipairs(TOKEN_WORDS) do
-    if low:find("%f[%a]" .. w .. "%f[%A]") then return true end
-  end
-  return false
-end
-
-local ENGLISH = { enUS = true, enGB = true }
-
 local classPrefix
 local function classesPrefix()
   if classPrefix ~= nil then return classPrefix end
@@ -78,9 +63,8 @@ local function classBound(link)
   return yes
 end
 
-local function tierToken(link, name, classID, subID, q)
+local function tierToken(link, classID, subID, q)
   if classID ~= MISC_CLASS or not MISC_SUB[subID] or q < 3 then return false end
-  if ENGLISH[GetLocale and GetLocale() or "enUS"] then return tokenName(name) end
   return classBound(link)
 end
 
@@ -201,8 +185,7 @@ function Vendor:Scan()
           take = true
         elseif relics and q <= 4 and classID == RELIC_CLASS and subID == RELIC_SUB then
           take = true
-        elseif tokens and q <= 4
-           and tierToken(link, info.itemName or link:match("%[(.-)%]"), classID, subID, q) then
+        elseif tokens and q <= 4 and tierToken(link, classID, subID, q) then
           take = true
         elseif q <= 4 and cap > 0
            and (classID == Enum.ItemClass.Armor or classID == Enum.ItemClass.Weapon)

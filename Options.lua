@@ -1098,7 +1098,7 @@ local VENDOR_PAGE = {
   { type = "toggle", name = "Legion relics", col = 2, get = vRelicGet, set = vRelicSet,
     desc = "Sell artifact relics from Legion. They have no use and no appearance, so the item level is ignored." },
   { type = "toggle", name = "Tier tokens", col = 1, get = vTokenGet, set = vTokenSet,
-    desc = "Sell raid armour tokens that a vendor turns into a set piece, item level ignored. On an English client they are matched by token words in the name; in every other language by the class line the client itself prints." },
+    desc = "Sell raid armour tokens that a vendor turns into a set piece, item level ignored. Matched by the class line the client itself prints, so it works in every language and in raids added later." },
   { type = "toggle", name = "Old consumables", col = 2, get = vConsumGet, set = vConsumSet,
     desc = "Sell potions, elixirs, flasks, food and bandages from expansions older than the previous one. Off by default, since old food can still be worth keeping." },
   { type = "toggle", name = "Sell on open", col = 1, get = vAutoGet, set = vAutoSet,
