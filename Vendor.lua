@@ -26,42 +26,7 @@ local function fishingPole(classID, subID)
 end
 
 local RELIC_CLASS, RELIC_SUB = 3, 11
-local MISC_CLASS = 15
-local MISC_SUB = { [0] = true, [1] = true, [4] = true }
 local CONSUM_SUB = { [1] = true, [2] = true, [3] = true, [5] = true, [7] = true }
-
-local classPrefix
-local function classesPrefix()
-  if classPrefix ~= nil then return classPrefix end
-  classPrefix = false
-  local g = ITEM_CLASSES_ALLOWED
-  if type(g) == "string" and g ~= "" then
-    local p = (g:match("^(.-)%%") or g):gsub("%s+$", "")
-    if #p >= 3 then classPrefix = p:lower() end
-  end
-  return classPrefix
-end
-
-local classCache = {}
-local function classBound(link)
-  local pref = classesPrefix()
-  if not (pref and C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return false end
-  local hit = classCache[link]
-  if hit ~= nil then return hit end
-  local yes = false
-  local data = C_TooltipInfo.GetHyperlink(link)
-  if data and data.lines then
-    for _, line in ipairs(data.lines) do
-      if line.leftText == nil and TooltipUtil and TooltipUtil.SurfaceArgs then
-        TooltipUtil.SurfaceArgs(line)
-      end
-      local txt = line.leftText
-      if txt and txt:lower():find(pref, 1, true) == 1 then yes = true; break end
-    end
-  end
-  classCache[link] = yes
-  return yes
-end
 
 local function tokenExpAllowed(link)
   local t = WarpeeDB and WarpeeDB.vendorTokenExp
@@ -71,11 +36,9 @@ local function tokenExpAllowed(link)
   return t[exp] and true or false
 end
 
-local function tierToken(link, id, classID, subID, q)
-  if not tokenExpAllowed(link) then return false end
-  if id and ns.TIER_TOKENS and ns.TIER_TOKENS[id] then return true end
-  if classID ~= MISC_CLASS or not MISC_SUB[subID] or q < 3 then return false end
-  return classBound(link)
+local function tierToken(link, id)
+  if not (id and ns.TIER_TOKENS and ns.TIER_TOKENS[id]) then return false end
+  return tokenExpAllowed(link)
 end
 
 local function oldConsumable(link, classID, subID)
@@ -195,7 +158,7 @@ function Vendor:Scan()
           take = true
         elseif relics and q <= 4 and classID == RELIC_CLASS and subID == RELIC_SUB then
           take = true
-        elseif tokens and q <= 4 and tierToken(link, info.itemID, classID, subID, q) then
+        elseif tokens and q <= 4 and tierToken(link, info.itemID) then
           take = true
         elseif q <= 4 and cap > 0
            and (classID == Enum.ItemClass.Armor or classID == Enum.ItemClass.Weapon)
