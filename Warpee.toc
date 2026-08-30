@@ -1,6 +1,6 @@
 ## Interface: 120100
 ## Title: Warpee
-## Notes: Ð•Ð´Ð¸Ð½Ð¾Ðµ Ð¾ÐºÐ½Ð¾ Ð´Ð»Ñ ÑÑƒÐ¼Ð¾Ðº, Ð±Ð°Ð½ÐºÐ°, Ð±Ð°Ð½ÐºÐ° ÐžÑ€Ð´Ñ‹ (Warband) Ð¸ Ð±Ð°Ð½ÐºÐ° Ð³Ð¸Ð»ÑŒÐ´Ð¸Ð¸.
+## Notes: Единое окно для сумок, банка, банка Орды (Warband) и банка гильдии.
 ## Author: disru
 ## Version: 103
 ## SavedVariables: WarpeeDB
