@@ -63,7 +63,16 @@ local function classBound(link)
   return yes
 end
 
+local function tokenExpAllowed(link)
+  local t = WarpeeDB and WarpeeDB.vendorTokenExp
+  if not t then return true end
+  local exp = (select(15, C_Item.GetItemInfo(link)))
+  if exp == nil then return false end
+  return t[exp] and true or false
+end
+
 local function tierToken(link, id, classID, subID, q)
+  if not tokenExpAllowed(link) then return false end
   if id and ns.TIER_TOKENS and ns.TIER_TOKENS[id] then return true end
   if classID ~= MISC_CLASS or not MISC_SUB[subID] or q < 3 then return false end
   return classBound(link)

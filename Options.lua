@@ -1084,6 +1084,20 @@ local function vAutoGet() return WarpeeDB.vendorAuto and true or false end
 local function vAutoSet(v) WarpeeDB.vendorAuto = v and true or false end
 local function vTokenGet() return WarpeeDB.vendorTokens and true or false end
 local function vTokenSet(v) WarpeeDB.vendorTokens = v and true or false end
+local function vTokensOff() return not (WarpeeDB.vendorTokens and true or false) end
+local function vExpGet(i)
+  local t = WarpeeDB.vendorTokenExp
+  return (t and t[i]) and true or false
+end
+local function vExpSet(i, v)
+  WarpeeDB.vendorTokenExp = WarpeeDB.vendorTokenExp or {}
+  WarpeeDB.vendorTokenExp[i] = v and true or false
+end
+local function expName(i)
+  local n = _G["EXPANSION_NAME" .. i]
+  if type(n) == "string" and n ~= "" then return n end
+  return "Expansion " .. i
+end
 
 local VENDOR_PAGE = {
   { type = "header", name = "Sell low gear" },
@@ -1098,7 +1112,7 @@ local VENDOR_PAGE = {
   { type = "toggle", name = "Legion relics", col = 2, get = vRelicGet, set = vRelicSet,
     desc = "Sell artifact relics from Legion. They have no use and no appearance, so the item level is ignored." },
   { type = "toggle", name = "Tier tokens", col = 1, get = vTokenGet, set = vTokenSet,
-    desc = "Sell raid armour tokens that a vendor turns into a set piece, item level ignored. Matched by the class line the client itself prints, so it works in every language and in raids added later." },
+    desc = "Sell raid armour tokens that a vendor turns into a set piece, item level ignored. Which expansions they may come from is set below, and the newest four are kept by default." },
   { type = "toggle", name = "Old consumables", col = 2, get = vConsumGet, set = vConsumSet,
     desc = "Sell potions, elixirs, flasks, food and bandages from expansions older than the previous one. Off by default, since old food can still be worth keeping." },
   { type = "toggle", name = "Sell on open", col = 1, get = vAutoGet, set = vAutoSet,
@@ -1113,6 +1127,28 @@ local VENDOR_PAGE = {
   { type = "header", name = "Blacklist" },
   { type = "blacklist" },
 }
+
+do
+  local cur = LE_EXPANSION_LEVEL_CURRENT
+              or (GetExpansionLevel and GetExpansionLevel()) or 0
+  local at
+  for i, row in ipairs(VENDOR_PAGE) do
+    if row.type == "header" and row.name == "Never sell" then at = i; break end
+  end
+  local rows = { { type = "header", name = "Token expansions" } }
+  for i = 0, cur do
+    rows[#rows + 1] = {
+      type = "toggle", name = expName(i), col = (i % 2 == 0) and 1 or 2,
+      get = function() return vExpGet(i) end,
+      set = function(v) vExpSet(i, v) end,
+      disabled = vTokensOff,
+      desc = "Sell tier tokens from this expansion. Unticked keeps them, so the sets you are still working on stay in the bags.",
+    }
+  end
+  if at then
+    for k = #rows, 1, -1 do table.insert(VENDOR_PAGE, at, rows[k]) end
+  end
+end
 
 local PAGES = {
   { name = "General", list = GENERAL_PAGE },

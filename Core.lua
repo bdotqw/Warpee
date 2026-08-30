@@ -143,6 +143,14 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.vendorConsum == nil then WarpeeDB.vendorConsum = false end
     if WarpeeDB.vendorAuto == nil then WarpeeDB.vendorAuto = false end
     if WarpeeDB.vendorTokens == nil then WarpeeDB.vendorTokens = false end
+    local curExp = LE_EXPANSION_LEVEL_CURRENT
+                   or (GetExpansionLevel and GetExpansionLevel()) or 0
+    WarpeeDB.vendorTokenExp = WarpeeDB.vendorTokenExp or {}
+    for i = 0, curExp do
+      if WarpeeDB.vendorTokenExp[i] == nil then
+        WarpeeDB.vendorTokenExp[i] = (i <= curExp - 4)
+      end
+    end
     if WarpeeDB.vendorKeepBoE == nil then WarpeeDB.vendorKeepBoE = true end
     if WarpeeDB.vendorKeepWarbound == nil then WarpeeDB.vendorKeepWarbound = true end
     if WarpeeDB.vendorKeepGems == nil then WarpeeDB.vendorKeepGems = true end
