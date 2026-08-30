@@ -25,6 +25,29 @@ local function fishingPole(classID, subID)
   return classID == Enum.ItemClass.Weapon and id ~= nil and subID == id
 end
 
+local RELIC_CLASS, RELIC_SUB = 3, 11
+
+local function hasUse(link)
+  local get = C_Item.GetItemSpell or GetItemSpell
+  if not get then return false end
+  return get(link) ~= nil
+end
+
+local function hasGems(link)
+  local str = link:match("Hitem:([%-%d:]*)") or link:match("^item:([%-%d:]*)")
+  if not str then return false end
+  local i, hit = 0, false
+  for v in (str .. ":"):gmatch("([^:]*):") do
+    i = i + 1
+    if i >= 2 and i <= 6 then
+      local n = tonumber(v)
+      if n and n ~= 0 then hit = true end
+    end
+    if i > 6 then break end
+  end
+  return hit
+end
+
 local function slotIlvl(bag, slot, link)
   local loc = ItemLocation and ItemLocation:CreateFromBagAndSlot(bag, slot)
   if loc and C_Item.DoesItemExist(loc) then
@@ -56,31 +79,44 @@ end
 function Vendor:Scan()
   local out, total, kept = {}, 0, 0
   local cap = self:Ilvl()
-  if cap <= 0 or not ns.playerBags then return out, 0, 0 end
+  if not ns.playerBags then return out, 0, 0 end
   local keepBoE = not (WarpeeDB.vendorKeepBoE == false)
+  local keepWb = not (WarpeeDB.vendorKeepWarbound == false)
+  local keepGems = not (WarpeeDB.vendorKeepGems == false)
+  local grey = not (WarpeeDB.vendorGrey == false)
+  local relics = not (WarpeeDB.vendorRelics == false)
   for _, bag in ipairs(ns.playerBags) do
     for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
       local info = C_Container.GetContainerItemInfo(bag, slot)
       local link = info and info.hyperlink
-      if link and not info.isLocked and not info.hasNoValue and (info.quality or 9) <= 4 then
+      if link and not info.isLocked and not info.hasNoValue then
+        local q = info.quality or 9
         local _, _, _, equipLoc, _, classID, subID = C_Item.GetItemInfoInstant(link)
-        if (classID == Enum.ItemClass.Armor or classID == Enum.ItemClass.Weapon)
+        local take, lvl = false, nil
+        if grey and q == 0 then
+          take = true
+        elseif relics and q <= 4 and classID == RELIC_CLASS and subID == RELIC_SUB then
+          take = true
+        elseif q <= 4 and cap > 0
+           and (classID == Enum.ItemClass.Armor or classID == Enum.ItemClass.Weapon)
            and not SKIP_LOC[equipLoc or ""]
            and not cosmeticArmor(classID, subID)
-           and not fishingPole(classID, subID) then
-          local lvl = slotIlvl(bag, slot, link)
-          local ok = (lvl and lvl > 1 and lvl < cap) and true or false
-          if ok and keepBoE and not info.isBound and not ns.IsLinkWarbound(link) then
-            ok = false
-            kept = kept + 1
-          end
-          if ok and refundable(bag, slot) then ok = false end
-          if ok then
-            local value = sellPrice(link) * (info.stackCount or 1)
-            out[#out + 1] = { bag = bag, slot = slot, id = info.itemID, ilvl = lvl,
-                              value = value, name = info.itemName or link:match("%[(.-)%]") }
-            total = total + value
-          end
+           and not fishingPole(classID, subID)
+           and not hasUse(link) then
+          lvl = slotIlvl(bag, slot, link)
+          take = (lvl and lvl > 1 and lvl < cap) and true or false
+          local wb = ((keepBoE and not info.isBound) or keepWb)
+                     and ns.IsLinkWarbound(link) or false
+          if take and keepBoE and not info.isBound and not wb then take = false; kept = kept + 1 end
+          if take and keepWb and wb then take = false; kept = kept + 1 end
+          if take and keepGems and hasGems(link) then take = false; kept = kept + 1 end
+        end
+        if take and refundable(bag, slot) then take = false end
+        if take then
+          local value = sellPrice(link) * (info.stackCount or 1)
+          out[#out + 1] = { bag = bag, slot = slot, id = info.itemID, ilvl = lvl,
+                            value = value, name = info.itemName or link:match("%[(.-)%]") }
+          total = total + value
         end
       end
     end
@@ -91,11 +127,11 @@ end
 function Vendor:TipLines()
   local cap = self:Ilvl()
   local out = {}
-  if cap <= 0 then
-    out[1] = { text = "Set the item level in Settings, Vendor tab", color = "dim" }
-    return out
+  if cap > 0 then
+    out[1] = { text = "Armour and weapons under ilvl " .. cap, color = "dim", size = 10 }
+  else
+    out[1] = { text = "Item level is zero, gear is kept", color = "dim", size = 10 }
   end
-  out[1] = { text = "Armour and weapons under ilvl " .. cap, color = "dim", size = 10 }
   local list, total, kept = self:Scan()
   if #list == 0 then
     out[2] = { text = "Nothing to sell", color = "faint" }
@@ -104,7 +140,9 @@ function Vendor:TipLines()
                color = "accentInk" }
     local shown = math.min(#list, 10)
     for i = 1, shown do
-      out[#out + 1] = { text = ("%d   %s"):format(list[i].ilvl, list[i].name or "?"),
+      local e = list[i]
+      local name = e.name or "?"
+      out[#out + 1] = { text = e.ilvl and ("%d   %s"):format(e.ilvl, name) or name,
                         color = "text", size = 10 }
     end
     if #list > shown then
@@ -112,7 +150,7 @@ function Vendor:TipLines()
     end
   end
   if kept > 0 then
-    out[#out + 1] = { text = ("%d BoE kept"):format(kept), color = "dim", size = 10 }
+    out[#out + 1] = { text = ("%d kept back"):format(kept), color = "dim", size = 10 }
   end
   if self:Busy() then
     out[#out + 1] = { text = "Selling now", color = "accent", size = 10 }

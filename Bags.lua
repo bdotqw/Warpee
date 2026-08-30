@@ -591,7 +591,7 @@ end
 function Bags:VendorState()
   local b = self.sellBtn
   if not b then return end
-  local on = (ns.Vendor and ns.Vendor:IsOpen() and ns.Vendor:Ilvl() > 0 and not self.snap)
+  local on = (ns.Vendor and ns.Vendor:IsOpen() and not self.snap)
   b:SetShown(on and true or false)
   self:FitHeader()
 end

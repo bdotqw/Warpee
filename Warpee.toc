@@ -2,7 +2,7 @@
 ## Title: Warpee
 ## Notes: Единое окно для сумок, банка, банка Орды (Warband) и банка гильдии.
 ## Author: disru
-## Version: 103
+## Version: 104
 ## SavedVariables: WarpeeDB
 ## X-Category: Inventory
 ## IconTexture: 7549289

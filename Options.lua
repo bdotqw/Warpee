@@ -999,13 +999,30 @@ local function vIlvlSet(v)
 end
 local function vBoEGet() return WarpeeDB.vendorKeepBoE ~= false end
 local function vBoESet(v) WarpeeDB.vendorKeepBoE = v and true or false end
+local function vWbGet() return WarpeeDB.vendorKeepWarbound ~= false end
+local function vWbSet(v) WarpeeDB.vendorKeepWarbound = v and true or false end
+local function vGemGet() return WarpeeDB.vendorKeepGems ~= false end
+local function vGemSet(v) WarpeeDB.vendorKeepGems = v and true or false end
+local function vGreyGet() return WarpeeDB.vendorGrey ~= false end
+local function vGreySet(v) WarpeeDB.vendorGrey = v and true or false end
+local function vRelicGet() return WarpeeDB.vendorRelics ~= false end
+local function vRelicSet(v) WarpeeDB.vendorRelics = v and true or false end
 
 local VENDOR_PAGE = {
   { type = "header", name = "Sell low gear" },
   { type = "input", name = "Item level", min = 0, max = 9999, get = vIlvlGet, set = vIlvlSet,
-    desc = "Gear under this item level is sold. Zero hides the button." },
+    desc = "Gear under this item level is sold. Zero keeps every piece of gear." },
+  { type = "toggle", name = "Grey junk", col = 1, get = vGreyGet, set = vGreySet,
+    desc = "Sell every grey item as well, whatever it is and whatever its item level." },
+  { type = "toggle", name = "Legion relics", col = 2, get = vRelicGet, set = vRelicSet,
+    desc = "Sell artifact relics from Legion. They have no use and no appearance, so the item level is ignored." },
+  { type = "header", name = "Never sell" },
   { type = "toggle", name = "Keep BoE", col = 1, get = vBoEGet, set = vBoESet,
-    desc = "Skip gear that is not bound yet, so it can still go to the auction house. Warbound gear is sold anyway." },
+    desc = "Skip gear that is not bound yet, so it can still go to the auction house." },
+  { type = "toggle", name = "Keep warbound", col = 2, get = vWbGet, set = vWbSet,
+    desc = "Skip warbound gear. Its appearance is learned only once worn, and an alt can still use it." },
+  { type = "toggle", name = "Keep gems", col = 1, get = vGemGet, set = vGemSet,
+    desc = "Skip gear with a gem or an enchant in it, so nothing socketed is sold off." },
 }
 
 local PAGES = {
