@@ -31,7 +31,7 @@ local MISC_SUB = { [0] = true, [1] = true, [4] = true }
 local CONSUM_SUB = { [1] = true, [2] = true, [3] = true, [5] = true, [7] = true }
 
 local TOKEN_WORDS = { "vanquisher", "protector", "conqueror", "champion", "defender",
-                      "hero", "sanctification", "crusade",
+                      "hero", "sanctification", "crusade", "desecrated",
                       "mystic", "venerated", "zenith", "dreadful", "anima" }
 
 local function tokenName(name)
