@@ -1002,8 +1002,6 @@ local function vBoESet(v) WarpeeDB.vendorKeepBoE = v and true or false end
 
 local VENDOR_PAGE = {
   { type = "header", name = "Sell low gear" },
-  { type = "description",
-    name = "A vendor button joins the bags header while a merchant is open. It sells armour and weapons under the item level below, twelve per pass, until none are left. Legendary and better, tabards, shirts, cosmetics, fishing poles and worthless items are never sold." },
   { type = "input", name = "Item level", min = 0, max = 9999, get = vIlvlGet, set = vIlvlSet,
     desc = "Gear under this item level is sold. Zero hides the button." },
   { type = "toggle", name = "Keep BoE", col = 1, get = vBoEGet, set = vBoESet,
