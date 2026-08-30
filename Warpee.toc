@@ -2,7 +2,7 @@
 ## Title: Warpee
 ## Notes: Единое окно для сумок, банка, банка Орды (Warband) и банка гильдии.
 ## Author: disru
-## Version: 100
+## Version: 101
 ## SavedVariables: WarpeeDB
 ## X-Category: Inventory
 ## IconTexture: 7549289
@@ -17,6 +17,7 @@ Tooltip.lua
 ItemRules.lua
 ItemButton.lua
 Bags.lua
+Vendor.lua
 Vault.lua
 CharPicker.lua
 Bank.lua

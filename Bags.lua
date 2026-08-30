@@ -116,6 +116,22 @@ function Bags:Build()
 
   sort:SetPoint("TOPRIGHT", bank, "TOPLEFT", -4, 0)
 
+  local sell = ns.CreateGlyphButton(f, "", HB)
+  sell:SetPoint("TOPRIGHT", sort, "TOPLEFT", -4, 0)
+  sell:SetScript("OnClick", function() if ns.Vendor then ns.Vendor:Sell() end end)
+  ns.AddTip(sell, function()
+    return "Sell gear below ilvl " .. ((ns.Vendor and ns.Vendor:Ilvl()) or 0)
+  end, "top", function()
+    return ns.Vendor and ns.Vendor:TipLines() or nil
+  end)
+  local sellIcon = sell:CreateTexture(nil, "ARTWORK")
+  sellIcon:SetTexture("Interface\\MoneyFrame\\UI-GoldIcon")
+  sellIcon:SetSize(16, 16)
+  sellIcon:SetPoint("CENTER")
+  sell.icon = sellIcon
+  sell:Hide()
+  self.sellBtn = sell
+
   local freeText = Theme:Label(f, 12, "dim")
   self.freeText = freeText
 
@@ -379,6 +395,7 @@ function Bags:Layout()
   for j = i + 1, #active do active[j].holder:Hide() end
   for _, b in ipairs(idle) do if b.holder:IsShown() then b.holder:Hide() end end
   if self.sortBtn then self.sortBtn:SetShown(not self.snap) end
+  self:VendorState()
   if not self.snap then ns.Vault:Capture("bags") end
   self.shown, self.used, self.total = i, used, total
   self:Resize(contentH)
@@ -573,11 +590,21 @@ function Bags:SelectChar(key)
   if self.frame and self.frame:IsShown() then self:Layout() end
 end
 
+function Bags:VendorState()
+  local b = self.sellBtn
+  if not b then return end
+  local on = (ns.Vendor and ns.Vendor:IsOpen() and ns.Vendor:Ilvl() > 0 and not self.snap)
+  b:SetShown(on and true or false)
+  self:FitHeader()
+end
+
 function Bags:FitHeader()
   if not (self.frame and self.search) then return end
   local w = self.frame:GetWidth()
   self.search:Show()
-  local right = PAD + HBTNS * HB + (HBTNS - 1) * HGAP
+  local btns = HBTNS
+  if self.sellBtn and self.sellBtn:IsShown() then btns = btns + 1 end
+  local right = PAD + btns * HB + (btns - 1) * HGAP
   if self.charTag and self.freeText then
     local left = PAD + self.charTag:GetWidth() + 8 + math.ceil(self.freeText:GetStringWidth())
     self.freeText:SetShown(left + 8 <= w - right)

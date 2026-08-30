@@ -292,6 +292,59 @@ function factories.toggle(parent, spec)
   return row
 end
 
+function factories.input(parent, spec)
+  local row = CreateFrame("Frame", nil, parent)
+  row:SetHeight(28)
+
+  local fs = track(Theme:Label(row, BASE_FONT, "text"), 0)
+  fs:SetPoint("LEFT", 1, 0)
+  fs:SetText(spec.name)
+
+  local box = CreateFrame("EditBox", nil, row, "BackdropTemplate")
+  box:SetSize(66, 24)
+  box:SetPoint("RIGHT", -1, 0)
+  box:SetBackdrop({ bgFile = Theme.WHITE, edgeFile = Theme.WHITE, edgeSize = 1 })
+  box:SetBackdropColor(Theme:C("bg"))
+  box:SetBackdropBorderColor(Theme:C("stroke"))
+  Theme:Track(box, function(s)
+    s:SetBackdropColor(Theme:C("bg"))
+    s:SetTextColor(Theme:C("text"))
+    if not s:HasFocus() then s:SetBackdropBorderColor(Theme:C("stroke")) end
+  end)
+  box:SetFont(dropdownFont(), BASE_FONT - 1, "")
+  track(box, -1)
+  box:SetTextColor(Theme:C("text"))
+  box:SetJustifyH("CENTER")
+  box:SetAutoFocus(false)
+  box:SetNumeric(true)
+  box:SetMaxLetters(4)
+
+  row.Refresh = function()
+    if not box:HasFocus() then box:SetText(tostring(spec.get() or 0)) end
+  end
+
+  local function apply()
+    local v = tonumber(box:GetText()) or spec.get() or 0
+    if spec.min and v < spec.min then v = spec.min end
+    if spec.max and v > spec.max then v = spec.max end
+    spec.set(v)
+    row.Refresh()
+    Options:Refresh()
+  end
+
+  box:SetScript("OnEnterPressed", function(s) s:ClearFocus() end)
+  box:SetScript("OnEscapePressed", function(s) s:ClearFocus(); row.Refresh() end)
+  box:SetScript("OnEditFocusGained", function(s) s:SetBackdropBorderColor(Theme:C("accent")) end)
+  box:SetScript("OnEditFocusLost", function(s)
+    s:SetBackdropBorderColor(Theme:C("stroke"))
+    apply()
+  end)
+
+  row.Refresh()
+  tip(row, spec.desc)
+  return row
+end
+
 function factories.range(parent, spec)
   local row = CreateFrame("Frame", nil, parent)
   row:SetHeight(46)
@@ -939,10 +992,38 @@ local CHARS_PAGE = {
   { type = "chars" },
 }
 
+local function vIlvlGet() return tonumber(WarpeeDB.vendorIlvl) or 0 end
+local function vIlvlSet(v)
+  WarpeeDB.vendorIlvl = tonumber(v) or 0
+  if Bags and Bags.VendorState then Bags:VendorState() end
+end
+local function vBoEGet() return WarpeeDB.vendorKeepBoE ~= false end
+local function vBoESet(v) WarpeeDB.vendorKeepBoE = v and true or false end
+local function vMogGet() return WarpeeDB.vendorKeepMog and true or false end
+local function vMogSet(v) WarpeeDB.vendorKeepMog = v and true or false end
+local function vFreshGet() return WarpeeDB.vendorKeepFresh and true or false end
+local function vFreshSet(v) WarpeeDB.vendorKeepFresh = v and true or false end
+
+local VENDOR_PAGE = {
+  { type = "header", name = "Sell low gear" },
+  { type = "description",
+    name = "A vendor button joins the bags header while a merchant is open. It sells armour and weapons under the item level below, twelve per pass, until none are left. Legendary and better, tabards, shirts, cosmetics, fishing poles and worthless items are never sold." },
+  { type = "input", name = "Item level", min = 0, max = 9999, get = vIlvlGet, set = vIlvlSet,
+    desc = "Gear under this item level is sold. Zero hides the button." },
+  { type = "header", name = "Never sell" },
+  { type = "toggle", name = "Tradeable gear", col = 1, get = vBoEGet, set = vBoESet,
+    desc = "Keep gear that is not bound yet, so it can still go to the auction house. Warbound gear is sold anyway." },
+  { type = "toggle", name = "Missing looks", col = 2, get = vMogGet, set = vMogSet,
+    desc = "Keep gear whose appearance you can collect but have not learned yet." },
+  { type = "toggle", name = "Fresh loot", col = 1, get = vFreshGet, set = vFreshSet,
+    desc = "Keep loot that can still be traded to the group. Off sells it and answers the trade warning for you." },
+}
+
 local PAGES = {
   { name = "General", list = GENERAL_PAGE },
   { name = "Grid", list = GRID_PAGE },
   { name = "Items", list = ITEMS_PAGE },
+  { name = "Vendor", list = VENDOR_PAGE },
   { name = "Auto-open", list = AUTO_PAGE },
   { name = "Characters", list = CHARS_PAGE },
 }
