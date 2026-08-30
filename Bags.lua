@@ -126,8 +126,10 @@ function Bags:Build()
   sellIcon:SetTexture("Interface\\MoneyFrame\\UI-GoldIcon")
   sellIcon:SetSize(16, 16)
   sellIcon:SetPoint("CENTER")
+  sellIcon:SetDesaturated(true)
+  sellIcon:SetAlpha(0.45)
   sell.icon = sellIcon
-  sell:Hide()
+  ns.SetButtonEnabled(sell, false)
   self.sellBtn = sell
 
   local freeText = Theme:Label(f, 12, "dim")
@@ -448,7 +450,7 @@ local COIN_ICON = {
   s = "|TInterface\\MoneyFrame\\UI-SilverIcon:12:12:2:0|t",
   c = "|TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:0|t",
 }
-local COIN_COLOR = { g = "brass", s = "silver", c = "copper" }
+local COIN_HEX = { g = "ffd700", s = "c7c7cf", c = "eda55f" }
 
 local function whiteNum(str)
   return "|cff" .. Theme:Hex("text") .. str .. "|r"
@@ -457,7 +459,7 @@ end
 local function coinUnit(letter)
   if not Bags.goldLetters then return COIN_ICON[letter] end
   local sp = (letter == "g" and WarpeeDB and WarpeeDB.goldFormat == "short") and " " or ""
-  return sp .. "|cff" .. Theme:Hex(COIN_COLOR[letter]) .. letter .. "|r"
+  return sp .. "|cff" .. COIN_HEX[letter] .. letter .. "|r"
 end
 
 local function coinSeg(num, letter)
@@ -591,8 +593,13 @@ end
 function Bags:VendorState()
   local b = self.sellBtn
   if not b then return end
-  local on = (ns.Vendor and ns.Vendor:IsOpen() and not self.snap)
-  b:SetShown(on and true or false)
+  b:SetShown(not self.snap)
+  local on = (ns.Vendor and ns.Vendor:IsOpen()) and true or false
+  ns.SetButtonEnabled(b, on)
+  if b.icon then
+    b.icon:SetDesaturated(not on)
+    b.icon:SetAlpha(on and 1 or 0.45)
+  end
   self:FitHeader()
 end
 
