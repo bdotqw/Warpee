@@ -138,21 +138,13 @@ function Vendor:TipLines()
   else
     out[2] = { text = ("%d items for %s"):format(#list, ns.FormatMoney(total, false)),
                color = "accentInk" }
-    local shown = math.min(#list, 10)
-    for i = 1, shown do
-      local e = list[i]
-      local name = e.name or "?"
-      out[#out + 1] = { text = e.ilvl and ("%d   %s"):format(e.ilvl, name) or name,
-                        color = "text", size = 10 }
-    end
-    if #list > shown then
-      out[#out + 1] = { text = ("and %d more"):format(#list - shown), color = "faint", size = 10 }
-    end
   end
   if kept > 0 then
     out[#out + 1] = { text = ("%d kept back"):format(kept), color = "dim", size = 10 }
   end
-  if self:Busy() then
+  if not self:IsOpen() then
+    out[#out + 1] = { text = "Talk to a merchant to sell", color = "faint", size = 10 }
+  elseif self:Busy() then
     out[#out + 1] = { text = "Selling now", color = "accent", size = 10 }
   end
   return out
