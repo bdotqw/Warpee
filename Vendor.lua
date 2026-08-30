@@ -43,9 +43,45 @@ local function tokenName(name)
   return false
 end
 
-local function tierToken(name, classID, subID, q)
+local ENGLISH = { enUS = true, enGB = true }
+
+local classPrefix
+local function classesPrefix()
+  if classPrefix ~= nil then return classPrefix end
+  classPrefix = false
+  local g = ITEM_CLASSES_ALLOWED
+  if type(g) == "string" and g ~= "" then
+    local p = (g:match("^(.-)%%") or g):gsub("%s+$", "")
+    if #p >= 3 then classPrefix = p:lower() end
+  end
+  return classPrefix
+end
+
+local classCache = {}
+local function classBound(link)
+  local pref = classesPrefix()
+  if not (pref and C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return false end
+  local hit = classCache[link]
+  if hit ~= nil then return hit end
+  local yes = false
+  local data = C_TooltipInfo.GetHyperlink(link)
+  if data and data.lines then
+    for _, line in ipairs(data.lines) do
+      if line.leftText == nil and TooltipUtil and TooltipUtil.SurfaceArgs then
+        TooltipUtil.SurfaceArgs(line)
+      end
+      local txt = line.leftText
+      if txt and txt:lower():find(pref, 1, true) == 1 then yes = true; break end
+    end
+  end
+  classCache[link] = yes
+  return yes
+end
+
+local function tierToken(link, name, classID, subID, q)
   if classID ~= MISC_CLASS or not MISC_SUB[subID] or q < 3 then return false end
-  return tokenName(name)
+  if ENGLISH[GetLocale and GetLocale() or "enUS"] then return tokenName(name) end
+  return classBound(link)
 end
 
 local function oldConsumable(link, classID, subID)
@@ -166,7 +202,7 @@ function Vendor:Scan()
         elseif relics and q <= 4 and classID == RELIC_CLASS and subID == RELIC_SUB then
           take = true
         elseif tokens and q <= 4
-           and tierToken(info.itemName or link:match("%[(.-)%]"), classID, subID, q) then
+           and tierToken(link, info.itemName or link:match("%[(.-)%]"), classID, subID, q) then
           take = true
         elseif q <= 4 and cap > 0
            and (classID == Enum.ItemClass.Armor or classID == Enum.ItemClass.Weapon)
