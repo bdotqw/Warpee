@@ -26,7 +26,47 @@ local function fishingPole(classID, subID)
 end
 
 local RELIC_CLASS, RELIC_SUB = 3, 11
+local MISC_CLASS = 15
+local MISC_SUB = { [0] = true, [4] = true }
 local CONSUM_SUB = { [1] = true, [2] = true, [3] = true, [5] = true, [7] = true }
+
+local classPrefix
+local function classesPrefix()
+  if classPrefix ~= nil then return classPrefix end
+  classPrefix = false
+  local g = ITEM_CLASSES_ALLOWED
+  if type(g) == "string" and g ~= "" then
+    local p = (g:match("^(.-)%%") or g):gsub("%s+$", "")
+    if #p >= 3 then classPrefix = p:lower() end
+  end
+  return classPrefix
+end
+
+local tokenCache = {}
+local function classBound(link)
+  local pref = classesPrefix()
+  if not (pref and C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return false end
+  local hit = tokenCache[link]
+  if hit ~= nil then return hit end
+  local bad = false
+  local data = C_TooltipInfo.GetHyperlink(link)
+  if data and data.lines then
+    for _, line in ipairs(data.lines) do
+      if line.leftText == nil and TooltipUtil and TooltipUtil.SurfaceArgs then
+        TooltipUtil.SurfaceArgs(line)
+      end
+      local txt = line.leftText
+      if txt and txt:lower():find(pref, 1, true) == 1 then bad = true; break end
+    end
+  end
+  tokenCache[link] = bad
+  return bad
+end
+
+local function tierToken(link, classID, subID, q)
+  if classID ~= MISC_CLASS or not MISC_SUB[subID] or q < 3 then return false end
+  return classBound(link)
+end
 
 local function oldConsumable(link, classID, subID)
   if classID ~= Enum.ItemClass.Consumable or not CONSUM_SUB[subID] then return false end
@@ -128,6 +168,7 @@ function Vendor:Scan()
   local grey = not (WarpeeDB.vendorGrey == false)
   local relics = not (WarpeeDB.vendorRelics == false)
   local consum = WarpeeDB.vendorConsum and true or false
+  local tokens = WarpeeDB.vendorTokens and true or false
   for _, bag in ipairs(ns.playerBags) do
     for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
       local info = C_Container.GetContainerItemInfo(bag, slot)
@@ -143,6 +184,8 @@ function Vendor:Scan()
         elseif consum and q <= 4 and oldConsumable(link, classID, subID) then
           take = true
         elseif relics and q <= 4 and classID == RELIC_CLASS and subID == RELIC_SUB then
+          take = true
+        elseif tokens and q <= 4 and tierToken(link, classID, subID, q) then
           take = true
         elseif q <= 4 and cap > 0
            and (classID == Enum.ItemClass.Armor or classID == Enum.ItemClass.Weapon)

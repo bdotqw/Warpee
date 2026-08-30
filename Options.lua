@@ -718,6 +718,7 @@ local function blackRow(row, i)
   end)
   c.del = x
   local fs = track(Theme:Label(c, BASE_FONT - 2, "text"), -2)
+  fs:SetFont(dropdownFont(), BASE_FONT - 2, "")
   fs:SetPoint("LEFT", ic, "RIGHT", 6, 0)
   fs:SetPoint("RIGHT", x, "LEFT", -6, 0)
   fs:SetJustifyH("LEFT")
@@ -731,10 +732,11 @@ function factories.blacklist(parent, spec)
   row.items = {}
   row.dynamic = true
   local empty = track(Theme:Label(row, BASE_FONT - 2, "faint"), -2)
+  empty:SetFont(dropdownFont(), BASE_FONT - 2, "")
   empty:SetPoint("TOPLEFT")
   empty:SetWidth(CONTENT_W)
   empty:SetJustifyH("LEFT")
-  empty:SetText("Shift-click an item in your bags while this tab is open.")
+  empty:SetText("Alt-click an item in your bags while this tab is open.")
   row.empty = empty
   row.Rebuild = function()
     local list = ns.Vendor and ns.Vendor:BlackList() or {}
@@ -1080,6 +1082,8 @@ local function vConsumGet() return WarpeeDB.vendorConsum and true or false end
 local function vConsumSet(v) WarpeeDB.vendorConsum = v and true or false end
 local function vAutoGet() return WarpeeDB.vendorAuto and true or false end
 local function vAutoSet(v) WarpeeDB.vendorAuto = v and true or false end
+local function vTokenGet() return WarpeeDB.vendorTokens and true or false end
+local function vTokenSet(v) WarpeeDB.vendorTokens = v and true or false end
 
 local VENDOR_PAGE = {
   { type = "header", name = "Sell low gear" },
@@ -1093,17 +1097,19 @@ local VENDOR_PAGE = {
     desc = "Sell every grey item as well, whatever it is and whatever its item level." },
   { type = "toggle", name = "Legion relics", col = 2, get = vRelicGet, set = vRelicSet,
     desc = "Sell artifact relics from Legion. They have no use and no appearance, so the item level is ignored." },
-  { type = "toggle", name = "Old consumables", col = 1, get = vConsumGet, set = vConsumSet,
-    desc = "Sell potions, elixirs, flasks, food and bandages from expansions older than the previous one." },
-  { type = "toggle", name = "Sell on open", col = 2, get = vAutoGet, set = vAutoSet,
+  { type = "toggle", name = "Tier tokens", col = 1, get = vTokenGet, set = vTokenSet,
+    desc = "Sell class-restricted raid tokens that a vendor turns into a set piece. There is no flag for them, so it goes by a class line on a rare or better trinket-class item. The item level is ignored." },
+  { type = "toggle", name = "Old consumables", col = 2, get = vConsumGet, set = vConsumSet,
+    desc = "Sell potions, elixirs, flasks, food and bandages from expansions older than the previous one. Off by default, since old food can still be worth keeping." },
+  { type = "toggle", name = "Sell on open", col = 1, get = vAutoGet, set = vAutoSet,
     desc = "Start selling as soon as a merchant window opens, without pressing the button." },
   { type = "header", name = "Never sell" },
   { type = "toggle", name = "Keep BoE", col = 1, get = vBoEGet, set = vBoESet,
     desc = "Skip gear that is not bound yet, so it can still go to the auction house." },
   { type = "toggle", name = "Keep warbound", col = 2, get = vWbGet, set = vWbSet,
     desc = "Skip warbound gear. Its appearance is learned only once worn, and an alt can still use it." },
-  { type = "toggle", name = "Keep gems", col = 1, get = vGemGet, set = vGemSet,
-    desc = "Skip gear with a gem or an enchant in it, so nothing socketed is sold off." },
+  { type = "toggle", name = "Keep gems and enchants", col = 1, get = vGemGet, set = vGemSet,
+    desc = "Skip any piece that has a gem socketed or an enchant applied, so what you paid for is not sold off with it." },
   { type = "header", name = "Blacklist" },
   { type = "blacklist" },
 }
@@ -1276,7 +1282,8 @@ end
 
 if type(HandleModifiedItemClick) == "function" then
   hooksecurefunc("HandleModifiedItemClick", function(link)
-    if not (link and IsShiftKeyDown() and vendorTabOpen() and ns.Vendor) then return end
+    if not (link and IsAltKeyDown() and not IsShiftKeyDown() and not IsControlKeyDown()
+       and vendorTabOpen() and ns.Vendor) then return end
     local id = (C_Item.GetItemInfoInstant(link))
     if not id then return end
     ns.Vendor:Block(id, link:match("%[(.-)%]") or (C_Item.GetItemInfo(link)))
