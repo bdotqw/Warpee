@@ -38,7 +38,8 @@ local function slotIlvl(bag, slot, link)
 end
 
 local function sellPrice(link)
-  return tonumber(select(11, C_Item.GetItemInfo(link))) or 0
+  local p = (select(11, C_Item.GetItemInfo(link)))
+  return tonumber(p) or 0
 end
 
 local function refundable(bag, slot)
@@ -53,9 +54,9 @@ function Vendor:Ilvl()
 end
 
 function Vendor:Scan()
-  local out, total = {}, 0
+  local out, total, kept = {}, 0, 0
   local cap = self:Ilvl()
-  if cap <= 0 or not ns.playerBags then return out, 0 end
+  if cap <= 0 or not ns.playerBags then return out, 0, 0 end
   local keepBoE = not (WarpeeDB.vendorKeepBoE == false)
   for _, bag in ipairs(ns.playerBags) do
     for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
@@ -69,7 +70,10 @@ function Vendor:Scan()
            and not fishingPole(classID, subID) then
           local lvl = slotIlvl(bag, slot, link)
           local ok = (lvl and lvl > 1 and lvl < cap) and true or false
-          if ok and keepBoE and not info.isBound and not ns.IsLinkWarbound(link) then ok = false end
+          if ok and keepBoE and not info.isBound and not ns.IsLinkWarbound(link) then
+            ok = false
+            kept = kept + 1
+          end
           if ok and refundable(bag, slot) then ok = false end
           if ok then
             local value = sellPrice(link) * (info.stackCount or 1)
@@ -81,7 +85,7 @@ function Vendor:Scan()
       end
     end
   end
-  return out, total
+  return out, total, kept
 end
 
 function Vendor:TipLines()
@@ -91,19 +95,27 @@ function Vendor:TipLines()
     out[1] = { text = "Set the item level in Settings, Vendor tab", color = "dim" }
     return out
   end
-  local list, total = self:Scan()
+  out[1] = { text = "Armour and weapons under ilvl " .. cap, color = "dim", size = 10 }
+  local list, total, kept = self:Scan()
   if #list == 0 then
-    out[1] = { text = "Nothing below ilvl " .. cap, color = "dim" }
-    return out
+    out[2] = { text = "Nothing to sell", color = "faint" }
+  else
+    out[2] = { text = ("%d items for %s"):format(#list, ns.FormatMoney(total, false)),
+               color = "accentInk" }
+    local shown = math.min(#list, 10)
+    for i = 1, shown do
+      out[#out + 1] = { text = ("%d   %s"):format(list[i].ilvl, list[i].name or "?"),
+                        color = "text", size = 10 }
+    end
+    if #list > shown then
+      out[#out + 1] = { text = ("and %d more"):format(#list - shown), color = "faint", size = 10 }
+    end
   end
-  out[1] = { text = ("%d items  %s"):format(#list, ns.FormatMoney(total, false)), color = "accentInk" }
-  local shown = math.min(#list, 10)
-  for i = 1, shown do
-    out[#out + 1] = { text = ("%s   %d"):format(list[i].name or "?", list[i].ilvl),
-                      color = "dim", size = 10 }
+  if kept > 0 then
+    out[#out + 1] = { text = ("%d BoE kept"):format(kept), color = "dim", size = 10 }
   end
-  if #list > shown then
-    out[#out + 1] = { text = ("and %d more"):format(#list - shown), color = "faint", size = 10 }
+  if self:Busy() then
+    out[#out + 1] = { text = "Selling now", color = "accent", size = 10 }
   end
   return out
 end
