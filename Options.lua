@@ -699,6 +699,72 @@ function factories.chars(parent, spec)
   return row
 end
 
+local BL_ROW_H = 22
+
+local function blackRow(row, i)
+  local c = row.items[i]
+  if c then return c end
+  c = CreateFrame("Frame", nil, row)
+  c:SetHeight(BL_ROW_H)
+  local ic = c:CreateTexture(nil, "ARTWORK")
+  ic:SetSize(16, 16)
+  ic:SetPoint("LEFT", 1, 0)
+  c.icon = ic
+  local x = ns.CreateGlyphButton(c, "×", 18)
+  x:SetPoint("RIGHT", -1, 0)
+  x:SetScript("OnClick", function()
+    if c.id and ns.Vendor then ns.Vendor:Unblock(c.id) end
+    Options:ReflowPages()
+  end)
+  c.del = x
+  local fs = track(Theme:Label(c, BASE_FONT - 2, "text"), -2)
+  fs:SetPoint("LEFT", ic, "RIGHT", 6, 0)
+  fs:SetPoint("RIGHT", x, "LEFT", -6, 0)
+  fs:SetJustifyH("LEFT")
+  c.Text = fs
+  row.items[i] = c
+  return c
+end
+
+function factories.blacklist(parent, spec)
+  local row = CreateFrame("Frame", nil, parent)
+  row.items = {}
+  row.dynamic = true
+  local empty = track(Theme:Label(row, BASE_FONT - 2, "faint"), -2)
+  empty:SetPoint("TOPLEFT")
+  empty:SetWidth(CONTENT_W)
+  empty:SetJustifyH("LEFT")
+  empty:SetText("Shift-click an item in your bags while this tab is open.")
+  row.empty = empty
+  row.Rebuild = function()
+    local list = ns.Vendor and ns.Vendor:BlackList() or {}
+    local y = 0
+    row.empty:SetShown(#list == 0)
+    if #list == 0 then
+      y = math.ceil(row.empty:GetStringHeight()) + 4
+    else
+      for i, e in ipairs(list) do
+        local c = blackRow(row, i)
+        c.id = e.id
+        c.Text:SetText(e.name or tostring(e.id))
+        local tex = (select(10, C_Item.GetItemInfo(e.id)))
+        c.icon:SetTexture(tex or "Interface\\Icons\\INV_Misc_QuestionMark")
+        c:ClearAllPoints()
+        c:SetPoint("TOPLEFT", 0, -y)
+        c:SetPoint("TOPRIGHT", 0, -y)
+        c:Show()
+        y = y + BL_ROW_H + 2
+      end
+    end
+    for i = #list + 1, #row.items do row.items[i]:Hide() end
+    row:SetHeight(math.max(BL_ROW_H, y))
+  end
+  row.Refresh = row.Rebuild
+  row.Rebuild()
+  Options.blackRow = row
+  return row
+end
+
 local function buildPage(parent, list)
   local page = CreateFrame("Frame", nil, parent)
   page:SetPoint("TOPLEFT")
@@ -1008,14 +1074,29 @@ local function vGreySet(v) WarpeeDB.vendorGrey = v and true or false end
 local function vRelicGet() return WarpeeDB.vendorRelics ~= false end
 local function vRelicSet(v) WarpeeDB.vendorRelics = v and true or false end
 
+local function vMinGet() return tonumber(WarpeeDB.vendorIlvlMin) or 0 end
+local function vMinSet(v) WarpeeDB.vendorIlvlMin = tonumber(v) or 0 end
+local function vConsumGet() return WarpeeDB.vendorConsum and true or false end
+local function vConsumSet(v) WarpeeDB.vendorConsum = v and true or false end
+local function vAutoGet() return WarpeeDB.vendorAuto and true or false end
+local function vAutoSet(v) WarpeeDB.vendorAuto = v and true or false end
+
 local VENDOR_PAGE = {
   { type = "header", name = "Sell low gear" },
-  { type = "input", name = "Item level", min = 0, max = 9999, get = vIlvlGet, set = vIlvlSet,
+  { type = "input", name = "Item level from", col = 1, min = 0, max = 9999,
+    get = vMinGet, set = vMinSet,
+    desc = "Gear at or above this item level is sold, so nothing below it is touched." },
+  { type = "input", name = "Item level under", col = 2, min = 0, max = 9999,
+    get = vIlvlGet, set = vIlvlSet,
     desc = "Gear under this item level is sold. Zero keeps every piece of gear." },
   { type = "toggle", name = "Grey junk", col = 1, get = vGreyGet, set = vGreySet,
     desc = "Sell every grey item as well, whatever it is and whatever its item level." },
   { type = "toggle", name = "Legion relics", col = 2, get = vRelicGet, set = vRelicSet,
     desc = "Sell artifact relics from Legion. They have no use and no appearance, so the item level is ignored." },
+  { type = "toggle", name = "Old consumables", col = 1, get = vConsumGet, set = vConsumSet,
+    desc = "Sell potions, elixirs, flasks, food and bandages from expansions older than the previous one." },
+  { type = "toggle", name = "Sell on open", col = 2, get = vAutoGet, set = vAutoSet,
+    desc = "Start selling as soon as a merchant window opens, without pressing the button." },
   { type = "header", name = "Never sell" },
   { type = "toggle", name = "Keep BoE", col = 1, get = vBoEGet, set = vBoESet,
     desc = "Skip gear that is not bound yet, so it can still go to the auction house." },
@@ -1023,6 +1104,8 @@ local VENDOR_PAGE = {
     desc = "Skip warbound gear. Its appearance is learned only once worn, and an alt can still use it." },
   { type = "toggle", name = "Keep gems", col = 1, get = vGemGet, set = vGemSet,
     desc = "Skip gear with a gem or an enchant in it, so nothing socketed is sold off." },
+  { type = "header", name = "Blacklist" },
+  { type = "blacklist" },
 }
 
 local PAGES = {
@@ -1182,6 +1265,23 @@ end
 function Options:Close()
   closeDropdown()
   if self.frame then self.frame:Hide() end
+end
+
+local function vendorTabOpen()
+  local f = Options.frame
+  if not (f and f:IsShown() and Options.current) then return false end
+  local p = PAGES[Options.current]
+  return (p and p.name == "Vendor") and true or false
+end
+
+if type(HandleModifiedItemClick) == "function" then
+  hooksecurefunc("HandleModifiedItemClick", function(link)
+    if not (link and IsShiftKeyDown() and vendorTabOpen() and ns.Vendor) then return end
+    local id = (C_Item.GetItemInfoInstant(link))
+    if not id then return end
+    ns.Vendor:Block(id, link:match("%[(.-)%]") or (C_Item.GetItemInfo(link)))
+    Options:ReflowPages()
+  end)
 end
 
 function Options:Toggle()
