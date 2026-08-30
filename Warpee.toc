@@ -1,0 +1,24 @@
+## Interface: 120100
+## Title: Warpee
+## Notes: Единое окно для сумок, банка, банка Орды (Warband) и банка гильдии.
+## Author: disru
+## Version: 100
+## SavedVariables: WarpeeDB
+## X-Category: Inventory
+## IconTexture: 7549289
+
+Libs\LibStub.lua
+Libs\CallbackHandler-1.0.lua
+Libs\LibSharedMedia-3.0.lua
+
+Theme.lua
+Widgets.lua
+Tooltip.lua
+ItemRules.lua
+ItemButton.lua
+Bags.lua
+Vault.lua
+CharPicker.lua
+Bank.lua
+Options.lua
+Core.lua
