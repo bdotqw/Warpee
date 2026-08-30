@@ -63,8 +63,21 @@ local function classBound(link)
   return bad
 end
 
-local function tierToken(link, classID, subID, q)
+local TOKEN_WORDS = { "vanquisher", "protector", "conqueror", "champion", "defender",
+                      "hero", "sanctification", "crusade" }
+
+local function tokenName(name)
+  if type(name) ~= "string" or name == "" then return false end
+  local low = name:lower()
+  for _, w in ipairs(TOKEN_WORDS) do
+    if low:find(w, 1, true) then return true end
+  end
+  return false
+end
+
+local function tierToken(link, name, classID, subID, q)
   if classID ~= MISC_CLASS or not MISC_SUB[subID] or q < 3 then return false end
+  if not tokenName(name) then return false end
   return classBound(link)
 end
 
@@ -185,7 +198,8 @@ function Vendor:Scan()
           take = true
         elseif relics and q <= 4 and classID == RELIC_CLASS and subID == RELIC_SUB then
           take = true
-        elseif tokens and q <= 4 and tierToken(link, classID, subID, q) then
+        elseif tokens and q <= 4
+           and tierToken(link, info.itemName or link:match("%[(.-)%]"), classID, subID, q) then
           take = true
         elseif q <= 4 and cap > 0
            and (classID == Enum.ItemClass.Armor or classID == Enum.ItemClass.Weapon)
