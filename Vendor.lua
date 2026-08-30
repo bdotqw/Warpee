@@ -26,6 +26,47 @@ local function fishingPole(classID, subID)
 end
 
 local RELIC_CLASS, RELIC_SUB = 3, 11
+local CONSUM_SUB = { [1] = true, [2] = true, [3] = true, [5] = true, [7] = true }
+
+local function oldConsumable(link, classID, subID)
+  if classID ~= Enum.ItemClass.Consumable or not CONSUM_SUB[subID] then return false end
+  local exp = (select(15, C_Item.GetItemInfo(link)))
+  local cur = LE_EXPANSION_LEVEL_CURRENT
+              or (GetExpansionLevel and GetExpansionLevel()) or nil
+  if not (exp and cur) then return false end
+  return exp <= cur - 2
+end
+
+local function questItem(bag, slot)
+  local get = C_Container.GetContainerItemQuestInfo
+  if not get then return false end
+  local qi = get(bag, slot)
+  return (qi and (qi.isQuestItem or qi.questID)) and true or false
+end
+
+function Vendor:Blocked(id)
+  local t = WarpeeDB and WarpeeDB.vendorBlack
+  return (id and t and t[id]) and true or false
+end
+
+function Vendor:Block(id, name)
+  if not id then return end
+  WarpeeDB.vendorBlack = WarpeeDB.vendorBlack or {}
+  WarpeeDB.vendorBlack[id] = name or tostring(id)
+end
+
+function Vendor:Unblock(id)
+  if id and WarpeeDB.vendorBlack then WarpeeDB.vendorBlack[id] = nil end
+end
+
+function Vendor:BlackList()
+  local out = {}
+  for id, name in pairs(WarpeeDB.vendorBlack or {}) do
+    out[#out + 1] = { id = id, name = name }
+  end
+  table.sort(out, function(a, b) return tostring(a.name) < tostring(b.name) end)
+  return out
+end
 
 local function hasUse(link)
   local get = C_Item.GetItemSpell or GetItemSpell
@@ -79,12 +120,14 @@ end
 function Vendor:Scan()
   local out, total, kept = {}, 0, 0
   local cap = self:Ilvl()
+  local low = tonumber(WarpeeDB and WarpeeDB.vendorIlvlMin) or 0
   if not ns.playerBags then return out, 0, 0 end
   local keepBoE = not (WarpeeDB.vendorKeepBoE == false)
   local keepWb = not (WarpeeDB.vendorKeepWarbound == false)
   local keepGems = not (WarpeeDB.vendorKeepGems == false)
   local grey = not (WarpeeDB.vendorGrey == false)
   local relics = not (WarpeeDB.vendorRelics == false)
+  local consum = WarpeeDB.vendorConsum and true or false
   for _, bag in ipairs(ns.playerBags) do
     for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
       local info = C_Container.GetContainerItemInfo(bag, slot)
@@ -93,7 +136,11 @@ function Vendor:Scan()
         local q = info.quality or 9
         local _, _, _, equipLoc, _, classID, subID = C_Item.GetItemInfoInstant(link)
         local take, lvl = false, nil
-        if grey and q == 0 then
+        if self:Blocked(info.itemID) or questItem(bag, slot) then
+          take = false
+        elseif grey and q == 0 then
+          take = true
+        elseif consum and q <= 4 and oldConsumable(link, classID, subID) then
           take = true
         elseif relics and q <= 4 and classID == RELIC_CLASS and subID == RELIC_SUB then
           take = true
@@ -104,7 +151,7 @@ function Vendor:Scan()
            and not fishingPole(classID, subID)
            and not hasUse(link) then
           lvl = slotIlvl(bag, slot, link)
-          take = (lvl and lvl > 1 and lvl < cap) and true or false
+          take = (lvl and lvl > 1 and lvl >= low and lvl < cap) and true or false
           local wb = ((keepBoE and not info.isBound) or keepWb)
                      and ns.IsLinkWarbound(link) or false
           if take and keepBoE and not info.isBound and not wb then take = false; kept = kept + 1 end
@@ -208,6 +255,9 @@ ev:SetScript("OnEvent", function(_, event)
   if event == "MERCHANT_SHOW" then
     open = true
     if ns.Bags then ns.Bags:VendorState() end
+    if WarpeeDB and WarpeeDB.vendorAuto then
+      C_Timer.After(0.3, function() if open then Vendor:Sell() end end)
+    end
   elseif event == "MERCHANT_CLOSED" then
     open = false
     finish()

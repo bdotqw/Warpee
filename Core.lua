@@ -138,6 +138,10 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.junkIcon == nil then WarpeeDB.junkIcon = false end
     WarpeeDB.goldFormat = WarpeeDB.goldFormat or "commas"
     WarpeeDB.vendorIlvl = tonumber(WarpeeDB.vendorIlvl) or 300
+    WarpeeDB.vendorIlvlMin = tonumber(WarpeeDB.vendorIlvlMin) or 0
+    WarpeeDB.vendorBlack = WarpeeDB.vendorBlack or {}
+    if WarpeeDB.vendorConsum == nil then WarpeeDB.vendorConsum = false end
+    if WarpeeDB.vendorAuto == nil then WarpeeDB.vendorAuto = false end
     if WarpeeDB.vendorKeepBoE == nil then WarpeeDB.vendorKeepBoE = true end
     if WarpeeDB.vendorKeepWarbound == nil then WarpeeDB.vendorKeepWarbound = true end
     if WarpeeDB.vendorKeepGems == nil then WarpeeDB.vendorKeepGems = true end
