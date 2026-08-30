@@ -999,10 +999,6 @@ local function vIlvlSet(v)
 end
 local function vBoEGet() return WarpeeDB.vendorKeepBoE ~= false end
 local function vBoESet(v) WarpeeDB.vendorKeepBoE = v and true or false end
-local function vMogGet() return WarpeeDB.vendorKeepMog and true or false end
-local function vMogSet(v) WarpeeDB.vendorKeepMog = v and true or false end
-local function vFreshGet() return WarpeeDB.vendorKeepFresh and true or false end
-local function vFreshSet(v) WarpeeDB.vendorKeepFresh = v and true or false end
 
 local VENDOR_PAGE = {
   { type = "header", name = "Sell low gear" },
@@ -1010,13 +1006,8 @@ local VENDOR_PAGE = {
     name = "A vendor button joins the bags header while a merchant is open. It sells armour and weapons under the item level below, twelve per pass, until none are left. Legendary and better, tabards, shirts, cosmetics, fishing poles and worthless items are never sold." },
   { type = "input", name = "Item level", min = 0, max = 9999, get = vIlvlGet, set = vIlvlSet,
     desc = "Gear under this item level is sold. Zero hides the button." },
-  { type = "header", name = "Never sell" },
-  { type = "toggle", name = "Tradeable gear", col = 1, get = vBoEGet, set = vBoESet,
-    desc = "Keep gear that is not bound yet, so it can still go to the auction house. Warbound gear is sold anyway." },
-  { type = "toggle", name = "Missing looks", col = 2, get = vMogGet, set = vMogSet,
-    desc = "Keep gear whose appearance you can collect but have not learned yet." },
-  { type = "toggle", name = "Fresh loot", col = 1, get = vFreshGet, set = vFreshSet,
-    desc = "Keep loot that can still be traded to the group. Off sells it and answers the trade warning for you." },
+  { type = "toggle", name = "Keep BoE", col = 1, get = vBoEGet, set = vBoESet,
+    desc = "Skip gear that is not bound yet, so it can still go to the auction house. Warbound gear is sold anyway." },
 }
 
 local PAGES = {

@@ -48,57 +48,15 @@ local function refundable(bag, slot)
   local secs = (type(a) == "table" and a.refundSeconds) or c
   return (tonumber(secs) or 0) > 0
 end
-local function mogMissing(link)
-  local T = C_TransmogCollection
-  if not (T and T.GetItemInfo) then return false end
-  local _, source = T.GetItemInfo(link)
-  if not source then return false end
-  if T.PlayerCanCollectSource then
-    local has, can = T.PlayerCanCollectSource(source)
-    if has and not can then return false end
-  end
-  local known = T.PlayerHasTransmogItemModifiedAppearance
-  if not known then return false end
-  return not known(source)
-end
-
-local tradePrefix
-local function tradeLine()
-  if tradePrefix ~= nil then return tradePrefix end
-  tradePrefix = false
-  local g = BIND_TRADE_TIME_REMAINING
-  if type(g) == "string" and g ~= "" then
-    local p = (g:match("^(.-)%%") or g):gsub("%s+$", "")
-    if #p >= 8 then tradePrefix = p:lower() end
-  end
-  return tradePrefix
-end
-
-local function freshLoot(bag, slot)
-  local pref = tradeLine()
-  if not (pref and C_TooltipInfo and C_TooltipInfo.GetBagItem) then return false end
-  local data = C_TooltipInfo.GetBagItem(bag, slot)
-  if not (data and data.lines) then return false end
-  for _, line in ipairs(data.lines) do
-    if line.leftText == nil and TooltipUtil and TooltipUtil.SurfaceArgs then
-      TooltipUtil.SurfaceArgs(line)
-    end
-    local txt = line.leftText
-    if txt and txt:lower():find(pref, 1, true) == 1 then return true end
-  end
-  return false
-end
-
 function Vendor:Ilvl()
   return tonumber(WarpeeDB and WarpeeDB.vendorIlvl) or 0
 end
+
 function Vendor:Scan()
   local out, total = {}, 0
   local cap = self:Ilvl()
   if cap <= 0 or not ns.playerBags then return out, 0 end
-  local keepTrade = not (WarpeeDB.vendorKeepBoE == false)
-  local keepMog = WarpeeDB.vendorKeepMog and true or false
-  local keepFresh = WarpeeDB.vendorKeepFresh and true or false
+  local keepBoE = not (WarpeeDB.vendorKeepBoE == false)
   for _, bag in ipairs(ns.playerBags) do
     for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
       local info = C_Container.GetContainerItemInfo(bag, slot)
@@ -111,9 +69,7 @@ function Vendor:Scan()
            and not fishingPole(classID, subID) then
           local lvl = slotIlvl(bag, slot, link)
           local ok = (lvl and lvl > 1 and lvl < cap) and true or false
-          if ok and keepTrade and not info.isBound and not ns.IsLinkWarbound(link) then ok = false end
-          if ok and keepMog and mogMissing(link) then ok = false end
-          if ok and keepFresh and freshLoot(bag, slot) then ok = false end
+          if ok and keepBoE and not info.isBound and not ns.IsLinkWarbound(link) then ok = false end
           if ok and refundable(bag, slot) then ok = false end
           if ok then
             local value = sellPrice(link) * (info.stackCount or 1)
@@ -140,7 +96,7 @@ function Vendor:TipLines()
     out[1] = { text = "Nothing below ilvl " .. cap, color = "dim" }
     return out
   end
-  out[1] = { text = ("%d items  %s"):format(#list, ns.FormatGold(total)), color = "accentInk" }
+  out[1] = { text = ("%d items  %s"):format(#list, ns.FormatMoney(total, false)), color = "accentInk" }
   local shown = math.min(#list, 10)
   for i = 1, shown do
     out[#out + 1] = { text = ("%s   %d"):format(list[i].name or "?", list[i].ilvl),
@@ -160,23 +116,26 @@ function Vendor:Busy() return run ~= nil end
 local function finish()
   if not run then return end
   local sold = run.base - (run.left or 0)
-  local earned = run.value - (run.leftValue or 0)
-  if sold > 0 then
-    print(("|cffd9a85fWarpee|r sold %d items for %s"):format(sold, ns.FormatGold(earned)))
-  end
+  local start = run.money or GetMoney()
   run = nil
   ev:UnregisterEvent("BAG_UPDATE_DELAYED")
+  if sold <= 0 then return end
+  C_Timer.After(0.3, function()
+    local earned = GetMoney() - start
+    if earned < 0 then earned = 0 end
+    print(("|cffd9a85fWarpee|r sold %d items for %s"):format(sold, ns.FormatMoney(earned, false)))
+  end)
 end
 
 function Vendor:Pass()
   gen = gen + 1
   if not open then finish(); return end
-  local list, total = self:Scan()
+  local list = self:Scan()
   local count = #list
   if run then
-    run.left, run.leftValue = count, total
+    run.left = count
   else
-    run = { base = count, value = total, left = count, leftValue = total, passes = 0 }
+    run = { base = count, left = count, passes = 0, money = GetMoney() }
   end
   if count == 0 then finish(); return end
   run.passes = run.passes + 1

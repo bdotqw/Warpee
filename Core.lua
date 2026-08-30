@@ -139,8 +139,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.goldFormat = WarpeeDB.goldFormat or "commas"
     WarpeeDB.vendorIlvl = tonumber(WarpeeDB.vendorIlvl) or 300
     if WarpeeDB.vendorKeepBoE == nil then WarpeeDB.vendorKeepBoE = true end
-    if WarpeeDB.vendorKeepMog == nil then WarpeeDB.vendorKeepMog = false end
-    if WarpeeDB.vendorKeepFresh == nil then WarpeeDB.vendorKeepFresh = false end
+    WarpeeDB.vendorKeepMog, WarpeeDB.vendorKeepFresh = nil, nil
     if WarpeeDB.autoOpen == nil then
       WarpeeDB.autoOpen = { auction = true, bank = true, mail = true, trade = true,
                             vendor = true, guildbank = false, professions = false }
