@@ -271,6 +271,7 @@ function ns.CreateButton(parent, text, width, height, template)
     b = CreateFrame("Button", nil, parent, "BackdropTemplate")
   end
   b:SetSize(width or 78, height or 22)
+  if b.SetMotionScriptsWhileDisabled then b:SetMotionScriptsWhileDisabled(true) end
   b:SetBackdrop({ bgFile = Theme.WHITE, edgeFile = Theme.WHITE, edgeSize = 1 })
   b:SetBackdropColor(Theme:C("panel"))
   b:SetBackdropBorderColor(Theme:C("stroke"))
