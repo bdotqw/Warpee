@@ -63,7 +63,8 @@ local function classBound(link)
   return yes
 end
 
-local function tierToken(link, classID, subID, q)
+local function tierToken(link, id, classID, subID, q)
+  if id and ns.TIER_TOKENS and ns.TIER_TOKENS[id] then return true end
   if classID ~= MISC_CLASS or not MISC_SUB[subID] or q < 3 then return false end
   return classBound(link)
 end
@@ -185,7 +186,7 @@ function Vendor:Scan()
           take = true
         elseif relics and q <= 4 and classID == RELIC_CLASS and subID == RELIC_SUB then
           take = true
-        elseif tokens and q <= 4 and tierToken(link, classID, subID, q) then
+        elseif tokens and q <= 4 and tierToken(link, info.itemID, classID, subID, q) then
           take = true
         elseif q <= 4 and cap > 0
            and (classID == Enum.ItemClass.Armor or classID == Enum.ItemClass.Weapon)
