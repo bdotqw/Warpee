@@ -30,39 +30,6 @@ local MISC_CLASS = 15
 local MISC_SUB = { [0] = true, [1] = true, [4] = true }
 local CONSUM_SUB = { [1] = true, [2] = true, [3] = true, [5] = true, [7] = true }
 
-local classPrefix
-local function classesPrefix()
-  if classPrefix ~= nil then return classPrefix end
-  classPrefix = false
-  local g = ITEM_CLASSES_ALLOWED
-  if type(g) == "string" and g ~= "" then
-    local p = (g:match("^(.-)%%") or g):gsub("%s+$", "")
-    if #p >= 3 then classPrefix = p:lower() end
-  end
-  return classPrefix
-end
-
-local tokenCache = {}
-local function classBound(link)
-  local pref = classesPrefix()
-  if not (pref and C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return false end
-  local hit = tokenCache[link]
-  if hit ~= nil then return hit end
-  local bad = false
-  local data = C_TooltipInfo.GetHyperlink(link)
-  if data and data.lines then
-    for _, line in ipairs(data.lines) do
-      if line.leftText == nil and TooltipUtil and TooltipUtil.SurfaceArgs then
-        TooltipUtil.SurfaceArgs(line)
-      end
-      local txt = line.leftText
-      if txt and txt:lower():find(pref, 1, true) == 1 then bad = true; break end
-    end
-  end
-  tokenCache[link] = bad
-  return bad
-end
-
 local TOKEN_WORDS = { "vanquisher", "protector", "conqueror", "champion", "defender",
                       "hero", "sanctification", "crusade",
                       "mystic", "venerated", "zenith", "dreadful", "anima" }
@@ -71,15 +38,14 @@ local function tokenName(name)
   if type(name) ~= "string" or name == "" then return false end
   local low = name:lower()
   for _, w in ipairs(TOKEN_WORDS) do
-    if low:find(w, 1, true) then return true end
+    if low:find("%f[%a]" .. w .. "%f[%A]") then return true end
   end
   return false
 end
 
-local function tierToken(link, name, classID, subID, q)
+local function tierToken(name, classID, subID, q)
   if classID ~= MISC_CLASS or not MISC_SUB[subID] or q < 3 then return false end
-  if not tokenName(name) then return false end
-  return classBound(link)
+  return tokenName(name)
 end
 
 local function oldConsumable(link, classID, subID)
@@ -200,7 +166,7 @@ function Vendor:Scan()
         elseif relics and q <= 4 and classID == RELIC_CLASS and subID == RELIC_SUB then
           take = true
         elseif tokens and q <= 4
-           and tierToken(link, info.itemName or link:match("%[(.-)%]"), classID, subID, q) then
+           and tierToken(info.itemName or link:match("%[(.-)%]"), classID, subID, q) then
           take = true
         elseif q <= 4 and cap > 0
            and (classID == Enum.ItemClass.Armor or classID == Enum.ItemClass.Weapon)
