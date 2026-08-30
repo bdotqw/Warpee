@@ -368,9 +368,27 @@ function View:BuildBuyButtons()
   end
 end
 
+function View:AccountOnly()
+  if not self.bankerOpen then return false end
+  if self.acctBanker ~= nil then return self.acctBanker end
+  local E = Enum and Enum.BankType
+  if E and C_Bank and C_Bank.CanViewBank then
+    local ok, yes = pcall(C_Bank.CanViewBank, E.Character)
+    if ok and yes == false then return true end
+  end
+  return false
+end
+
 function View:ModeAvailable(mode)
   if mode == "warband" and not ns.WarbandActive() then return false end
+  if mode == "bank" and self:AccountOnly() then return false end
   return true
+end
+
+function View:EnforceMode()
+  if not self:ModeAvailable(self.mode) then
+    self:SetMode(self.mode == "bank" and "warband" or "bank")
+  end
 end
 
 function View:UpdateTabs()
@@ -381,8 +399,17 @@ function View:UpdateTabs()
   end
   paint(self.bankTab, self.mode == "bank")
   paint(self.wbTab, self.mode == "warband")
-  if self.wbTab then self.wbTab:SetShown(self:ModeAvailable("warband")) end
-  if self.bankTab then self.bankTab:SetShown(self:ModeAvailable("bank")) end
+  local bankOn = self:ModeAvailable("bank")
+  if self.bankTab then self.bankTab:SetShown(bankOn) end
+  if self.wbTab then
+    self.wbTab:SetShown(self:ModeAvailable("warband"))
+    self.wbTab:ClearAllPoints()
+    if bankOn then
+      self.wbTab:SetPoint("LEFT", self.bankTab, "RIGHT", 4, 0)
+    else
+      self.wbTab:SetPoint("TOPLEFT", self.frame, "TOPLEFT", PAD, -6)
+    end
+  end
 end
 
 function View:SetMode(mode)
@@ -858,12 +885,13 @@ function View:OnBankOpened()
   ns.Vault:SetView("bank", nil)
   if self.snap then self.snap = nil; self:HideSlots() end
   if self.mode == "warband" and not ns.WarbandActive() then self.mode = "bank" end
+  if self.mode == "bank" and self:AccountOnly() then self.mode = "warband" end
   self:UpdateTabs()
   self:Place()
   self.frame:Show()
   Theme:Raise(self.frame)
   self:Activate(self.mode)
-  ns.Vault:Capture("bank")
+  if not self:AccountOnly() then ns.Vault:Capture("bank") end
   if ns.WarbandActive() then ns.Vault:Capture("warband") end
 end
 
@@ -883,6 +911,7 @@ end
 function View:OnBankClosed()
   if self.frame then self.frame:Hide() end
   self.depositType = nil
+  self.acctBanker = nil
   ns.RefreshBagDim()
 end
 

@@ -224,9 +224,26 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
   elseif event == "TRADE_SKILL_CLOSE" then
     autoCloseBags("professions")
   elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
+    local IT = Enum and Enum.PlayerInteractionType
+    if ns.Bank and IT then
+      if a1 == IT.AccountBanker then
+        ns.Bank.acctBanker = true
+      elseif a1 == IT.Banker or a1 == IT.CharacterBanker then
+        ns.Bank.acctBanker = false
+      end
+      if ns.Bank.frame and ns.Bank.frame:IsShown() then
+        ns.Bank:UpdateTabs()
+        ns.Bank:EnforceMode()
+      end
+    end
     local k = interactKey(a1)
     if k then autoOpenBags(k) end
   elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
+    local IT = Enum and Enum.PlayerInteractionType
+    if ns.Bank and IT and (a1 == IT.AccountBanker or a1 == IT.Banker
+       or a1 == IT.CharacterBanker) then
+      ns.Bank.acctBanker = nil
+    end
     local k = interactKey(a1)
     if k then autoCloseBags(k) end
   elseif event == "PLAYERBANKSLOTS_CHANGED" or event == "PLAYERBANKBAGSLOTS_CHANGED"
