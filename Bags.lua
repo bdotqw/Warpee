@@ -191,6 +191,7 @@ function Bags:BuildBagWindow()
   local BPAD = 12
   local w = CreateFrame("Frame", "WarpeeBagsWindow", UIParent, "BackdropTemplate")
   Theme:Panel(w, "bg", "stroke")
+  Theme:WindowArt(w)
   w:SetFrameStrata("DIALOG")
   w:SetClampedToScreen(true)
   w:SetMovable(true); w:EnableMouse(true)

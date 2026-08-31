@@ -80,12 +80,12 @@ Theme.THEMES = {
   -- is Blizzard's tooltip edge, the slots are the bag atlas, and emptyLine is
   -- transparent because that atlas draws its own rim.
   blizzard = { label = "Blizzard", skin = "blizzard",
-    bg = { 0.055, 0.055, 0.067, 0.95 }, panel = { 0.102, 0.100, 0.098, 1 },
-    panelHi = { 0.145, 0.141, 0.133, 1 }, slot = { 0.071, 0.071, 0.078, 1 },
-    stroke = { 0.286, 0.243, 0.176, 1 }, strokeSoft = { 0.196, 0.169, 0.129, 1 },
+    bg = { 0.114, 0.110, 0.106, 0.95 }, panel = { 0.169, 0.165, 0.157, 1 },
+    panelHi = { 0.216, 0.208, 0.196, 1 }, slot = { 0.129, 0.125, 0.118, 1 },
+    stroke = { 0.325, 0.290, 0.235, 1 }, strokeSoft = { 0.235, 0.212, 0.176, 1 },
     accent = { 1.000, 0.820, 0.000, 1 }, accentInk = { 1.000, 0.914, 0.510, 1 },
-    text = { 0.965, 0.949, 0.906, 1 }, dim = { 0.706, 0.678, 0.612, 1 },
-    faint = { 0.494, 0.471, 0.416, 1 },
+    text = { 0.965, 0.949, 0.906, 1 }, dim = { 0.741, 0.718, 0.663, 1 },
+    faint = { 0.545, 0.522, 0.475, 1 },
     emptyLine = { 0, 0, 0, 0 },
     azure = { 0.478, 0.729, 0.906, 1 }, reagent = { 0.353, 0.804, 0.616, 1 } },
 }
@@ -278,6 +278,7 @@ function Theme:Window(frame, escName)
   frame:SetFrameStrata(self.WINDOW_STRATA)
   frame:SetToplevel(true)
   if escName then tinsert(UISpecialFrames, escName) end
+  self:WindowArt(frame)
   return frame
 end
 
@@ -318,6 +319,8 @@ end
 local TIP_BG   = [[Interface\Tooltips\UI-Tooltip-Background]]
 local TIP_EDGE = [[Interface\Tooltips\UI-Tooltip-Border]]
 local SLOT_ATLAS = "bags-item-slot64"
+local ART_TEMPLATE = "PortraitFrameTemplate"
+local ART_FRAMES = setmetatable({}, { __mode = "k" })
 
 function Theme:Skinned()
   return self.skin == "blizzard"
@@ -332,19 +335,64 @@ function Theme:SlotAtlas()
   return self.slotAtlasOK and SLOT_ATLAS or nil
 end
 
+-- The real thing: a Blizzard panel frame parked behind the window's content, so
+-- the grey nine-slice border, the title strip and the dark tile are the game's
+-- own art. Its portrait and close button are hidden — Warpee draws those.
+local function buildArt(frame)
+  if frame.wpeArt ~= nil then return frame.wpeArt end
+  local ok, art = pcall(CreateFrame, "Frame", nil, frame, ART_TEMPLATE)
+  if not ok or not art then frame.wpeArt = false; return false end
+  art:SetAllPoints(frame)
+  art:EnableMouse(false)
+  art:SetFrameLevel(frame:GetFrameLevel())
+  for _, key in ipairs({ "CloseButton", "PortraitContainer", "portrait", "PortraitFrame" }) do
+    local part = art[key]
+    if part then
+      if part.EnableMouse then part:EnableMouse(false) end
+      if part.Hide then part:Hide() end
+    end
+  end
+  local title = art.TitleContainer
+  if title and title.TitleText then title.TitleText:SetText("") end
+  frame.wpeArt = art
+  return art
+end
+
+function Theme:RefreshArt(frame)
+  if self:Skinned() then
+    local art = buildArt(frame)
+    if art then art:Show() end
+    return art
+  end
+  if frame.wpeArt then frame.wpeArt:Hide() end
+  return false
+end
+
+function Theme:WindowArt(frame)
+  ART_FRAMES[frame] = true
+  local fn = tracked[frame]
+  if fn then fn(frame) else self:RefreshArt(frame) end
+  return frame
+end
+
 function Theme:Panel(frame, bgKey, strokeKey)
   local bg, st = bgKey or "bg", strokeKey or "stroke"
   local function paint(x)
     if Theme:Skinned() then
+      if ART_FRAMES[x] and Theme:RefreshArt(x) then
+        x:SetBackdrop(nil)
+        return
+      end
       x:SetBackdrop({ bgFile = TIP_BG, edgeFile = TIP_EDGE, tile = true, tileSize = 16,
                       edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
       x:SetBackdropColor(Theme:C(bg))
       x:SetBackdropBorderColor(1, 1, 1, 1)
-    else
-      x:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = ns.PX(x) })
-      x:SetBackdropColor(Theme:C(bg))
-      x:SetBackdropBorderColor(Theme:C(st))
+      return
     end
+    Theme:RefreshArt(x)
+    x:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = ns.PX(x) })
+    x:SetBackdropColor(Theme:C(bg))
+    x:SetBackdropBorderColor(Theme:C(st))
   end
   ns.PixelBackdrop(frame, paint)
   track(frame, paint)
