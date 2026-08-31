@@ -716,6 +716,31 @@ local KIND_WORDS = {
   misc     = kind(IC.Miscellaneous),
   enhancement = kind(IC.ItemEnhancement),
 }
+local EXP_WORDS = {
+  classic = 0, vanilla = 0,
+  tbc = 1, bc = 1, burningcrusade = 1,
+  wotlk = 2, wrath = 2, lich = 2,
+  cata = 3, cataclysm = 3,
+  mop = 4, pandaria = 4,
+  wod = 5, draenor = 5,
+  legion = 6,
+  bfa = 7, azeroth = 7,
+  sl = 8, shadowlands = 8,
+  df = 9, dragonflight = 9,
+  tww = 10, warwithin = 10,
+  midnight = 11,
+}
+local CUR_EXP = LE_EXPANSION_LEVEL_CURRENT
+                or (GetExpansionLevel and GetExpansionLevel()) or 0
+do
+  for i = 0, CUR_EXP do
+    local n = _G["EXPANSION_NAME" .. i]
+    if type(n) == "string" and n ~= "" and not n:find("%s") then
+      local k = n:lower()
+      if EXP_WORDS[k] == nil then EXP_WORDS[k] = i end
+    end
+  end
+end
 function ns.ParseSearch(q)
   q = (q or ""):gsub("^%s+", ""):gsub("%s+$", "")
   local f = { text = {} }
@@ -745,6 +770,14 @@ function ns.ParseSearch(q)
     elseif KIND_WORDS[token] then
       f.kinds = f.kinds or {}
       f.kinds[#f.kinds + 1] = KIND_WORDS[token]
+    elseif EXP_WORDS[token] then
+      f.exps = f.exps or {}
+      f.exps[EXP_WORDS[token]] = true
+    elseif token == "current" then
+      f.exps = f.exps or {}
+      f.exps[CUR_EXP] = true
+    elseif token == "legacy" or token == "old" then
+      f.expMax = CUR_EXP - 1
     elseif token == "warbound" or token == "wb" or token == "warband" then
       f.warbound = true
     elseif token == "soulbound" or token == "sb" or token == "bound" or token == "bop" then
@@ -784,6 +817,15 @@ function ns.MetaWarbound(m)
   return m.wb
 end
 
+function ns.MetaExp(m)
+  if m.exp == nil then
+    local e = m.id and (select(15, C_Item.GetItemInfo(m.id)))
+    if e == nil then return nil end
+    m.exp = e
+  end
+  return m.exp
+end
+
 function ns.MatchSearch(m, f)
   if not f or f.empty then return true end
   if not m then return false end
@@ -809,6 +851,14 @@ function ns.MatchSearch(m, f)
       end
     end
     if not ok then return false end
+  end
+  if f.exps then
+    local e = ns.MetaExp(m)
+    if not (e and f.exps[e]) then return false end
+  end
+  if f.expMax then
+    local e = ns.MetaExp(m)
+    if not (e and e <= f.expMax) then return false end
   end
   if f.warbound and not ns.MetaWarbound(m) then return false end
   if f.soulbound and not (m.bound and not ns.MetaWarbound(m)) then return false end

@@ -362,6 +362,9 @@ function ns.SearchTip(box)
       { text = "gear reagent consumable quest keystone token gem recipe bag mount pet glyph",
         color = "faint", size = 12 },
       { text = "boe bop warbound locked", color = "faint", size = 12 },
+      { text = "classic tbc wotlk cata mop wod legion bfa sl df tww midnight",
+        color = "faint", size = 12 },
+      { text = "current   legacy", color = "faint", size = 12 },
       { text = "ilvl600   ilvl>600   ilvl<300   ilvl600-650", color = "faint", size = 12 },
       { text = "Put ! in front of anything to exclude it.", color = "dim", size = 12 },
     }
