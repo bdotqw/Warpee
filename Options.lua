@@ -71,8 +71,11 @@ end
 local ANCHORS = { "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT" }
 local ANCHOR_LABELS = { TOPLEFT = "Top left", TOPRIGHT = "Top right",
                         BOTTOMLEFT = "Bottom left", BOTTOMRIGHT = "Bottom right" }
-local STYLES = { "flat", "plate", "tile", "deep" }
-local STYLE_LABELS = { flat = "Off", plate = "Light", tile = "Medium", deep = "Strong" }
+local STYLES = { "flat", "plate", "tile", "deep",
+                 "ridged", "stone", "marble", "parchment" }
+local STYLE_LABELS = { flat = "Off", plate = "Light", tile = "Medium", deep = "Strong",
+                       ridged = "Ridged", stone = "Stone", marble = "Marble",
+                       parchment = "Parchment" }
 local THEME_LABELS = {}
 for i = #Theme.THEME_ORDER, 1, -1 do
   local k = Theme.THEME_ORDER[i]
@@ -1031,6 +1034,11 @@ local countYGet, countYSet           = styleField("countY")
 local bankColsGet, bankColsSet = dbField("bankCols", 24)
 local wbColsGet, wbColsSet     = dbField("warbandCols", 24)
 local bankSizeGet, bankSizeSet = dbField("bankIconSize", 40)
+local function bankStyleGet() return WarpeeDB.bankSlotStyle or WarpeeDB.slotStyle or "tile" end
+local function bankStyleSet(v)
+  WarpeeDB.bankSlotStyle = v
+  if ns.Bank then ns.Bank:Repaint() end
+end
 
 local function anchorKeys() return ANCHORS end
 local function anchorLabel(k) return ANCHOR_LABELS[k] or k end
@@ -1161,19 +1169,24 @@ local GRID_PAGE = {
   { type = "range", name = "Icon zoom", min = 0.8, max = 1.2, step = 0.01,
     get = zoomGet, set = zoomSet, half = "right",
     desc = "1.00 fills the slot. Less shrinks the icon, more crops it." },
-  { type = "toggle", name = "Merge reagents", col = 1, get = mergeGet, set = mergeSet,
+  { type = "select", name = "Slot background", col = 1, of = 2,
+    get = styleGet, set = styleSet,
+    keys = function() return STYLES end, label = function(k) return STYLE_LABELS[k] or k end,
+    desc = "What sits behind every icon. Off leaves the slot empty; the last four are real textures tinted to the theme." },
+  { type = "toggle", name = "Merge reagents", col = 2, of = 2, get = mergeGet, set = mergeSet,
     desc = "Lay the reagent bag out with the main bags, without its caption." },
   { type = "header", name = "Slot look" },
-  { type = "select", name = "Slot background", get = styleGet, set = styleSet,
-    keys = function() return STYLES end, label = function(k) return STYLE_LABELS[k] or k end,
-    desc = "Fill behind every icon, lightest to darkest. Off leaves it empty." },
   { type = "range", name = "Spacing opacity", min = 0, max = 1, step = 0.01,
     get = gridAlphaGet, set = gridAlphaSet,
     desc = "The plate behind the slots, seen in the gaps. At Spacing 0 there are none." },
   { type = "header", name = "Bank and Warband grid", key = "bankgrid",
     state = function() return ("%d and %d wide"):format(bankColsGet(), wbColsGet()) end },
   { type = "description", section = "bankgrid",
-    name = "The bank keeps its own width and icon size, apart from the bags." },
+    name = "The bank keeps its own width, icon size and slot background, apart from the bags." },
+  { type = "select", name = "Slot background", section = "bankgrid",
+    get = bankStyleGet, set = bankStyleSet,
+    keys = function() return STYLES end, label = function(k) return STYLE_LABELS[k] or k end,
+    desc = "Behind the icons in both bank tabs, set apart from the bags." },
   { type = "range", name = "Icon size", min = 24, max = 56, step = 1, section = "bankgrid",
     get = bankSizeGet, set = bankSizeSet,
     desc = "One icon size for both bank tabs." },

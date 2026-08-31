@@ -199,6 +199,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.bankCols = WarpeeDB.bankCols or 24
     WarpeeDB.warbandCols = WarpeeDB.warbandCols or WarpeeDB.bankCols
     WarpeeDB.bankIconSize = WarpeeDB.bankIconSize or 40
+    WarpeeDB.bankSlotStyle = WarpeeDB.bankSlotStyle or WarpeeDB.slotStyle
     WarpeeDB.bankFontSize, WarpeeDB.bankCustomSize, WarpeeDB.hideBlizzBank = nil, nil, nil
     WarpeeDB.warbandCustomSize, WarpeeDB.warbandIconSize = nil, nil
     WarpeeDB.bankPool = nil

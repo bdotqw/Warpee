@@ -459,6 +459,7 @@ function View:Acquire(st, i)
   if not b then
     b = ns.CreateItemButton(st.content, 0, 1)
     b.view = st
+    b.wpeBank = true
     st.pool[i] = b
   end
   return b
@@ -478,7 +479,8 @@ function View:HideSlots()
 end
 
 function View:PaintKey(size)
-  return table.concat({ size, Bags.slotStyle or "tile", Bags.styleGen or 0,
+  return table.concat({ size, (WarpeeDB and WarpeeDB.bankSlotStyle) or Bags.slotStyle or "tile",
+                        Bags.styleGen or 0,
                         Bags.qualityBorder and 1 or 0, Bags.qualityColorIlvl and 1 or 0 }, ":")
 end
 
