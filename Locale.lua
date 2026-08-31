@@ -203,7 +203,7 @@ local RU = {
   ["Keep warbound"] = "Оставлять привязанное к отряду",
   ["Keep gems and enchants"] = "Оставлять с камнями и чарами",
   ["Your gold"] = "Своё золото",
-  ["Guild or yours"] = "Гильдия или своё",
+  ["Guild / yours"] = "Гильдия / свои",
   ["These start when a merchant window opens, with no click from you."] =
     "Запускается само при открытии окна торговца, без нажатия кнопок.",
   ["Everything below is sold by the coin in the bags header, only when you press it."] =

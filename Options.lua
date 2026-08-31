@@ -408,7 +408,7 @@ function factories.input(parent, spec)
   fs:SetText(T(spec.name))
 
   local box = CreateFrame("EditBox", nil, row, "BackdropTemplate")
-  box:SetSize(66, 24)
+  ns.SnapBox(box, 66, 24)
   box:SetPoint("RIGHT", -1, 0)
   ns.PixelBackdrop(box)
   box:SetBackdropColor(Theme:C("bg"))
@@ -564,7 +564,7 @@ function factories.select(parent, spec)
   end
 
   local btn = CreateFrame("Button", nil, row, "BackdropTemplate")
-  btn:SetHeight(24)
+  ns.SnapBox(btn, nil, 24)
   btn:SetPoint("BOTTOMLEFT", 1, bare and 1 or 0)
   btn:SetPoint("BOTTOMRIGHT", -1, bare and 1 or 0)
   ns.PixelBackdrop(btn)
@@ -978,7 +978,7 @@ local function makeScrollArea(parent, list)
   trackTex:SetAllPoints(bar)
   local thumb = CreateFrame("Frame", nil, bar)
   thumb:SetWidth(SCROLL_W)
-  local thumbTex = Theme:Rect(thumb, "emptyLine", "ARTWORK")
+  local thumbTex = Theme:Rect(thumb, "faint", "ARTWORK")
   thumbTex:SetAllPoints(thumb)
   sf.bar, sf.page = bar, page
 
@@ -1025,11 +1025,11 @@ local function makeScrollArea(parent, list)
   end)
   thumb:SetScript("OnMouseUp", function(s)
     s:SetScript("OnUpdate", nil)
-    thumbTex:SetVertexColor(Theme:C("emptyLine"))
+    thumbTex:SetVertexColor(Theme:C("faint"))
   end)
   thumb:SetScript("OnEnter", function() thumbTex:SetVertexColor(Theme:C("dim")) end)
   thumb:SetScript("OnLeave", function(s)
-    if not s:GetScript("OnUpdate") then thumbTex:SetVertexColor(Theme:C("emptyLine")) end
+    if not s:GetScript("OnUpdate") then thumbTex:SetVertexColor(Theme:C("faint")) end
   end)
   return sf
 end
@@ -1274,7 +1274,7 @@ local function vRepGet() return WarpeeDB.vendorRepair and true or false end
 local function vRepSet(v) WarpeeDB.vendorRepair = v and true or false end
 local REPAIR_BY = { "player", "guild", "both" }
 local REPAIR_LABELS = { player = "Your gold", guild = "Guild bank",
-                        both = "Guild or yours" }
+                        both = "Guild / yours" }
 local function vRepByGet() return WarpeeDB.vendorRepairBy or "player" end
 local function vRepBySet(v) WarpeeDB.vendorRepairBy = v or "player" end
 local function vRelicGet() return WarpeeDB.vendorRelics ~= false end

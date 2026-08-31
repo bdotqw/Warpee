@@ -20,8 +20,10 @@ function ns.PaintSlotBg(b)
   b.bg:SetTexCoord(0, 1, 0, 1)
   b.bg:SetVertexColor(1, 1, 1, 1)
   if style ~= "flat" and Theme.Skinned and Theme:Skinned() then
-    local atlas = Theme.SlotAtlas and Theme:SlotAtlas()
-    if atlas and b.bg.SetAtlas and pcall(b.bg.SetAtlas, b.bg, atlas) then return end
+    if style == "plate" then
+      local atlas = Theme.SlotAtlas and Theme:SlotAtlas()
+      if atlas and b.bg.SetAtlas and pcall(b.bg.SetAtlas, b.bg, atlas) then return end
+    end
     if pcall(b.bg.SetTexture, b.bg, SLOT_TEXTURE) then return end
   end
   local fn = SLOT_STYLES[style] or SLOT_STYLES.tile
@@ -752,7 +754,7 @@ end
 function ns.CreateBagButton(parent, bagID, size)
   size = size or 22
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
-  b:SetSize(size, size)
+  ns.SnapBox(b, size, size)
   ns.PixelBackdrop(b)
   b:SetBackdropColor(Theme:C("slot"))
   b:SetBackdropBorderColor(Theme:C("stroke"))

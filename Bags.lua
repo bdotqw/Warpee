@@ -25,7 +25,11 @@ ns.Bags = Bags
 
 local function stepFor(size, gap) return size + gap end
 local function gridWidth(size, cols, gap) return (cols - 1) * (size + gap) + size end
-function Bags:TopOffset() return HEADER + 4 + Theme:TopInset() end
+function Bags:HeadShift()
+  return self.showGauge and 0 or (ROW2_Y - GAUGE_Y + 2)
+end
+
+function Bags:TopOffset() return HEADER + 4 + Theme:TopInset() - self:HeadShift() end
 
 function Bags:AnchorHeader()
   local top = Theme:TopInset()
@@ -43,9 +47,10 @@ function Bags:AnchorHeader()
     self.gaugeBg:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -(GAUGE_Y + top))
   end
   if self.search then
+    local row2 = ROW2_Y + top - self:HeadShift()
     self.search:ClearAllPoints()
-    self.search:SetPoint("TOPLEFT", self.frame, "TOPLEFT", PAD, -(ROW2_Y + top))
-    self.search:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -(ROW2_Y + top))
+    self.search:SetPoint("TOPLEFT", self.frame, "TOPLEFT", PAD, -row2)
+    self.search:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row2)
   end
   Theme:HeaderBand(self.frame)
 end

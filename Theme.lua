@@ -78,8 +78,8 @@ Theme.THEMES = {
     azure = { 0.643, 0.510, 0.902, 1 }, reagent = { 0.400, 0.816, 0.643, 1 } },
   blizzard = { label = "Blizzard", skin = "blizzard",
     bg = { 0.114, 0.110, 0.106, 0.95 }, panel = { 0.169, 0.165, 0.157, 1 },
-    panelHi = { 0.216, 0.208, 0.196, 1 }, slot = { 0.129, 0.125, 0.118, 1 },
-    stroke = { 0.325, 0.290, 0.235, 1 }, strokeSoft = { 0.235, 0.212, 0.176, 1 },
+    panelHi = { 0.298, 0.286, 0.267, 1 }, slot = { 0.129, 0.125, 0.118, 1 },
+    stroke = { 0.451, 0.404, 0.325, 1 }, strokeSoft = { 0.361, 0.325, 0.267, 1 },
     accent = { 0.804, 0.678, 0.451, 1 }, accentInk = { 0.910, 0.847, 0.706, 1 },
     text = { 0.965, 0.949, 0.906, 1 }, dim = { 0.741, 0.718, 0.663, 1 },
     faint = { 0.545, 0.522, 0.475, 1 },
@@ -202,17 +202,38 @@ function ns.SetInside(obj, anchor, inset, insetY)
 end
 
 local pixelJobs = setmetatable({}, { __mode = "k" })
-function ns.PixelJob(obj, fn)
-  pixelJobs[obj] = fn
+function ns.PixelJob(obj, fn, key)
+  local list = pixelJobs[obj]
+  if not list then list = {}; pixelJobs[obj] = list end
+  list[key or "job"] = fn
   fn(obj)
   return obj
+end
+
+function ns.SnapBox(frame, w, h)
+  frame.wpeBoxW, frame.wpeBoxH = w, h
+  return ns.PixelJob(frame, function(x)
+    if x.wpeBoxW then
+      local cur = x:GetWidth() or 0
+      if x.wpeSetW and cur > 0 and math.abs(cur - x.wpeSetW) > 0.5 then x.wpeBoxW = cur end
+      x.wpeSetW = ns.SnapValue(x, x.wpeBoxW)
+      x:SetWidth(x.wpeSetW)
+    end
+    if x.wpeBoxH then
+      local cur = x:GetHeight() or 0
+      if x.wpeSetH and cur > 0 and math.abs(cur - x.wpeSetH) > 0.5 then x.wpeBoxH = cur end
+      x.wpeSetH = ns.SnapValue(x, x.wpeBoxH)
+      x:SetHeight(x.wpeSetH)
+    end
+    ns.AlignToScreen(x)
+  end, "size")
 end
 
 function ns.PixelLine(t, n, axis)
   return ns.PixelJob(t, function(x)
     local v = ns.PX(x:GetParent(), n or 1)
     if axis == "w" then x:SetWidth(v) else x:SetHeight(v) end
-  end)
+  end, "line")
 end
 
 function ns.PixelBackdrop(frame, painter)
@@ -236,7 +257,7 @@ function ns.PixelBackdrop(frame, painter)
     local edc = x.wpeEdge or { Theme:C("stroke") }
     x.wpeSetBg(x, bgc[1], bgc[2], bgc[3], bgc[4])
     x.wpeSetEdge(x, edc[1], edc[2], edc[3], edc[4])
-  end)
+  end, "backdrop")
 end
 
 function ns.SnapFrame(frame)
@@ -334,7 +355,9 @@ end
 
 function ns.RefreshPixels()
   refreshPhys()
-  for obj, fn in pairs(pixelJobs) do pcall(fn, obj) end
+  for obj, list in pairs(pixelJobs) do
+    for _, fn in pairs(list) do pcall(fn, obj) end
+  end
   if ns.CloseDropdown then pcall(ns.CloseDropdown) end
   local quiet = not (InCombatLockdown and InCombatLockdown())
   if ns.Bags then
