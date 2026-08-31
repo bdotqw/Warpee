@@ -204,6 +204,7 @@ function View:Build()
   sortIcon:SetSize(13, 15)
   sortIcon:SetPoint("CENTER")
   sortIcon:SetVertexColor(Theme:C("text"))
+  Theme:Track(sortIcon, function(x) x:SetVertexColor(Theme:C("text")) end)
   sort.icon = sortIcon
   self.sortBtn = sort
 
@@ -873,7 +874,10 @@ end
 
 function View:Restyle()
   Bags.styleGen = (Bags.styleGen or 0) + 1
-  if self.frame and self.frame:IsShown() then self:Repaint() end
+  if self.frame and self.frame:IsShown() then
+    self:UpdateTabs()
+    self:Repaint()
+  end
 end
 
 function View:Place()

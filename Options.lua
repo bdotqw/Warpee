@@ -1258,10 +1258,9 @@ function Options:Build()
   end)
   self.frame = f
 
-  local title = Theme:Title(f, BASE_FONT + 2)
+  local title = Theme:Title(f, BASE_FONT + 2, "accent")
   title:SetPoint("TOPLEFT", PAD, -10)
   title:SetText("WARPEE")
-  title:SetTextColor(Theme:C("accent"))
   track(title, 2)
   self.title = title
 
