@@ -2,9 +2,9 @@ local addonName, ns = ...
 local Theme = ns.Theme
 
 local CLASS_RING = "Interface\\TargetingFrame\\UI-Classes-Circles"
-local ROW_H, HDR_H, HEAD_H, PAD = 22, 18, 28, 6
-local MAX_ROWS = 14
-local MIN_W = 200
+local ROW_H, HDR_H, HEAD_H, PAD = 27, 22, 32, 8
+local MAX_ROWS = 18
+local MIN_W = 265
 
 local Picker = { rows = {} }
 ns.CharPicker = Picker
@@ -31,7 +31,7 @@ function Picker:Build()
   tinsert(UISpecialFrames, "WarpeeCharPicker")
   self.frame = m
 
-  local hide = ns.CreateButton(m, "Hidden", 58, 20)
+  local hide = ns.CreateButton(m, "Hidden", 68, 23)
   hide:SetPoint("TOPLEFT", PAD, -PAD)
   hide:SetScript("OnEnter", function() self:UpdateHiddenBorder() end)
   hide:SetScript("OnLeave", function() self:UpdateHiddenBorder() end)
@@ -43,7 +43,7 @@ function Picker:Build()
   self.hideBtn = hide
   ns.AddTip(hide, "Show characters you hid", "bottom")
 
-  local close = ns.CreateGlyphButton(m, "×", 20)
+  local close = ns.CreateGlyphButton(m, "×", 23)
   close:SetPoint("TOPRIGHT", -PAD, -PAD)
   close:SetScript("OnClick", function() m:Hide() end)
   self.close = close
@@ -55,7 +55,7 @@ function Picker:Build()
   end)
   filter:SetPoint("LEFT", hide, "RIGHT", 4, 0)
   filter:SetPoint("RIGHT", close, "LEFT", -4, 0)
-  filter:SetHeight(20)
+  filter:SetHeight(23)
   if filter.Hint then filter.Hint:SetText("Filter") end
   self.filter = filter
 
@@ -90,11 +90,11 @@ function Picker:Row(i)
   dot:Hide()
   r.dot = dot
   local ic = r:CreateTexture(nil, "ARTWORK")
-  ic:SetSize(16, 16)
-  ic:SetPoint("LEFT", 7, 0)
+  ic:SetSize(20, 20)
+  ic:SetPoint("LEFT", 8, 0)
   ic:SetTexture(CLASS_RING)
   r.icon = ic
-  local fs = Theme:Label(r, 12, "text")
+  local fs = Theme:Label(r, 14, "text")
   fs:SetJustifyH("LEFT")
   r.Text = fs
   local line = Theme:Rect(r, "strokeSoft", "ARTWORK")
@@ -140,7 +140,7 @@ function Picker:RealmRow(n, y, realm, path)
   h.Text:ClearAllPoints()
   h.Text:SetPoint("LEFT", 2, 0)
   h.Text:SetPoint("RIGHT", -6, 0)
-  h.Text:SetFont(path, 10, "")
+  h.Text:SetFont(path, 12, "")
   h.Text:SetTextColor(Theme:C("faint"))
   h.Text:SetText((realm or "?"):upper())
   h:Show()
@@ -155,9 +155,9 @@ function Picker:CharRow(n, y, e, path)
   r:SetPoint("TOPRIGHT", 0, -y)
   r.line:Hide()
   r.Text:ClearAllPoints()
-  r.Text:SetPoint("LEFT", r.icon, "RIGHT", 6, 0)
-  r.Text:SetPoint("RIGHT", -6, 0)
-  r.Text:SetFont(path, 12, "")
+  r.Text:SetPoint("LEFT", r.icon, "RIGHT", 8, 0)
+  r.Text:SetPoint("RIGHT", -8, 0)
+  r.Text:SetFont(path, 14, "")
   local coords, col = classLook(e.class)
   if coords then
     r.icon:SetTexCoord(coords[1], coords[2], coords[3], coords[4]); r.icon:Show()
@@ -171,7 +171,7 @@ function Picker:CharRow(n, y, e, path)
   r.dot:SetShown(e.key == self.currentKey)
   r.bg:Hide()
   r:Show()
-  return math.ceil(r.Text:GetStringWidth()) + 46
+  return math.ceil(r.Text:GetStringWidth()) + 54
 end
 
 function Picker:Paint(keepScroll)
@@ -198,11 +198,11 @@ function Picker:Paint(keepScroll)
   for i = n + 1, #self.rows do self.rows[i]:Hide() end
 
   if self.filter then
-    self.filter:SetFont(path, 12, "")
-    if self.filter.Hint then self.filter.Hint:SetFont(path, 12, "") end
+    self.filter:SetFont(path, 13, "")
+    if self.filter.Hint then self.filter.Hint:SetFont(path, 13, "") end
   end
   if self.hideBtn then
-    self.hideBtn.Text:SetFont(path, 12, "")
+    self.hideBtn.Text:SetFont(path, 13, "")
   end
   self:UpdateHiddenBorder()
 
