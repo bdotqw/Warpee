@@ -54,6 +54,11 @@ local function autoField(key)
 end
 
 local function lockGet() return WarpeeDB.lockWindows and true or false end
+local function mmHideGet() return WarpeeDB.hideMinimapIcon and true or false end
+local function mmHideSet(v)
+  WarpeeDB.hideMinimapIcon = v and true or false
+  if ns.ApplyMinimapIcon then ns.ApplyMinimapIcon() end
+end
 local function lockSet(v)
   WarpeeDB.lockWindows = v and true or nil
   ns.ApplyWindowLock()
@@ -1046,6 +1051,8 @@ local GENERAL_PAGE = {
     desc = "Freeze the bags, bank and bag-list windows in place. While unlocked each one shows X/Y fields at its top-left: type a value or nudge with the arrows (Shift = 10). Y is the bottom edge, so matching Y lines both windows up." },
   { type = "toggle", name = "Capacity bar", col = 2, get = gaugeGet, set = gaugeSet,
     desc = "Fill bar in the bags header showing how full they are." },
+  { type = "toggle", name = "Hide minimap icon", col = 1, get = mmHideGet, set = mmHideSet,
+    desc = "Take the Warpee button off the minimap. While it is there, left click opens the bags, right click the settings, and dragging moves it around the ring." },
   { type = "header", name = "Money" },
   { type = "select", name = "Gold format", get = goldFmtGet, set = goldFmtSet,
     keys = function() return GOLD_FORMATS end, label = function(k) return GOLD_FORMAT_LABELS[k] or k end,

@@ -2,7 +2,7 @@
 ## Title: Warpee
 ## Notes: One window for bags, the bank, the Warband bank and the guild bank.
 ## Author: disru
-## Version: 137
+## Version: 138
 ## SavedVariables: WarpeeDB
 ## X-Category: Inventory
 ## IconTexture: 7549289
@@ -19,6 +19,7 @@ ItemButton.lua
 Bags.lua
 Tokens.lua
 Vendor.lua
+MinimapIcon.lua
 Vault.lua
 CharPicker.lua
 Bank.lua
