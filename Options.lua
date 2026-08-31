@@ -5,7 +5,7 @@ local Bags = ns.Bags
 local Options = {}
 ns.Options = Options
 
-local WIN_W, WIN_H = 600, 660
+local WIN_W, WIN_H = 640, 700
 local PAD = 18
 local HEADER_H = 42
 local TAB_H = 30
@@ -90,6 +90,28 @@ end
 
 local rows = {}
 local factories = {}
+
+local SECTION_CLOSED = {}
+
+local function sectionOpen(key)
+  if not key then return true end
+  local t = WarpeeDB and WarpeeDB.optSections
+  local v = t and t[key]
+  if v == nil then return not SECTION_CLOSED[key] end
+  return v and true or false
+end
+
+local function sectionToggle(key)
+  local on = sectionOpen(key)
+  WarpeeDB.optSections = WarpeeDB.optSections or {}
+  WarpeeDB.optSections[key] = not on
+end
+
+local function onOf(list)
+  local n = 0
+  for _, fn in ipairs(list) do if fn() then n = n + 1 end end
+  return ("%d of %d"):format(n, #list)
+end
 
 local dropdown
 
@@ -215,16 +237,57 @@ local function openDropdown(anchor, spec, onPick)
   m:Show()
 end
 
+local function caretGroup(parent, dir)
+  local g = CreateFrame("Frame", nil, parent)
+  if dir == "down" then g:SetSize(9, 5) else g:SetSize(5, 9) end
+  for i = 1, 3 do
+    local t = Theme:Rect(g, "dim", "ARTWORK")
+    if dir == "down" then
+      t:SetHeight(1)
+      t:SetWidth(9 - (i - 1) * 3)
+      t:SetPoint("TOP", g, "TOP", 0, -(i - 1) * 2)
+    else
+      t:SetWidth(1)
+      t:SetHeight(9 - (i - 1) * 3)
+      t:SetPoint("LEFT", g, "LEFT", (i - 1) * 2, 0)
+    end
+  end
+  return g
+end
+
 function factories.header(parent, spec)
-  local row = CreateFrame("Frame", nil, parent)
+  local row = CreateFrame(spec.key and "Button" or "Frame", nil, parent)
   row:SetHeight(30)
   local line = Theme:Rect(row, "strokeSoft", "ARTWORK")
   line:SetHeight(1)
   line:SetPoint("BOTTOMLEFT", 0, 0)
   line:SetPoint("BOTTOMRIGHT", 0, 0)
   local fs = track(Theme:Label(row, BASE_FONT, "azure"), 0)
-  fs:SetPoint("BOTTOMLEFT", 0, 6)
+  fs:SetPoint("BOTTOMLEFT", spec.key and 15 or 0, 6)
   fs:SetText(spec.name:upper())
+  if not spec.key then return row end
+
+  local down = caretGroup(row, "down")
+  down:SetPoint("BOTTOMLEFT", 0, 10)
+  local right = caretGroup(row, "right")
+  right:SetPoint("BOTTOMLEFT", 2, 8)
+  local state = track(Theme:Label(row, BASE_FONT - 3, "faint"), -3)
+  state:SetPoint("BOTTOMRIGHT", 0, 7)
+
+  row.Refresh = function()
+    local on = sectionOpen(spec.key)
+    down:SetShown(on)
+    right:SetShown(not on)
+    state:SetText((spec.state and spec.state()) or "")
+  end
+  row:SetScript("OnClick", function()
+    sectionToggle(spec.key)
+    row.Refresh()
+    Options:ReflowPages()
+  end)
+  row:SetScript("OnEnter", function() fs:SetTextColor(Theme:C("accentInk")) end)
+  row:SetScript("OnLeave", function() fs:SetTextColor(Theme:C("azure")) end)
+  row.Refresh()
   return row
 end
 
@@ -781,9 +844,19 @@ local function buildPage(parent, list)
     local y = 0
     local halfW = math.floor((CONTENT_W - 14) / 2)
     local thirdW = math.floor((CONTENT_W - 20) / 3)
+    local function gone(spec)
+      return (spec.hidden and spec.hidden())
+             or (spec.section and not sectionOpen(spec.section)) and true or false
+    end
+    local function nextSpec(from)
+      for j = from + 1, #page.rows do
+        local s = page.rows[j].spec
+        if not gone(s) then return s end
+      end
+    end
     for index, entry in ipairs(page.rows) do
       local row, spec = entry.row, entry.spec
-      if spec.hidden and spec.hidden() then
+      if gone(spec) then
         row:Hide()
       else
         row:Show()
@@ -791,19 +864,20 @@ local function buildPage(parent, list)
         if row.autoHeight then row:SetHeight(row.autoHeight:GetStringHeight() + 6) end
         row:ClearAllPoints()
         if spec.type == "header" and y > 0 then y = y + 12 end
+        local nx = nextSpec(index)
         if spec.col then
           local total = spec.of or 2
           local colW = total == 3 and thirdW or halfW
           row:SetWidth(colW)
           row:SetPoint("TOPLEFT", (spec.col - 1) * (colW + (total == 3 and 10 or 14)), -y)
-          local nextEntry = page.rows[index + 1]
-          local nextCol = nextEntry and nextEntry.spec.col
+          local nextCol = nx and nx.col
           if spec.col >= total or not nextCol or nextCol <= spec.col then
             y = y + row:GetHeight() + ROW_GAP
           end
         elseif spec.half == "left" then
           row:SetPoint("TOPLEFT", 0, -y)
           row:SetWidth(halfW)
+          if not (nx and nx.half == "right") then y = y + row:GetHeight() + ROW_GAP end
         elseif spec.half == "right" then
           row:SetPoint("TOPRIGHT", 0, -y)
           row:SetWidth(halfW)
@@ -931,8 +1005,18 @@ local bankSizeGet, bankSizeSet = dbField("bankIconSize", 40)
 local function anchorKeys() return ANCHORS end
 local function anchorLabel(k) return ANCHOR_LABELS[k] or k end
 
+local aucGet, aucSet   = autoField("auction")
+local bankGet, bankSet = autoField("bank")
+local gbGet, gbSet     = autoField("guildbank")
+local mailGet, mailSet = autoField("mail")
+local profGet, profSet = autoField("professions")
+local tradeGet, tradeSet = autoField("trade")
+local vendGet, vendSet = autoField("vendor")
+
+SECTION_CLOSED.autoopen = true
+
 local GENERAL_PAGE = {
-  { type = "header", name = "Appearance" },
+  { type = "header", name = "Look" },
   { type = "select", name = "Theme", get = themeGet, set = themeSet,
     keys = function() return Theme.THEME_ORDER end, label = function(k) return THEME_LABELS[k] or k end,
     desc = "Color scheme for the whole addon. All four are dark, so item icons stay readable." },
@@ -940,20 +1024,39 @@ local GENERAL_PAGE = {
     set = function(v) fontSet(v); Options:ApplyFont() end,
     keys = fontKeys, label = function(k) return k end,
     desc = "Used for every label Warpee draws. Other addons can add fonts to this list." },
-  { type = "header", name = "Money" },
-  { type = "toggle", name = "Gold only", col = 1, get = onlyGet, set = onlySet,
-    desc = "Show gold only, hide silver and copper." },
-  { type = "toggle", name = "Coin letters", col = 2, get = lettersGet, set = lettersSet,
-    desc = "On = g/s/c letters. Off = coin icons." },
-  { type = "select", name = "Gold format", get = goldFmtGet, set = goldFmtSet,
-    keys = function() return GOLD_FORMATS end, label = function(k) return GOLD_FORMAT_LABELS[k] or k end,
-    desc = "Grouping for every amount Warpee prints. Short abbreviates to K and M." },
   { type = "header", name = "Windows" },
   { type = "toggle", name = "Lock windows", col = 1, get = lockGet, set = lockSet,
     desc = "Freeze the bags, bank and bag-list windows in place. While unlocked each one shows X/Y fields at its top-left: type a value or nudge with the arrows (Shift = 10). Y is the bottom edge, so matching Y lines both windows up." },
   { type = "toggle", name = "Capacity bar", col = 2, get = gaugeGet, set = gaugeSet,
     desc = "Fill bar in the bags header showing how full they are." },
+  { type = "header", name = "Money" },
+  { type = "select", name = "Gold format", get = goldFmtGet, set = goldFmtSet,
+    keys = function() return GOLD_FORMATS end, label = function(k) return GOLD_FORMAT_LABELS[k] or k end,
+    desc = "Grouping for every amount Warpee prints. Short abbreviates to K and M." },
+  { type = "toggle", name = "Gold only", col = 1, get = onlyGet, set = onlySet,
+    desc = "Show gold only, hide silver and copper." },
+  { type = "toggle", name = "Coin letters", col = 2, get = lettersGet, set = lettersSet,
+    desc = "On = g/s/c letters. Off = coin icons." },
+  { type = "header", name = "Open bags with", key = "autoopen",
+    state = function()
+      return onOf({ aucGet, bankGet, gbGet, mailGet, profGet, tradeGet, vendGet })
+    end },
+  { type = "description", section = "autoopen",
+    name = "The bags open together with these windows and close with them again." },
+  { type = "toggle", name = "Bank", col = 1, section = "autoopen", get = bankGet, set = bankSet },
+  { type = "toggle", name = "Vendor", col = 2, section = "autoopen", get = vendGet, set = vendSet },
+  { type = "toggle", name = "Mail", col = 1, section = "autoopen", get = mailGet, set = mailSet },
+  { type = "toggle", name = "Auction house", col = 2, section = "autoopen",
+    get = aucGet, set = aucSet },
+  { type = "toggle", name = "Trade", col = 1, section = "autoopen",
+    get = tradeGet, set = tradeSet },
+  { type = "toggle", name = "Guild bank", col = 2, section = "autoopen", get = gbGet, set = gbSet },
+  { type = "toggle", name = "Professions", col = 1, section = "autoopen",
+    get = profGet, set = profSet },
 }
+
+SECTION_CLOSED.ilvlnum = true
+SECTION_CLOSED.countnum = true
 
 local ITEMS_PAGE = {
   { type = "header", name = "Markers" },
@@ -968,72 +1071,70 @@ local ITEMS_PAGE = {
   { type = "range", name = "Border thickness", min = 1, max = 6, step = 1,
     get = edgeGet, set = edgeSet, disabled = function() return not qBorderGet() end,
     desc = "Thickness of the quality border." },
-  { type = "header", name = "Item level" },
-  { type = "toggle", name = "Color by quality", col = 1, get = qColorGet, set = qColorSet,
+  { type = "header", name = "Item level number", key = "ilvlnum",
+    state = function()
+      return ("%d px, %s"):format(ilvlSizeGet(), (anchorLabel(ilvlAnchorGet())):lower())
+    end },
+  { type = "toggle", name = "Color by quality", col = 1, section = "ilvlnum",
+    get = qColorGet, set = qColorSet,
     desc = "Tint the number with the item's rarity color." },
-  { type = "range", name = "Size", min = 6, max = 24, step = 1, get = ilvlSizeGet, set = ilvlSizeSet },
   { type = "select", name = "Corner", get = ilvlAnchorGet, set = ilvlAnchorSet,
-    keys = anchorKeys, label = anchorLabel },
-  { type = "range", name = "X offset", min = -20, max = 20, step = 1, get = ilvlXGet, set = ilvlXSet,
-    half = "left" },
-  { type = "range", name = "Y offset", min = -20, max = 20, step = 1, get = ilvlYGet, set = ilvlYSet,
-    half = "right" },
-  { type = "header", name = "Count" },
-  { type = "range", name = "Size", min = 6, max = 24, step = 1, get = countSizeGet, set = countSizeSet },
+    section = "ilvlnum", keys = anchorKeys, label = anchorLabel,
+    desc = "Which corner of the slot the number sits in." },
+  { type = "range", name = "Size", min = 6, max = 24, step = 1, section = "ilvlnum",
+    get = ilvlSizeGet, set = ilvlSizeSet, half = "left" },
+  { type = "range", name = "X offset", min = -20, max = 20, step = 1, section = "ilvlnum",
+    get = ilvlXGet, set = ilvlXSet, half = "right" },
+  { type = "range", name = "Y offset", min = -20, max = 20, step = 1, section = "ilvlnum",
+    get = ilvlYGet, set = ilvlYSet, half = "left" },
+  { type = "header", name = "Stack count number", key = "countnum",
+    state = function()
+      return ("%d px, %s"):format(countSizeGet(), (anchorLabel(countAnchorGet())):lower())
+    end },
   { type = "select", name = "Corner", get = countAnchorGet, set = countAnchorSet,
-    keys = anchorKeys, label = anchorLabel },
-  { type = "range", name = "X offset", min = -20, max = 20, step = 1, get = countXGet, set = countXSet,
-    half = "left" },
-  { type = "range", name = "Y offset", min = -20, max = 20, step = 1, get = countYGet, set = countYSet,
-    half = "right" },
+    section = "countnum", keys = anchorKeys, label = anchorLabel,
+    desc = "Which corner of the slot the stack size sits in." },
+  { type = "range", name = "Size", min = 6, max = 24, step = 1, section = "countnum",
+    get = countSizeGet, set = countSizeSet, half = "left" },
+  { type = "range", name = "X offset", min = -20, max = 20, step = 1, section = "countnum",
+    get = countXGet, set = countXSet, half = "right" },
+  { type = "range", name = "Y offset", min = -20, max = 20, step = 1, section = "countnum",
+    get = countYGet, set = countYSet, half = "left" },
 }
 
+SECTION_CLOSED.bankgrid = true
+
 local GRID_PAGE = {
-  { type = "header", name = "All grids" },
+  { type = "header", name = "Bags grid" },
+  { type = "range", name = "Icon size", min = 24, max = 56, step = 1, get = sizeGet, set = sizeSet,
+    half = "left", desc = "Size of one slot in the bags." },
+  { type = "range", name = "Slots per row", min = 6, max = 24, step = 1, get = colsGet, set = colsSet,
+    half = "right", desc = "How wide the bag window grows." },
   { type = "range", name = "Spacing", min = 0, max = 16, step = 1, get = gapGet, set = gapSet,
-    desc = "Gap between slots." },
+    half = "left", desc = "Gap between slots, in every grid." },
   { type = "range", name = "Icon zoom", min = 0.8, max = 1.2, step = 0.01,
-    get = zoomGet, set = zoomSet,
+    get = zoomGet, set = zoomSet, half = "right",
     desc = "1.00 = icon fills the slot. Less pulls it away from the border, more crops it." },
+  { type = "toggle", name = "Merge reagents", col = 1, get = mergeGet, set = mergeSet,
+    desc = "Drop the REAGENTS caption and lay the reagent bag out with the main bags." },
+  { type = "header", name = "Slot look" },
   { type = "select", name = "Slot background", get = styleGet, set = styleSet,
     keys = function() return STYLES end, label = function(k) return STYLE_LABELS[k] or k end,
-    desc = "Fill behind every icon, lightest to darkest. Flat leaves the slot empty so the plate shows through." },
+    desc = "Fill behind every icon, lightest to darkest. Off leaves the slot empty so the plate shows through." },
   { type = "range", name = "Spacing opacity", min = 0, max = 1, step = 0.01,
     get = gridAlphaGet, set = gridAlphaSet,
     desc = "The plate behind the slots, visible in the gaps — at Spacing 0 there are no gaps to show it." },
-  { type = "header", name = "Bags" },
-  { type = "range", name = "Icon size", min = 24, max = 56, step = 1, get = sizeGet, set = sizeSet },
-  { type = "range", name = "Slots per row", min = 6, max = 24, step = 1, get = colsGet, set = colsSet },
-  { type = "toggle", name = "Merge reagents", col = 1, get = mergeGet, set = mergeSet,
-    desc = "Drop the REAGENTS caption and lay the reagent bag out with the main bags." },
-  { type = "header", name = "Bank & Warband" },
-  { type = "range", name = "Icon size", min = 24, max = 56, step = 1,
+  { type = "header", name = "Bank and Warband grid", key = "bankgrid",
+    state = function() return ("%d and %d wide"):format(bankColsGet(), wbColsGet()) end },
+  { type = "description", section = "bankgrid",
+    name = "The bank holds hundreds of slots, so it keeps its own width and icon size, independent of the bags." },
+  { type = "range", name = "Icon size", min = 24, max = 56, step = 1, section = "bankgrid",
     get = bankSizeGet, set = bankSizeSet,
-    desc = "One icon size for both tabs, independent of the bags." },
-  { type = "range", name = "Bank slots per row", min = 8, max = 40, step = 1,
-    get = bankColsGet, set = bankColsSet,
-    desc = "The bank holds hundreds of slots — wide rows keep the window on screen." },
+    desc = "One icon size for both bank tabs." },
+  { type = "range", name = "Bank slots per row", min = 8, max = 40, step = 1, section = "bankgrid",
+    get = bankColsGet, set = bankColsSet, half = "left" },
   { type = "range", name = "Warband slots per row", min = 8, max = 40, step = 1,
-    get = wbColsGet, set = wbColsSet },
-}
-
-local aucGet, aucSet   = autoField("auction")
-local bankGet, bankSet = autoField("bank")
-local gbGet, gbSet     = autoField("guildbank")
-local mailGet, mailSet = autoField("mail")
-local profGet, profSet = autoField("professions")
-local tradeGet, tradeSet = autoField("trade")
-local vendGet, vendSet = autoField("vendor")
-
-local AUTO_PAGE = {
-  { type = "header", name = "Auto-open bags" },
-  { type = "toggle", name = "Auction house", col = 1, get = aucGet, set = aucSet },
-  { type = "toggle", name = "Bank", col = 2, get = bankGet, set = bankSet },
-  { type = "toggle", name = "Guild bank", col = 1, get = gbGet, set = gbSet },
-  { type = "toggle", name = "Mail", col = 2, get = mailGet, set = mailSet },
-  { type = "toggle", name = "Professions", col = 1, get = profGet, set = profSet },
-  { type = "toggle", name = "Trade", col = 2, get = tradeGet, set = tradeSet },
-  { type = "toggle", name = "Vendor", col = 1, get = vendGet, set = vendSet },
+    section = "bankgrid", get = wbColsGet, set = wbColsSet, half = "right" },
 }
 
 local function tipOnGet() return WarpeeDB.tipCounts ~= false end
@@ -1045,7 +1146,8 @@ local function tipWbSet(v) WarpeeDB.tipWarband = v and true or false end
 local function tipOff() return not tipOnGet() end
 
 local CHARS_PAGE = {
-  { type = "header", name = "Item tooltips" },
+  { type = "header", name = "Item tooltips",
+    state = function() return onOf({ tipOnGet, tipBankGet, tipWbGet }) end },
   { type = "toggle", name = "Count across characters", col = 1, get = tipOnGet, set = tipOnSet,
     desc = "Adds an Inventory block to item tooltips: how many of that item each character carries." },
   { type = "toggle", name = "Include bank", col = 2, get = tipBankGet, set = tipBankSet,
@@ -1106,24 +1208,57 @@ local function expName(i)
   return "Expansion " .. i
 end
 
+SECTION_CLOSED.tokenexp = true
+SECTION_CLOSED.locked = true
+
 local VENDOR_PAGE = {
-  { type = "header", name = "Sell low gear" },
+  { type = "header", name = "Gear by item level" },
   { type = "input", name = "Item level from", col = 1, min = 0, max = 9999,
     get = vMinGet, set = vMinSet,
     desc = "Gear at or above this item level is sold, so nothing below it is touched." },
   { type = "input", name = "Item level under", col = 2, min = 0, max = 9999,
     get = vIlvlGet, set = vIlvlSet,
     desc = "Gear under this item level is sold. Zero keeps every piece of gear." },
+  { type = "header", name = "Also sell",
+    state = function()
+      return onOf({ vGreyGet, vRelicGet, vTokenGet, vConsumGet })
+    end },
   { type = "toggle", name = "Auto sell junk", col = 1, get = vGreyGet, set = vGreySet,
     desc = "Sell every grey item, whatever it is and whatever its item level. Runs by itself the moment a merchant opens, without pressing the button." },
   { type = "toggle", name = "Legion relics", col = 2, get = vRelicGet, set = vRelicSet,
     desc = "Sell artifact relics from Legion. They have no use and no appearance, so the item level is ignored." },
   { type = "toggle", name = "Tier tokens", col = 1, get = vTokenGet, set = vTokenSet,
-    desc = "Sell raid armour tokens that a vendor turns into a set piece, item level ignored. Only the tokens Warpee knows by item id, from the expansions ticked below, and the newest four are kept by default." },
+    desc = "Sell raid armour tokens that a vendor turns into a set piece, item level ignored. Only the tokens Warpee knows by item id, from the expansions ticked below." },
   { type = "toggle", name = "Old consumables", col = 2, get = vConsumGet, set = vConsumSet,
     desc = "Sell potions, elixirs, flasks, food and bandages from expansions older than the previous one. Off by default, since old food can still be worth keeping." },
-  { type = "toggle", name = "Sell on open", col = 1, get = vAutoGet, set = vAutoSet,
-    desc = "Start selling as soon as a merchant window opens, without pressing the button." },
+  { type = "header", name = "Token expansions", key = "tokenexp",
+    state = function()
+      local t = WarpeeDB.vendorTokenExp or {}
+      local cur = LE_EXPANSION_LEVEL_CURRENT
+                  or (GetExpansionLevel and GetExpansionLevel()) or 0
+      local n = 0
+      for i = 0, cur do if t[i] then n = n + 1 end end
+      return ("%d of %d"):format(n, cur + 1)
+    end },
+  { type = "description", section = "tokenexp",
+    name = "Which expansions tier tokens may be sold from. The four newest are kept by default, so the set you are working on stays in the bags." },
+  { type = "header", name = "Never sell",
+    state = function() return onOf({ vBoEGet, vWbGet, vGemGet }) end },
+  { type = "toggle", name = "Keep BoE", col = 1, get = vBoEGet, set = vBoESet,
+    desc = "Skip gear that is not bound yet, so it can still go to the auction house." },
+  { type = "toggle", name = "Keep warbound", col = 2, get = vWbGet, set = vWbSet,
+    desc = "Skip warbound gear. Its appearance is learned only once worn, and an alt can still use it." },
+  { type = "toggle", name = "Keep gems and enchants", col = 1, get = vGemGet, set = vGemSet,
+    desc = "Skip any piece that has a gem socketed or an enchant applied, so what you paid for is not sold off with it." },
+  { type = "header", name = "Locked items", key = "locked",
+    state = function()
+      local n = 0
+      for _ in pairs(WarpeeDB.vendorBlack or {}) do n = n + 1 end
+      return (n == 1) and "1 item" or ("%d items"):format(n)
+    end },
+  { type = "description", section = "locked",
+    name = "Alt-click an item in the bags or the bank to lock it, and a small padlock appears on the slot. Alt-click it again, or press the cross here, to unlock. Locked items are never sold, whatever the settings above say." },
+  { type = "blacklist", section = "locked" },
   { type = "header", name = "Repair" },
   { type = "toggle", name = "Auto repair", col = 1, get = vRepGet, set = vRepSet,
     desc = "Repair everything as soon as a merchant who offers repairs opens. A merchant without repairs is left alone, with no message." },
@@ -1131,16 +1266,8 @@ local VENDOR_PAGE = {
     keys = function() return REPAIR_BY end,
     label = function(k) return REPAIR_LABELS[k] or k end,
     desc = "Where the money comes from. The guild bank is used only if your withdraw limit covers the whole bill, otherwise nothing is taken from it." },
-  { type = "header", name = "Never sell" },
-  { type = "toggle", name = "Keep BoE", col = 1, get = vBoEGet, set = vBoESet,
-    desc = "Skip gear that is not bound yet, so it can still go to the auction house." },
-  { type = "toggle", name = "Keep warbound", col = 2, get = vWbGet, set = vWbSet,
-    desc = "Skip warbound gear. Its appearance is learned only once worn, and an alt can still use it." },
-  { type = "toggle", name = "Keep gems and enchants", col = 1, get = vGemGet, set = vGemSet,
-    desc = "Skip any piece that has a gem socketed or an enchant applied, so what you paid for is not sold off with it." },
-  { type = "header", name = "Blacklist" },
-  { type = "description", name = "Alt-click an item in the bags or the bank to lock it, and a small padlock appears on the slot. Alt-click it again, or press the cross here, to unlock. Locked items are never sold, whatever the settings above say." },
-  { type = "blacklist" },
+  { type = "toggle", name = "Sell on open", col = 1, get = vAutoGet, set = vAutoSet,
+    desc = "Run the whole sell list as soon as a merchant window opens, not just the junk." },
 }
 
 do
@@ -1150,10 +1277,11 @@ do
   for i, row in ipairs(VENDOR_PAGE) do
     if row.type == "header" and row.name == "Never sell" then at = i; break end
   end
-  local rows = { { type = "header", name = "Token expansions" } }
+  local rows = {}
   for i = 0, cur do
     rows[#rows + 1] = {
       type = "toggle", name = expName(i), col = (i % 2 == 0) and 1 or 2,
+      section = "tokenexp",
       get = function() return vExpGet(i) end,
       set = function(v) vExpSet(i, v) end,
       disabled = vTokensOff,
@@ -1170,7 +1298,6 @@ local PAGES = {
   { name = "Grid", list = GRID_PAGE },
   { name = "Items", list = ITEMS_PAGE },
   { name = "Vendor", list = VENDOR_PAGE },
-  { name = "Auto-open", list = AUTO_PAGE },
   { name = "Characters", list = CHARS_PAGE },
 }
 
@@ -1217,7 +1344,7 @@ end
 function Options:ReflowPages()
   if not self.areas then return end
   if self.tabs then for _, tab in ipairs(self.tabs) do paintTab(tab) end end
-  if self.title then self.title:SetTextColor(Theme:C("accent")) end
+  for _, row in ipairs(rows) do row.Refresh() end
   for _, area in ipairs(self.areas) do
     area.page.Relayout()
     area:PaintBar()

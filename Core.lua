@@ -159,6 +159,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.vendorRepair == nil then WarpeeDB.vendorRepair = false end
     WarpeeDB.vendorRepairBy = WarpeeDB.vendorRepairBy or "player"
     WarpeeDB.vendorKeepMog, WarpeeDB.vendorKeepFresh = nil, nil
+    WarpeeDB.optSections = WarpeeDB.optSections or {}
     if WarpeeDB.autoOpen == nil then
       WarpeeDB.autoOpen = { auction = true, bank = true, mail = true, trade = true,
                             vendor = true, guildbank = false, professions = false }
