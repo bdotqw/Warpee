@@ -56,6 +56,18 @@ function ns.CoinLetter(key)
   return t[key] or key
 end
 
+-- Short amounts. English stacks K/M/B/T; Russian players count in "к" and "кк"
+-- and keep going ("1200кк"), so that ladder stops at millions. The decimal mark
+-- follows the language too: 284.4K but 284,4к.
+local SHORT_FORMS = {
+  enUS = { dec = ".", units = { { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } } },
+  ruRU = { dec = ",", units = { { 1e6, "кк" }, { 1e3, "к" } } },
+}
+
+function ns.ShortForm()
+  return SHORT_FORMS[ns.LocalePick()] or SHORT_FORMS.enUS
+end
+
 local RU = {
   ["General"] = "Общее",
   ["Grid"] = "Сетка",
@@ -104,7 +116,7 @@ local RU = {
     "Полоса в шапке сумок, показывающая, насколько они заполнены.",
   ["Takes the Warpee button off the minimap."] = "Убирает кнопку Warpee с миникарты.",
   ["Grouping for printed amounts. Short abbreviates to K and M."] =
-    "Как разделяются разряды в суммах. «Кратко» сокращает до K и M.",
+    "Как разделяются разряды в суммах. Краткий формат сокращает тысячи до «к», миллионы — до «кк».",
   ["Show gold only, hide silver and copper."] = "Показывать только золото, без серебра и меди.",
   ["On = g/s/c letters. Off = coin icons."] = "Вкл. — буквы з/с/м вместо иконок монет.",
   ["Empty the search box when the window closes, so it opens unfiltered next time."] =
@@ -231,7 +243,7 @@ local RU = {
   ["Commas (5,000,000)"] = "Запятые (5,000,000)",
   ["Dots (5.000.000)"] = "Точки (5.000.000)",
   ["Spaces (5 000 000)"] = "Пробелы (5 000 000)",
-  ["Short (5M, 284.4K)"] = "Кратко (5M, 284.4K)",
+  ["Short (5M, 284.4K)"] = "Кратко (5кк, 284,4к)",
   ["%d of %d"] = "%d из %d",
   ["1 item"] = "1 предмет",
   ["%d items"] = "предметов: %d",

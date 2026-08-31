@@ -424,20 +424,21 @@ local function groupNumber(n, sep)
   return out
 end
 
-local SHORT_UNITS = { { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } }
 local function shortNumber(n)
   n = math.floor((n or 0) + 0.5)
   if n < 1000 then return tostring(n) end
-  for i, u in ipairs(SHORT_UNITS) do
+  local form = ns.ShortForm()
+  local units = form.units
+  for i, u in ipairs(units) do
     local scale, suf = u[1], u[2]
     if n >= scale then
       local r = math.floor(n / scale * 10 + 0.5) / 10
       if r >= 1000 and i > 1 then
-        scale, suf = SHORT_UNITS[i - 1][1], SHORT_UNITS[i - 1][2]
+        scale, suf = units[i - 1][1], units[i - 1][2]
         r = math.floor(n / scale * 10 + 0.5) / 10
       end
       if r == math.floor(r) then return string.format("%d%s", r, suf) end
-      return string.format("%.1f%s", r, suf)
+      return (string.format("%.1f", r):gsub("%.", form.dec)) .. suf
     end
   end
 end
