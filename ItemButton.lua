@@ -462,7 +462,7 @@ function ns.MarkJunk(b, quality)
   b.junk:Show()
 end
 
-local LOCK_ATLAS = { "bags-icon-lock", "Garr_LockedBuilding", "PetBattle-LockIcon" }
+local LOCK_ATLAS = { "worldquest-tracker-lock", "bags-icon-lock", "Garr_LockedBuilding" }
 
 function ns.MarkBlocked(b, itemID)
   local on = (itemID and ns.Vendor and ns.Vendor:Blocked(itemID)) and true or false
