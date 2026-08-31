@@ -69,6 +69,7 @@ local function localeSet(v)
   WarpeeDB.locale = v
   if Options.ReflowPages then Options:ReflowPages() end
   if ns.ApplyLocaleText then ns.ApplyLocaleText() end
+  relayout()
 end
 local function localeKeys() return ns.LOCALES end
 local function localeLabel(k) return ns.LOCALE_LABELS[k] or k end

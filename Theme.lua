@@ -674,16 +674,53 @@ local function rawPath(name)
 end
 
 local probe, pathOK = nil, {}
+
+local CYR_FONTS = { [[Fonts\FRIZQT___CYR.TTF]], [[Fonts\ARIALN.TTF]], [[Fonts\FRIZQT__.TTF]] }
+local cyrOK, cyrPick = {}, nil
+
+local function probeFont(path, size)
+  probe = probe or UIParent:CreateFontString(nil, "OVERLAY")
+  if not pcall(probe.SetFont, probe, path, size or 12, "") then return nil end
+  return probe
+end
+
+local function hasCyrillic(path)
+  local known = cyrOK[path]
+  if known ~= nil then return known end
+  local fs = probeFont(path, 24)
+  if not fs then cyrOK[path] = false; return false end
+  fs:SetText("Ш")
+  local wide = fs:GetStringWidth() or 0
+  fs:SetText("Г")
+  local narrow = fs:GetStringWidth() or 0
+  local ok = (wide > 0 and narrow > 0 and math.abs(wide - narrow) > 0.5) and true or false
+  cyrOK[path] = ok
+  return ok
+end
+
+local function cyrillicFont()
+  if cyrPick then return cyrPick end
+  for _, path in ipairs(CYR_FONTS) do
+    if hasCyrillic(path) then cyrPick = path; return path end
+  end
+  cyrPick = FALLBACK_FONT
+  return cyrPick
+end
+
+function ns.Fonts:NeedsCyrillic()
+  return (ns.LocalePick and ns.LocalePick() == "ruRU") and true or false
+end
+
 function ns.Fonts:Path(name)
   local p = rawPath(name)
-  if p == FALLBACK_FONT then return p end
   local ok = pathOK[p]
   if ok == nil then
-    probe = probe or UIParent:CreateFontString(nil, "OVERLAY")
-    ok = pcall(probe.SetFont, probe, p, 12, "") and true or false
+    ok = probeFont(p) and true or false
     pathOK[p] = ok
   end
-  return ok and p or FALLBACK_FONT
+  if not ok then p = FALLBACK_FONT end
+  if self:NeedsCyrillic() and not hasCyrillic(p) then return cyrillicFont() end
+  return p
 end
 
 function ns.Fonts:Has(name)
@@ -693,7 +730,13 @@ function ns.Fonts:Has(name)
 end
 
 function ns.Fonts:Usable(name)
-  return self:Path(name) == rawPath(name)
+  local p = rawPath(name)
+  local ok = pathOK[p]
+  if ok == nil then
+    ok = probeFont(p) and true or false
+    pathOK[p] = ok
+  end
+  return ok
 end
 
 function ns.Fonts:Current()
