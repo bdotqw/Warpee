@@ -155,6 +155,7 @@ function Bags:Build()
   search:SetPoint("TOPRIGHT", -PAD, -ROW2_Y)
   search:SetHeight(22)
   self.search = search
+  ns.SearchTip(search)
 
   local gaugeBg = Theme:Rect(f, "panel", "BACKGROUND")
   gaugeBg:SetHeight(2)
@@ -667,24 +668,93 @@ local SLOT_WORDS = {
             INVTYPE_WEAPONOFFHAND=1, INVTYPE_RANGED=1, INVTYPE_RANGEDRIGHT=1},
   mainhand = {INVTYPE_WEAPONMAINHAND=1, INVTYPE_WEAPON=1, INVTYPE_2HWEAPON=1},
   offhand = {INVTYPE_WEAPONOFFHAND=1, INVTYPE_HOLDABLE=1, INVTYPE_SHIELD=1},
+  ["2h"] = {INVTYPE_2HWEAPON=1, INVTYPE_RANGED=1, INVTYPE_RANGEDRIGHT=1},
+  ["1h"] = {INVTYPE_WEAPON=1, INVTYPE_WEAPONMAINHAND=1, INVTYPE_WEAPONOFFHAND=1},
+}
+local IC  = Enum.ItemClass or {}
+local IAS = Enum.ItemArmorSubclass or {}
+local IWS = Enum.ItemWeaponSubclass or {}
+local IMS = Enum.ItemMiscellaneousSubclass or {}
+local function kind(cls, ...)
+  if cls == nil then return nil end
+  local subs
+  for i = 1, select("#", ...) do
+    local s = select(i, ...)
+    if s ~= nil then subs = subs or {}; subs[s] = true end
+  end
+  return { class = cls, subs = subs }
+end
+local KIND_WORDS = {
+  cloth    = kind(IC.Armor, IAS.Cloth),
+  leather  = kind(IC.Armor, IAS.Leather),
+  mail     = kind(IC.Armor, IAS.Mail),
+  plate    = kind(IC.Armor, IAS.Plate),
+  cosmetic = kind(IC.Armor, IAS.Cosmetic),
+  dagger   = kind(IC.Weapon, IWS.Dagger),
+  sword    = kind(IC.Weapon, IWS.Sword1H, IWS.Sword2H),
+  axe      = kind(IC.Weapon, IWS.Axe1H, IWS.Axe2H),
+  mace     = kind(IC.Weapon, IWS.Mace1H, IWS.Mace2H),
+  polearm  = kind(IC.Weapon, IWS.Polearm),
+  staff    = kind(IC.Weapon, IWS.Staff),
+  bow      = kind(IC.Weapon, IWS.Bows),
+  gun      = kind(IC.Weapon, IWS.Guns),
+  crossbow = kind(IC.Weapon, IWS.Crossbow),
+  wand     = kind(IC.Weapon, IWS.Wand),
+  fist     = kind(IC.Weapon, IWS.Unarmed),
+  warglaive = kind(IC.Weapon, IWS.Warglaive),
+  fishing  = kind(IC.Weapon, IWS.Fishingpole),
+  mount    = kind(IC.Miscellaneous, IMS.Mount),
+  gem      = kind(IC.Gem),
+  recipe   = kind(IC.Recipe),
+  glyph    = kind(IC.Glyph),
+  bag      = kind(IC.Container),
+  container = kind(IC.Container),
+  pet      = kind(IC.Battlepet),
+  battlepet = kind(IC.Battlepet),
+  projectile = kind(IC.Projectile),
+  tradegoods = kind(IC.Tradegoods),
+  misc     = kind(IC.Miscellaneous),
+  enhancement = kind(IC.ItemEnhancement),
 }
 function ns.ParseSearch(q)
   q = (q or ""):gsub("^%s+", ""):gsub("%s+$", "")
   local f = { text = {} }
   f.empty = q == ""
   for token in q:gmatch("%S+") do
+    local bare = token:match("^[!%-](.+)$")
+    local lo, hi = token:match("^ilvl(%d+)%-(%d+)$")
+    local gt = token:match("^ilvl>=?(%d+)$")
+    local lt = token:match("^ilvl<=?(%d+)$")
     local num = token:match("^ilvl(%d+)$") or token:match("^(%d+)$")
-    if num then
+    if bare then
+      f.nots = f.nots or {}
+      f.nots[#f.nots + 1] = ns.ParseSearch(bare)
+    elseif lo then
+      f.ilvlMin, f.ilvlMax = tonumber(lo), tonumber(hi)
+    elseif gt then
+      f.ilvlMin = tonumber(gt) + (token:find(">=", 1, true) and 0 or 1)
+    elseif lt then
+      f.ilvlMax = tonumber(lt) - (token:find("<=", 1, true) and 0 or 1)
+    elseif num then
       f.ilvl = tonumber(num)
     elseif QUALITY_WORDS[token] then
       f.quality = QUALITY_WORDS[token]
     elseif SLOT_WORDS[token] then
       f.slots = f.slots or {}
       for k in pairs(SLOT_WORDS[token]) do f.slots[k] = true end
+    elseif KIND_WORDS[token] then
+      f.kinds = f.kinds or {}
+      f.kinds[#f.kinds + 1] = KIND_WORDS[token]
     elseif token == "warbound" or token == "wb" or token == "warband" then
       f.warbound = true
     elseif token == "soulbound" or token == "sb" or token == "bound" or token == "bop" then
       f.soulbound = true
+    elseif token == "boe" or token == "unbound" then
+      f.boe = true
+    elseif token == "token" or token == "tier" then
+      f.token = true
+    elseif token == "locked" or token == "blocked" then
+      f.locked = true
     elseif token == "reagent" or token == "reagents" or token == "mats" then
       f.reagent = true
     elseif token == "keystone" or token == "key" or token == "mythic" then
@@ -717,14 +787,34 @@ end
 function ns.MatchSearch(m, f)
   if not f or f.empty then return true end
   if not m then return false end
+  if f.nots then
+    for _, n in ipairs(f.nots) do
+      if ns.MatchSearch(m, n) then return false end
+    end
+  end
   for _, t in ipairs(f.text) do
     if not (m.text and m.text:find(t, 1, true)) then return false end
   end
   if f.quality ~= nil and m.q ~= f.quality then return false end
   if f.ilvl and m.ilvl ~= f.ilvl then return false end
+  if f.ilvlMin and not (m.ilvl and m.ilvl >= f.ilvlMin) then return false end
+  if f.ilvlMax and not (m.ilvl and m.ilvl <= f.ilvlMax) then return false end
   if f.slots and not (m.equipLoc and f.slots[m.equipLoc]) then return false end
+  if f.kinds then
+    local ok = false
+    for _, k in ipairs(f.kinds) do
+      if m.classID == k.class and (not k.subs or (m.subID and k.subs[m.subID])) then
+        ok = true
+        break
+      end
+    end
+    if not ok then return false end
+  end
   if f.warbound and not ns.MetaWarbound(m) then return false end
   if f.soulbound and not (m.bound and not ns.MetaWarbound(m)) then return false end
+  if f.boe and not (m.isGear and not m.bound) then return false end
+  if f.token and not (m.id and ns.TIER_TOKENS and ns.TIER_TOKENS[m.id]) then return false end
+  if f.locked and not (m.id and ns.Vendor and ns.Vendor:Blocked(m.id)) then return false end
   if f.reagent and not m.reagent then return false end
   if f.keystone and not m.keystone then return false end
   if f.quest and m.classID ~= Enum.ItemClass.Questitem then return false end

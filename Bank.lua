@@ -235,6 +235,7 @@ function View:Build()
   search:SetPoint("TOP", f, "TOP", 0, -5)
   search:SetHeight(22)
   self.search = search
+  ns.SearchTip(search)
 
   self:BuildCharPicker()
   self:AnchorSearch()
