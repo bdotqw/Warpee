@@ -1447,12 +1447,14 @@ function Options:ReflowPages()
       if prev then
         tab:SetPoint("TOPLEFT", prev, "TOPRIGHT", 5, 0)
       else
-        tab:SetPoint("TOPLEFT", PAD, -(HEADER_H + 7))
+        ns.SnapPoint(tab, "TOPLEFT", self.frame, "TOPLEFT", PAD,
+          -(HEADER_H + 7 + Theme:TopInset()))
       end
       prev = tab
       paintTab(tab)
     end
   end
+  self:AnchorHeader()
   for _, row in ipairs(rows) do row.Refresh() end
   for _, area in ipairs(self.areas) do
     area.page.Relayout()
@@ -1484,7 +1486,7 @@ function Options:Build()
   end)
   f:SetScript("OnMouseDown", function(s) Theme:Raise(s) end)
   Theme:Window(f, "WarpeeOptionsFrame")
-  Theme:HeaderBand(f, HEADER_H - 4)
+  Theme:HeaderBand(f)
   f:SetScript("OnHide", function()
     local row = Options.charsRow
     if row and row.delMode then
@@ -1505,11 +1507,13 @@ function Options:Build()
   close:SetPoint("TOPRIGHT", -PAD, -8)
   close:SetScript("OnClick", function() self:Close() end)
   track(close.Text, 2)
+  self.closeBtn = close
 
   local line = Theme:Rect(f, "strokeSoft", "ARTWORK")
   ns.PixelLine(line, 1)
   line:SetPoint("TOPLEFT", PAD, -HEADER_H)
   line:SetPoint("TOPRIGHT", -PAD, -HEADER_H)
+  self.headLine = line
 
   self.tabs, self.areas = {}, {}
   local prev
@@ -1536,8 +1540,41 @@ function Options:Build()
   end
 
   self:ApplyFont()
+  self:AnchorHeader()
   self:Select(1)
   return f
+end
+
+-- Blizzard skin: leave the title strip alone and start the window's own header
+-- below it. Called again on every theme change.
+function Options:AnchorHeader()
+  local f = self.frame
+  if not f then return end
+  local top = Theme:TopInset()
+  if self.title then
+    self.title:ClearAllPoints()
+    self.title:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(10 + top))
+  end
+  if self.closeBtn then
+    self.closeBtn:ClearAllPoints()
+    ns.SnapPoint(self.closeBtn, "TOPRIGHT", f, "TOPRIGHT", -PAD, -(8 + top))
+  end
+  if self.headLine then
+    self.headLine:ClearAllPoints()
+    self.headLine:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(HEADER_H + top))
+    self.headLine:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -(HEADER_H + top))
+  end
+  local first = self.tabs and self.tabs[1]
+  if first then
+    first:ClearAllPoints()
+    ns.SnapPoint(first, "TOPLEFT", f, "TOPLEFT", PAD, -(HEADER_H + 7 + top))
+  end
+  for _, area in ipairs(self.areas or {}) do
+    area:ClearAllPoints()
+    area:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(HEADER_H + TAB_H + 14 + top))
+    area:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(PAD + SCROLL_W + 6), PAD)
+  end
+  Theme:HeaderBand(f)
 end
 
 function Options:Open()

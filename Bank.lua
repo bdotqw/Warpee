@@ -140,7 +140,7 @@ function View:Cols(mode)
   return WarpeeDB.bankCols or 24
 end
 function View:FontSize() return 13 end
-function View:HeaderH() return math.max(58, headerH(self:FontSize()) + 24) end
+function View:HeaderH() return math.max(58, headerH(self:FontSize()) + 24) + Theme:TopInset() end
 function View:FooterH() return footerH(self:FontSize()) end
 
 function View:Sections(mode)
@@ -172,7 +172,7 @@ function View:Build()
     ns.Rebase(s, "bankPos")
   end)
   Theme:Window(f, "WarpeeBankFrame")
-  Theme:HeaderBand(f, 34)
+  Theme:HeaderBand(f)
   f:SetScript("OnHide", function()
     ns.ClearSearch(self.search)
     self.depositType = nil
@@ -325,17 +325,33 @@ function View:SelectChar(key)
   if self:ApplySnap() then self:Activate(self.mode) else self:Repaint() end
 end
 
+function View:AnchorHeader()
+  if not self.frame then return end
+  local top = Theme:TopInset()
+  if self.closeBtn then
+    self.closeBtn:ClearAllPoints()
+    ns.SnapPoint(self.closeBtn, "TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -(6 + top))
+  end
+  if self.bankTab then
+    self.bankTab:ClearAllPoints()
+    ns.SnapPoint(self.bankTab, "TOPLEFT", self.frame, "TOPLEFT", PAD, -(6 + top))
+  end
+  Theme:HeaderBand(self.frame)
+  self:AnchorSearch()
+end
+
 function View:AnchorSearch()
   if not self.search then return end
   local b = self.charBtn
+  local row = 34 + Theme:TopInset()
   self.search:ClearAllPoints()
-  self.search:SetPoint("TOPLEFT", self.frame, "TOPLEFT", PAD, -34)
+  self.search:SetPoint("TOPLEFT", self.frame, "TOPLEFT", PAD, -row)
   if b and b:IsShown() then
     b:ClearAllPoints()
-    b:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -34)
+    b:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row)
     self.search:SetPoint("TOPRIGHT", b, "TOPLEFT", -6, 0)
   else
-    self.search:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -34)
+    self.search:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row)
   end
 end
 
@@ -663,6 +679,7 @@ end
 function View:Layout()
   if not (self.frame and self.cur) then return end
   self:Fonts()
+  self:AnchorHeader()
   self:LayoutMode(self.cur, "fill")
 end
 

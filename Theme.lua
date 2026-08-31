@@ -453,44 +453,35 @@ function Theme:WindowArt(frame)
   return frame
 end
 
--- A taller header band than the template's own 28px title tile, so a window can
--- fit its buttons and the character tag inside it. Same tiling art the game uses
--- across the top of its own frames.
-local BAND_ATLAS = "_UI-Frame-TopTileStreaks"
-
+-- A hairline under the title strip, so the header reads as its own band.
 function Theme:HeaderBand(frame, height)
   if height then frame.wpeBandH = height end
-  local t = frame.wpeBand
+  local line = frame.wpeBandLine
   if not self:Skinned() then
-    if t then t:Hide() end
-    if frame.wpeBandLine then frame.wpeBandLine:Hide() end
+    if line then line:Hide() end
     return
   end
-  if not t then
-    t = frame:CreateTexture(nil, "BORDER")
-    frame.wpeBand = t
-  end
-  if not pcall(t.SetAtlas, t, BAND_ATLAS) then
-    t:SetColorTexture(self:C("panelHi"))
-  end
-  t:ClearAllPoints()
-  t:SetPoint("TOPLEFT", frame, "TOPLEFT", 4, -4)
-  t:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -4, -4)
-  t:SetHeight(frame.wpeBandH or 34)
-  t:Show()
-
-  local line = frame.wpeBandLine
   if not line then
     line = frame:CreateTexture(nil, "BORDER")
     line:SetTexture(WHITE)
     frame.wpeBandLine = line
     ns.PixelLine(line, 1)
+    ns.NoPixelSnap(line)
   end
   line:SetVertexColor(self:C("strokeSoft"))
   line:ClearAllPoints()
-  line:SetPoint("TOPLEFT", t, "BOTTOMLEFT", 0, 0)
-  line:SetPoint("TOPRIGHT", t, "BOTTOMRIGHT", 0, 0)
+  line:SetPoint("TOPLEFT", frame, "TOPLEFT", 5, -(frame.wpeBandH or self:TopInset()))
+  line:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -5, -(frame.wpeBandH or self:TopInset()))
   line:Show()
+end
+
+-- The template's title tile is a fixed 28px strip. Rather than cover it with art
+-- of our own, windows in this skin leave that much room at the top and push
+-- their header below it, so the strip reads as a real title bar.
+local TITLE_STRIP = 26
+
+function Theme:TopInset()
+  return self:Skinned() and TITLE_STRIP or 0
 end
 
 function Theme:Panel(frame, bgKey, strokeKey)

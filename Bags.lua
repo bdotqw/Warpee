@@ -25,7 +25,33 @@ ns.Bags = Bags
 
 local function stepFor(size, gap) return size + gap end
 local function gridWidth(size, cols, gap) return (cols - 1) * (size + gap) + size end
-function Bags:TopOffset() return HEADER + 4 end
+function Bags:TopOffset() return HEADER + 4 + Theme:TopInset() end
+
+-- The skinned theme leaves the title strip empty, so the header row and
+-- everything under it start below it. Re-run on every layout: the theme can
+-- change while the window is open.
+function Bags:AnchorHeader()
+  local top = Theme:TopInset()
+  if self.closeBtn then
+    self.closeBtn:ClearAllPoints()
+    ns.SnapPoint(self.closeBtn, "TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -(ROW1_Y + top))
+  end
+  if self.charTag then
+    self.charTag:ClearAllPoints()
+    ns.SnapPoint(self.charTag, "TOPLEFT", self.frame, "TOPLEFT", PAD, -(ROW1_Y + top))
+  end
+  if self.gaugeBg then
+    self.gaugeBg:ClearAllPoints()
+    self.gaugeBg:SetPoint("TOPLEFT", self.frame, "TOPLEFT", PAD, -(GAUGE_Y + top))
+    self.gaugeBg:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -(GAUGE_Y + top))
+  end
+  if self.search then
+    self.search:ClearAllPoints()
+    self.search:SetPoint("TOPLEFT", self.frame, "TOPLEFT", PAD, -(ROW2_Y + top))
+    self.search:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -(ROW2_Y + top))
+  end
+  Theme:HeaderBand(self.frame)
+end
 
 function Bags:Build()
   if self.frame then return self.frame end
@@ -44,7 +70,7 @@ function Bags:Build()
     ns.Rebase(s, "pos")
   end)
   Theme:Window(f, "WarpeeFrame")
-  Theme:HeaderBand(f, ROW1_Y + HB + 2)
+  Theme:HeaderBand(f)
   f:SetScript("OnHide", function()
     ns.ClearSearch(Bags.search)
     if ns.CharPicker then ns.CharPicker:Close() end
@@ -68,6 +94,7 @@ function Bags:Build()
   local close = ns.CreateGlyphButton(f, "×", HB)
   close:SetPoint("TOPRIGHT", -PAD, -6)
   close:SetScript("OnClick", function() ns.Toggle(false) end)
+  self.closeBtn = close
 
   local sort = ns.CreateGlyphButton(f, "", HB)
   sort:SetScript("OnClick", function() Bags:SortBags() end)
@@ -215,6 +242,7 @@ function Bags:BuildBagWindow()
   local wclose = ns.CreateGlyphButton(w, "×")
   wclose:SetPoint("TOPRIGHT", -6, -6)
   wclose:SetScript("OnClick", function() w:Hide() end)
+  self.bagWinClose = wclose
 
   local bagList = { 0, 1, 2, 3, 4, ns.reagentBag }
   self.bagButtons = {}
@@ -234,9 +262,19 @@ end
 function Bags:LayoutBagWindow()
   local w = self.bagWindow
   if not w or not self.bagButtons then return end
-  local BGAP, BPAD, BHEAD = 6, 12, 30
+  local BGAP, BPAD = 6, 12
+  local BHEAD = 30 + Theme:TopInset()
   local size = self:BagWinButtonSize()
   local cf = self.countSize or 14
+  if self.bagTitle then
+    self.bagTitle:ClearAllPoints()
+    self.bagTitle:SetPoint("TOPLEFT", w, "TOPLEFT", BPAD, -(8 + Theme:TopInset()))
+  end
+  if self.bagWinClose then
+    self.bagWinClose:ClearAllPoints()
+    ns.SnapPoint(self.bagWinClose, "TOPRIGHT", w, "TOPRIGHT", -6, -(6 + Theme:TopInset()))
+  end
+  Theme:HeaderBand(w)
   local prev
   for _, b in ipairs(self.bagButtons) do
     b:SetSize(size, size)
@@ -311,6 +349,7 @@ end
 
 function Bags:Layout()
   local cols = self.cols
+  self:AnchorHeader()
   local size, gap, step = ns.GridMetrics(self.frame, self.iconSize, self.gap)
   self.pxSize, self.pxGap = size, gap
   local i, used, total = 0, 0, 0
