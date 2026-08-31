@@ -8,7 +8,7 @@ function ns.Toggle(show)
     Bags:RestorePos()
     f:Show()
     ns.Theme:Raise(f)
-    Bags:ShowRefresh()
+    Bags:Layout()
   else
     f:Hide()
   end
@@ -230,7 +230,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
   elseif event == "PLAYER_LEVEL_UP" or event == "SKILL_LINES_CHANGED" then
     ns.ClearUnusableCache()
     if Bags.pool then for _, b in ipairs(Bags.pool) do b.link = nil end end
-    if Bags.frame and Bags.frame:IsShown() then Bags:Layout() else Bags.needLayout = true end
+    if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
     if ns.Bank then ns.Bank:Repaint() end
   elseif event == "BANKFRAME_OPENED" then
     if ns.Bank then ns.Bank.bankerOpen = true; ns.Bank:OnBankOpened() end
