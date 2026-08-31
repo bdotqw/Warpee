@@ -71,3 +71,4 @@ local ids = {
 local T = {}
 for i = 1, #ids do T[ids[i]] = true end
 ns.TIER_TOKENS = T
+ns.TOKEN_EXP_NONE = { [7] = true }

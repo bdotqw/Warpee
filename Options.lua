@@ -506,17 +506,20 @@ local function cycle(spec, dir)
 end
 
 function factories.select(parent, spec)
+  local bare = (spec.name == nil or spec.name == "")
   local row = CreateFrame("Frame", nil, parent)
-  row:SetHeight(46)
+  row:SetHeight(bare and 26 or 46)
 
-  local fs = track(Theme:Label(row, BASE_FONT, "text"), 0)
-  fs:SetPoint("TOPLEFT", 1, -1)
-  fs:SetText(spec.name)
+  if not bare then
+    local fs = track(Theme:Label(row, BASE_FONT, "text"), 0)
+    fs:SetPoint("TOPLEFT", 1, -1)
+    fs:SetText(spec.name)
+  end
 
   local btn = CreateFrame("Button", nil, row, "BackdropTemplate")
   btn:SetHeight(24)
-  btn:SetPoint("BOTTOMLEFT", 1, 0)
-  btn:SetPoint("BOTTOMRIGHT", -1, 0)
+  btn:SetPoint("BOTTOMLEFT", 1, bare and 1 or 0)
+  btn:SetPoint("BOTTOMRIGHT", -1, bare and 1 or 0)
   btn:SetBackdrop({ bgFile = Theme.WHITE, edgeFile = Theme.WHITE, edgeSize = 1 })
   btn:SetBackdropColor(Theme:C("panel"))
   btn:SetBackdropBorderColor(Theme:C("stroke"))
@@ -541,21 +544,33 @@ function factories.select(parent, spec)
     for _, t in ipairs(arrow) do t:SetVertexColor(Theme:C(key)) end
   end
 
-  row.Refresh = function() cur:SetText(spec.label(spec.get()) or "") end
+  row.Refresh = function()
+    local off = (spec.disabled and spec.disabled()) and true or false
+    row.off = off
+    cur:SetText(spec.label(spec.get()) or "")
+    cur:SetTextColor(Theme:C(off and "faint" or "text"))
+    btn:SetBackdropColor(Theme:C("panel"))
+    btn:SetBackdropBorderColor(Theme:C(off and "strokeSoft" or "stroke"))
+    arrowColor(off and "faint" or "dim")
+    btn:SetEnabled(not off)
+  end
   row.Refresh()
 
   btn:SetScript("OnEnter", function(s)
+    if row.off then return end
     s:SetBackdropColor(Theme:C("panelHi"))
     s:SetBackdropBorderColor(Theme:C("accent"))
     arrowColor("accent")
   end)
   btn:SetScript("OnLeave", function(s)
+    if row.off then return end
     s:SetBackdropColor(Theme:C("panel"))
     s:SetBackdropBorderColor(Theme:C("stroke"))
     arrowColor("dim")
   end)
   btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   btn:SetScript("OnClick", function(s, button)
+    if row.off then return end
     if button == "RightButton" then
       cycle(spec, -1)
       row.Refresh()
@@ -1227,9 +1242,10 @@ local VENDOR_PAGE = {
     desc = "Sell every grey item, whatever it is and whatever its item level." },
   { type = "toggle", name = "Repair", col = 2, of = 3, get = vRepGet, set = vRepSet,
     desc = "Repair everything at a merchant who offers repairs. One who does not is left alone, with no message." },
-  { type = "select", name = "Paid by", col = 3, of = 3, get = vRepByGet, set = vRepBySet,
+  { type = "select", name = "", col = 3, of = 3, get = vRepByGet, set = vRepBySet,
     keys = function() return REPAIR_BY end,
     label = function(k) return REPAIR_LABELS[k] or k end,
+    disabled = function() return not vRepGet() end,
     desc = "Where the repair money comes from. The guild bank is used only if your withdraw limit covers the whole bill, otherwise nothing is taken from it." },
   { type = "header", name = "The coin button" },
   { type = "description",
@@ -1246,20 +1262,26 @@ local VENDOR_PAGE = {
     desc = "Sell potions, elixirs, flasks, food and bandages from expansions older than the previous one. Off by default, since old food can still be worth keeping." },
   { type = "toggle", name = "Tier tokens", col = 1, get = vTokenGet, set = vTokenSet,
     desc = "Sell raid armor tokens that a vendor turns into a set piece, item level ignored. Only the tokens Warpee knows by item id, from the expansions ticked below." },
-  { type = "toggle", name = "Press it for me at every merchant",
+  { type = "toggle", name = "Sell all of this automatically",
     get = vAutoGet, set = vAutoSet,
-    desc = "Sell this whole list as soon as a merchant opens, exactly as if you had pressed the coin." },
+    desc = "At every merchant the list above is sold straight away, so the coin is only there when you want to check the total first." },
   { type = "header", name = "Token expansions", key = "tokenexp",
     state = function()
       local t = WarpeeDB.vendorTokenExp or {}
+      local none = ns.TOKEN_EXP_NONE or {}
       local cur = LE_EXPANSION_LEVEL_CURRENT
                   or (GetExpansionLevel and GetExpansionLevel()) or 0
-      local n = 0
-      for i = 0, cur do if t[i] then n = n + 1 end end
-      return ("%d of %d"):format(n, cur + 1)
+      local n, all = 0, 0
+      for i = 0, cur do
+        if not none[i] then
+          all = all + 1
+          if t[i] then n = n + 1 end
+        end
+      end
+      return ("%d of %d"):format(n, all)
     end },
   { type = "description", section = "tokenexp",
-    name = "Which expansions tier tokens may be sold from. The four newest are kept by default, so the set you are working on stays in the bags." },
+    name = "Which expansions tier tokens may be sold from. The four newest are kept by default, so the set you are working on stays in the bags. Expansions that never had tokens are not listed." },
   { type = "header", name = "Never sell",
     state = function() return onOf({ vBoEGet, vWbGet, vGemGet }) end },
   { type = "toggle", name = "Keep BoE", col = 1, get = vBoEGet, set = vBoESet,
@@ -1278,15 +1300,20 @@ do
     if row.type == "header" and row.name == "Never sell" then at = i; break end
   end
   local rows = {}
+  local none = ns.TOKEN_EXP_NONE or {}
+  local slot = 0
   for i = 0, cur do
-    rows[#rows + 1] = {
-      type = "toggle", name = expName(i), col = (i % 2 == 0) and 1 or 2,
-      section = "tokenexp",
-      get = function() return vExpGet(i) end,
-      set = function(v) vExpSet(i, v) end,
-      disabled = vTokensOff,
-      desc = "Sell tier tokens from this expansion. Unticked keeps them, so the sets you are still working on stay in the bags.",
-    }
+    if not none[i] then
+      rows[#rows + 1] = {
+        type = "toggle", name = expName(i), col = (slot % 2 == 0) and 1 or 2,
+        section = "tokenexp",
+        get = function() return vExpGet(i) end,
+        set = function(v) vExpSet(i, v) end,
+        disabled = vTokensOff,
+        desc = "Sell tier tokens from this expansion. Unticked keeps them, so the sets you are still working on stay in the bags.",
+      }
+      slot = slot + 1
+    end
   end
   if at then
     for k = #rows, 1, -1 do table.insert(VENDOR_PAGE, at, rows[k]) end
