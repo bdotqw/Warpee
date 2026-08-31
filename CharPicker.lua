@@ -208,7 +208,7 @@ function Picker:Paint(keepScroll)
   self:UpdateHiddenBorder()
 
   local bodyH = math.max(ROW_H, math.min(y, MAX_ROWS * ROW_H))
-  self.frame:SetSize(widest + PAD * 2, PAD * 2 + HEAD_H + bodyH)
+  ns.SnapSize(self.frame, widest + PAD * 2, PAD * 2 + HEAD_H + bodyH)
   self.child:SetSize(widest, math.max(1, y))
   local span = math.max(0, y - bodyH)
   self.sf:SetVerticalScroll(math.min(span, math.max(0, scroll)))
