@@ -159,10 +159,10 @@ function Vendor:Ilvl()
 end
 
 function Vendor:Scan(junkOnly)
-  local out, total, kept = {}, 0, 0
+  local out, total, kept, locked = {}, 0, 0, 0
   local cap = self:Ilvl()
   local low = tonumber(WarpeeDB and WarpeeDB.vendorIlvlMin) or 0
-  if not ns.playerBags then return out, 0, 0 end
+  if not ns.playerBags then return out, 0, 0, 0 end
   local keepBoE = not (WarpeeDB.vendorKeepBoE == false)
   local keepWb = not (WarpeeDB.vendorKeepWarbound == false)
   local keepGems = not (WarpeeDB.vendorKeepGems == false)
@@ -181,9 +181,7 @@ function Vendor:Scan(junkOnly)
         local q = info.quality or 9
         local _, _, _, equipLoc, _, classID, subID = C_Item.GetItemInfoInstant(link)
         local take, lvl = false, nil
-        if self:Blocked(info.itemID) or questItem(bag, slot) then
-          take = false
-        elseif grey and q == 0 then
+        if grey and q == 0 then
           take = true
         elseif consum and q <= 4 and oldConsumable(link, classID, subID) then
           take = true
@@ -206,6 +204,8 @@ function Vendor:Scan(junkOnly)
           if take and keepGems and hasGems(link) then take = false; kept = kept + 1 end
         end
         if take and refundable(bag, slot) then take = false end
+        if take and questItem(bag, slot) then take = false end
+        if take and self:Blocked(info.itemID) then take = false; locked = locked + 1 end
         if take then
           local value = sellPrice(link) * (info.stackCount or 1)
           out[#out + 1] = { bag = bag, slot = slot, id = info.itemID, ilvl = lvl,
@@ -215,7 +215,7 @@ function Vendor:Scan(junkOnly)
       end
     end
   end
-  return out, total, kept
+  return out, total, kept, locked
 end
 
 function Vendor:TipLines()
@@ -229,7 +229,7 @@ function Vendor:TipLines()
   else
     out[#out + 1] = { text = "Item level is zero, gear is kept", color = "dim", size = 10 }
   end
-  local list, total, kept = self:Scan()
+  local list, total, kept, locked = self:Scan()
   if #list == 0 then
     out[#out + 1] = { text = "Nothing to sell", color = "faint" }
   else
@@ -239,6 +239,9 @@ function Vendor:TipLines()
   if kept > 0 then
     out[#out + 1] = { text = ("%d held by the never-sell rules"):format(kept),
                       color = "dim", size = 10 }
+  end
+  if locked > 0 then
+    out[#out + 1] = { text = ("%d locked by you"):format(locked), color = "dim", size = 10 }
   end
   if self:Busy() then
     out[#out + 1] = { text = "Selling now", color = "accent", size = 10 }
