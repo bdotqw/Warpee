@@ -328,13 +328,14 @@ end
 function View:AnchorHeader()
   if not self.frame then return end
   local top = Theme:TopInset()
+  local row1 = 6 + top - Theme:HeadLift()
   if self.closeBtn then
     self.closeBtn:ClearAllPoints()
-    ns.SnapPoint(self.closeBtn, "TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -(6 + top))
+    ns.SnapPoint(self.closeBtn, "TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row1)
   end
   if self.bankTab then
     self.bankTab:ClearAllPoints()
-    ns.SnapPoint(self.bankTab, "TOPLEFT", self.frame, "TOPLEFT", PAD, -(6 + top))
+    ns.SnapPoint(self.bankTab, "TOPLEFT", self.frame, "TOPLEFT", PAD, -row1)
   end
   Theme:HeaderBand(self.frame)
   self:AnchorSearch()
