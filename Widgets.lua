@@ -357,6 +357,8 @@ function ns.SearchTip(box)
         color = "faint", size = 12 },
       { text = "head neck shoulder back chest wrist hands waist legs feet finger trinket 1h 2h",
         color = "faint", size = 12 },
+      { text = "shield offhand held ranged relic tabard shirt tool bagslot",
+        color = "faint", size = 12 },
       { text = "poor common uncommon rare epic legendary heirloom",
         color = "faint", size = 12 },
       { text = "gear reagent consumable quest keystone token gem recipe bag mount pet glyph",
