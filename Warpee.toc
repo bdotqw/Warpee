@@ -1,8 +1,8 @@
 ## Interface: 120100
 ## Title: Warpee
-## Notes: Единое окно для сумок, банка, банка Орды (Warband) и банка гильдии.
+## Notes: One window for bags, the bank, the Warband bank and the guild bank.
 ## Author: disru
-## Version: 120
+## Version: 121
 ## SavedVariables: WarpeeDB
 ## X-Category: Inventory
 ## IconTexture: 7549289

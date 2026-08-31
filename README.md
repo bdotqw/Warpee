@@ -1,28 +1,28 @@
 # Warpee
 
-Единое окно для сумок, банка и банка Warband в World of Warcraft (Midnight, 12.x). Без категорий, быстро, с темами.
+One window for bags, bank and the Warband bank in World of Warcraft (Midnight, 12.x). No categories, fast, themed.
 
-## Что умеет
+## Features
 
-- **Одно окно** на сумки, банк и Warband-банк — без деления на категории.
-- **4 темы** (Midnight, Ember, Obsidian, Ink) с перекраской на лету.
-- **Снапшоты** сумок и банка других персонажей — общий попап переключения.
-- **Продажа лоу-илвл шмота** вендору одной кнопкой: порог илвла в настройках, по 12 предметов за проход, попутно серый хлам и реликвии Legion; BoE, варбаунд и вещи с камнями остаются.
-- **Подсчёт предметов по всем персонажам** прямо в тултипе Blizzard (сумки / банк / Warband / итого).
-- **Форматы золота** (запятые, точки, пробелы, K/M), тултип по золоту со списком персонажей.
-- **X/Y-бар** для точного позиционирования окон и блокировки позиций.
-- Шрифт **Expressway** по умолчанию; поддержка чужих шрифтов через LibSharedMedia.
+- **One window** for bags, bank and the Warband bank, with no category sorting.
+- **4 themes** (Midnight, Ember, Obsidian, Ink), recoloured on the fly.
+- **Snapshots** of other characters' bags and bank, behind a shared switcher popup.
+- **Vendor sell** in one click: item level range in the options, 12 items per pass, grey junk, Legion relics, old consumables and raid tier tokens optional; BoE, warbound and socketed gear stay in the bags, and any item can be locked with alt-click.
+- **Item counts across every character** inside the Blizzard tooltip (bags / bank / Warband / total).
+- **Gold formats** (commas, dots, spaces, K/M) and a gold tooltip listing characters.
+- **X/Y bar** for placing windows exactly, plus a position lock.
+- **Expressway** font by default; other fonts through LibSharedMedia.
 
-## Установка
+## Install
 
-Скопируйте папку `Warpee` в `Interface\AddOns\`. Шрифт `Media\Expressway.ttf` идёт в комплекте.
+Copy the `Warpee` folder into `Interface\AddOns\`. The `Media\Expressway.ttf` font ships with it.
 
-## Команды
+## Commands
 
-- `/warpee` или `/wpe` — открыть настройки
-- `/wpe bags` — сумки, `/wpe bank` — банк, `/wpe warband` — Warband
-- `/wpe cols N` — число колонок в сумках
+- `/warpee` or `/wpe` — open the options
+- `/wpe bags` — bags, `/wpe bank` — bank, `/wpe warband` — Warband
+- `/wpe cols N` — column count in the bags
 
-## Библиотеки
+## Libraries
 
-LibStub, CallbackHandler-1.0, LibSharedMedia-3.0 — в `Libs/`, оригинальные версии.
+LibStub, CallbackHandler-1.0, LibSharedMedia-3.0 — in `Libs/`, unmodified.
