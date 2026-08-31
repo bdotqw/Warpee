@@ -350,6 +350,8 @@ local function restoreAll()
   if ns.CharPicker then ns.RestoreArt(ns.CharPicker.frame) end
   ns.RestoreArt(_G.WarpeeDropdown)
   ns.RestoreArt(_G.WarpeeMinimapButton)
+  ns.RestoreArt(_G.WarpeeTip)
+  ns.RestoreArt(_G.WarpeeGoldTip)
 end
 
 function ns.RefreshPixels()
@@ -377,7 +379,36 @@ local watcher = CreateFrame("Frame")
 local lastScale = UIParent:GetEffectiveScale() or 1
 local lastPhys = physH
 local since = 0
-watcher:SetScript("OnUpdate", function(_, dt)
+local pending = false
+local passes = 0
+local lastRun = 0
+
+local function runRefresh()
+  pending = false
+  lastRun = (GetTime and GetTime()) or 0
+  passes = 0
+  lastScale = UIParent:GetEffectiveScale() or lastScale
+  local _, h = GetPhysicalScreenSize()
+  if h and h > 0 then lastPhys = h end
+  pcall(ns.RefreshPixels)
+end
+
+function ns.ScaleChanged()
+  if pending then return end
+  pending = true
+  if C_Timer and C_Timer.After then
+    local now = (GetTime and GetTime()) or 0
+    C_Timer.After(math.max(0, lastRun + 0.2 - now), runRefresh)
+  else
+    runRefresh()
+  end
+end
+
+watcher:SetScript("OnUpdate", function(self, dt)
+  if passes < 3 then
+    passes = passes + 1
+    if passes == 3 then restoreAll() end
+  end
   since = since + (dt or 0)
   if since < 0.2 then return end
   since = 0
@@ -385,10 +416,14 @@ watcher:SetScript("OnUpdate", function(_, dt)
   local _, h = GetPhysicalScreenSize()
   h = (h and h > 0) and h or lastPhys
   if math.abs(s - lastScale) > 0.0005 or h ~= lastPhys then
-    lastScale, lastPhys = s, h
-    pcall(ns.RefreshPixels)
+    ns.ScaleChanged()
   end
 end)
+
+hooksecurefunc(UIParent, "SetScale", function() ns.ScaleChanged() end)
+if UIParent.SetIgnoreParentScale then
+  hooksecurefunc(UIParent, "SetIgnoreParentScale", function() ns.ScaleChanged() end)
+end
 
 function Theme:C(name) local c = self.colors[name]; return c[1], c[2], c[3], c[4] end
 
