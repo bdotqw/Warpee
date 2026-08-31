@@ -418,6 +418,7 @@ function factories.input(parent, spec)
   box:SetMaxLetters(4)
 
   row.Refresh = function()
+    fs:SetText(T(spec.name))
     if not box:HasFocus() then box:SetText(tostring(spec.get() or 0)) end
   end
 
@@ -516,6 +517,7 @@ function factories.range(parent, spec)
     local on = not (spec.disabled and spec.disabled())
     s.offDuty = not on
     s:EnableMouse(on)
+    fs:SetText(T(spec.name))
     fs:SetTextColor(Theme:C(on and "text" or "faint"))
     val:SetTextColor(Theme:C(on and "accentInk" or "faint"))
     thumb:SetVertexColor(Theme:C(on and "accentInk" or "faint"))
