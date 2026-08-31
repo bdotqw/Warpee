@@ -394,9 +394,12 @@ function Theme:RefreshArt(frame)
   if self:Skinned() then
     local art = buildArt(frame)
     if art then sinkArt(frame, art); art:Show() end
+    if frame.wpeBandH then self:HeaderBand(frame) end
     return art
   end
   if frame.wpeArt then frame.wpeArt:Hide() end
+  if frame.wpeBand then frame.wpeBand:Hide() end
+  if frame.wpeBandLine then frame.wpeBandLine:Hide() end
   return false
 end
 
@@ -405,6 +408,46 @@ function Theme:WindowArt(frame)
   local fn = tracked[frame]
   if fn then fn(frame) else self:RefreshArt(frame) end
   return frame
+end
+
+-- A taller header band than the template's own 28px title tile, so a window can
+-- fit its buttons and the character tag inside it. Same tiling art the game uses
+-- across the top of its own frames.
+local BAND_ATLAS = "_UI-Frame-TopTileStreaks"
+
+function Theme:HeaderBand(frame, height)
+  if height then frame.wpeBandH = height end
+  local t = frame.wpeBand
+  if not self:Skinned() then
+    if t then t:Hide() end
+    if frame.wpeBandLine then frame.wpeBandLine:Hide() end
+    return
+  end
+  if not t then
+    t = frame:CreateTexture(nil, "BORDER")
+    frame.wpeBand = t
+  end
+  if not pcall(t.SetAtlas, t, BAND_ATLAS) then
+    t:SetColorTexture(self:C("panelHi"))
+  end
+  t:ClearAllPoints()
+  t:SetPoint("TOPLEFT", frame, "TOPLEFT", 4, -4)
+  t:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -4, -4)
+  t:SetHeight(frame.wpeBandH or 34)
+  t:Show()
+
+  local line = frame.wpeBandLine
+  if not line then
+    line = frame:CreateTexture(nil, "BORDER")
+    line:SetTexture(WHITE)
+    frame.wpeBandLine = line
+    ns.PixelLine(line, 1)
+  end
+  line:SetVertexColor(self:C("strokeSoft"))
+  line:ClearAllPoints()
+  line:SetPoint("TOPLEFT", t, "BOTTOMLEFT", 0, 0)
+  line:SetPoint("TOPRIGHT", t, "BOTTOMRIGHT", 0, 0)
+  line:Show()
 end
 
 function Theme:Panel(frame, bgKey, strokeKey)

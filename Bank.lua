@@ -172,6 +172,7 @@ function View:Build()
     ns.Rebase(s, "bankPos")
   end)
   Theme:Window(f, "WarpeeBankFrame")
+  Theme:HeaderBand(f, 34)
   f:SetScript("OnHide", function()
     ns.ClearSearch(self.search)
     self.depositType = nil

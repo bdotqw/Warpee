@@ -44,6 +44,7 @@ function Bags:Build()
     ns.Rebase(s, "pos")
   end)
   Theme:Window(f, "WarpeeFrame")
+  Theme:HeaderBand(f, ROW1_Y + HB + 2)
   f:SetScript("OnHide", function()
     ns.ClearSearch(Bags.search)
     if ns.CharPicker then ns.CharPicker:Close() end

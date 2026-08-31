@@ -1475,6 +1475,7 @@ function Options:Build()
   end)
   f:SetScript("OnMouseDown", function(s) Theme:Raise(s) end)
   Theme:Window(f, "WarpeeOptionsFrame")
+  Theme:HeaderBand(f, HEADER_H - 4)
   f:SetScript("OnHide", function()
     local row = Options.charsRow
     if row and row.delMode then
