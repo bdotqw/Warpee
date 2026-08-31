@@ -1,15 +1,21 @@
 local addonName, ns = ...
 
-local L = setmetatable({}, { __index = function(_, k) return k end })
+local TABLES = {}
+
+local L = setmetatable({}, { __index = function(_, k)
+  local t = TABLES[ns.LocalePick()]
+  local v = t and t[k]
+  return v or k
+end })
 ns.L = L
 
-ns.LOCALES = { "auto", "enUS", "ruRU" }
-ns.LOCALE_LABELS = { auto = "Game language", enUS = "English", ruRU = "Русский" }
+ns.LOCALES = { "enUS", "ruRU" }
+ns.LOCALE_LABELS = { enUS = "English", ruRU = "Русский" }
 
 function ns.LocalePick()
   local pick = WarpeeDB and WarpeeDB.locale
-  if pick == nil or pick == "auto" then return GetLocale() end
-  return pick
+  if pick == "enUS" or pick == "ruRU" then return pick end
+  return (GetLocale() == "ruRU") and "ruRU" or "enUS"
 end
 
 local RU = {
@@ -190,10 +196,6 @@ local RU = {
   ["1 item"] = "1 предмет",
   ["%d items"] = "%d предметов",
   ["%d and %d wide"] = "%d и %d в ряду",
-  ["Language changes after a UI reload."] = "Язык сменится после перезагрузки интерфейса.",
 }
 
-do
-  local t = (ns.LocalePick() == "ruRU") and RU or nil
-  if t then for k, v in pairs(t) do L[k] = v end end
-end
+TABLES.ruRU = RU

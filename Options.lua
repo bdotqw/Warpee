@@ -64,10 +64,11 @@ local function mmHideSet(v)
   WarpeeDB.hideMinimapIcon = v and true or false
   if ns.ApplyMinimapIcon then ns.ApplyMinimapIcon() end
 end
-local function localeGet() return WarpeeDB.locale or "auto" end
+local function localeGet() return ns.LocalePick() end
 local function localeSet(v)
-  WarpeeDB.locale = v or "auto"
-  print("|cffd9a85fWarpee|r " .. L["Language changes after a UI reload."])
+  WarpeeDB.locale = v
+  if Options.ReflowPages then Options:ReflowPages() end
+  if ns.ApplyLocaleText then ns.ApplyLocaleText() end
 end
 local function localeKeys() return ns.LOCALES end
 local function localeLabel(k) return ns.LOCALE_LABELS[k] or k end
@@ -106,7 +107,7 @@ end
 local function tip(frame, text)
   if not text then return end
   if frame.EnableMouse then frame:EnableMouse(true) end
-  ns.AddTip(frame, text, "right")
+  ns.AddTip(frame, function() return T(text) end, "right")
 end
 
 local fonts = {}
@@ -292,7 +293,10 @@ function factories.header(parent, spec)
   local fs = track(Theme:Label(row, BASE_FONT, "azure"), 0)
   fs:SetPoint("BOTTOMLEFT", spec.key and 22 or 0, 6)
   fs:SetText(T(spec.name):upper())
-  if not spec.key then return row end
+  if not spec.key then
+    row.Refresh = function() fs:SetText(T(spec.name):upper()) end
+    return row
+  end
 
   local down = caretGroup(row, "down")
   down:SetPoint("BOTTOMLEFT", 0, 8)
@@ -302,6 +306,7 @@ function factories.header(parent, spec)
   state:SetPoint("BOTTOMRIGHT", 0, 7)
 
   row.Refresh = function()
+    fs:SetText(T(spec.name):upper())
     local on = sectionOpen(spec.key)
     down:SetShown(on)
     right:SetShown(not on)
@@ -328,6 +333,7 @@ function factories.description(parent, spec)
   fs:SetText(T(spec.name))
   row:SetHeight(fs:GetStringHeight() + 6)
   row.autoHeight = fs
+  row.Refresh = function() fs:SetText(T(spec.name)) end
   return row
 end
 
@@ -351,10 +357,12 @@ function factories.toggle(parent, spec)
   fs:SetPoint("LEFT", box, "RIGHT", 8, 0)
   fs:SetPoint("RIGHT", -2, 0)
   fs:SetJustifyH("LEFT")
-  if type(spec.name) ~= "function" then fs:SetText(T(spec.name)) end
-
   row.Refresh = function()
-    if type(spec.name) == "function" then fs:SetText(T(spec.name()) or "") end
+    if type(spec.name) == "function" then
+      fs:SetText(T(spec.name()) or "")
+    else
+      fs:SetText(T(spec.name))
+    end
     local off = (spec.disabled and spec.disabled()) and true or false
     local on = spec.get() and true or false
     mark:SetShown(on)
@@ -379,7 +387,7 @@ function factories.toggle(parent, spec)
     box:SetBackdropBorderColor(Theme:C(row.off and "strokeSoft" or "stroke"))
   end)
   row.Refresh()
-  tip(row, T(spec.desc))
+  tip(row, spec.desc)
   return row
 end
 
@@ -432,7 +440,7 @@ function factories.input(parent, spec)
   end)
 
   row.Refresh()
-  tip(row, T(spec.desc))
+  tip(row, spec.desc)
   return row
 end
 
@@ -519,7 +527,7 @@ function factories.range(parent, spec)
     paint(spec.get())
   end
   row.Refresh()
-  tip(row, T(spec.desc))
+  tip(row, spec.desc)
   row.slider = s
   return row
 end
@@ -538,10 +546,11 @@ function factories.select(parent, spec)
   local row = CreateFrame("Frame", nil, parent)
   row:SetHeight(bare and 26 or 46)
 
+  local nameFS
   if not bare then
-    local fs = track(Theme:Label(row, BASE_FONT, "text"), 0)
-    fs:SetPoint("TOPLEFT", 1, -1)
-    fs:SetText(T(spec.name))
+    nameFS = track(Theme:Label(row, BASE_FONT, "text"), 0)
+    nameFS:SetPoint("TOPLEFT", 1, -1)
+    nameFS:SetText(T(spec.name))
   end
 
   local btn = CreateFrame("Button", nil, row, "BackdropTemplate")
@@ -575,6 +584,7 @@ function factories.select(parent, spec)
   row.Refresh = function()
     local off = (spec.disabled and spec.disabled()) and true or false
     row.off = off
+    if nameFS then nameFS:SetText(T(spec.name)) end
     cur:SetText(T(spec.label(spec.get())) or "")
     cur:SetTextColor(Theme:C(off and "faint" or "text"))
     btn:SetBackdropColor(Theme:C("panel"))
@@ -606,7 +616,7 @@ function factories.select(parent, spec)
     end
     openDropdown(s, spec, row.Refresh)
   end)
-  tip(row, T(spec.desc))
+  tip(row, spec.desc)
   return row
 end
 
@@ -1410,7 +1420,21 @@ end
 
 function Options:ReflowPages()
   if not self.areas then return end
-  if self.tabs then for _, tab in ipairs(self.tabs) do paintTab(tab) end end
+  if self.tabs then
+    local prev
+    for i, tab in ipairs(self.tabs) do
+      tab.Text:SetText(T(PAGES[i].name))
+      tab:SetWidth(math.max(70, tab.Text:GetStringWidth() + 22))
+      tab:ClearAllPoints()
+      if prev then
+        tab:SetPoint("TOPLEFT", prev, "TOPRIGHT", 5, 0)
+      else
+        tab:SetPoint("TOPLEFT", PAD, -(HEADER_H + 7))
+      end
+      prev = tab
+      paintTab(tab)
+    end
+  end
   for _, row in ipairs(rows) do row.Refresh() end
   for _, area in ipairs(self.areas) do
     area.page.Relayout()
