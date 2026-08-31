@@ -410,6 +410,7 @@ function Bags:Resize(contentH)
   self.gridBg:ClearAllPoints()
   self.gridBg:SetPoint("TOPLEFT", self.content, "TOPLEFT", -3, 3)
   self.gridBg:SetPoint("BOTTOMRIGHT", self.content, "BOTTOMRIGHT", 3, -3)
+  self.gridBg:SetAlpha(Theme:GridAlpha())
   ns.Rebase(self.frame, "pos")
 end
 

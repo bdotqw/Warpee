@@ -72,6 +72,7 @@ function Theme:Restyle(name)
   for obj, fn in pairs(tracked) do fn(obj) end
   if ns.Bags and ns.Bags.Restyle then ns.Bags:Restyle() end
   if ns.Bank and ns.Bank.Restyle then ns.Bank:Restyle() end
+  self:ApplyGridAlpha()
   if ns.Options and ns.Options.ReflowPages then ns.Options:ReflowPages() end
 end
 

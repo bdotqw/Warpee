@@ -156,6 +156,8 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.vendorKeepGems == nil then WarpeeDB.vendorKeepGems = true end
     if WarpeeDB.vendorGrey == nil then WarpeeDB.vendorGrey = true end
     if WarpeeDB.vendorRelics == nil then WarpeeDB.vendorRelics = true end
+    if WarpeeDB.vendorRepair == nil then WarpeeDB.vendorRepair = false end
+    WarpeeDB.vendorRepairBy = WarpeeDB.vendorRepairBy or "player"
     WarpeeDB.vendorKeepMog, WarpeeDB.vendorKeepFresh = nil, nil
     if WarpeeDB.autoOpen == nil then
       WarpeeDB.autoOpen = { auction = true, bank = true, mail = true, trade = true,

@@ -437,6 +437,7 @@ function View:Activate(mode)
   self.gridBg:ClearAllPoints()
   self.gridBg:SetPoint("TOPLEFT", st.content, "TOPLEFT", -3, 3)
   self.gridBg:SetPoint("BOTTOMRIGHT", st.content, "BOTTOMRIGHT", 3, -3)
+  self.gridBg:SetAlpha(Theme:GridAlpha())
   self:Layout()
 end
 
