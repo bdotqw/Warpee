@@ -242,7 +242,10 @@ function Vendor:TipLines()
   return out
 end
 local ev = CreateFrame("Frame")
+local pump = CreateFrame("Frame")
+pump:Hide()
 local open, run, gen = false, nil, 0
+local PER_FRAME = 3
 
 function Vendor:IsOpen() return open end
 function Vendor:Busy() return run ~= nil end
@@ -254,6 +257,7 @@ local function finish()
   local stuck = 0
   for _ in pairs(run.dead or {}) do stuck = stuck + 1 end
   run = nil
+  pump:Hide()
   ev:UnregisterEvent("BAG_UPDATE_DELAYED")
   if stuck > 0 then
     print(("|cffd9a85fWarpee|r %d items refused to sell, left in the bags"):format(stuck))
@@ -265,6 +269,47 @@ local function finish()
     print(("|cffd9a85fWarpee|r sold %d items for %s"):format(sold, ns.FormatMoney(earned, false)))
   end)
 end
+
+local function sendOne(it)
+  local key = ("%d:%d:%d"):format(it.id or 0, it.bag, it.slot)
+  local n = run.tries[key] or 0
+  if n >= 3 then
+    run.dead[key] = true
+    return false
+  end
+  local now = C_Container.GetContainerItemInfo(it.bag, it.slot)
+  if not (now and not now.isLocked and now.itemID == it.id) then return false end
+  run.tries[key] = n + 1
+  C_Container.UseContainerItem(it.bag, it.slot)
+  return true
+end
+
+pump:SetScript("OnUpdate", function(self)
+  if not (run and run.queue) then self:Hide(); return end
+  local this = 0
+  while this < PER_FRAME and run.qi <= #run.queue and run.qsent < Vendor.batch do
+    local it = run.queue[run.qi]
+    run.qi = run.qi + 1
+    if sendOne(it) then
+      this = this + 1
+      run.qsent = run.qsent + 1
+    end
+  end
+  if run.qi <= #run.queue and run.qsent < Vendor.batch then return end
+  local sent = run.qsent
+  run.queue, run.qi, run.qsent = nil, nil, nil
+  self:Hide()
+  if sent == 0 then
+    run.idle = (run.idle or 0) + 1
+    if run.idle >= 3 then finish(); return end
+  else
+    run.idle = 0
+  end
+  local mark = gen
+  C_Timer.After(1, function()
+    if run and gen == mark then Vendor:Pass() end
+  end)
+end)
 
 function Vendor:Pass()
   gen = gen + 1
@@ -282,28 +327,8 @@ function Vendor:Pass()
   if run.passes > 60 then finish(); return end
   if CursorHasItem() then ClearCursor() end
   ev:RegisterEvent("BAG_UPDATE_DELAYED")
-  local sent = 0
-  for i = 1, count do
-    if sent >= self.batch then break end
-    local it = list[i]
-    local key = ("%d:%d:%d"):format(it.id or 0, it.bag, it.slot)
-    local n = run.tries[key] or 0
-    if n >= 3 then
-      run.dead[key] = true
-    else
-      local now = C_Container.GetContainerItemInfo(it.bag, it.slot)
-      if now and not now.isLocked and now.itemID == it.id then
-        run.tries[key] = n + 1
-        C_Container.UseContainerItem(it.bag, it.slot)
-        sent = sent + 1
-      end
-    end
-  end
-  if sent == 0 then finish(); return end
-  local mark = gen
-  C_Timer.After(1, function()
-    if run and gen == mark then Vendor:Pass() end
-  end)
+  run.queue, run.qi, run.qsent = list, 1, 0
+  pump:Show()
 end
 
 function Vendor:Sell()
@@ -325,7 +350,7 @@ ev:SetScript("OnEvent", function(_, event)
     finish()
     if ns.Bags then ns.Bags:VendorState() end
   elseif event == "BAG_UPDATE_DELAYED" then
-    if run then Vendor:Pass() end
+    if run and not run.queue then Vendor:Pass() end
   elseif event == "MERCHANT_CONFIRM_TRADE_TIMER_REMOVAL" then
     if run and SellCursorItem then
       SellCursorItem()
