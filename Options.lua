@@ -70,7 +70,11 @@ local ANCHOR_LABELS = { TOPLEFT = "Top left", TOPRIGHT = "Top right",
 local STYLES = { "flat", "plate", "tile", "deep" }
 local STYLE_LABELS = { flat = "Off", plate = "Light", tile = "Medium", deep = "Strong" }
 local THEME_LABELS = {}
-for _, k in ipairs(Theme.THEME_ORDER) do THEME_LABELS[k] = Theme.THEMES[k].label end
+for i = #Theme.THEME_ORDER, 1, -1 do
+  local k = Theme.THEME_ORDER[i]
+  local t = Theme.THEMES[k]
+  if t then THEME_LABELS[k] = t.label or k else table.remove(Theme.THEME_ORDER, i) end
+end
 local function themeGet() return WarpeeDB.theme or "midnight" end
 local function themeSet(v)
   WarpeeDB.theme = v
