@@ -259,9 +259,9 @@ function Bags:ToggleBagWindow()
   w:ClearAllPoints()
   local pp = WarpeeDB and WarpeeDB.bagWinPos
   if pp then
-    w:SetPoint(pp.p, UIParent, pp.rp, pp.x, pp.y)
+    ns.SnapPoint(w, pp.p, UIParent, pp.rp, pp.x, pp.y)
   elseif self.frame then
-    w:SetPoint("BOTTOMLEFT", self.frame, "TOPLEFT", 0, 6)
+    ns.SnapPoint(w, "BOTTOMLEFT", self.frame, "TOPLEFT", 0, 6)
   else
     w:SetPoint("CENTER")
   end
