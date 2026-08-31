@@ -239,16 +239,16 @@ end
 
 local function caretGroup(parent, dir)
   local g = CreateFrame("Frame", nil, parent)
-  if dir == "down" then g:SetSize(9, 5) else g:SetSize(5, 9) end
-  for i = 1, 3 do
+  if dir == "down" then g:SetSize(12, 8) else g:SetSize(8, 12) end
+  for i = 1, 4 do
     local t = Theme:Rect(g, "dim", "ARTWORK")
     if dir == "down" then
-      t:SetHeight(1)
-      t:SetWidth(9 - (i - 1) * 3)
+      t:SetHeight(2)
+      t:SetWidth(12 - (i - 1) * 3)
       t:SetPoint("TOP", g, "TOP", 0, -(i - 1) * 2)
     else
-      t:SetWidth(1)
-      t:SetHeight(9 - (i - 1) * 3)
+      t:SetWidth(2)
+      t:SetHeight(12 - (i - 1) * 3)
       t:SetPoint("LEFT", g, "LEFT", (i - 1) * 2, 0)
     end
   end
@@ -263,14 +263,14 @@ function factories.header(parent, spec)
   line:SetPoint("BOTTOMLEFT", 0, 0)
   line:SetPoint("BOTTOMRIGHT", 0, 0)
   local fs = track(Theme:Label(row, BASE_FONT, "azure"), 0)
-  fs:SetPoint("BOTTOMLEFT", spec.key and 15 or 0, 6)
+  fs:SetPoint("BOTTOMLEFT", spec.key and 18 or 0, 6)
   fs:SetText(spec.name:upper())
   if not spec.key then return row end
 
   local down = caretGroup(row, "down")
-  down:SetPoint("BOTTOMLEFT", 0, 10)
+  down:SetPoint("BOTTOMLEFT", 0, 9)
   local right = caretGroup(row, "right")
-  right:SetPoint("BOTTOMLEFT", 2, 8)
+  right:SetPoint("BOTTOMLEFT", 2, 7)
   local state = track(Theme:Label(row, BASE_FONT - 3, "faint"), -3)
   state:SetPoint("BOTTOMRIGHT", 0, 7)
 
@@ -1100,6 +1100,15 @@ local ITEMS_PAGE = {
     get = countXGet, set = countXSet, half = "right" },
   { type = "range", name = "Y offset", min = -20, max = 20, step = 1, section = "countnum",
     get = countYGet, set = countYSet, half = "left" },
+  { type = "header", name = "Locked items", key = "locked",
+    state = function()
+      local n = 0
+      for _ in pairs(WarpeeDB.vendorBlack or {}) do n = n + 1 end
+      return (n == 1) and "1 item" or ("%d items"):format(n)
+    end },
+  { type = "description", section = "locked",
+    name = "Alt-click an item in the bags or the bank to lock it: a padlock appears on the slot and the vendor never sells it, whatever the Vendor tab says. Alt-click again, or press the cross here, to unlock." },
+  { type = "blacklist", section = "locked" },
 }
 
 SECTION_CLOSED.bankgrid = true
@@ -1179,7 +1188,7 @@ local function vRepGet() return WarpeeDB.vendorRepair and true or false end
 local function vRepSet(v) WarpeeDB.vendorRepair = v and true or false end
 local REPAIR_BY = { "player", "guild", "both" }
 local REPAIR_LABELS = { player = "Your gold", guild = "Guild bank",
-                        both = "Guild bank, then your gold" }
+                        both = "Guild first" }
 local function vRepByGet() return WarpeeDB.vendorRepairBy or "player" end
 local function vRepBySet(v) WarpeeDB.vendorRepairBy = v or "player" end
 local function vRelicGet() return WarpeeDB.vendorRelics ~= false end
@@ -1209,28 +1218,37 @@ local function expName(i)
 end
 
 SECTION_CLOSED.tokenexp = true
-SECTION_CLOSED.locked = true
 
 local VENDOR_PAGE = {
-  { type = "header", name = "Gear by item level" },
+  { type = "header", name = "Runs on its own" },
+  { type = "description",
+    name = "These start the moment a merchant window opens, with no click from you." },
+  { type = "toggle", name = "Sell junk", col = 1, of = 3, get = vGreyGet, set = vGreySet,
+    desc = "Sell every grey item, whatever it is and whatever its item level." },
+  { type = "toggle", name = "Repair", col = 2, of = 3, get = vRepGet, set = vRepSet,
+    desc = "Repair everything at a merchant who offers repairs. One who does not is left alone, with no message." },
+  { type = "select", name = "Paid by", col = 3, of = 3, get = vRepByGet, set = vRepBySet,
+    keys = function() return REPAIR_BY end,
+    label = function(k) return REPAIR_LABELS[k] or k end,
+    desc = "Where the repair money comes from. The guild bank is used only if your withdraw limit covers the whole bill, otherwise nothing is taken from it." },
+  { type = "header", name = "The coin button" },
+  { type = "description",
+    name = "Everything below is sold by the coin in the bags header, and only when you press it." },
   { type = "input", name = "Item level from", col = 1, min = 0, max = 9999,
     get = vMinGet, set = vMinSet,
     desc = "Gear at or above this item level is sold, so nothing below it is touched." },
   { type = "input", name = "Item level under", col = 2, min = 0, max = 9999,
     get = vIlvlGet, set = vIlvlSet,
     desc = "Gear under this item level is sold. Zero keeps every piece of gear." },
-  { type = "header", name = "Also sell",
-    state = function()
-      return onOf({ vGreyGet, vRelicGet, vTokenGet, vConsumGet })
-    end },
-  { type = "toggle", name = "Auto sell junk", col = 1, get = vGreyGet, set = vGreySet,
-    desc = "Sell every grey item, whatever it is and whatever its item level. Runs by itself the moment a merchant opens, without pressing the button." },
-  { type = "toggle", name = "Legion relics", col = 2, get = vRelicGet, set = vRelicSet,
+  { type = "toggle", name = "Legion relics", col = 1, get = vRelicGet, set = vRelicSet,
     desc = "Sell artifact relics from Legion. They have no use and no appearance, so the item level is ignored." },
-  { type = "toggle", name = "Tier tokens", col = 1, get = vTokenGet, set = vTokenSet,
-    desc = "Sell raid armour tokens that a vendor turns into a set piece, item level ignored. Only the tokens Warpee knows by item id, from the expansions ticked below." },
   { type = "toggle", name = "Old consumables", col = 2, get = vConsumGet, set = vConsumSet,
     desc = "Sell potions, elixirs, flasks, food and bandages from expansions older than the previous one. Off by default, since old food can still be worth keeping." },
+  { type = "toggle", name = "Tier tokens", col = 1, get = vTokenGet, set = vTokenSet,
+    desc = "Sell raid armour tokens that a vendor turns into a set piece, item level ignored. Only the tokens Warpee knows by item id, from the expansions ticked below." },
+  { type = "toggle", name = "Press it for me at every merchant",
+    get = vAutoGet, set = vAutoSet,
+    desc = "Sell this whole list as soon as a merchant opens, exactly as if you had pressed the coin." },
   { type = "header", name = "Token expansions", key = "tokenexp",
     state = function()
       local t = WarpeeDB.vendorTokenExp or {}
@@ -1250,24 +1268,6 @@ local VENDOR_PAGE = {
     desc = "Skip warbound gear. Its appearance is learned only once worn, and an alt can still use it." },
   { type = "toggle", name = "Keep gems and enchants", col = 1, get = vGemGet, set = vGemSet,
     desc = "Skip any piece that has a gem socketed or an enchant applied, so what you paid for is not sold off with it." },
-  { type = "header", name = "Locked items", key = "locked",
-    state = function()
-      local n = 0
-      for _ in pairs(WarpeeDB.vendorBlack or {}) do n = n + 1 end
-      return (n == 1) and "1 item" or ("%d items"):format(n)
-    end },
-  { type = "description", section = "locked",
-    name = "Alt-click an item in the bags or the bank to lock it, and a small padlock appears on the slot. Alt-click it again, or press the cross here, to unlock. Locked items are never sold, whatever the settings above say." },
-  { type = "blacklist", section = "locked" },
-  { type = "header", name = "Repair" },
-  { type = "toggle", name = "Auto repair", col = 1, get = vRepGet, set = vRepSet,
-    desc = "Repair everything as soon as a merchant who offers repairs opens. A merchant without repairs is left alone, with no message." },
-  { type = "select", name = "Repair paid by", get = vRepByGet, set = vRepBySet,
-    keys = function() return REPAIR_BY end,
-    label = function(k) return REPAIR_LABELS[k] or k end,
-    desc = "Where the money comes from. The guild bank is used only if your withdraw limit covers the whole bill, otherwise nothing is taken from it." },
-  { type = "toggle", name = "Sell on open", col = 1, get = vAutoGet, set = vAutoSet,
-    desc = "Run the whole sell list as soon as a merchant window opens, not just the junk." },
 }
 
 do
