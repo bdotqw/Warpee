@@ -222,12 +222,12 @@ function Vendor:TipLines()
   local cap = self:Ilvl()
   local out = {}
   if not self:IsOpen() then
-    out[#out + 1] = { text = "Locked, talk to a merchant first", color = "azure", size = 11 }
+    out[#out + 1] = { text = "Locked, talk to a merchant first", color = "azure", size = 13 }
   end
   if cap > 0 then
-    out[#out + 1] = { text = "Armour and weapons under ilvl " .. cap, color = "dim", size = 10 }
+    out[#out + 1] = { text = "Armour and weapons under ilvl " .. cap, color = "dim", size = 12 }
   else
-    out[#out + 1] = { text = "Item level is zero, gear is kept", color = "dim", size = 10 }
+    out[#out + 1] = { text = "Item level is zero, gear is kept", color = "dim", size = 12 }
   end
   local list, total, kept, locked = self:Scan()
   if #list == 0 then
@@ -238,13 +238,13 @@ function Vendor:TipLines()
   end
   if kept > 0 then
     out[#out + 1] = { text = ("%d held by the never-sell rules"):format(kept),
-                      color = "dim", size = 10 }
+                      color = "dim", size = 12 }
   end
   if locked > 0 then
-    out[#out + 1] = { text = ("%d locked by you"):format(locked), color = "dim", size = 10 }
+    out[#out + 1] = { text = ("%d locked by you"):format(locked), color = "dim", size = 12 }
   end
   if self:Busy() then
-    out[#out + 1] = { text = "Selling now", color = "accent", size = 10 }
+    out[#out + 1] = { text = "Selling now", color = "accent", size = 12 }
   end
   return out
 end

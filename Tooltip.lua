@@ -2,7 +2,7 @@ local addonName, ns = ...
 local Theme = ns.Theme
 
 local tipFrame
-local TIP_MAXW, TIP_PADT, TIP_TEXT = 300, 8, 11
+local TIP_MAXW, TIP_PADT, TIP_TEXT = 340, 9, 13
 
 local function tipLine(t, i)
   local fs = t.lines[i]

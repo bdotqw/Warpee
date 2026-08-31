@@ -276,11 +276,9 @@ function ns.CreateButton(parent, text, width, height, template)
   b:SetBackdropColor(Theme:C("panel"))
   b:SetBackdropBorderColor(Theme:C("stroke"))
   Theme:Track(b, function(s)
-    if s.offDuty then
-      s:SetBackdropColor(Theme:C("panel")); s:SetBackdropBorderColor(Theme:C("strokeSoft"))
-    else
-      s:SetBackdropColor(Theme:C("panel")); s:SetBackdropBorderColor(Theme:C("stroke"))
-    end
+    s:SetBackdropColor(Theme:C("panel"))
+    s:SetBackdropBorderColor(Theme:C(s.offDuty and "strokeSoft" or "stroke"))
+    if s.Text then s.Text:SetTextColor(Theme:C(s.offDuty and "faint" or "text")) end
   end)
   local fs = Theme:Label(b, 12, "text")
   fs:SetPoint("CENTER")

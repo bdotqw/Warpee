@@ -54,10 +54,9 @@ function Bags:Build()
   self.frame = f
   ns.CreateMoveBar(f, "pos")
 
-  local title = Theme:Title(f, 15)
+  local title = Theme:Title(f, 15, "accent")
   title:SetPoint("BOTTOMLEFT", PAD, 6)
   title:SetText("WARPEE")
-  title:SetTextColor(Theme:C("accent"))
   self.title = title
 
   local function addTip(btn, txt)
@@ -76,6 +75,7 @@ function Bags:Build()
   sortIcon:SetSize(13, 15)
   sortIcon:SetPoint("CENTER")
   sortIcon:SetVertexColor(Theme:C("text"))
+  Theme:Track(sortIcon, function(x) x:SetVertexColor(Theme:C("text")) end)
   sort.icon = sortIcon
   self.sortBtn = sort
 
@@ -93,6 +93,7 @@ function Bags:Build()
   bagIcon:SetSize(22, 22)
   bagIcon:SetPoint("CENTER")
   bagIcon:SetVertexColor(Theme:C("text"))
+  Theme:Track(bagIcon, function(x) x:SetVertexColor(Theme:C("text")) end)
   bagsToggle.icon = bagIcon
   self.bagsToggle = bagsToggle
 
@@ -111,6 +112,7 @@ function Bags:Build()
   bankIcon:SetSize(20, 20)
   bankIcon:SetPoint("CENTER")
   bankIcon:SetVertexColor(Theme:C("text"))
+  Theme:Track(bankIcon, function(x) x:SetVertexColor(Theme:C("text")) end)
   bank.icon = bankIcon
   self.bankBtn = bank
 
@@ -201,10 +203,9 @@ function Bags:BuildBagWindow()
   end)
   tinsert(UISpecialFrames, "WarpeeBagsWindow")
 
-  local title = Theme:Title(w, 14)
+  local title = Theme:Title(w, 14, "accent")
   title:SetPoint("TOPLEFT", BPAD, -8)
   title:SetText("BAGS")
-  title:SetTextColor(Theme:C("accent"))
   self.bagTitle = title
 
   local wclose = ns.CreateGlyphButton(w, "×")

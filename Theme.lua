@@ -72,6 +72,8 @@ function Theme:Restyle(name)
   for obj, fn in pairs(tracked) do fn(obj) end
   if ns.Bags and ns.Bags.Restyle then ns.Bags:Restyle() end
   if ns.Bank and ns.Bank.Restyle then ns.Bank:Restyle() end
+  local P = ns.CharPicker
+  if P and P.frame and P.frame:IsShown() and P.Paint then P:Paint(true) end
   self:ApplyGridAlpha()
   if ns.Options and ns.Options.ReflowPages then ns.Options:ReflowPages() end
 end
@@ -119,11 +121,12 @@ function Theme:Label(parent, size, colorKey, flags)
   return fs
 end
 
-function Theme:Title(parent, size)
+function Theme:Title(parent, size, colorKey)
   local fs = parent:CreateFontString(nil, "OVERLAY")
   fs:SetFont([[Fonts\FRIZQT__.TTF]], size or 15, "")
-  fs:SetTextColor(self:C("text"))
-  track(fs, function(x) x:SetTextColor(Theme:C("text")) end)
+  local key = colorKey or "text"
+  fs:SetTextColor(self:C(key))
+  track(fs, function(x) x:SetTextColor(Theme:C(key)) end)
   return fs
 end
 
