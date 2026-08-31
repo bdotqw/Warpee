@@ -1,6 +1,11 @@
 local addonName, ns = ...
 local Theme = ns.Theme
 local Bags = ns.Bags
+local L = ns.L
+local function T(s)
+  if type(s) ~= "string" or s == "" then return s end
+  return L[s]
+end
 
 local Options = {}
 ns.Options = Options
@@ -59,6 +64,14 @@ local function mmHideSet(v)
   WarpeeDB.hideMinimapIcon = v and true or false
   if ns.ApplyMinimapIcon then ns.ApplyMinimapIcon() end
 end
+local function localeGet() return WarpeeDB.locale or "auto" end
+local function localeSet(v)
+  WarpeeDB.locale = v or "auto"
+  print("|cffd9a85fWarpee|r " .. L["Language changes after a UI reload."])
+end
+local function localeKeys() return ns.LOCALES end
+local function localeLabel(k) return ns.LOCALE_LABELS[k] or k end
+
 local function sClearGet() return WarpeeDB.searchClear ~= false end
 local function sClearSet(v) WarpeeDB.searchClear = v and true or false end
 local function sLinkGet() return WarpeeDB.searchLink ~= false end
@@ -124,7 +137,7 @@ end
 local function onOf(list)
   local n = 0
   for _, fn in ipairs(list) do if fn() then n = n + 1 end end
-  return ("%d of %d"):format(n, #list)
+  return (L["%d of %d"]):format(n, #list)
 end
 
 local dropdown
@@ -216,7 +229,7 @@ local function openDropdown(anchor, spec, onPick)
     if not r then r = makeMenuRow(m.child, i, rowH); m.rows[i] = r end
     r:SetHeight(rowH)
     r.dot:SetSize(3, rowH - 8)
-    r.Text:SetText(spec.label(key))
+    r.Text:SetText(T(spec.label(key)))
     local on = (key == cur)
     r.dot:SetShown(on)
     r.Text:SetTextColor(Theme:C(on and "accentInk" or "text"))
@@ -278,7 +291,7 @@ function factories.header(parent, spec)
   line:SetPoint("BOTTOMRIGHT", 0, 0)
   local fs = track(Theme:Label(row, BASE_FONT, "azure"), 0)
   fs:SetPoint("BOTTOMLEFT", spec.key and 22 or 0, 6)
-  fs:SetText(spec.name:upper())
+  fs:SetText(T(spec.name):upper())
   if not spec.key then return row end
 
   local down = caretGroup(row, "down")
@@ -312,7 +325,7 @@ function factories.description(parent, spec)
   fs:SetWidth(CONTENT_W)
   fs:SetJustifyH("LEFT")
   fs:SetSpacing(2)
-  fs:SetText(spec.name)
+  fs:SetText(T(spec.name))
   row:SetHeight(fs:GetStringHeight() + 6)
   row.autoHeight = fs
   return row
@@ -338,10 +351,10 @@ function factories.toggle(parent, spec)
   fs:SetPoint("LEFT", box, "RIGHT", 8, 0)
   fs:SetPoint("RIGHT", -2, 0)
   fs:SetJustifyH("LEFT")
-  if type(spec.name) ~= "function" then fs:SetText(spec.name) end
+  if type(spec.name) ~= "function" then fs:SetText(T(spec.name)) end
 
   row.Refresh = function()
-    if type(spec.name) == "function" then fs:SetText(spec.name() or "") end
+    if type(spec.name) == "function" then fs:SetText(T(spec.name()) or "") end
     local off = (spec.disabled and spec.disabled()) and true or false
     local on = spec.get() and true or false
     mark:SetShown(on)
@@ -366,7 +379,7 @@ function factories.toggle(parent, spec)
     box:SetBackdropBorderColor(Theme:C(row.off and "strokeSoft" or "stroke"))
   end)
   row.Refresh()
-  tip(row, spec.desc)
+  tip(row, T(spec.desc))
   return row
 end
 
@@ -376,7 +389,7 @@ function factories.input(parent, spec)
 
   local fs = track(Theme:Label(row, BASE_FONT, "text"), 0)
   fs:SetPoint("LEFT", 1, 0)
-  fs:SetText(spec.name)
+  fs:SetText(T(spec.name))
 
   local box = CreateFrame("EditBox", nil, row, "BackdropTemplate")
   box:SetSize(66, 24)
@@ -419,7 +432,7 @@ function factories.input(parent, spec)
   end)
 
   row.Refresh()
-  tip(row, spec.desc)
+  tip(row, T(spec.desc))
   return row
 end
 
@@ -429,7 +442,7 @@ function factories.range(parent, spec)
 
   local fs = track(Theme:Label(row, BASE_FONT, "text"), 0)
   fs:SetPoint("TOPLEFT", 1, -1)
-  fs:SetText(spec.name)
+  fs:SetText(T(spec.name))
 
   local val = track(Theme:Label(row, BASE_FONT, "accentInk"), 0)
   val:SetPoint("TOPRIGHT", -1, -1)
@@ -506,7 +519,7 @@ function factories.range(parent, spec)
     paint(spec.get())
   end
   row.Refresh()
-  tip(row, spec.desc)
+  tip(row, T(spec.desc))
   row.slider = s
   return row
 end
@@ -528,7 +541,7 @@ function factories.select(parent, spec)
   if not bare then
     local fs = track(Theme:Label(row, BASE_FONT, "text"), 0)
     fs:SetPoint("TOPLEFT", 1, -1)
-    fs:SetText(spec.name)
+    fs:SetText(T(spec.name))
   end
 
   local btn = CreateFrame("Button", nil, row, "BackdropTemplate")
@@ -562,7 +575,7 @@ function factories.select(parent, spec)
   row.Refresh = function()
     local off = (spec.disabled and spec.disabled()) and true or false
     row.off = off
-    cur:SetText(spec.label(spec.get()) or "")
+    cur:SetText(T(spec.label(spec.get())) or "")
     cur:SetTextColor(Theme:C(off and "faint" or "text"))
     btn:SetBackdropColor(Theme:C("panel"))
     btn:SetBackdropBorderColor(Theme:C(off and "strokeSoft" or "stroke"))
@@ -593,7 +606,7 @@ function factories.select(parent, spec)
     end
     openDropdown(s, spec, row.Refresh)
   end)
-  tip(row, spec.desc)
+  tip(row, T(spec.desc))
   return row
 end
 
@@ -1055,6 +1068,9 @@ local GENERAL_PAGE = {
     set = function(v) fontSet(v); Options:ApplyFont() end,
     keys = fontKeys, label = function(k) return k end,
     desc = "Used for every label Warpee draws. Other addons can add to this list." },
+  { type = "select", name = "Language", get = localeGet, set = localeSet,
+    keys = localeKeys, label = localeLabel,
+    desc = "Language for the addon's own text. Item names always come from the game." },
   { type = "header", name = "Windows" },
   { type = "toggle", name = "Lock windows", col = 1, get = lockGet, set = lockSet,
     desc = "Freeze the windows in place. Unlocked, each shows X/Y fields at its top-left — type a value or nudge with the arrows (Shift = 10)." },
@@ -1111,7 +1127,7 @@ local ITEMS_PAGE = {
     desc = "Thickness of the quality border." },
   { type = "header", name = "Item level number", key = "ilvlnum",
     state = function()
-      return ("%d px, %s"):format(ilvlSizeGet(), (anchorLabel(ilvlAnchorGet())):lower())
+      return ("%d px, %s"):format(ilvlSizeGet(), (T(anchorLabel(ilvlAnchorGet()))):lower())
     end },
   { type = "toggle", name = "Color by quality", col = 1, section = "ilvlnum",
     get = qColorGet, set = qColorSet,
@@ -1127,7 +1143,7 @@ local ITEMS_PAGE = {
     get = ilvlYGet, set = ilvlYSet, half = "left" },
   { type = "header", name = "Stack count number", key = "countnum",
     state = function()
-      return ("%d px, %s"):format(countSizeGet(), (anchorLabel(countAnchorGet())):lower())
+      return ("%d px, %s"):format(countSizeGet(), (T(anchorLabel(countAnchorGet()))):lower())
     end },
   { type = "select", name = "Corner", get = countAnchorGet, set = countAnchorSet,
     section = "countnum", keys = anchorKeys, label = anchorLabel,
@@ -1142,7 +1158,7 @@ local ITEMS_PAGE = {
     state = function()
       local n = 0
       for _ in pairs(WarpeeDB.vendorBlack or {}) do n = n + 1 end
-      return (n == 1) and "1 item" or ("%d items"):format(n)
+      return (n == 1) and L["1 item"] or (L["%d items"]):format(n)
     end },
   { type = "description", section = "locked",
     name = "Alt-click an item in the bags or the bank to lock it: a padlock appears and the vendor never sells it. Alt-click again, or the cross here, to unlock." },
@@ -1173,7 +1189,7 @@ local GRID_PAGE = {
     get = gridAlphaGet, set = gridAlphaSet,
     desc = "The plate behind the slots, seen in the gaps. At Spacing 0 there are none." },
   { type = "header", name = "Bank and Warband grid", key = "bankgrid",
-    state = function() return ("%d and %d wide"):format(bankColsGet(), wbColsGet()) end },
+    state = function() return (L["%d and %d wide"]):format(bankColsGet(), wbColsGet()) end },
   { type = "description", section = "bankgrid",
     name = "The bank keeps its own width and icon size, apart from the bags." },
   { type = "range", name = "Icon size", min = 24, max = 56, step = 1, section = "bankgrid",
@@ -1302,7 +1318,7 @@ local VENDOR_PAGE = {
           if t[i] then n = n + 1 end
         end
       end
-      return ("%d of %d"):format(n, all)
+      return (L["%d of %d"]):format(n, all)
     end },
   { type = "description", section = "tokenexp",
     name = "Which expansions tokens may be sold from. The four newest are kept by default. Expansions that never had tokens are not listed." },
@@ -1455,7 +1471,7 @@ function Options:Build()
   self.tabs, self.areas = {}, {}
   local prev
   for i, pageDef in ipairs(PAGES) do
-    local tab = ns.CreateButton(f, pageDef.name, 90, TAB_H)
+    local tab = ns.CreateButton(f, T(pageDef.name), 90, TAB_H)
     track(tab.Text, -1)
     tab:SetWidth(math.max(70, tab.Text:GetStringWidth() + 22))
     if prev then

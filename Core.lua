@@ -164,6 +164,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.vendorKeepMog, WarpeeDB.vendorKeepFresh = nil, nil
     WarpeeDB.optSections = WarpeeDB.optSections or {}
     if WarpeeDB.hideMinimapIcon == nil then WarpeeDB.hideMinimapIcon = false end
+    WarpeeDB.locale = WarpeeDB.locale or "auto"
     if WarpeeDB.searchClear == nil then WarpeeDB.searchClear = true end
     if WarpeeDB.searchLink == nil then WarpeeDB.searchLink = true end
     WarpeeDB.minimapAngle = tonumber(WarpeeDB.minimapAngle) or 2.2
