@@ -62,11 +62,11 @@ local function applyAttr(b, id)
   end
   Fav.pending[b] = nil
   if id then
-    b:SetAttribute("type", "item")
-    b:SetAttribute("item", "item:" .. id)
+    b:SetAttribute("type", "macro")
+    b:SetAttribute("macrotext", "/use item:" .. id)
   else
     b:SetAttribute("type", nil)
-    b:SetAttribute("item", nil)
+    b:SetAttribute("macrotext", nil)
   end
 end
 
@@ -120,7 +120,7 @@ local function tipFor(b)
   GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
   if b.itemID then
     GameTooltip:SetItemByID(b.itemID)
-    GameTooltip:AddLine(ns.L["Drag the icon off to clear the slot"], 0.6, 0.6, 0.6)
+    GameTooltip:AddLine(ns.L["Ctrl + right click clears the slot"], 0.6, 0.6, 0.6)
   else
     GameTooltip:SetText(ns.L["Favourites"])
     GameTooltip:AddLine(ns.L["Drag an item here to keep it one click away"], 0.6, 0.6, 0.6, true)
@@ -133,7 +133,6 @@ local function makeButton(parent, index)
     "SecureActionButtonTemplate,BackdropTemplate")
   b.favIndex = index
   b:RegisterForClicks("AnyUp")
-  b:RegisterForDrag("LeftButton")
   ns.PixelBackdrop(b)
   b:SetBackdropColor(Theme:C("slot"))
   b:SetBackdropBorderColor(Theme:C("stroke"))
@@ -151,6 +150,7 @@ local function makeButton(parent, index)
   local cd = CreateFrame("Cooldown", nil, b, "CooldownFrameTemplate")
   cd:SetAllPoints(ic)
   cd:SetDrawEdge(false)
+  cd:EnableMouse(false)
   b.cd = cd
 
   local cnt = Theme:Label(b, 12, "text", "OUTLINE")
@@ -173,9 +173,15 @@ local function makeButton(parent, index)
     GameTooltip:Hide()
   end)
   b:SetScript("OnReceiveDrag", function(s) Fav:PinFromCursor(s.favIndex) end)
-  b:SetScript("OnDragStart", function(s) Fav:Set(s.favIndex, nil) end)
-  b:SetScript("OnMouseUp", function(s)
-    if GetCursorInfo() then Fav:PinFromCursor(s.favIndex) end
+  b:SetScript("PreClick", function(s, button)
+    if GetCursorInfo() then
+      Fav:PinFromCursor(s.favIndex)
+      return
+    end
+    if IsControlKeyDown() and button == "RightButton" then
+      Fav:Set(s.favIndex, nil)
+      tipFor(s)
+    end
   end)
   return b
 end
