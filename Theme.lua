@@ -135,10 +135,12 @@ end
 
 function ns.SnapValue(region, v)
   local unit = ns.PixelUnit(region)
-  return math.floor(v / unit + 0.5) * unit
+  return math.floor((tonumber(v) or 0) / unit + 0.5) * unit
 end
 
 function ns.SnapSize(frame, w, h)
+  w = tonumber(w) or 0
+  h = tonumber(h) or w
   if PixelUtil and PixelUtil.SetSize then
     if pcall(PixelUtil.SetSize, frame, w, h, 1, 1) then return end
   end
@@ -146,6 +148,7 @@ function ns.SnapSize(frame, w, h)
 end
 
 function ns.SnapPoint(frame, point, rel, relPoint, x, y)
+  x, y = tonumber(x) or 0, tonumber(y) or 0
   if PixelUtil and PixelUtil.SetPoint then
     if pcall(PixelUtil.SetPoint, frame, point, rel, relPoint, x, y) then return end
   end
@@ -170,6 +173,7 @@ end
 -- SetBackdrop wipes the colors, so remember them and put them back.
 function ns.PixelBackdrop(frame)
   if not frame.SetBackdrop then Mixin(frame, BackdropTemplateMixin) end
+  if not frame.SetBackdrop then return frame end
   if not frame.wpeBdWrapped then
     frame.wpeBdWrapped = true
     local setBg, setEdge = frame.SetBackdropColor, frame.SetBackdropBorderColor
@@ -198,15 +202,19 @@ end
 
 function ns.RefreshPixels()
   refreshPhys()
-  for obj, fn in pairs(pixelJobs) do fn(obj) end
+  -- One bad job must not take the rest of the pass down with it.
+  for obj, fn in pairs(pixelJobs) do pcall(fn, obj) end
+  -- Relayout touches secure item buttons, so leave it alone in combat: the next
+  -- bag update lays the grid out again anyway.
+  local quiet = not (InCombatLockdown and InCombatLockdown())
   if ns.Bags then
     if ns.Bags.frame then ns.SnapFrame(ns.Bags.frame) end
     if ns.Bags.bagWindow then ns.SnapFrame(ns.Bags.bagWindow) end
-    if ns.Bags.frame and ns.Bags.frame:IsShown() and ns.Bags.Layout then ns.Bags:Layout() end
+    if quiet and ns.Bags.frame and ns.Bags.frame:IsShown() and ns.Bags.Layout then ns.Bags:Layout() end
   end
   if ns.Bank then
     if ns.Bank.frame then ns.SnapFrame(ns.Bank.frame) end
-    if ns.Bank.frame and ns.Bank.frame:IsShown() and ns.Bank.Refresh then ns.Bank:Refresh() end
+    if quiet and ns.Bank.frame and ns.Bank.frame:IsShown() and ns.Bank.Refresh then ns.Bank:Refresh() end
   end
   if ns.Options then
     if ns.Options.frame then ns.SnapFrame(ns.Options.frame) end
