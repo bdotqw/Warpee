@@ -113,7 +113,9 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.slotStyle == "quality" then WarpeeDB.slotStyle = "tile" end
     if WarpeeDB.slotStyle == "frost" then WarpeeDB.slotStyle = "tile" end
     if WarpeeDB.slotStyle == "ridged" or WarpeeDB.slotStyle == "marble"
-       or WarpeeDB.slotStyle == "parchment" then WarpeeDB.slotStyle = "stone" end
+       or WarpeeDB.slotStyle == "parchment" or WarpeeDB.slotStyle == "stone" then
+      WarpeeDB.slotStyle = "deep"
+    end
     if WarpeeDB.slotStyle == "tile" then WarpeeDB.slotStyle = "deep" end
     if WarpeeDB.showGauge == nil then WarpeeDB.showGauge = true end
     if WarpeeDB.goldLetters == nil then WarpeeDB.goldLetters = (WarpeeDB.goldMode == "letters") end

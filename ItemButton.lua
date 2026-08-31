@@ -12,28 +12,9 @@ local SLOT_STYLES = {
   end,
 }
 
-local SLOT_TEXTURES = {
-  stone = { path = [[Interface\FrameGeneral\UI-Background-Rock]], bright = 0.52, crop = 0.22 },
-}
-
-local function slotTint(bright)
-  local r, g, b = Theme:C("slot")
-  local m = math.max(r, g, b, 0.001)
-  local k = bright / m
-  return math.min(1, r * k), math.min(1, g * k), math.min(1, b * k), 1
-end
-
 function ns.PaintSlotBg(b)
   if not (b and b.bg) then return end
-  local style = ns.Bags.slotStyle or "tile"
-  local tex = SLOT_TEXTURES[style]
-  if tex then
-    b.bg:SetTexture(tex.path, "CLAMP", "CLAMP")
-    b.bg:SetTexCoord(0, tex.crop, 0, tex.crop)
-    b.bg:SetVertexColor(slotTint(tex.bright))
-    return
-  end
-  local fn = SLOT_STYLES[style] or SLOT_STYLES.tile
+  local fn = SLOT_STYLES[ns.Bags.slotStyle or "tile"] or SLOT_STYLES.tile
   b.bg:SetTexCoord(0, 1, 0, 1)
   b.bg:SetVertexColor(1, 1, 1, 1)
   b.bg:SetColorTexture(fn())
@@ -580,8 +561,7 @@ function ns.UpdateItemButton(b)
     local shown = (lvl and lvl > 1) and lvl or nil
     b.ilvl:SetText(shown or "")
     ns.FitIlvl(b, shown)
-    local kc = isKey and shown and C_ChallengeMode and C_ChallengeMode.GetKeystoneLevelRarityColor
-               and C_ChallengeMode.GetKeystoneLevelRarityColor(shown)
+    local kc = isKey and shown and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[4]
     local iq = info and info.quality
     if kc then
       b.ilvl:SetTextColor(kc.r, kc.g, kc.b)

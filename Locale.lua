@@ -57,9 +57,9 @@ local RU = {
   ["Markers"] = "Метки",
   ["Slot look"] = "Вид ячейки",
   ["Bags grid"] = "Сетка сумок",
-  ["Bank and Warband grid"] = "Сетка банка и общего банка",
+  ["Bank and Warband grid"] = "Сетка банка и банка отряда",
   ["Item level number"] = "Число уровня предмета",
-  ["Stack count number"] = "Число в стаке",
+  ["Stack count number"] = "Число стаков",
   ["Locked items"] = "Защищённые предметы",
   ["Item tooltips"] = "Подсказки предметов",
   ["Open bags with"] = "Открывать сумки вместе с",
@@ -71,7 +71,7 @@ local RU = {
   ["Font"] = "Шрифт",
   ["Language"] = "Язык",
   ["Lock windows"] = "Закрепить окна",
-  ["Capacity bar"] = "Полоса заполнения",
+  ["Capacity bar"] = "Полоса заполненности",
   ["Hide minimap icon"] = "Скрыть иконку у миникарты",
   ["Gold format"] = "Формат чисел",
   ["Gold only"] = "Только золото",
@@ -108,11 +108,11 @@ local RU = {
   ["Slots per row"] = "Ячеек в ряду",
   ["Spacing"] = "Отступ",
   ["Icon zoom"] = "Приближение иконки",
-  ["Merge reagents"] = "Слить реагенты",
+  ["Merge reagents"] = "Объединить реагенты",
   ["Slot background"] = "Фон ячейки",
   ["Spacing opacity"] = "Плотность подложки",
   ["Bank slots per row"] = "Ячеек в ряду в банке",
-  ["Warband slots per row"] = "Ячеек в ряду в общем банке",
+  ["Warband slots per row"] = "Ячеек в ряду в банке отряда",
   ["Size of one slot in the bags."] = "Размер одной ячейки в сумках.",
   ["How wide the bag window grows."] = "Насколько широким становится окно сумок.",
   ["Gap between slots, in every grid."] = "Промежуток между ячейками во всех сетках.",
@@ -120,8 +120,8 @@ local RU = {
     "1.00 — иконка заполняет ячейку. Меньше — отодвигает от рамки, больше — обрезает.",
   ["Lay the reagent bag out with the main bags, without its caption."] =
     "Разложить реагентную сумку вместе с основными, без её заголовка.",
-  ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off, Stone swaps the fill for a texture tinted to the theme."] =
-    "Что находится за каждой иконкой. Прозрачный показывает подложку сквозь ячейку, Подсветка приподнимает её, Плотный закрывает целиком, Камень заменяет заливку текстурой в цвете темы.",
+  ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
+    "Что находится за каждой иконкой. Прозрачный показывает подложку сквозь ячейку, Подсветка приподнимает её, Плотный закрывает целиком.",
   ["The plate behind the slots, seen in the gaps. At Spacing 0 there are none."] =
     "Подложка за ячейками, видимая в промежутках. При отступе 0 промежутков нет.",
   ["The bank keeps its own width and icon size, apart from the bags."] =
@@ -130,7 +130,6 @@ local RU = {
   ["Transparent"] = "Прозрачный",
   ["Highlight"] = "Подсветка",
   ["Solid"] = "Плотный",
-  ["Stone"] = "Камень",
   ["Top left"] = "Слева сверху",
   ["Top right"] = "Справа сверху",
   ["Bottom left"] = "Слева снизу",
@@ -161,13 +160,13 @@ local RU = {
     "Alt-клик по предмету в сумках или банке защищает его: появляется замок, и торговец никогда его не продаст. Alt-клик снова или крестик здесь — снять защиту.",
   ["Count across characters"] = "Считать по всем персонажам",
   ["Include bank"] = "Учитывать банк",
-  ["Include Warband"] = "Учитывать общий банк",
+  ["Include Warband"] = "Учитывать банк отряда",
   ["Adds an Inventory block to item tooltips: how many each character carries."] =
     "Добавляет в подсказки предметов блок «Инвентарь»: сколько несёт каждый персонаж.",
   ["Count each character's bank too. Off = bags only."] =
     "Считать и банк каждого персонажа. Выкл — только сумки.",
   ["Count the shared Warband bank on its own line."] =
-    "Считать общий банк отряда отдельной строкой.",
+    "Считать банк отряда отдельной строкой.",
   ["Unchecked characters stay saved but are hidden from the character list."] =
     "Снятые персонажи остаются сохранёнными, но скрыты из списка.",
   ["Sell junk"] = "Продавать хлам",
@@ -182,7 +181,7 @@ local RU = {
   ["Keep warbound"] = "Оставлять вещи отряда",
   ["Keep gems and enchants"] = "Оставлять с камнями и чарами",
   ["Your gold"] = "Своё золото",
-  ["Guild first"] = "Сначала гильдия",
+  ["Guild or yours"] = "Гильдия/своё",
   ["These start when a merchant window opens, with no click from you."] =
     "Это запускается при открытии окна торговца, без нажатия с твоей стороны.",
   ["Everything below is sold by the coin in the bags header, only when you press it."] =
@@ -226,9 +225,9 @@ local RU = {
   ["Sort / clean up"] = "Разложить",
   ["Settings"] = "Настройки",
   ["Bags"] = "Сумки",
-  ["Bank / Warband"] = "Банк и общий банк",
+  ["Bank / Warband"] = "Банк и банк отряда",
   ["Sell low gear"] = "Продать старое снаряжение",
-  ["Snapshot of another character"] = "Снимок другого персонажа",
+  ["Bags of another character"] = "Сумки других персонажей",
   ["REAGENTS"] = "РЕАГЕНТЫ",
   ["BAGS"] = "СУМКИ",
   ["WARBAND BANK"] = "БАНК ОТРЯДА",
@@ -243,7 +242,7 @@ local RU = {
   ["Put your gold into the Warband bank"] = "Положить золото в банк отряда",
   ["Take gold out of the Warband bank"] = "Забрать золото из банка отряда",
   ["Buy another bank tab"] = "Купить ещё одну ячейку банка",
-  ["Buy another Warband bank tab"] = "Купить ещё одну ячейку общего банка",
+  ["Buy another Warband bank tab"] = "Купить ещё одну ячейку банка отряда",
   ["Show characters you hid"] = "Показать скрытых персонажей",
   ["Close"] = "Закрыть",
   ["Left-click: show this character"] = "ЛКМ — показать этого персонажа",
