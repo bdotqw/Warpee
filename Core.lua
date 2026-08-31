@@ -92,11 +92,16 @@ for _, e in ipairs({ "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CH
                      "REAGENTBANK_UPDATE", "BANK_TABS_CHANGED", "BANK_TAB_SETTINGS_UPDATED",
                      "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED", "ACCOUNT_MONEY",
                      "TRADE_SKILL_SHOW", "TRADE_SKILL_CLOSE",
+                     "UI_SCALE_CHANGED", "DISPLAY_SIZE_CHANGED",
                      "PLAYER_INTERACTION_MANAGER_FRAME_SHOW",
                      "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" }) do
   pcall(ev.RegisterEvent, ev, e)
 end
 ev:SetScript("OnEvent", function(_, event, a1, a2)
+  if event == "UI_SCALE_CHANGED" or event == "DISPLAY_SIZE_CHANGED" then
+    ns.RefreshPixels()
+    return
+  end
   if event == "PLAYER_LOGIN" then
     WarpeeDB = WarpeeDB or {}
     WarpeeDB.cols = WarpeeDB.cols or 14

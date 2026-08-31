@@ -252,7 +252,7 @@ local function finish()
   pump:Hide()
   ev:UnregisterEvent("BAG_UPDATE_DELAYED")
   if stuck > 0 then
-    print("|cffd9a85fWarpee|r " .. (L["%d items refused to sell, left in the bags"]):format(stuck))
+    print("|cffd9a85fWarpee|r " .. (L["%d items could not be sold and stayed in the bags"]):format(stuck))
   end
   if open then Vendor:Repair() end
 end

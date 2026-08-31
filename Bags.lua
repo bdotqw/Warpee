@@ -122,7 +122,7 @@ function Bags:Build()
   local sell = ns.CreateGlyphButton(f, "", HB)
   sell:SetPoint("TOPRIGHT", sort, "TOPLEFT", -4, 0)
   sell:SetScript("OnClick", function() if ns.Vendor then ns.Vendor:Sell() end end)
-  ns.AddTip(sell, "Sell low gear", "top", function()
+  ns.AddTip(sell, "Sell now", "top", function()
     return ns.Vendor and ns.Vendor:TipLines() or nil
   end)
   local sellIcon = sell:CreateTexture(nil, "ARTWORK")
@@ -200,8 +200,8 @@ function Bags:BuildBagWindow()
     if not s.wpeMoving then return end
     s.wpeMoving = nil
     s:StopMovingOrSizing()
-    local pp, _, rp, x, y = s:GetPoint()
-    WarpeeDB.bagWinPos = { p = pp, rp = rp, x = x, y = y }
+    local pp, rp, x, y = ns.SnapFrame(s)
+    if pp then WarpeeDB.bagWinPos = { p = pp, rp = rp, x = x, y = y } end
   end)
   tinsert(UISpecialFrames, "WarpeeBagsWindow")
 
@@ -327,7 +327,7 @@ function Bags:Layout()
   if self.frame and self.frame.wpeBar then self.frame.wpeBar:Fonts(self.fontPath, 11) end
 
   self.content:ClearAllPoints()
-  self.content:SetPoint("TOPLEFT", PAD, -self:TopOffset())
+  ns.SnapPoint(self.content, "TOPLEFT", self.frame, "TOPLEFT", PAD, -self:TopOffset())
 
   local function place(bag, slot, x, y)
     i = i + 1
@@ -338,10 +338,10 @@ function Bags:Layout()
       b:SetID(slot)
       b:SetAttribute("bagid", bag)
     end
-    h:SetSize(size, size)
+    ns.SnapSize(h, size, size)
     b.link = nil
     h:ClearAllPoints()
-    h:SetPoint("TOPLEFT", self.content, "TOPLEFT", x, y)
+    ns.SnapPoint(h, "TOPLEFT", self.content, "TOPLEFT", x, y)
     h:Show(); b:Show()
     if self.snap then
       ns.PaintVaultButton(b, ns.Vault:Slot("bags", bag, slot), bag)

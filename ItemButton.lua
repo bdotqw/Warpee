@@ -27,21 +27,24 @@ local function borderLine(bf, sub, layer)
   t:SetColorTexture(1, 1, 1, 1)
   return t
 end
+local ringWidth
 local function ringTextures(b)
   if b.iT then return end
   local bf, I, W = b.ringFrame, RING_INSET, RING_WIDTH
-  b.iT = borderLine(bf, 4, "ARTWORK"); b.iT:SetPoint("TOPLEFT",I,-I);   b.iT:SetPoint("TOPRIGHT",-I,-I);   b.iT:SetHeight(W)
-  b.iB = borderLine(bf, 4, "ARTWORK"); b.iB:SetPoint("BOTTOMLEFT",I,I); b.iB:SetPoint("BOTTOMRIGHT",-I,I); b.iB:SetHeight(W)
-  b.iL = borderLine(bf, 4, "ARTWORK"); b.iL:SetPoint("TOPLEFT",I,-I);   b.iL:SetPoint("BOTTOMLEFT",I,I);   b.iL:SetWidth(W)
-  b.iR = borderLine(bf, 4, "ARTWORK"); b.iR:SetPoint("TOPRIGHT",-I,-I); b.iR:SetPoint("BOTTOMRIGHT",-I,I); b.iR:SetWidth(W)
+  b.iT = borderLine(bf, 4, "ARTWORK"); b.iT:SetPoint("TOPLEFT",I,-I);   b.iT:SetPoint("TOPRIGHT",-I,-I);   b.iT:SetHeight(ns.PX(bf, W))
+  b.iB = borderLine(bf, 4, "ARTWORK"); b.iB:SetPoint("BOTTOMLEFT",I,I); b.iB:SetPoint("BOTTOMRIGHT",-I,I); b.iB:SetHeight(ns.PX(bf, W))
+  b.iL = borderLine(bf, 4, "ARTWORK"); b.iL:SetPoint("TOPLEFT",I,-I);   b.iL:SetPoint("BOTTOMLEFT",I,I);   b.iL:SetWidth(ns.PX(bf, W))
+  b.iR = borderLine(bf, 4, "ARTWORK"); b.iR:SetPoint("TOPRIGHT",-I,-I); b.iR:SetPoint("BOTTOMRIGHT",-I,I); b.iR:SetWidth(ns.PX(bf, W))
   b.ringW = W
+  ns.PixelJob(b.ringFrame, function() b.ringW = nil; ringWidth(b) end)
 end
-local function ringWidth(b)
+function ringWidth(b)
   local w = ns.Bags.borderWidth or RING_WIDTH
   if b.ringW == w then return end
   b.ringW = w
-  b.iT:SetHeight(w); b.iB:SetHeight(w)
-  b.iL:SetWidth(w);  b.iR:SetWidth(w)
+  local px = ns.PX(b.ringFrame or b, w)
+  b.iT:SetHeight(px); b.iB:SetHeight(px)
+  b.iL:SetWidth(px);  b.iR:SetWidth(px)
 end
 local function attachBorder(b)
   local bf = CreateFrame("Frame", nil, b)
@@ -52,10 +55,10 @@ local function attachBorder(b)
   rf:SetAllPoints(b)
   rf:SetFrameLevel(b:GetFrameLevel())
   b.ringFrame = rf
-  b.bT = borderLine(rf, 2, "ARTWORK"); b.bT:SetPoint("TOPLEFT");    b.bT:SetPoint("TOPRIGHT");    b.bT:SetHeight(1)
-  b.bB = borderLine(rf, 2, "ARTWORK"); b.bB:SetPoint("BOTTOMLEFT"); b.bB:SetPoint("BOTTOMRIGHT"); b.bB:SetHeight(1)
-  b.bL = borderLine(rf, 2, "ARTWORK"); b.bL:SetPoint("TOPLEFT");    b.bL:SetPoint("BOTTOMLEFT");  b.bL:SetWidth(1)
-  b.bR = borderLine(rf, 2, "ARTWORK"); b.bR:SetPoint("TOPRIGHT");   b.bR:SetPoint("BOTTOMRIGHT"); b.bR:SetWidth(1)
+  b.bT = borderLine(rf, 2, "ARTWORK"); b.bT:SetPoint("TOPLEFT");    b.bT:SetPoint("TOPRIGHT");    ns.PixelLine(b.bT, 1)
+  b.bB = borderLine(rf, 2, "ARTWORK"); b.bB:SetPoint("BOTTOMLEFT"); b.bB:SetPoint("BOTTOMRIGHT"); ns.PixelLine(b.bB, 1)
+  b.bL = borderLine(rf, 2, "ARTWORK"); b.bL:SetPoint("TOPLEFT");    b.bL:SetPoint("BOTTOMLEFT");  ns.PixelLine(b.bL, 1, "w")
+  b.bR = borderLine(rf, 2, "ARTWORK"); b.bR:SetPoint("TOPRIGHT");   b.bR:SetPoint("BOTTOMRIGHT"); ns.PixelLine(b.bR, 1, "w")
   b.ilvl = bf:CreateFontString(nil, "OVERLAY")
   b.ilvl:SetDrawLayer("OVERLAY", 6)
   b.ilvl:SetFont("Fonts\\ARIALN.TTF", 12, "OUTLINE")
@@ -334,7 +337,7 @@ function ns.ApplyIconZoom(b)
     ic:SetTexCoord(t, 1 - t, t, 1 - t)
     ic:SetAllPoints(b)
   elseif z < 1 then
-    local inset = math.max(1, math.floor((1 - z) * sz / 2 + 0.5))
+    local inset = math.max(ns.PX(b, 1), ns.SnapValue(b, (1 - z) * sz / 2))
     ic:SetTexCoord(0, 1, 0, 1)
     ic:SetPoint("TOPLEFT", b, "TOPLEFT", inset, -inset)
     ic:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -inset, inset)
@@ -742,7 +745,7 @@ function ns.CreateBagButton(parent, bagID, size)
   size = size or 22
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
   b:SetSize(size, size)
-  b:SetBackdrop({ bgFile = Theme.WHITE, edgeFile = Theme.WHITE, edgeSize = 1 })
+  ns.PixelBackdrop(b)
   b:SetBackdropColor(Theme:C("slot"))
   b:SetBackdropBorderColor(Theme:C("stroke"))
   b.bagID = bagID

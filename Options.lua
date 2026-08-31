@@ -286,7 +286,7 @@ function factories.header(parent, spec)
   local row = CreateFrame(spec.key and "Button" or "Frame", nil, parent)
   row:SetHeight(30)
   local line = Theme:Rect(row, "strokeSoft", "ARTWORK")
-  line:SetHeight(1)
+  ns.PixelLine(line, 1)
   line:SetPoint("BOTTOMLEFT", 0, 0)
   line:SetPoint("BOTTOMRIGHT", 0, 0)
   local fs = track(Theme:Label(row, BASE_FONT, "azure"), 0)
@@ -343,7 +343,7 @@ function factories.toggle(parent, spec)
   local box = CreateFrame("Frame", nil, row, "BackdropTemplate")
   box:SetSize(18, 18)
   box:SetPoint("LEFT", 1, 0)
-  box:SetBackdrop({ bgFile = Theme.WHITE, edgeFile = Theme.WHITE, edgeSize = 1 })
+  ns.PixelBackdrop(box)
   box:SetBackdropColor(Theme:C("slot"))
   box:SetBackdropBorderColor(Theme:C("stroke"))
 
@@ -401,7 +401,7 @@ function factories.input(parent, spec)
   local box = CreateFrame("EditBox", nil, row, "BackdropTemplate")
   box:SetSize(66, 24)
   box:SetPoint("RIGHT", -1, 0)
-  box:SetBackdrop({ bgFile = Theme.WHITE, edgeFile = Theme.WHITE, edgeSize = 1 })
+  ns.PixelBackdrop(box)
   box:SetBackdropColor(Theme:C("bg"))
   box:SetBackdropBorderColor(Theme:C("stroke"))
   Theme:Track(box, function(s)
@@ -558,7 +558,7 @@ function factories.select(parent, spec)
   btn:SetHeight(24)
   btn:SetPoint("BOTTOMLEFT", 1, bare and 1 or 0)
   btn:SetPoint("BOTTOMRIGHT", -1, bare and 1 or 0)
-  btn:SetBackdrop({ bgFile = Theme.WHITE, edgeFile = Theme.WHITE, edgeSize = 1 })
+  ns.PixelBackdrop(btn)
   btn:SetBackdropColor(Theme:C("panel"))
   btn:SetBackdropBorderColor(Theme:C("stroke"))
 
@@ -573,7 +573,7 @@ function factories.select(parent, spec)
   local arrow = {}
   for i = 1, 4 do
     local t = Theme:Rect(arrowBox, "dim", "ARTWORK")
-    t:SetHeight(1)
+    ns.PixelLine(t, 1)
     t:SetWidth(9 - (i - 1) * 2)
     t:SetPoint("TOP", arrowBox, "TOP", 0, -(i - 1))
     arrow[i] = t
@@ -631,7 +631,7 @@ local function charHead(row, i)
   h = CreateFrame("Frame", nil, row)
   h:SetHeight(CHAR_HEAD_H)
   local line = Theme:Rect(h, "strokeSoft", "ARTWORK")
-  line:SetHeight(1)
+  ns.PixelLine(line, 1)
   line:SetPoint("BOTTOMLEFT", 0, 0)
   line:SetPoint("BOTTOMRIGHT", 0, 0)
   local fs = track(Theme:Label(h, BASE_FONT - 3, "azure"), -3)
@@ -675,7 +675,7 @@ local function charCell(row, i)
   local box = CreateFrame("Frame", nil, c, "BackdropTemplate")
   box:SetSize(16, 16)
   box:SetPoint("LEFT", 1, 0)
-  box:SetBackdrop({ bgFile = Theme.WHITE, edgeFile = Theme.WHITE, edgeSize = 1 })
+  ns.PixelBackdrop(box)
   box:SetBackdropColor(Theme:C("slot"))
   box:SetBackdropBorderColor(Theme:C("stroke"))
   local mark = Theme:Rect(box, "accent", "OVERLAY")
@@ -1196,7 +1196,7 @@ local GRID_PAGE = {
   { type = "toggle", name = "Merge reagents", col = 2, of = 2, get = mergeGet, set = mergeSet,
     desc = "Lay the reagent bag out with the main bags, without its caption." },
   { type = "header", name = "Slot look" },
-  { type = "range", name = "Spacing opacity", min = 0, max = 1, step = 0.01,
+  { type = "range", name = "Plate opacity", min = 0, max = 1, step = 0.01,
     get = gridAlphaGet, set = gridAlphaSet,
     desc = "The plate behind the slots, seen in the gaps. At Spacing 0 there are none." },
   { type = "header", name = "Bank and Warband grid", key = "bankgrid",
@@ -1462,8 +1462,8 @@ function Options:Build()
   f:SetScript("OnDragStart", f.StartMoving)
   f:SetScript("OnDragStop", function(s)
     s:StopMovingOrSizing()
-    local p, _, rp, x, y = s:GetPoint()
-    WarpeeDB.optPos = { p = p, rp = rp, x = x, y = y }
+    local p, rp, x, y = ns.SnapFrame(s)
+    if p then WarpeeDB.optPos = { p = p, rp = rp, x = x, y = y } end
   end)
   f:SetScript("OnMouseDown", function(s) Theme:Raise(s) end)
   Theme:Window(f, "WarpeeOptionsFrame")
@@ -1489,7 +1489,7 @@ function Options:Build()
   track(close.Text, 2)
 
   local line = Theme:Rect(f, "strokeSoft", "ARTWORK")
-  line:SetHeight(1)
+  ns.PixelLine(line, 1)
   line:SetPoint("TOPLEFT", PAD, -HEADER_H)
   line:SetPoint("TOPRIGHT", -PAD, -HEADER_H)
 
@@ -1527,9 +1527,9 @@ function Options:Open()
   local pos = WarpeeDB and WarpeeDB.optPos
   f:ClearAllPoints()
   if pos then
-    f:SetPoint(pos.p, UIParent, pos.rp, pos.x, pos.y)
+    ns.SnapPoint(f, pos.p, UIParent, pos.rp, pos.x, pos.y)
   else
-    f:SetPoint("CENTER", UIParent, "CENTER", 260, 0)
+    ns.SnapPoint(f, "CENTER", UIParent, "CENTER", 260, 0)
   end
   self:Refresh()
   self:ApplyFont()

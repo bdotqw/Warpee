@@ -571,9 +571,9 @@ function View:Run(st, repaint, tag)
       end
       b.wpeBag, b.wpeSlot, b.link = c.bag, c.slot, nil
     end
-    if b.wpeSize ~= size then h:SetSize(size, size); b.wpeSize = size end
+    if b.wpeSize ~= size then ns.SnapSize(h, size, size); b.wpeSize = size end
     if b.wpeX ~= c.x or b.wpeY ~= c.y then
-      h:ClearAllPoints(); h:SetPoint("TOPLEFT", st.content, "TOPLEFT", c.x, c.y)
+      h:ClearAllPoints(); ns.SnapPoint(h, "TOPLEFT", st.content, "TOPLEFT", c.x, c.y)
       b.wpeX, b.wpeY = c.x, c.y
     end
     if repaint then b.link = nil end

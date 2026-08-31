@@ -7,7 +7,7 @@ function ns.CreateCharTag(parent, height, dir)
   local PADX, GAP = 8, 6
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
   b:SetHeight(height or 22)
-  b:SetBackdrop({ bgFile = Theme.WHITE, edgeFile = Theme.WHITE, edgeSize = 1 })
+  ns.PixelBackdrop(b)
   b:SetBackdropColor(Theme:C("panel"))
   b:SetBackdropBorderColor(Theme:C("stroke"))
   Theme:Track(b, function(x)
@@ -20,7 +20,7 @@ function ns.CreateCharTag(parent, height, dir)
     caret:SetSize(3, 7)
     for i = 1, 3 do
       local t = Theme:Rect(caret, "dim", "ARTWORK")
-      t:SetWidth(1)
+      ns.PixelLine(t, 1, "w")
       t:SetHeight((dir == "right") and (7 - (i - 1) * 2) or (3 + (i - 1) * 2))
       t:SetPoint("LEFT", caret, "LEFT", i - 1, 0)
       b.caret[i] = t
@@ -29,7 +29,7 @@ function ns.CreateCharTag(parent, height, dir)
     caret:SetSize(7, 4)
     for i = 1, 3 do
       local t = Theme:Rect(caret, "dim", "ARTWORK")
-      t:SetHeight(1)
+      ns.PixelLine(t, 1)
       t:SetWidth(7 - (i - 1) * 2)
       t:SetPoint("TOP", caret, "TOP", 0, -(i - 1))
       b.caret[i] = t
@@ -128,7 +128,7 @@ end
 local function barField(bar, apply)
   local e = CreateFrame("EditBox", nil, bar, "BackdropTemplate")
   e:SetSize(40, 16)
-  e:SetBackdrop({ bgFile = Theme.WHITE, edgeFile = Theme.WHITE, edgeSize = 1 })
+  ns.PixelBackdrop(e)
   e:SetBackdropColor(Theme:C("bg"))
   e:SetBackdropBorderColor(Theme:C("stroke"))
   e:SetFont("Fonts\\ARIALN.TTF", 11, "")
@@ -149,12 +149,12 @@ end
 function ns.Rebase(frame, dbKey)
   local l, b = frame:GetLeft(), frame:GetBottom()
   if not (l and b) then return end
-  l, b = math.floor(l + 0.5), math.floor(b + 0.5)
+  l, b = ns.SnapValue(frame, l), ns.SnapValue(frame, b)
   local w = frame:GetWidth() or 0
   local sw = UIParent:GetWidth() or 0
   frame:ClearAllPoints()
   if sw > 0 and (l + w * 0.5) > sw * 0.5 then
-    local rx = math.floor(l + w - sw + 0.5)
+    local rx = ns.SnapValue(frame, l + w - sw)
     frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", rx, b)
     if WarpeeDB then WarpeeDB[dbKey] = { p = "BOTTOMRIGHT", rp = "BOTTOMRIGHT", x = rx, y = b } end
   else
@@ -168,9 +168,9 @@ function ns.PlaceWindow(frame, dbKey, def)
   local p = WarpeeDB and WarpeeDB[dbKey]
   frame:ClearAllPoints()
   if p and p.p then
-    frame:SetPoint(p.p, UIParent, p.rp or p.p, p.x or 0, p.y or 0)
+    ns.SnapPoint(frame, p.p, UIParent, p.rp or p.p, p.x or 0, p.y or 0)
   elseif def then
-    frame:SetPoint(def.p, UIParent, def.rp or def.p, def.x or 0, def.y or 0)
+    ns.SnapPoint(frame, def.p, UIParent, def.rp or def.p, def.x or 0, def.y or 0)
   else
     frame:SetPoint("CENTER")
   end
@@ -272,7 +272,7 @@ function ns.CreateButton(parent, text, width, height, template)
   end
   b:SetSize(width or 78, height or 22)
   if b.SetMotionScriptsWhileDisabled then b:SetMotionScriptsWhileDisabled(true) end
-  b:SetBackdrop({ bgFile = Theme.WHITE, edgeFile = Theme.WHITE, edgeSize = 1 })
+  ns.PixelBackdrop(b)
   b:SetBackdropColor(Theme:C("panel"))
   b:SetBackdropBorderColor(Theme:C("stroke"))
   Theme:Track(b, function(s)
@@ -319,7 +319,7 @@ end
 function ns.CreateSearchBox(parent, onChanged)
   local box = CreateFrame("EditBox", nil, parent, "BackdropTemplate")
   box:SetHeight(22)
-  box:SetBackdrop({ bgFile = Theme.WHITE, edgeFile = Theme.WHITE, edgeSize = 1 })
+  ns.PixelBackdrop(box)
   box:SetBackdropColor(Theme:C("bg"))
   box:SetBackdropBorderColor(Theme:C("stroke"))
   Theme:Track(box, function(s)
