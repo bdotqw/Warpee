@@ -33,13 +33,14 @@ function Bags:TopOffset() return HEADER + 4 + Theme:TopInset() - self:HeadShift(
 
 function Bags:AnchorHeader()
   local top = Theme:TopInset()
+  local row1 = ROW1_Y + top - Theme:HeadLift()
   if self.closeBtn then
     self.closeBtn:ClearAllPoints()
-    ns.SnapPoint(self.closeBtn, "TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -(ROW1_Y + top))
+    ns.SnapPoint(self.closeBtn, "TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row1)
   end
   if self.charTag then
     self.charTag:ClearAllPoints()
-    ns.SnapPoint(self.charTag, "TOPLEFT", self.frame, "TOPLEFT", PAD, -(ROW1_Y + top))
+    ns.SnapPoint(self.charTag, "TOPLEFT", self.frame, "TOPLEFT", PAD, -row1)
   end
   if self.gaugeBg then
     self.gaugeBg:ClearAllPoints()

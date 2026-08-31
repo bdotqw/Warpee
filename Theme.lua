@@ -590,6 +590,10 @@ function Theme:TopInset()
   return self:Skinned() and TITLE_STRIP or 0
 end
 
+function Theme:HeadLift()
+  return self:Skinned() and 1 or 0
+end
+
 function Theme:Panel(frame, bgKey, strokeKey)
   local bg, st = bgKey or "bg", strokeKey or "stroke"
   local function paint(x)
