@@ -59,6 +59,10 @@ local function mmHideSet(v)
   WarpeeDB.hideMinimapIcon = v and true or false
   if ns.ApplyMinimapIcon then ns.ApplyMinimapIcon() end
 end
+local function sClearGet() return WarpeeDB.searchClear ~= false end
+local function sClearSet(v) WarpeeDB.searchClear = v and true or false end
+local function sLinkGet() return WarpeeDB.searchLink ~= false end
+local function sLinkSet(v) WarpeeDB.searchLink = v and true or false end
 local function lockSet(v)
   WarpeeDB.lockWindows = v and true or nil
   ns.ApplyWindowLock()
@@ -1057,6 +1061,11 @@ local GENERAL_PAGE = {
     desc = "Fill bar in the bags header showing how full they are." },
   { type = "toggle", name = "Hide minimap icon", col = 1, get = mmHideGet, set = mmHideSet,
     desc = "Takes the Warpee button off the minimap." },
+  { type = "header", name = "Search" },
+  { type = "toggle", name = "Clear on close", col = 1, get = sClearGet, set = sClearSet,
+    desc = "Empty the search box when the window closes, so it opens unfiltered next time." },
+  { type = "toggle", name = "Bags and bank together", col = 2, get = sLinkGet, set = sLinkSet,
+    desc = "While both windows are open, typing in either box searches both at once." },
   { type = "header", name = "Money" },
   { type = "select", name = "Gold format", get = goldFmtGet, set = goldFmtSet,
     keys = function() return GOLD_FORMATS end, label = function(k) return GOLD_FORMAT_LABELS[k] or k end,

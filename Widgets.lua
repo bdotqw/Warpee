@@ -347,3 +347,28 @@ function ns.CreateSearchBox(parent, onChanged)
   box:SetScript("OnEnterPressed", function(s) s:ClearFocus() end)
   return box
 end
+
+function ns.MirrorSearch(from, text)
+  if ns.searchSyncing then return end
+  if not (WarpeeDB and WarpeeDB.searchLink) then return end
+  local B, K = ns.Bags, ns.Bank
+  local other
+  if from == "bags" then
+    other = K and K.frame and K.frame:IsShown() and K.search
+  else
+    other = B and B.frame and B.frame:IsShown() and B.search
+  end
+  if not other then return end
+  text = text or ""
+  if other:GetText() == text then return end
+  ns.searchSyncing = true
+  other:SetText(text)
+  ns.searchSyncing = false
+end
+
+function ns.ClearSearch(box)
+  if not (box and WarpeeDB and WarpeeDB.searchClear) then return end
+  if box:GetText() == "" then return end
+  box:SetText("")
+  box:ClearFocus()
+end
