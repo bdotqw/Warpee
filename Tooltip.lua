@@ -26,24 +26,6 @@ local function tipBox()
   return t
 end
 
-function ns.FixTipCyrillic(tt, from)
-  if not (tt and from and ns.Fonts:NeedsCyrillic()) then return end
-  local name = tt.GetName and tt:GetName()
-  if not name then return end
-  local last = (tt.NumLines and tt:NumLines()) or 0
-  for i = from, last do
-    for _, side in ipairs({ "TextLeft", "TextRight" }) do
-      local fs = _G[name .. side .. i]
-      if fs and fs.GetFont then
-        local path, size, flags = fs:GetFont()
-        if path and size and size > 0 and not ns.Fonts:HasCyrillic(path) then
-          pcall(fs.SetFont, fs, ns.Fonts:CyrillicPath(), size, flags or "")
-        end
-      end
-    end
-  end
-end
-
 function ns.HideTip()
   if tipFrame then tipFrame:Hide() end
 end

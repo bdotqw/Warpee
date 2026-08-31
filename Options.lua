@@ -274,21 +274,7 @@ local function openDropdown(anchor, spec, onPick)
 end
 
 local function caretGroup(parent, dir)
-  local g = CreateFrame("Frame", nil, parent)
-  if dir == "down" then g:SetSize(16, 10) else g:SetSize(10, 16) end
-  for i = 1, 4 do
-    local t = Theme:Rect(g, "dim", "ARTWORK")
-    if dir == "down" then
-      t:SetHeight(2)
-      t:SetWidth(16 - (i - 1) * 4)
-      t:SetPoint("TOP", g, "TOP", 0, -(i - 1) * 2)
-    else
-      t:SetWidth(2)
-      t:SetHeight(16 - (i - 1) * 4)
-      t:SetPoint("LEFT", g, "LEFT", (i - 1) * 2, 0)
-    end
-  end
-  return g
+  return ns.ArrowGlyph(parent, dir, dir == "down" and 10 or 12)
 end
 
 function factories.header(parent, spec)
@@ -577,20 +563,9 @@ function factories.select(parent, spec)
   cur:SetPoint("RIGHT", -18, 0)
   cur:SetJustifyH("LEFT")
 
-  local arrowBox = CreateFrame("Frame", nil, btn)
-  arrowBox:SetSize(9, 5)
+  local arrowBox = ns.ArrowGlyph(btn, "down", 9)
   arrowBox:SetPoint("RIGHT", -7, 0)
-  local arrow = {}
-  for i = 1, 4 do
-    local t = Theme:Rect(arrowBox, "dim", "ARTWORK")
-    ns.PixelLine(t, 1)
-    t:SetWidth(9 - (i - 1) * 2)
-    t:SetPoint("TOP", arrowBox, "TOP", 0, -(i - 1))
-    arrow[i] = t
-  end
-  local function arrowColor(key)
-    for _, t in ipairs(arrow) do t:SetVertexColor(Theme:C(key)) end
-  end
+  local function arrowColor(key) arrowBox:SetTint(key) end
 
   row.Refresh = function()
     local off = (spec.disabled and spec.disabled()) and true or false

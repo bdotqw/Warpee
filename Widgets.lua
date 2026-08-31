@@ -3,6 +3,66 @@ local Theme = ns.Theme
 
 local CLASS_RING = "Interface\\TargetingFrame\\UI-Classes-Circles"
 
+local GLYPH = {
+  up    = { atlas = "editmode-up-arrow", w = 16, h = 11 },
+  down  = { atlas = "friendslist-categorybutton-arrow-down", w = 16, h = 11 },
+  right = { atlas = "friendslist-categorybutton-arrow-right", w = 11, h = 16 },
+  left  = { atlas = "friendslist-categorybutton-arrow-right", w = 11, h = 16, rot = math.pi },
+}
+
+local function stripGlyph(f, dir, size)
+  local parts = {}
+  local N = 3
+  local span = math.max(3, size)
+  if dir == "left" or dir == "right" then
+    f:SetSize(N, span)
+    for i = 1, N do
+      local t = Theme:Rect(f, "dim", "ARTWORK")
+      ns.PixelLine(t, 1, "w")
+      t:SetHeight((dir == "right") and (span - (i - 1) * 2) or (3 + (i - 1) * 2))
+      t:SetPoint("LEFT", f, "LEFT", i - 1, 0)
+      parts[i] = t
+    end
+  else
+    f:SetSize(span, N)
+    for i = 1, N do
+      local t = Theme:Rect(f, "dim", "ARTWORK")
+      ns.PixelLine(t, 1)
+      t:SetWidth((dir == "up") and (3 + (i - 1) * 2) or (span - (i - 1) * 2))
+      t:SetPoint("TOP", f, "TOP", 0, -(i - 1))
+      parts[i] = t
+    end
+  end
+  return parts
+end
+
+function ns.ArrowGlyph(parent, dir, size)
+  local spec = GLYPH[dir] or GLYPH.down
+  local f = CreateFrame("Frame", nil, parent)
+  local h = size or 9
+  local tex = f:CreateTexture(nil, "ARTWORK")
+  local ok = false
+  if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(spec.atlas) then
+    ok = pcall(tex.SetAtlas, tex, spec.atlas) and true or false
+  end
+  if ok then
+    ns.SnapBox(f, h * (spec.w / spec.h), h)
+    tex:SetAllPoints(f)
+    if spec.rot then tex:SetRotation(spec.rot) end
+    f.parts = { tex }
+  else
+    tex:Hide()
+    f.parts = stripGlyph(f, dir, h)
+  end
+  f.Tint = function(s, key)
+    for _, p in ipairs(s.parts) do p:SetVertexColor(Theme:C(key)) end
+  end
+  Theme:Track(f, function(s) s:Tint(s.wpeTint or "dim") end)
+  f.SetTint = function(s, key) s.wpeTint = key; s:Tint(key) end
+  f:SetTint("dim")
+  return f
+end
+
 function ns.CreateCharTag(parent, height, dir)
   local PADX, GAP = 8, 6
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
@@ -14,27 +74,8 @@ function ns.CreateCharTag(parent, height, dir)
     x:SetBackdropColor(Theme:C("panel")); x:SetBackdropBorderColor(Theme:C("stroke"))
   end)
 
-  local caret = CreateFrame("Frame", nil, b)
-  b.caret = {}
-  if dir == "left" or dir == "right" then
-    caret:SetSize(3, 7)
-    for i = 1, 3 do
-      local t = Theme:Rect(caret, "dim", "ARTWORK")
-      ns.PixelLine(t, 1, "w")
-      t:SetHeight((dir == "right") and (7 - (i - 1) * 2) or (3 + (i - 1) * 2))
-      t:SetPoint("LEFT", caret, "LEFT", i - 1, 0)
-      b.caret[i] = t
-    end
-  else
-    caret:SetSize(7, 4)
-    for i = 1, 3 do
-      local t = Theme:Rect(caret, "dim", "ARTWORK")
-      ns.PixelLine(t, 1)
-      t:SetWidth(7 - (i - 1) * 2)
-      t:SetPoint("TOP", caret, "TOP", 0, -(i - 1))
-      b.caret[i] = t
-    end
-  end
+  local caret = ns.ArrowGlyph(b, (dir == "left" or dir == "right") and dir or "down", 8)
+  b.caret = caret
 
   local ic = b:CreateTexture(nil, "ARTWORK")
   ic:SetSize(14, 14)
@@ -56,7 +97,7 @@ function ns.CreateCharTag(parent, height, dir)
     caret:SetPoint("RIGHT", -PADX, 0)
     fs:SetPoint("RIGHT", caret, "LEFT", -GAP, 0)
   end
-  local function caretColor(k) for _, t in ipairs(b.caret) do t:SetVertexColor(Theme:C(k)) end end
+  local function caretColor(k) b.caret:SetTint(k) end
   b:SetScript("OnEnter", function(s)
     s:SetBackdropColor(Theme:C("panelHi"))
     s:SetBackdropBorderColor(Theme:C("accent"))
@@ -106,35 +147,11 @@ local moveBars = {}
 
 local function barArrow(bar, dir, fn)
   local b = CreateFrame("Button", nil, bar)
-  b:SetSize(14, 16)
-  local tris = {}
-  local N, STEP = 5, 2
-  local span = N * STEP
-  for i = 1, N do
-    local t = b:CreateTexture(nil, "ARTWORK")
-    t:SetTexture(Theme.WHITE)
-    t:SetVertexColor(Theme:C("dim"))
-    local off = (i - 1) * STEP - span / 2 + STEP / 2
-    if dir == "left" or dir == "right" then
-      t:SetWidth(STEP)
-      t:SetHeight((dir == "right") and (span - (i - 1) * STEP) or (STEP + (i - 1) * STEP))
-      t:SetPoint("CENTER", b, "CENTER", off, 0)
-    else
-      t:SetHeight(STEP)
-      t:SetWidth((dir == "up") and (STEP + (i - 1) * STEP) or (span - (i - 1) * STEP))
-      t:SetPoint("CENTER", b, "CENTER", 0, -off)
-    end
-    tris[i] = t
-  end
-  local function tint(key)
-    for _, t in ipairs(tris) do
-      t:SetTexture(Theme.WHITE)
-      t:SetVertexColor(Theme:C(key))
-    end
-  end
-  Theme:Track(b, function(s) tint(s.hover and "accent" or "dim") end)
-  b:SetScript("OnEnter", function(s) s.hover = true; tint("accent") end)
-  b:SetScript("OnLeave", function(s) s.hover = nil; tint("dim") end)
+  ns.SnapBox(b, 14, 16)
+  local glyph = ns.ArrowGlyph(b, dir, 10)
+  glyph:SetPoint("CENTER")
+  b:SetScript("OnEnter", function(s) s.hover = true; glyph:SetTint("accent") end)
+  b:SetScript("OnLeave", function(s) s.hover = nil; glyph:SetTint("dim") end)
   b:SetScript("OnClick", function() fn(IsShiftKeyDown() and 10 or 1) end)
   return b
 end
@@ -250,14 +267,6 @@ function ns.CreateMoveBar(frame, dbKey)
   local yp = barArrow(bar, "up", function(step) nudge(0, step) end)
   yp:SetPoint("LEFT", ym, "RIGHT", 0, 0)
   bar:SetWidth(176)
-  local bg = Theme:Rect(bar, "panel", "BACKGROUND")
-  bg:SetPoint("TOPLEFT", -4, 3)
-  bg:SetPoint("BOTTOMRIGHT", 4, -3)
-  bg:SetAlpha(0.92)
-  local edge = Theme:Rect(bar, "strokeSoft", "BACKGROUND")
-  ns.PixelLine(edge, 1)
-  edge:SetPoint("BOTTOMLEFT", bg, "TOPLEFT", 0, 0)
-  edge:SetPoint("BOTTOMRIGHT", bg, "TOPRIGHT", 0, 0)
 
   bar.Refresh = function(s)
     local l, b = frame:GetLeft(), frame:GetBottom()

@@ -561,7 +561,13 @@ end
 function Theme:RefreshArt(frame)
   if self:Skinned() then
     local art = buildArt(frame)
-    if art then sinkArt(frame, art); art:Show() end
+    if art then
+      sinkArt(frame, art)
+      local a = (self.colors.bg and self.colors.bg[4]) or 1
+      if art.Bg then art.Bg:SetAlpha(a) end
+      if art.Center then art.Center:SetAlpha(a) end
+      art:Show()
+    end
     if frame.wpeBandH then self:HeaderBand(frame) end
     return art
   end
