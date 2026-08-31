@@ -46,6 +46,7 @@ function ns.ArrowGlyph(parent, dir, size)
     ok = pcall(tex.SetAtlas, tex, spec.atlas) and true or false
   end
   if ok then
+    pcall(tex.SetDesaturated, tex, true)
     ns.SnapBox(f, h * (spec.w / spec.h), h)
     tex:SetAllPoints(f)
     if spec.rot then tex:SetRotation(spec.rot) end
@@ -74,7 +75,8 @@ function ns.CreateCharTag(parent, height, dir)
     x:SetBackdropColor(Theme:C("panel")); x:SetBackdropBorderColor(Theme:C("stroke"))
   end)
 
-  local caret = ns.ArrowGlyph(b, (dir == "left" or dir == "right") and dir or "down", 8)
+  local side = (dir == "left" or dir == "right")
+  local caret = ns.ArrowGlyph(b, side and dir or "down", side and 11 or 8)
   b.caret = caret
 
   local ic = b:CreateTexture(nil, "ARTWORK")
@@ -147,8 +149,9 @@ local moveBars = {}
 
 local function barArrow(bar, dir, fn)
   local b = CreateFrame("Button", nil, bar)
-  ns.SnapBox(b, 14, 16)
-  local glyph = ns.ArrowGlyph(b, dir, 10)
+  ns.SnapBox(b, 16, 16)
+  local side = (dir == "left" or dir == "right")
+  local glyph = ns.ArrowGlyph(b, dir, side and 14 or 10)
   glyph:SetPoint("CENTER")
   b:SetScript("OnEnter", function(s) s.hover = true; glyph:SetTint("accent") end)
   b:SetScript("OnLeave", function(s) s.hover = nil; glyph:SetTint("dim") end)

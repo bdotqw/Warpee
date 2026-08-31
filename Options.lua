@@ -1024,6 +1024,17 @@ local junkGet, junkSet       = field("junkIcon")
 local function gridAlphaGet() return Theme:GridAlpha() end
 local function gridAlphaSet(v) WarpeeDB.gridAlpha = v; Theme:ApplyGridAlpha() end
 local gaugeGet, gaugeSet     = field("showGauge")
+local fav = {}
+fav.showGet = function() return ns.Fav:Enabled() end
+fav.showSet = function(v)
+  WarpeeDB.favShow = v and true or false
+  relayout()
+end
+fav.countGet = function() return ns.Fav:Count() end
+fav.countSet = function(v)
+  WarpeeDB.favCount = tonumber(v) or 6
+  relayout()
+end
 local lettersGet, lettersSet = field("goldLetters")
 local onlyGet, onlySet       = field("goldOnly")
 
@@ -1085,6 +1096,13 @@ local GENERAL_PAGE = {
     desc = "Fill bar in the bags header showing how full they are." },
   { type = "toggle", name = "Hide minimap icon", col = 2, get = mmHideGet, set = mmHideSet,
     desc = "Takes the Warpee button off the minimap." },
+  { type = "header", name = "Favourites" },
+  { type = "toggle", name = "Favourite slots", col = 1, get = fav.showGet, set = fav.showSet,
+    desc = "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, drag the icon off to clear it." },
+  { type = "range", name = "How many slots", min = 1, max = 14, step = 1,
+    get = fav.countGet, set = fav.countSet,
+    disabled = function() return not fav.showGet() end,
+    desc = "Never more than the grid is wide." },
   { type = "header", name = "Search" },
   { type = "toggle", name = "Clear on close", col = 1, get = sClearGet, set = sClearSet,
     desc = "Empty the search box when the window closes, so it opens unfiltered next time." },
