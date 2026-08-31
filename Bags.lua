@@ -155,7 +155,6 @@ function Bags:Build()
   search:SetPoint("TOPRIGHT", -PAD, -ROW2_Y)
   search:SetHeight(22)
   self.search = search
-  ns.SearchTip(search)
 
   local gaugeBg = Theme:Rect(f, "panel", "BACKGROUND")
   gaugeBg:SetHeight(2)

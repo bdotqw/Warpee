@@ -348,31 +348,6 @@ function ns.CreateSearchBox(parent, onChanged)
   return box
 end
 
-function ns.SearchTip(box)
-  ns.AddTip(box, "Search", "top", function()
-    return {
-      { text = "Plain words match the name, type and subtype.", color = "dim", size = 12 },
-      { text = "cloth leather mail plate cosmetic", color = "faint", size = 12 },
-      { text = "dagger sword axe mace polearm staff bow gun crossbow wand fist warglaive",
-        color = "faint", size = 12 },
-      { text = "head neck shoulder back chest wrist hands waist legs feet finger trinket 1h 2h",
-        color = "faint", size = 12 },
-      { text = "shield offhand held ranged relic tabard shirt tool bagslot",
-        color = "faint", size = 12 },
-      { text = "poor common uncommon rare epic legendary heirloom",
-        color = "faint", size = 12 },
-      { text = "gear reagent consumable quest keystone token gem recipe bag mount pet glyph",
-        color = "faint", size = 12 },
-      { text = "boe bop warbound locked", color = "faint", size = 12 },
-      { text = "classic tbc wotlk cata mop wod legion bfa sl df tww midnight",
-        color = "faint", size = 12 },
-      { text = "current   legacy", color = "faint", size = 12 },
-      { text = "ilvl600   ilvl>600   ilvl<300   ilvl600-650", color = "faint", size = 12 },
-      { text = "Put ! in front of anything to exclude it.", color = "dim", size = 12 },
-    }
-  end)
-end
-
 function ns.MirrorSearch(from, text)
   if ns.searchSyncing then return end
   if not (WarpeeDB and WarpeeDB.searchLink) then return end

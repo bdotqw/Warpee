@@ -101,7 +101,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.cols = WarpeeDB.cols or 14
     WarpeeDB.gap = WarpeeDB.gap or 4
     WarpeeDB.iconSize = WarpeeDB.iconSize or 37
-    WarpeeDB.slotStyle = WarpeeDB.slotStyle or "tile"
+    WarpeeDB.slotStyle = WarpeeDB.slotStyle or "deep"
     WarpeeDB.theme = WarpeeDB.theme or "midnight"
     if not ns.Theme.THEMES[WarpeeDB.theme] then WarpeeDB.theme = "midnight" end
     ns.Theme:Apply(WarpeeDB.theme)
@@ -113,6 +113,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.slotStyle == "frost" then WarpeeDB.slotStyle = "tile" end
     if WarpeeDB.slotStyle == "ridged" or WarpeeDB.slotStyle == "marble"
        or WarpeeDB.slotStyle == "parchment" then WarpeeDB.slotStyle = "stone" end
+    if WarpeeDB.slotStyle == "tile" then WarpeeDB.slotStyle = "deep" end
     if WarpeeDB.showGauge == nil then WarpeeDB.showGauge = true end
     if WarpeeDB.goldLetters == nil then WarpeeDB.goldLetters = (WarpeeDB.goldMode == "letters") end
     if WarpeeDB.goldOnly == nil then WarpeeDB.goldOnly = (WarpeeDB.goldMode == "gold") end
