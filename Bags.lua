@@ -45,6 +45,7 @@ function Bags:Build()
   end)
   Theme:Window(f, "WarpeeFrame")
   f:SetScript("OnHide", function()
+    ns.ClearSearch(Bags.search)
     if ns.CharPicker then ns.CharPicker:Close() end
     if ns.Vault:SetView("bags", nil) then
       Bags.snap = nil
@@ -148,6 +149,7 @@ function Bags:Build()
     self.query = (text or ""):lower()
     self.filters = ns.ParseSearch(self.query)
     self:ApplySearch()
+    ns.MirrorSearch("bags", text)
   end)
   search:SetPoint("TOPLEFT", PAD, -ROW2_Y)
   search:SetPoint("TOPRIGHT", -PAD, -ROW2_Y)

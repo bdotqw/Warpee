@@ -173,6 +173,7 @@ function View:Build()
   end)
   Theme:Window(f, "WarpeeBankFrame")
   f:SetScript("OnHide", function()
+    ns.ClearSearch(self.search)
     self.depositType = nil
     if ns.CharPicker then ns.CharPicker:Close() end
     if ns.Vault:SetView("bank", nil) then self:UpdateCharBtn() end
@@ -227,6 +228,7 @@ function View:Build()
     self.query = (text or ""):lower()
     self.filters = ns.ParseSearch(self.query)
     self:ApplySearch()
+    ns.MirrorSearch("bank", text)
   end)
   search:SetPoint("LEFT", wbTab, "RIGHT", 12, 0)
   search:SetPoint("RIGHT", freeText, "LEFT", -10, 0)
