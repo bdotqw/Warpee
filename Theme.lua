@@ -85,7 +85,7 @@ Theme.THEMES = {
     faint = { 0.475, 0.435, 0.545, 1 }, emptyLine = { 0.322, 0.278, 0.404, 1 },
     azure = { 0.643, 0.510, 0.902, 1 }, reagent = { 0.400, 0.816, 0.643, 1 } },
 }
-Theme.THEME_ORDER = { "midnight", "nightbloom", "void", "blood", "nord",
+Theme.THEME_ORDER = { "midnight", "nightbloom", "void", "nord", "blood",
                       "obsidian", "ember", "sakura", "bamboo" }
 
 function Theme:IsLight()
