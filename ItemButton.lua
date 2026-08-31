@@ -154,6 +154,7 @@ local function clearOverlays(b)
   if b.IconOverlay2 then b.IconOverlay2:Hide() end
   if b.ProfessionQualityOverlay then b.ProfessionQualityOverlay:Hide() end
   if b.junk then b.junk:Hide() end
+  if b.blocked then b.blocked:Hide() end
 end
 local function suppress(t)
   if not t then return end
@@ -461,6 +462,33 @@ function ns.MarkJunk(b, quality)
   b.junk:Show()
 end
 
+local LOCK_ATLAS = { "bags-icon-lock", "Garr_LockedBuilding", "PetBattle-LockIcon" }
+
+function ns.MarkBlocked(b, itemID)
+  local on = (itemID and ns.Vendor and ns.Vendor:Blocked(itemID)) and true or false
+  if not on then
+    if b.blocked then b.blocked:Hide() end
+    return
+  end
+  if not b.blocked then
+    if not b.borderFrame then return end
+    b.blocked = b.borderFrame:CreateTexture(nil, "OVERLAY", nil, 6)
+    local set = false
+    if C_Texture and C_Texture.GetAtlasInfo then
+      for _, a in ipairs(LOCK_ATLAS) do
+        if C_Texture.GetAtlasInfo(a) then b.blocked:SetAtlas(a); set = true; break end
+      end
+    end
+    if not set then b.blocked:SetTexture("Interface\\PetBattles\\PetBattle-LockIcon") end
+  end
+  local ic = iconOf(b)
+  local sz = math.max(8, math.floor(cellOf(b) * 0.38 + 0.5))
+  b.blocked:SetSize(sz, sz)
+  b.blocked:ClearAllPoints()
+  b.blocked:SetPoint("TOPRIGHT", ic or b, "TOPRIGHT", -1, -1)
+  b.blocked:Show()
+end
+
 local function slotLoc(b, bag, slot)
   local loc = b.loc
   if loc and loc.SetBagAndSlot then loc:SetBagAndSlot(bag, slot); return loc end
@@ -553,6 +581,7 @@ function ns.UpdateItemButton(b)
   end
   ns.MarkNewItem(b, bagID, slot, info and info.quality)
   ns.MarkJunk(b, info and info.quality)
+  ns.MarkBlocked(b, info and info.itemID)
   SetItemButtonDesaturated(b, info and info.isLocked)
   local icon = b.icon or _G[(b:GetName() or "").."IconTexture"]
   if icon then icon:SetVertexColor(1, 1, 1, 1) end
@@ -626,6 +655,7 @@ function ns.PaintVaultButton(b, d, bagID)
     ns.FitOverlays(b)
     ns.MarkQuestItem(b, classID == Enum.ItemClass.Questitem)
     ns.MarkJunk(b, q)
+    ns.MarkBlocked(b, (C_Item.GetItemInfoInstant(link)))
   else
     clearOverlays(b)
     SetItemButtonQuality(b, nil)

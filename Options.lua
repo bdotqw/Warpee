@@ -1125,6 +1125,7 @@ local VENDOR_PAGE = {
   { type = "toggle", name = "Keep gems and enchants", col = 1, get = vGemGet, set = vGemSet,
     desc = "Skip any piece that has a gem socketed or an enchant applied, so what you paid for is not sold off with it." },
   { type = "header", name = "Blacklist" },
+  { type = "description", name = "Alt-click an item in the bags or the bank to lock it, and a small padlock appears on the slot. Alt-click it again, or press the cross here, to unlock. Locked items are never sold, whatever the settings above say." },
   { type = "blacklist" },
 }
 
@@ -1307,24 +1308,6 @@ end
 function Options:Close()
   closeDropdown()
   if self.frame then self.frame:Hide() end
-end
-
-local function vendorTabOpen()
-  local f = Options.frame
-  if not (f and f:IsShown() and Options.current) then return false end
-  local p = PAGES[Options.current]
-  return (p and p.name == "Vendor") and true or false
-end
-
-if type(HandleModifiedItemClick) == "function" then
-  hooksecurefunc("HandleModifiedItemClick", function(link)
-    if not (link and IsAltKeyDown() and not IsShiftKeyDown() and not IsControlKeyDown()
-       and vendorTabOpen() and ns.Vendor) then return end
-    local id = (C_Item.GetItemInfoInstant(link))
-    if not id then return end
-    ns.Vendor:Block(id, link:match("%[(.-)%]") or (C_Item.GetItemInfo(link)))
-    Options:ReflowPages()
-  end)
 end
 
 function Options:Toggle()

@@ -72,6 +72,34 @@ function Vendor:Unblock(id)
   if id and WarpeeDB.vendorBlack then WarpeeDB.vendorBlack[id] = nil end
 end
 
+local function blackRepaint()
+  local B = ns.Bags
+  if B then
+    if B.pool then for _, b in ipairs(B.pool) do b.link = nil end end
+    if B.frame and B.frame:IsShown() then B:Layout() end
+  end
+  if ns.Bank then ns.Bank:Repaint() end
+  local O = ns.Options
+  if O and O.ReflowPages and O.frame and O.frame:IsShown() then O:ReflowPages() end
+end
+
+function Vendor:Toggle(id, name)
+  if not id then return end
+  if self:Blocked(id) then self:Unblock(id) else self:Block(id, name) end
+  blackRepaint()
+end
+
+if type(HandleModifiedItemClick) == "function" then
+  hooksecurefunc("HandleModifiedItemClick", function(link)
+    if not (link and IsAltKeyDown() and not IsShiftKeyDown() and not IsControlKeyDown()) then
+      return
+    end
+    local id = (C_Item.GetItemInfoInstant(link))
+    if not id then return end
+    Vendor:Toggle(id, link:match("%[(.-)%]") or (C_Item.GetItemInfo(link)))
+  end)
+end
+
 function Vendor:BlackList()
   local out = {}
   for id, name in pairs(WarpeeDB.vendorBlack or {}) do
