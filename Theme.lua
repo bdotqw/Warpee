@@ -86,7 +86,7 @@ Theme.THEMES = {
     accent = { 1.000, 0.820, 0.000, 1 }, accentInk = { 1.000, 0.914, 0.510, 1 },
     text = { 0.965, 0.949, 0.906, 1 }, dim = { 0.741, 0.718, 0.663, 1 },
     faint = { 0.545, 0.522, 0.475, 1 },
-    emptyLine = { 0, 0, 0, 0 },
+    emptyLine = { 0.078, 0.075, 0.071, 0.90 },
     azure = { 0.478, 0.729, 0.906, 1 }, reagent = { 0.353, 0.804, 0.616, 1 } },
 }
 Theme.THEME_ORDER = { "midnight", "blizzard", "nightbloom", "void", "nord", "blood",
@@ -319,7 +319,10 @@ end
 local TIP_BG   = [[Interface\Tooltips\UI-Tooltip-Background]]
 local TIP_EDGE = [[Interface\Tooltips\UI-Tooltip-Border]]
 local SLOT_ATLAS = "bags-item-slot64"
-local ART_TEMPLATE = "PortraitFrameTemplate"
+local ART_TEMPLATE = "DefaultPanelTemplate"
+local ART_FALLBACK = "PortraitFrameTemplate"
+local ART_HIDE = { "CloseButton", "PortraitContainer", "portrait", "PortraitFrame",
+                   "Portrait", "TopTileStreaks", "Inset" }
 local ART_FRAMES = setmetatable({}, { __mode = "k" })
 
 function Theme:Skinned()
@@ -341,11 +344,16 @@ end
 local function buildArt(frame)
   if frame.wpeArt ~= nil then return frame.wpeArt end
   local ok, art = pcall(CreateFrame, "Frame", nil, frame, ART_TEMPLATE)
+  if not ok or not art then
+    ok, art = pcall(CreateFrame, "Frame", nil, frame, ART_FALLBACK)
+  end
   if not ok or not art then frame.wpeArt = false; return false end
   art:SetAllPoints(frame)
   art:EnableMouse(false)
   art:SetFrameLevel(frame:GetFrameLevel())
-  for _, key in ipairs({ "CloseButton", "PortraitContainer", "portrait", "PortraitFrame" }) do
+  -- Whatever ornament the template ships with, Warpee draws its own: the border,
+  -- the strip and the tile are all we keep.
+  for _, key in ipairs(ART_HIDE) do
     local part = art[key]
     if part then
       if part.EnableMouse then part:EnableMouse(false) end
@@ -353,7 +361,10 @@ local function buildArt(frame)
     end
   end
   local title = art.TitleContainer
-  if title and title.TitleText then title.TitleText:SetText("") end
+  if title then
+    if title.TitleText then title.TitleText:SetText("") end
+    if title.SetAlpha then title:SetAlpha(1) end
+  end
   frame.wpeArt = art
   return art
 end
@@ -379,8 +390,17 @@ function Theme:Panel(frame, bgKey, strokeKey)
   local bg, st = bgKey or "bg", strokeKey or "stroke"
   local function paint(x)
     if Theme:Skinned() then
-      if ART_FRAMES[x] and Theme:RefreshArt(x) then
-        x:SetBackdrop(nil)
+      local art = ART_FRAMES[x] and Theme:RefreshArt(x)
+      if art then
+        -- Keep the template's own tile when it has one; fill the inside
+        -- ourselves when it does not, or the window would be see-through.
+        if art.Bg then
+          x:SetBackdrop(nil)
+        else
+          x:SetBackdrop({ bgFile = WHITE,
+                          insets = { left = 4, right = 4, top = 4, bottom = 4 } })
+          x:SetBackdropColor(Theme:C(bg))
+        end
         return
       end
       x:SetBackdrop({ bgFile = TIP_BG, edgeFile = TIP_EDGE, tile = true, tileSize = 16,

@@ -12,14 +12,17 @@ local SLOT_STYLES = {
   end,
 }
 
+local SLOT_TEXTURE = [[Interface\Buttons\UI-Slot-Background]]
+
 function ns.PaintSlotBg(b)
   if not (b and b.bg) then return end
   local style = ns.Bags.slotStyle or "tile"
-  local atlas = (style ~= "flat") and Theme.SlotAtlas and Theme:SlotAtlas() or nil
   b.bg:SetTexCoord(0, 1, 0, 1)
   b.bg:SetVertexColor(1, 1, 1, 1)
-  if atlas and b.bg.SetAtlas then
-    if pcall(b.bg.SetAtlas, b.bg, atlas) then return end
+  if style ~= "flat" and Theme.Skinned and Theme:Skinned() then
+    local atlas = Theme.SlotAtlas and Theme:SlotAtlas()
+    if atlas and b.bg.SetAtlas and pcall(b.bg.SetAtlas, b.bg, atlas) then return end
+    if pcall(b.bg.SetTexture, b.bg, SLOT_TEXTURE) then return end
   end
   local fn = SLOT_STYLES[style] or SLOT_STYLES.tile
   b.bg:SetColorTexture(fn())
