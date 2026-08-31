@@ -232,8 +232,10 @@ function ns.PixelBackdrop(frame, painter)
   return ns.PixelJob(frame, function(x)
     if painter then painter(x); return end
     x:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = ns.PX(x) })
-    if x.wpeBg then x.wpeSetBg(x, x.wpeBg[1], x.wpeBg[2], x.wpeBg[3], x.wpeBg[4]) end
-    if x.wpeEdge then x.wpeSetEdge(x, x.wpeEdge[1], x.wpeEdge[2], x.wpeEdge[3], x.wpeEdge[4]) end
+    local bgc = x.wpeBg or { Theme:C("panel") }
+    local edc = x.wpeEdge or { Theme:C("stroke") }
+    x.wpeSetBg(x, bgc[1], bgc[2], bgc[3], bgc[4])
+    x.wpeSetEdge(x, edc[1], edc[2], edc[3], edc[4])
   end)
 end
 
