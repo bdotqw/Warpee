@@ -6,7 +6,7 @@ local CLASS_RING = "Interface\\TargetingFrame\\UI-Classes-Circles"
 function ns.CreateCharTag(parent, height, dir)
   local PADX, GAP = 8, 6
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
-  b:SetHeight(height or 22)
+  ns.SnapBox(b, nil, height or 22)
   ns.PixelBackdrop(b)
   b:SetBackdropColor(Theme:C("panel"))
   b:SetBackdropBorderColor(Theme:C("stroke"))
@@ -141,7 +141,7 @@ end
 
 local function barField(bar, apply)
   local e = CreateFrame("EditBox", nil, bar, "BackdropTemplate")
-  e:SetSize(40, 16)
+  ns.SnapBox(e, 40, 16)
   ns.PixelBackdrop(e)
   e:SetBackdropColor(Theme:C("slot"))
   e:SetBackdropBorderColor(Theme:C("stroke"))
@@ -297,7 +297,7 @@ function ns.CreateButton(parent, text, width, height, template)
   else
     b = CreateFrame("Button", nil, parent, "BackdropTemplate")
   end
-  b:SetSize(width or 78, height or 22)
+  ns.SnapBox(b, width or 78, height or 22)
   if b.SetMotionScriptsWhileDisabled then b:SetMotionScriptsWhileDisabled(true) end
   ns.PixelBackdrop(b)
   b:SetBackdropColor(Theme:C("panel"))
@@ -345,7 +345,7 @@ end
 
 function ns.CreateSearchBox(parent, onChanged)
   local box = CreateFrame("EditBox", nil, parent, "BackdropTemplate")
-  box:SetHeight(22)
+  ns.SnapBox(box, nil, 22)
   ns.PixelBackdrop(box)
   box:SetBackdropColor(Theme:C("bg"))
   box:SetBackdropBorderColor(Theme:C("stroke"))
