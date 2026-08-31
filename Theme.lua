@@ -707,6 +707,14 @@ local function cyrillicFont()
   return cyrPick
 end
 
+function ns.Fonts:CyrillicPath()
+  return cyrillicFont()
+end
+
+function ns.Fonts:HasCyrillic(path)
+  return path and hasCyrillic(path) or false
+end
+
 function ns.Fonts:NeedsCyrillic()
   return (ns.LocalePick and ns.LocalePick() == "ruRU") and true or false
 end

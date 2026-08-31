@@ -334,6 +334,7 @@ local function itemTooltip(tt, data)
   total = total + wb
   if total <= 0 then return end
   tt.wpeCounted = true
+  local from = ((tt.NumLines and tt:NumLines()) or 0) + 1
   tt:AddLine(" ")
   tt:AddLine(L["Inventory"], 1, 0.82, 0)
   for _, e in ipairs(rows) do
@@ -345,6 +346,7 @@ local function itemTooltip(tt, data)
     tt:AddDoubleLine(L["Warband bank"], tostring(wb), 0.44, 0.71, 0.83, 1, 1, 1)
   end
   tt:AddDoubleLine(L["Total"], tostring(total), 1, 0.82, 0, 1, 1, 1)
+  ns.FixTipCyrillic(tt, from)
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall
