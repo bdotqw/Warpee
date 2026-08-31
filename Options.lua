@@ -210,7 +210,8 @@ local function ensureDropdown()
   sf:EnableMouseWheel(true)
   sf:SetScript("OnMouseWheel", function(s, d)
     local span = math.max(0, child:GetHeight() - s:GetHeight())
-    s:SetVerticalScroll(math.min(span, math.max(0, s:GetVerticalScroll() - d * 40)))
+    local v = math.min(span, math.max(0, s:GetVerticalScroll() - d * 40))
+    s:SetVerticalScroll(math.min(span, ns.SnapScroll(s, v)))
   end)
 
   m.rows, m.sf, m.child, m.catcher = {}, sf, child, catcher
@@ -255,7 +256,7 @@ local function openDropdown(anchor, spec, onPick)
   m.child:SetSize(w - 8, #keys * rowH)
 
   local span = math.max(0, #keys * rowH - visible * rowH)
-  m.sf:SetVerticalScroll(math.min(span, math.max(0, (curIndex - 1) * rowH - rowH * 3)))
+  m.sf:SetVerticalScroll(math.min(span, ns.SnapScroll(m.sf, (curIndex - 1) * rowH - rowH * 3)))
 
   m.owner = anchor
   m:ClearAllPoints()
@@ -362,6 +363,7 @@ function factories.toggle(parent, spec)
   fs:SetPoint("RIGHT", -2, 0)
   fs:SetJustifyH("LEFT")
   row.Refresh = function()
+    ns.AlignToScreen(box)
     if type(spec.name) == "function" then
       fs:SetText(T(spec.name()) or "")
     else
@@ -726,6 +728,7 @@ local function charCell(row, i)
   end)
   c.Paint = function(s)
     local on = not ns.Vault:Hidden(s.key or "")
+    ns.AlignToScreen(s.box)
     s.box:SetBackdropColor(Theme:C("slot"))
     if row.delMode then
       s.mark:Hide()
@@ -958,7 +961,7 @@ local function buildPage(parent, list)
         end
       end
     end
-    page:SetHeight(y + 4)
+    page:SetHeight(ns.SnapValue(page, y + 4))
   end
   page.Relayout()
   return page
@@ -998,7 +1001,7 @@ local function makeScrollArea(parent, list)
   local function scrollTo(v)
     local span = range()
     v = math.min(span, math.max(0, v))
-    sf:SetVerticalScroll(v)
+    sf:SetVerticalScroll(math.min(span, ns.SnapScroll(sf, v)))
     paintBar()
   end
   sf.ScrollTo = function(_, v) scrollTo(v) end
@@ -1458,6 +1461,9 @@ function Options:ReflowPages()
   for _, row in ipairs(rows) do row.Refresh() end
   for _, area in ipairs(self.areas) do
     area.page.Relayout()
+    -- The offset that was whole pixels at the old scale is a fraction at the new
+    -- one, and a page half a pixel off shows up on every border inside it.
+    area:ScrollTo(area:GetVerticalScroll())
     area:PaintBar()
   end
 end
