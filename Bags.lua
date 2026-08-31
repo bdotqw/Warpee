@@ -141,7 +141,7 @@ function Bags:Build()
   local charTag = ns.CreateCharTag(f, HB, "left")
   charTag:SetPoint("TOPLEFT", PAD, -ROW1_Y)
   charTag:SetScript("OnClick", function(s) Bags:ToggleCharPicker(s) end)
-  addTip(charTag, "Snapshot of another character")
+  addTip(charTag, "Bags of another character")
   self.charTag = charTag
   freeText:SetPoint("LEFT", charTag, "RIGHT", 8, 0)
 

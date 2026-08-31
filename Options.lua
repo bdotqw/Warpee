@@ -10,7 +10,7 @@ end
 local Options = {}
 ns.Options = Options
 
-local WIN_W, WIN_H = 640, 700
+local WIN_W, WIN_H = 700, 700
 local PAD = 18
 local HEADER_H = 42
 local TAB_H = 30
@@ -85,9 +85,8 @@ end
 local ANCHORS = { "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT" }
 local ANCHOR_LABELS = { TOPLEFT = "Top left", TOPRIGHT = "Top right",
                         BOTTOMLEFT = "Bottom left", BOTTOMRIGHT = "Bottom right" }
-local STYLES = { "flat", "plate", "deep", "stone" }
-local STYLE_LABELS = { flat = "Transparent", plate = "Highlight", deep = "Solid",
-                       stone = "Stone" }
+local STYLES = { "flat", "plate", "deep" }
+local STYLE_LABELS = { flat = "Transparent", plate = "Highlight", deep = "Solid" }
 local THEME_LABELS = {}
 for i = #Theme.THEME_ORDER, 1, -1 do
   local k = Theme.THEME_ORDER[i]
@@ -1191,7 +1190,7 @@ local GRID_PAGE = {
   { type = "select", name = "Slot background", col = 1, of = 2,
     get = styleGet, set = styleSet,
     keys = function() return STYLES end, label = function(k) return STYLE_LABELS[k] or k end,
-    desc = "What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off, Stone swaps the fill for a texture tinted to the theme." },
+    desc = "What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off." },
   { type = "toggle", name = "Merge reagents", col = 2, of = 2, get = mergeGet, set = mergeSet,
     desc = "Lay the reagent bag out with the main bags, without its caption." },
   { type = "header", name = "Slot look" },
@@ -1253,7 +1252,7 @@ local function vRepGet() return WarpeeDB.vendorRepair and true or false end
 local function vRepSet(v) WarpeeDB.vendorRepair = v and true or false end
 local REPAIR_BY = { "player", "guild", "both" }
 local REPAIR_LABELS = { player = "Your gold", guild = "Guild bank",
-                        both = "Guild first" }
+                        both = "Guild or yours" }
 local function vRepByGet() return WarpeeDB.vendorRepairBy or "player" end
 local function vRepBySet(v) WarpeeDB.vendorRepairBy = v or "player" end
 local function vRelicGet() return WarpeeDB.vendorRelics ~= false end
