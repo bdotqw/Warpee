@@ -101,6 +101,119 @@ Theme:Apply("midnight")
 local WHITE = [[Interface\Buttons\WHITE8x8]]
 Theme.WHITE = WHITE
 
+-- pixel grid ----------------------------------------------------------------
+-- One interface unit is not one screen pixel: the virtual screen is always
+-- 768 units tall, so a unit covers physH/768 * effectiveScale pixels. On 1440p
+-- with the default UI scale that is 1.33 px, which makes hairlines land between
+-- pixels: some render one pixel wide, some two, some vanish. Every border and
+-- every slot offset therefore goes through these helpers.
+local physH = 768
+local function refreshPhys()
+  local _, h = GetPhysicalScreenSize()
+  if h and h > 0 then physH = h end
+end
+refreshPhys()
+
+function ns.PixelUnit(region)
+  local s = (region or UIParent):GetEffectiveScale()
+  if not s or s <= 0 then s = 1 end
+  return (768 / physH) / s
+end
+
+-- Size in units that renders as exactly n whole screen pixels (never below 1).
+function ns.PX(region, n)
+  n = n or 1
+  local s = (region or UIParent):GetEffectiveScale()
+  if not s or s <= 0 then s = 1 end
+  if PixelUtil and PixelUtil.GetNearestPixelSize then
+    local ok, v = pcall(PixelUtil.GetNearestPixelSize, n, s, 1)
+    if ok and v and v > 0 then return v end
+  end
+  local unit = (768 / physH) / s
+  return math.max(1, math.floor(n / unit + 0.5)) * unit
+end
+
+function ns.SnapValue(region, v)
+  local unit = ns.PixelUnit(region)
+  return math.floor(v / unit + 0.5) * unit
+end
+
+function ns.SnapSize(frame, w, h)
+  if PixelUtil and PixelUtil.SetSize then
+    if pcall(PixelUtil.SetSize, frame, w, h, 1, 1) then return end
+  end
+  frame:SetSize(ns.SnapValue(frame, w), ns.SnapValue(frame, h))
+end
+
+function ns.SnapPoint(frame, point, rel, relPoint, x, y)
+  if PixelUtil and PixelUtil.SetPoint then
+    if pcall(PixelUtil.SetPoint, frame, point, rel, relPoint, x, y) then return end
+  end
+  frame:SetPoint(point, rel, relPoint, ns.SnapValue(frame, x), ns.SnapValue(frame, y))
+end
+
+-- Jobs re-run whenever the scale or the resolution changes.
+local pixelJobs = setmetatable({}, { __mode = "k" })
+function ns.PixelJob(obj, fn)
+  pixelJobs[obj] = fn
+  fn(obj)
+  return obj
+end
+
+function ns.PixelLine(t, n, axis)
+  return ns.PixelJob(t, function(x)
+    local v = ns.PX(x:GetParent(), n or 1)
+    if axis == "w" then x:SetWidth(v) else x:SetHeight(v) end
+  end)
+end
+
+-- SetBackdrop wipes the colors, so remember them and put them back.
+function ns.PixelBackdrop(frame)
+  if not frame.SetBackdrop then Mixin(frame, BackdropTemplateMixin) end
+  if not frame.wpeBdWrapped then
+    frame.wpeBdWrapped = true
+    local setBg, setEdge = frame.SetBackdropColor, frame.SetBackdropBorderColor
+    frame.wpeSetBg, frame.wpeSetEdge = setBg, setEdge
+    frame.SetBackdropColor = function(x, r, g, b, a)
+      x.wpeBg = { r, g, b, a }; setBg(x, r, g, b, a)
+    end
+    frame.SetBackdropBorderColor = function(x, r, g, b, a)
+      x.wpeEdge = { r, g, b, a }; setEdge(x, r, g, b, a)
+    end
+  end
+  return ns.PixelJob(frame, function(x)
+    x:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = ns.PX(x) })
+    if x.wpeBg then x.wpeSetBg(x, x.wpeBg[1], x.wpeBg[2], x.wpeBg[3], x.wpeBg[4]) end
+    if x.wpeEdge then x.wpeSetEdge(x, x.wpeEdge[1], x.wpeEdge[2], x.wpeEdge[3], x.wpeEdge[4]) end
+  end)
+end
+
+function ns.SnapFrame(frame)
+  local p, rel, rp, x, y = frame:GetPoint()
+  if not p then return end
+  frame:ClearAllPoints()
+  frame:SetPoint(p, rel or UIParent, rp or p, ns.SnapValue(frame, x or 0), ns.SnapValue(frame, y or 0))
+  return p, rp, ns.SnapValue(frame, x or 0), ns.SnapValue(frame, y or 0)
+end
+
+function ns.RefreshPixels()
+  refreshPhys()
+  for obj, fn in pairs(pixelJobs) do fn(obj) end
+  if ns.Bags then
+    if ns.Bags.frame then ns.SnapFrame(ns.Bags.frame) end
+    if ns.Bags.bagWindow then ns.SnapFrame(ns.Bags.bagWindow) end
+    if ns.Bags.frame and ns.Bags.frame:IsShown() and ns.Bags.Layout then ns.Bags:Layout() end
+  end
+  if ns.Bank then
+    if ns.Bank.frame then ns.SnapFrame(ns.Bank.frame) end
+    if ns.Bank.frame and ns.Bank.frame:IsShown() and ns.Bank.Refresh then ns.Bank:Refresh() end
+  end
+  if ns.Options then
+    if ns.Options.frame then ns.SnapFrame(ns.Options.frame) end
+    if ns.Options.ReflowPages then ns.Options:ReflowPages() end
+  end
+end
+
 function Theme:C(name) local c = self.colors[name]; return c[1], c[2], c[3], c[4] end
 
 function Theme:Hex(name)
@@ -176,8 +289,7 @@ function Theme:Title(parent, size, colorKey)
 end
 
 function Theme:Panel(frame, bgKey, strokeKey)
-  if not frame.SetBackdrop then Mixin(frame, BackdropTemplateMixin) end
-  frame:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
+  ns.PixelBackdrop(frame)
   local bg, st = bgKey or "bg", strokeKey or "stroke"
   frame:SetBackdropColor(self:C(bg))
   frame:SetBackdropBorderColor(self:C(st))

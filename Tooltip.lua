@@ -119,7 +119,7 @@ local function goldTipFrame()
   t:Hide()
   t.rows = {}
   local line = Theme:Rect(t, "strokeSoft", "ARTWORK")
-  line:SetHeight(1)
+  ns.PixelLine(line, 1)
   line:Hide()
   t.sep = line
   goldTip = t

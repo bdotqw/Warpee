@@ -99,7 +99,7 @@ function Picker:Row(i)
   fs:SetJustifyH("LEFT")
   r.Text = fs
   local line = Theme:Rect(r, "strokeSoft", "ARTWORK")
-  line:SetHeight(1)
+  ns.PixelLine(line, 1)
   line:SetPoint("BOTTOMLEFT", 0, 0)
   line:SetPoint("BOTTOMRIGHT", 0, 0)
   line:Hide()
