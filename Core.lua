@@ -160,6 +160,8 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.vendorRepairBy = WarpeeDB.vendorRepairBy or "player"
     WarpeeDB.vendorKeepMog, WarpeeDB.vendorKeepFresh = nil, nil
     WarpeeDB.optSections = WarpeeDB.optSections or {}
+    if WarpeeDB.hideMinimapIcon == nil then WarpeeDB.hideMinimapIcon = false end
+    WarpeeDB.minimapAngle = tonumber(WarpeeDB.minimapAngle) or 2.2
     if WarpeeDB.autoOpen == nil then
       WarpeeDB.autoOpen = { auction = true, bank = true, mail = true, trade = true,
                             vendor = true, guildbank = false, professions = false }
@@ -199,6 +201,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.warbandCustomSize, WarpeeDB.warbandIconSize = nil, nil
     WarpeeDB.bankPool = nil
     if ns.Bank then ns.Bank:HideBlizzard() end
+    if ns.ApplyMinimapIcon then ns.ApplyMinimapIcon() end
     print("|cffd9a85fWarpee|r loaded · v" ..
       (C_AddOns.GetAddOnMetadata(addonName, "Version") or "?"))
   elseif event == "BAG_UPDATE" then
