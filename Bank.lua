@@ -632,9 +632,10 @@ function View:Fonts()
 end
 
 function View:LayoutMode(st, tag)
-  local cols, gap = self:Cols(st.mode), Bags.gap or 4
-  local size = self:CellSize()
+  local cols = self:Cols(st.mode)
+  local size, gap = ns.GridMetrics(self.frame, self:CellSize(), Bags.gap or 4)
   st.iconSize = size
+  st.pxGap = gap
   local key = self:PaintKey(size)
   local repaint = (st.paintKey ~= key)
   st.paintKey = key
@@ -665,9 +666,9 @@ function View:Layout()
 end
 
 function View:Resize(st)
-  local gw = gridWidth(st.iconSize, self:Cols(st.mode), Bags.gap or 4)
+  local gw = gridWidth(st.iconSize, self:Cols(st.mode), st.pxGap or Bags.gap or 4)
   st.content:ClearAllPoints()
-  st.content:SetPoint("TOPLEFT", PAD, -(self:HeaderH() + 4))
+  ns.SnapPoint(st.content, "TOPLEFT", self.frame, "TOPLEFT", PAD, -(self:HeaderH() + 4))
   st.content:SetSize(gw, st.contentH)
   self.frame:SetSize(PAD * 2 + gw, self:HeaderH() + 4 + st.contentH + self:FooterH())
   ns.Rebase(self.frame, "bankPos")

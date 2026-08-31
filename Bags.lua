@@ -310,9 +310,8 @@ end
 
 function Bags:Layout()
   local cols = self.cols
-  local gap = self.gap
-  local size = self.iconSize
-  local step = stepFor(size, gap)
+  local size, gap, step = ns.GridMetrics(self.frame, self.iconSize, self.gap)
+  self.pxSize, self.pxGap = size, gap
   local i, used, total = 0, 0, 0
   self.byKey = {}
   self.fontPath = ns.Fonts:Path(self.font or ns.Fonts.DEFAULT)
@@ -408,7 +407,7 @@ function Bags:Layout()
   self:ApplySearch()
 end
 function Bags:Resize(contentH)
-  local gw = gridWidth(self.iconSize, self.cols, self.gap)
+  local gw = gridWidth(self.pxSize or self.iconSize, self.cols, self.pxGap or self.gap)
   self.content:SetSize(gw, contentH)
   self.frame:SetSize(PAD * 2 + gw, self:TopOffset() + contentH + FOOTER)
   self.gridBg:ClearAllPoints()
@@ -638,7 +637,8 @@ function Bags:UpdateMeta()
   local frac = total > 0 and used / total or 0
   if self.showGauge then
     self.gaugeBg:Show(); self.gaugeFill:Show()
-    self.gaugeFill:SetWidth(math.max(1, frac * gridWidth(self.iconSize, self.cols, self.gap)))
+    self.gaugeFill:SetWidth(math.max(1, frac * gridWidth(self.pxSize or self.iconSize,
+      self.cols, self.pxGap or self.gap)))
     self.gaugeFill:SetVertexColor(Theme:C("accent"))
   else
     self.gaugeBg:Hide(); self.gaugeFill:Hide()
