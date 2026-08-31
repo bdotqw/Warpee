@@ -83,7 +83,7 @@ Theme.THEMES = {
     bg = { 0.114, 0.110, 0.106, 0.95 }, panel = { 0.169, 0.165, 0.157, 1 },
     panelHi = { 0.216, 0.208, 0.196, 1 }, slot = { 0.129, 0.125, 0.118, 1 },
     stroke = { 0.325, 0.290, 0.235, 1 }, strokeSoft = { 0.235, 0.212, 0.176, 1 },
-    accent = { 1.000, 0.820, 0.000, 1 }, accentInk = { 1.000, 0.914, 0.510, 1 },
+    accent = { 0.804, 0.678, 0.451, 1 }, accentInk = { 0.910, 0.847, 0.706, 1 },
     text = { 0.965, 0.949, 0.906, 1 }, dim = { 0.741, 0.718, 0.663, 1 },
     faint = { 0.545, 0.522, 0.475, 1 },
     emptyLine = { 0.078, 0.075, 0.071, 0.90 },
@@ -341,6 +341,17 @@ end
 -- The real thing: a Blizzard panel frame parked behind the window's content, so
 -- the grey nine-slice border, the title strip and the dark tile are the game's
 -- own art. Its portrait and close button are hidden — Warpee draws those.
+-- The art has to sit behind every button the window puts on top of it, and the
+-- template's own frame levels fight that, so drop it a whole strata instead.
+local LOWER_STRATA = { TOOLTIP = "FULLSCREEN_DIALOG", FULLSCREEN_DIALOG = "DIALOG",
+                       DIALOG = "HIGH", HIGH = "MEDIUM", MEDIUM = "LOW", LOW = "BACKGROUND" }
+
+local function sinkArt(frame, art)
+  local under = LOWER_STRATA[frame:GetFrameStrata() or ""] or "MEDIUM"
+  art:SetFrameStrata(under)
+  art:SetFrameLevel(1)
+end
+
 local function buildArt(frame)
   if frame.wpeArt ~= nil then return frame.wpeArt end
   local ok, art = pcall(CreateFrame, "Frame", nil, frame, ART_TEMPLATE)
@@ -350,7 +361,7 @@ local function buildArt(frame)
   if not ok or not art then frame.wpeArt = false; return false end
   art:SetAllPoints(frame)
   art:EnableMouse(false)
-  art:SetFrameLevel(frame:GetFrameLevel())
+  sinkArt(frame, art)
   -- Whatever ornament the template ships with, Warpee draws its own: the border,
   -- the strip and the tile are all we keep.
   for _, key in ipairs(ART_HIDE) do
@@ -372,7 +383,7 @@ end
 function Theme:RefreshArt(frame)
   if self:Skinned() then
     local art = buildArt(frame)
-    if art then art:Show() end
+    if art then sinkArt(frame, art); art:Show() end
     return art
   end
   if frame.wpeArt then frame.wpeArt:Hide() end
