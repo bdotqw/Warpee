@@ -15,7 +15,7 @@ local SCROLL_W = 8
 local CONTENT_W = WIN_W - PAD * 2 - SCROLL_W - 6
 
 local function relayout()
-  if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
+  if Bags.frame and Bags.frame:IsShown() then Bags:Layout() else Bags.needLayout = true end
   if ns.Bank and ns.Bank.Refresh then ns.Bank:Refresh() end
 end
 

@@ -403,6 +403,23 @@ function Bags:Layout()
   if self.bagWindow and self.bagWindow:IsShown() then self:LayoutBagWindow() end
   self:UpdateMeta()
   self:ApplySearch()
+  self.laidOut = true
+  self.needLayout = false
+  self.paintedGen = self.styleGen
+  self.dirty = {}
+end
+
+function Bags:ShowRefresh()
+  if not self.laidOut or self.needLayout or self.paintedGen ~= self.styleGen then
+    self:Layout()
+    return
+  end
+  if next(self.dirty) then
+    self:UpdateDirty()
+    return
+  end
+  self:UpdateMeta()
+  self:ApplySearch()
 end
 function Bags:Resize(contentH)
   local gw = gridWidth(self.iconSize, self.cols, self.gap)
@@ -770,7 +787,7 @@ function Bags:ApplyToButton(b)
 end
 
 function Bags:UpdateDirty()
-  if not (self.frame and self.frame:IsShown()) then self.dirty = {}; return end
+  if not (self.frame and self.frame:IsShown()) then return end
   if next(self.dirty) then ns.Vault:Capture("bags", self.dirty) end
   if self.snap then self.dirty = {}; return end
   local total, used = 0, 0
