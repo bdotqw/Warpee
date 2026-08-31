@@ -300,15 +300,32 @@ local function markCleared(tt)
   tt:HookScript("OnTooltipCleared", function(s) s.wpeCounted = nil end)
 end
 
+local function tipFont()
+  local fs = _G.GameTooltipTextLeft1
+  if fs and fs.GetFont then
+    local p = fs:GetFont()
+    if p then return p end
+  end
+  return nil
+end
+
+local function TT(s)
+  if ns.Fonts:NeedsCyrillic() then
+    local p = tipFont()
+    if p and not ns.Fonts:HasCyrillic(p) then return s end
+  end
+  return L[s]
+end
+
 local function countLine(e, withBank)
   local bank = withBank and e.bank or 0
   local total = e.bags + bank
   if e.bags > 0 and bank > 0 then
-    return (L["%d  (%d bags, %d bank)"]):format(total, e.bags, bank)
+    return (TT("%d  (%d bags, %d bank)")):format(total, e.bags, bank)
   elseif bank > 0 then
-    return (L["%d  (bank)"]):format(bank)
+    return (TT("%d  (bank)")):format(bank)
   end
-  return (L["%d  (bags)"]):format(e.bags)
+  return (TT("%d  (bags)")):format(e.bags)
 end
 
 local function itemTooltip(tt, data)
@@ -334,19 +351,17 @@ local function itemTooltip(tt, data)
   total = total + wb
   if total <= 0 then return end
   tt.wpeCounted = true
-  local from = ((tt.NumLines and tt:NumLines()) or 0) + 1
   tt:AddLine(" ")
-  tt:AddLine(L["Inventory"], 1, 0.82, 0)
+  tt:AddLine(TT("Inventory"), 1, 0.82, 0)
   for _, e in ipairs(rows) do
     local col = e.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
     tt:AddDoubleLine(e.name, countLine(e, withBank),
       col and col.r or 1, col and col.g or 1, col and col.b or 1, 1, 1, 1)
   end
   if wb > 0 then
-    tt:AddDoubleLine(L["Warband bank"], tostring(wb), 0.44, 0.71, 0.83, 1, 1, 1)
+    tt:AddDoubleLine(TT("Warband bank"), tostring(wb), 0.44, 0.71, 0.83, 1, 1, 1)
   end
-  tt:AddDoubleLine(L["Total"], tostring(total), 1, 0.82, 0, 1, 1, 1)
-  ns.FixTipCyrillic(tt, from)
+  tt:AddDoubleLine(TT("Total"), tostring(total), 1, 0.82, 0, 1, 1, 1)
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall
