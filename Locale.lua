@@ -289,6 +289,15 @@ local RU = {
   ["%d  (bags)"] = "%d  (в сумках)",
   ["loaded"] = "загружен",
   ["columns"] = "ячеек в ряду",
+  ["Favourites"] = "Избранное",
+  ["Favourite slots"] = "Ячейки избранного",
+  ["How many slots"] = "Сколько ячеек",
+  ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, drag the icon off to clear it."] =
+    "Ряд ячеек над сеткой, всегда на виду. Перетащите предмет в ячейку, чтобы держать его под рукой; чтобы освободить ячейку, вытащите значок за её пределы.",
+  ["Never more than the grid is wide."] = "Не больше, чем ширина сетки.",
+  ["Drag an item here to keep it one click away"] =
+    "Перетащите сюда предмет, чтобы использовать его одним щелчком",
+  ["Drag the icon off to clear the slot"] = "Вытащите значок, чтобы освободить ячейку",
 }
 
 TABLES.ruRU = RU

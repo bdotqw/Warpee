@@ -128,6 +128,9 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     end
     if WarpeeDB.slotStyle == "tile" then WarpeeDB.slotStyle = "deep" end
     if WarpeeDB.showGauge == nil then WarpeeDB.showGauge = true end
+    if WarpeeDB.favShow == nil then WarpeeDB.favShow = true end
+    WarpeeDB.favCount = tonumber(WarpeeDB.favCount) or 6
+    WarpeeDB.favorites = WarpeeDB.favorites or {}
     if WarpeeDB.goldLetters == nil then WarpeeDB.goldLetters = (WarpeeDB.goldMode == "letters") end
     if WarpeeDB.goldOnly == nil then WarpeeDB.goldOnly = (WarpeeDB.goldMode == "gold") end
     WarpeeDB.goldMode = nil
