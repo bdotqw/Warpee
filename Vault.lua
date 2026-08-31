@@ -389,4 +389,3 @@ function Vault:Slot(mode, bag, slot)
   end
   return lastSlots and lastSlots[slot] or nil
 end
-
