@@ -529,9 +529,9 @@ function ns.UpdateItemButton(b)
     return nil, true
   end
   local hl = info and info.hyperlink
-  local iItemID, iType, iSub, iEquipLoc, iIcon, iClassID
+  local iItemID, iType, iSub, iEquipLoc, iIcon, iClassID, iSubID
   if hl then
-    iItemID, iType, iSub, iEquipLoc, iIcon, iClassID = C_Item.GetItemInfoInstant(hl)
+    iItemID, iType, iSub, iEquipLoc, iIcon, iClassID, iSubID = C_Item.GetItemInfoInstant(hl)
   end
   local isGear = iClassID == Enum.ItemClass.Armor or iClassID == Enum.ItemClass.Weapon
   local texture = info and info.iconFileID
@@ -620,6 +620,8 @@ function ns.UpdateItemButton(b)
     m.q = info.quality
     m.ilvl = il
     m.classID = iClassID
+    m.subID = iSubID
+    m.id = iItemID
     m.equipLoc = iEquipLoc
     m.bag, m.slot, m.loc, m.isGear = bagID, slot, loc, isGear
     m.bound = info.isBound and true or false
@@ -642,10 +644,10 @@ function ns.PaintVaultButton(b, d, bagID)
   b.link, b.count = link, count
   b.vaultLink = d and d.l or nil
   local q = d and d.q
-  local iconID, classID, gear
+  local iconID, classID, gear, subID, itemID
   if link then
-    local _, _, _, _, ic, cid = C_Item.GetItemInfoInstant(link)
-    iconID, classID = ic, cid
+    local iid, _, _, _, ic, cid, sid = C_Item.GetItemInfoInstant(link)
+    iconID, classID, subID, itemID = ic, cid, sid, iid
     gear = (cid == Enum.ItemClass.Armor or cid == Enum.ItemClass.Weapon)
   end
   SetItemButtonTexture(b, iconID)
@@ -702,6 +704,7 @@ function ns.PaintVaultButton(b, d, bagID)
     local m = b.meta or {}
     m.text = (name or ""):lower()
     m.q, m.ilvl, m.classID = q, d.v, classID
+    m.subID, m.id = subID, itemID
     m.equipLoc, m.isGear = nil, gear and true or false
     m.bag, m.slot, m.loc = nil, nil, nil
     m.link = link
