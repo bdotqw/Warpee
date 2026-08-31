@@ -158,7 +158,7 @@ function Bags:Build()
   gaugeBg:SetHeight(2)
   gaugeBg:SetPoint("TOPLEFT", PAD, -GAUGE_Y)
   gaugeBg:SetPoint("TOPRIGHT", -PAD, -GAUGE_Y)
-  local gaugeFill = Theme:Rect(f, "azure", "ARTWORK")
+  local gaugeFill = Theme:Rect(f, "accent", "ARTWORK")
   gaugeFill:SetHeight(2)
   gaugeFill:SetPoint("TOPLEFT", gaugeBg, "TOPLEFT")
   self.gaugeBg, self.gaugeFill = gaugeBg, gaugeFill
@@ -635,7 +635,7 @@ function Bags:UpdateMeta()
   if self.showGauge then
     self.gaugeBg:Show(); self.gaugeFill:Show()
     self.gaugeFill:SetWidth(math.max(1, frac * gridWidth(self.iconSize, self.cols, self.gap)))
-    self.gaugeFill:SetVertexColor(Theme:C("azure"))
+    self.gaugeFill:SetVertexColor(Theme:C("accent"))
   else
     self.gaugeBg:Hide(); self.gaugeFill:Hide()
   end

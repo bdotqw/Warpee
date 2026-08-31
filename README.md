@@ -5,7 +5,7 @@ One window for bags, bank and the Warband bank in World of Warcraft (Midnight, 1
 ## Features
 
 - **One window** for bags, bank and the Warband bank, with no category sorting.
-- **4 themes** (Midnight, Ember, Obsidian, Ink), recoloured on the fly.
+- **4 themes** (Midnight, Ember, Obsidian, Ink), recolored on the fly.
 - **Snapshots** of other characters' bags and bank, behind a shared switcher popup.
 - **Vendor sell** in one click: item level range in the options, 12 items per pass, grey junk, Legion relics, old consumables and raid tier tokens optional; BoE, warbound and socketed gear stay in the bags, and any item can be locked with alt-click.
 - **Item counts across every character** inside the Blizzard tooltip (bags / bank / Warband / total).

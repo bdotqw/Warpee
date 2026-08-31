@@ -239,16 +239,16 @@ end
 
 local function caretGroup(parent, dir)
   local g = CreateFrame("Frame", nil, parent)
-  if dir == "down" then g:SetSize(12, 8) else g:SetSize(8, 12) end
+  if dir == "down" then g:SetSize(16, 10) else g:SetSize(10, 16) end
   for i = 1, 4 do
     local t = Theme:Rect(g, "dim", "ARTWORK")
     if dir == "down" then
       t:SetHeight(2)
-      t:SetWidth(12 - (i - 1) * 3)
+      t:SetWidth(16 - (i - 1) * 4)
       t:SetPoint("TOP", g, "TOP", 0, -(i - 1) * 2)
     else
       t:SetWidth(2)
-      t:SetHeight(12 - (i - 1) * 3)
+      t:SetHeight(16 - (i - 1) * 4)
       t:SetPoint("LEFT", g, "LEFT", (i - 1) * 2, 0)
     end
   end
@@ -263,14 +263,14 @@ function factories.header(parent, spec)
   line:SetPoint("BOTTOMLEFT", 0, 0)
   line:SetPoint("BOTTOMRIGHT", 0, 0)
   local fs = track(Theme:Label(row, BASE_FONT, "azure"), 0)
-  fs:SetPoint("BOTTOMLEFT", spec.key and 18 or 0, 6)
+  fs:SetPoint("BOTTOMLEFT", spec.key and 22 or 0, 6)
   fs:SetText(spec.name:upper())
   if not spec.key then return row end
 
   local down = caretGroup(row, "down")
-  down:SetPoint("BOTTOMLEFT", 0, 9)
+  down:SetPoint("BOTTOMLEFT", 0, 8)
   local right = caretGroup(row, "right")
-  right:SetPoint("BOTTOMLEFT", 2, 7)
+  right:SetPoint("BOTTOMLEFT", 3, 5)
   local state = track(Theme:Label(row, BASE_FONT - 3, "faint"), -3)
   state:SetPoint("BOTTOMRIGHT", 0, 7)
 
@@ -1245,7 +1245,7 @@ local VENDOR_PAGE = {
   { type = "toggle", name = "Old consumables", col = 2, get = vConsumGet, set = vConsumSet,
     desc = "Sell potions, elixirs, flasks, food and bandages from expansions older than the previous one. Off by default, since old food can still be worth keeping." },
   { type = "toggle", name = "Tier tokens", col = 1, get = vTokenGet, set = vTokenSet,
-    desc = "Sell raid armour tokens that a vendor turns into a set piece, item level ignored. Only the tokens Warpee knows by item id, from the expansions ticked below." },
+    desc = "Sell raid armor tokens that a vendor turns into a set piece, item level ignored. Only the tokens Warpee knows by item id, from the expansions ticked below." },
   { type = "toggle", name = "Press it for me at every merchant",
     get = vAutoGet, set = vAutoSet,
     desc = "Sell this whole list as soon as a merchant opens, exactly as if you had pressed the coin." },
