@@ -14,9 +14,14 @@ local SLOT_STYLES = {
 
 function ns.PaintSlotBg(b)
   if not (b and b.bg) then return end
-  local fn = SLOT_STYLES[ns.Bags.slotStyle or "tile"] or SLOT_STYLES.tile
+  local style = ns.Bags.slotStyle or "tile"
+  local atlas = (style ~= "flat") and Theme.SlotAtlas and Theme:SlotAtlas() or nil
   b.bg:SetTexCoord(0, 1, 0, 1)
   b.bg:SetVertexColor(1, 1, 1, 1)
+  if atlas and b.bg.SetAtlas then
+    if pcall(b.bg.SetAtlas, b.bg, atlas) then return end
+  end
+  local fn = SLOT_STYLES[style] or SLOT_STYLES.tile
   b.bg:SetColorTexture(fn())
 end
 

@@ -76,8 +76,20 @@ Theme.THEMES = {
     text = { 0.914, 0.886, 0.949, 1 }, dim = { 0.678, 0.635, 0.749, 1 },
     faint = { 0.475, 0.435, 0.545, 1 }, emptyLine = { 0.322, 0.278, 0.404, 1 },
     azure = { 0.643, 0.510, 0.902, 1 }, reagent = { 0.400, 0.816, 0.643, 1 } },
+  -- Borrows the game's own frame art instead of a flat plate: the panel border
+  -- is Blizzard's tooltip edge, the slots are the bag atlas, and emptyLine is
+  -- transparent because that atlas draws its own rim.
+  blizzard = { label = "Blizzard", skin = "blizzard",
+    bg = { 0.055, 0.055, 0.067, 0.95 }, panel = { 0.102, 0.100, 0.098, 1 },
+    panelHi = { 0.145, 0.141, 0.133, 1 }, slot = { 0.071, 0.071, 0.078, 1 },
+    stroke = { 0.286, 0.243, 0.176, 1 }, strokeSoft = { 0.196, 0.169, 0.129, 1 },
+    accent = { 1.000, 0.820, 0.000, 1 }, accentInk = { 1.000, 0.914, 0.510, 1 },
+    text = { 0.965, 0.949, 0.906, 1 }, dim = { 0.706, 0.678, 0.612, 1 },
+    faint = { 0.494, 0.471, 0.416, 1 },
+    emptyLine = { 0, 0, 0, 0 },
+    azure = { 0.478, 0.729, 0.906, 1 }, reagent = { 0.353, 0.804, 0.616, 1 } },
 }
-Theme.THEME_ORDER = { "midnight", "nightbloom", "void", "nord", "blood",
+Theme.THEME_ORDER = { "midnight", "blizzard", "nightbloom", "void", "nord", "blood",
                       "obsidian", "forest", "ember" }
 
 function Theme:IsLight()
@@ -90,10 +102,13 @@ function Theme:Apply(name)
   local t = self.THEMES[name] or self.THEMES.midnight
   local c = {}
   for k, v in pairs(SHARED) do c[k] = v end
-  for k, v in pairs(t) do if k ~= "label" then c[k] = v end end
+  for k, v in pairs(t) do
+    if k ~= "label" and k ~= "skin" then c[k] = v end
+  end
   c.brass = c.accent
   c.gaugeMid = c.accent
   self.colors = c
+  self.skin = t.skin or "flat"
   self.active = self.THEMES[name] and name or "midnight"
 end
 Theme:Apply("midnight")
@@ -170,8 +185,9 @@ function ns.PixelLine(t, n, axis)
   end)
 end
 
--- SetBackdrop wipes the colors, so remember them and put them back.
-function ns.PixelBackdrop(frame)
+-- SetBackdrop wipes the colors, so remember them and put them back. A caller
+-- with its own painter (the themed window frames) sets its colors inside it.
+function ns.PixelBackdrop(frame, painter)
   if not frame.SetBackdrop then Mixin(frame, BackdropTemplateMixin) end
   if not frame.SetBackdrop then return frame end
   if not frame.wpeBdWrapped then
@@ -186,6 +202,7 @@ function ns.PixelBackdrop(frame)
     end
   end
   return ns.PixelJob(frame, function(x)
+    if painter then painter(x); return end
     x:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = ns.PX(x) })
     if x.wpeBg then x.wpeSetBg(x, x.wpeBg[1], x.wpeBg[2], x.wpeBg[3], x.wpeBg[4]) end
     if x.wpeEdge then x.wpeSetEdge(x, x.wpeEdge[1], x.wpeEdge[2], x.wpeEdge[3], x.wpeEdge[4]) end
@@ -296,12 +313,41 @@ function Theme:Title(parent, size, colorKey)
   return fs
 end
 
+-- Game art the Blizzard skin borrows. Nothing is shipped with the addon: these
+-- are the client's own files, and a missing one falls back to the flat plate.
+local TIP_BG   = [[Interface\Tooltips\UI-Tooltip-Background]]
+local TIP_EDGE = [[Interface\Tooltips\UI-Tooltip-Border]]
+local SLOT_ATLAS = "bags-item-slot64"
+
+function Theme:Skinned()
+  return self.skin == "blizzard"
+end
+
+function Theme:SlotAtlas()
+  if not self:Skinned() then return nil end
+  if self.slotAtlasOK == nil then
+    local info = C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(SLOT_ATLAS)
+    self.slotAtlasOK = (info ~= nil)
+  end
+  return self.slotAtlasOK and SLOT_ATLAS or nil
+end
+
 function Theme:Panel(frame, bgKey, strokeKey)
-  ns.PixelBackdrop(frame)
   local bg, st = bgKey or "bg", strokeKey or "stroke"
-  frame:SetBackdropColor(self:C(bg))
-  frame:SetBackdropBorderColor(self:C(st))
-  track(frame, function(x) x:SetBackdropColor(Theme:C(bg)); x:SetBackdropBorderColor(Theme:C(st)) end)
+  local function paint(x)
+    if Theme:Skinned() then
+      x:SetBackdrop({ bgFile = TIP_BG, edgeFile = TIP_EDGE, tile = true, tileSize = 16,
+                      edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+      x:SetBackdropColor(Theme:C(bg))
+      x:SetBackdropBorderColor(1, 1, 1, 1)
+    else
+      x:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = ns.PX(x) })
+      x:SetBackdropColor(Theme:C(bg))
+      x:SetBackdropBorderColor(Theme:C(st))
+    end
+  end
+  ns.PixelBackdrop(frame, paint)
+  track(frame, paint)
   return frame
 end
 
