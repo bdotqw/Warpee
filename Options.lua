@@ -1052,7 +1052,7 @@ local GENERAL_PAGE = {
   { type = "toggle", name = "Capacity bar", col = 2, get = gaugeGet, set = gaugeSet,
     desc = "Fill bar in the bags header showing how full they are." },
   { type = "toggle", name = "Hide minimap icon", col = 1, get = mmHideGet, set = mmHideSet,
-    desc = "Take the Warpee button off the minimap. While it is there, left click opens the bags, right click the settings, and dragging moves it around the ring." },
+    desc = "Take the Warpee button off the minimap. While it is there, left click opens the settings, right click the bags, and dragging moves it around the ring." },
   { type = "header", name = "Money" },
   { type = "select", name = "Gold format", get = goldFmtGet, set = goldFmtSet,
     keys = function() return GOLD_FORMATS end, label = function(k) return GOLD_FORMAT_LABELS[k] or k end,

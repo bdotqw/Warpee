@@ -70,16 +70,16 @@ end)
 
 btn:SetScript("OnClick", function(_, button)
   if button == "RightButton" then
-    if ns.Options then ns.Options:Toggle() end
-  else
     ns.Toggle()
+  else
+    if ns.Options then ns.Options:Toggle() end
   end
 end)
 
 ns.AddTip(btn, "Warpee", "left", function()
   return {
-    { text = "Left click opens the bags", color = "dim", size = 12 },
-    { text = "Right click opens the settings", color = "dim", size = 12 },
+    { text = "Left click opens the settings", color = "dim", size = 12 },
+    { text = "Right click opens the bags", color = "dim", size = 12 },
     { text = "Drag to move around the minimap", color = "faint", size = 12 },
   }
 end)
