@@ -71,8 +71,8 @@ end
 local ANCHORS = { "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT" }
 local ANCHOR_LABELS = { TOPLEFT = "Top left", TOPRIGHT = "Top right",
                         BOTTOMLEFT = "Bottom left", BOTTOMRIGHT = "Bottom right" }
-local STYLES = { "flat", "plate", "tile", "deep", "stone" }
-local STYLE_LABELS = { flat = "Off", plate = "Raised", tile = "Inset", deep = "Deep",
+local STYLES = { "flat", "plate", "deep", "stone" }
+local STYLE_LABELS = { flat = "Transparent", plate = "Highlight", deep = "Solid",
                        stone = "Stone" }
 local THEME_LABELS = {}
 for i = #Theme.THEME_ORDER, 1, -1 do
@@ -1165,7 +1165,7 @@ local GRID_PAGE = {
   { type = "select", name = "Slot background", col = 1, of = 2,
     get = styleGet, set = styleSet,
     keys = function() return STYLES end, label = function(k) return STYLE_LABELS[k] or k end,
-    desc = "What sits behind every icon. Raised lifts the slot out of the plate, Inset and Deep sink it in, Stone swaps the fill for a texture tinted to the theme." },
+    desc = "What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off, Stone swaps the fill for a texture tinted to the theme." },
   { type = "toggle", name = "Merge reagents", col = 2, of = 2, get = mergeGet, set = mergeSet,
     desc = "Lay the reagent bag out with the main bags, without its caption." },
   { type = "header", name = "Slot look" },

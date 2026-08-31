@@ -194,7 +194,7 @@ function Vendor:Scan(junkOnly)
            and not SKIP_LOC[equipLoc or ""]
            and not cosmeticArmor(classID, subID)
            and not fishingPole(classID, subID)
-           and not hasUse(link) then
+           and not (hasUse(link) and equipLoc ~= "INVTYPE_TRINKET") then
           lvl = slotIlvl(bag, slot, link)
           take = (lvl and lvl > 1 and lvl >= low and lvl < cap) and true or false
           local wb = ((keepBoE and not info.isBound) or keepWb)
