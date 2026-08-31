@@ -291,30 +291,6 @@ function ns.SnapScroll(sf, v)
   return math.max(0, v)
 end
 
-local function restoreTexture(t)
-  if not (t.GetTexture and t.SetTexture) then return end
-  local atlas = t.GetAtlas and t:GetAtlas()
-  local r, g, b, a
-  if t.GetVertexColor then r, g, b, a = t:GetVertexColor() end
-  if atlas and t.SetAtlas then
-    pcall(t.SetAtlas, t, atlas)
-  else
-    local ok, file = pcall(t.GetTexture, t)
-    if not ok or file == nil then return end
-    local coords
-    if t.GetTexCoord then
-      local got = { pcall(t.GetTexCoord, t) }
-      if got[1] and #got == 9 then coords = got end
-    end
-    pcall(t.SetTexture, t, file)
-    if coords then
-      pcall(t.SetTexCoord, t, coords[2], coords[3], coords[4], coords[5],
-        coords[6], coords[7], coords[8], coords[9])
-    end
-  end
-  if r and t.SetVertexColor then pcall(t.SetVertexColor, t, r, g, b, a) end
-end
-
 local function restoreFont(fs)
   if not (fs.GetFont and fs.SetFont) then return end
   local ok, path, size, flags = pcall(fs.GetFont, fs)
@@ -326,9 +302,7 @@ local function restoreRegions(frame, depth)
   if not frame or depth > 8 then return end
   if frame.GetRegions then
     for _, r in ipairs({ frame:GetRegions() }) do
-      local kind = r.GetObjectType and r:GetObjectType()
-      if kind == "Texture" then restoreTexture(r)
-      elseif kind == "FontString" then restoreFont(r) end
+      if r.GetObjectType and r:GetObjectType() == "FontString" then restoreFont(r) end
     end
   end
   if frame.GetChildren then
@@ -352,6 +326,8 @@ local function restoreAll()
   ns.RestoreArt(_G.WarpeeMinimapButton)
   ns.RestoreArt(_G.WarpeeTip)
   ns.RestoreArt(_G.WarpeeGoldTip)
+  if InCombatLockdown and InCombatLockdown() then return end
+  if Theme.Restyle then pcall(Theme.Restyle, Theme, Theme.active) end
 end
 
 function ns.RefreshPixels()
@@ -380,7 +356,7 @@ local lastScale = UIParent:GetEffectiveScale() or 1
 local lastPhys = physH
 local since = 0
 local pending = false
-local passes = 0
+local passes = 3
 local lastRun = 0
 
 local function runRefresh()
