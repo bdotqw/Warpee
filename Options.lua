@@ -1098,7 +1098,7 @@ local GENERAL_PAGE = {
     desc = "Takes the Warpee button off the minimap." },
   { type = "header", name = "Favourites" },
   { type = "toggle", name = "Favourite slots", col = 1, get = fav.showGet, set = fav.showSet,
-    desc = "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, drag the icon off to clear it." },
+    desc = "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + right click clears a slot." },
   { type = "range", name = "How many slots", min = 1, max = 14, step = 1,
     get = fav.countGet, set = fav.countSet,
     disabled = function() return not fav.showGet() end,
