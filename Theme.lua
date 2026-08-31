@@ -37,8 +37,33 @@ Theme.THEMES = {
     panelHi = { 0.086, 0.100, 0.125, 1 }, slot = { 0.040, 0.048, 0.062, 1 },
     stroke = { 0.120, 0.140, 0.180, 1 }, strokeSoft = { 0.096, 0.112, 0.144, 1 },
     accent = { 0.900, 0.700, 0.400, 1 }, accentInk = { 0.945, 0.800, 0.560, 1 } },
+  sakura = { label = "Sakura",
+    bg = { 0.980, 0.953, 0.961, 0.96 }, panel = { 0.949, 0.890, 0.910, 1 },
+    panelHi = { 0.925, 0.847, 0.878, 1 }, slot = { 0.973, 0.937, 0.949, 1 },
+    stroke = { 0.851, 0.714, 0.769, 1 }, strokeSoft = { 0.910, 0.831, 0.859, 1 },
+    accent = { 0.757, 0.325, 0.490, 1 }, accentInk = { 0.596, 0.216, 0.365, 1 },
+    text = { 0.216, 0.161, 0.192, 1 }, dim = { 0.431, 0.341, 0.388, 1 },
+    faint = { 0.612, 0.529, 0.573, 1 }, emptyLine = { 0.831, 0.741, 0.780, 1 },
+    azure = { 0.294, 0.522, 0.435, 1 }, reagent = { 0.184, 0.478, 0.353, 1 },
+    silver = { 0.404, 0.435, 0.478, 1 }, copper = { 0.639, 0.396, 0.239, 1 },
+    gaugeLo = { 0.298, 0.545, 0.427, 1 }, gaugeHi = { 0.741, 0.294, 0.294, 1 } },
+  bamboo = { label = "Bamboo",
+    bg = { 0.965, 0.957, 0.914, 0.96 }, panel = { 0.914, 0.906, 0.831, 1 },
+    panelHi = { 0.875, 0.863, 0.769, 1 }, slot = { 0.949, 0.941, 0.882, 1 },
+    stroke = { 0.769, 0.757, 0.600, 1 }, strokeSoft = { 0.855, 0.845, 0.729, 1 },
+    accent = { 0.400, 0.522, 0.235, 1 }, accentInk = { 0.298, 0.404, 0.157, 1 },
+    text = { 0.176, 0.196, 0.141, 1 }, dim = { 0.369, 0.396, 0.286, 1 },
+    faint = { 0.549, 0.569, 0.455, 1 }, emptyLine = { 0.784, 0.773, 0.639, 1 },
+    azure = { 0.243, 0.478, 0.471, 1 }, reagent = { 0.180, 0.490, 0.310, 1 },
+    silver = { 0.420, 0.443, 0.443, 1 }, copper = { 0.659, 0.412, 0.235, 1 },
+    gaugeLo = { 0.369, 0.561, 0.353, 1 }, gaugeHi = { 0.718, 0.353, 0.267, 1 } },
 }
-Theme.THEME_ORDER = { "midnight", "ember", "obsidian", "ink" }
+Theme.THEME_ORDER = { "midnight", "ember", "obsidian", "ink", "sakura", "bamboo" }
+
+function Theme:IsLight()
+  local c = self.colors.bg
+  return (c and (c[1] + c[2] + c[3]) > 1.5) and true or false
+end
 
 Theme.colors = {}
 function Theme:Apply(name)

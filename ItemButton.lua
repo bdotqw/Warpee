@@ -7,7 +7,8 @@ local SLOT_STYLES = {
   tile  = function() return Theme:C("slot") end,
   deep  = function()
     local r, g, b = Theme:C("slot")
-    return r * 0.45, g * 0.45, b * 0.45, 1
+    local k = Theme:IsLight() and 0.88 or 0.45
+    return r * k, g * k, b * k, 1
   end,
 }
 
