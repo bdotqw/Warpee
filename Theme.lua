@@ -187,18 +187,27 @@ end
 
 ns.Fonts = {}
 ns.Fonts.DEFAULT = "Expressway"
+local MEDIA = [[Interface\AddOns\Warpee\Media\]]
+local SHIPPED = {
+  { name = "Expressway",           file = "Expressway.ttf" },
+  { name = "Manrope",              file = "Manrope.ttf" },
+  { name = "Archivo",              file = "Archivo.ttf" },
+  { name = "Fira Sans Condensed",  file = "FiraSansCondensed.ttf" },
+}
 local BUILTIN = {
-  { name = "Expressway",    path = [[Interface\AddOns\Warpee\Media\Expressway.ttf]] },
   { name = "Arial Narrow",  path = [[Fonts\ARIALN.TTF]] },
   { name = "Friz Quadrata", path = [[Fonts\FRIZQT__.TTF]] },
   { name = "Skurri",        path = [[Fonts\SKURRI.TTF]] },
   { name = "Morpheus",      path = [[Fonts\MORPHEUS.TTF]] },
 }
+for i = #SHIPPED, 1, -1 do
+  table.insert(BUILTIN, 1, { name = SHIPPED[i].name, path = MEDIA .. SHIPPED[i].file })
+end
 local function LSM() return _G.LibStub and _G.LibStub("LibSharedMedia-3.0", true) or nil end
 do
   local m = LSM()
   if m and m.Register then
-    m:Register("font", "Expressway", [[Interface\AddOns\Warpee\Media\Expressway.ttf]])
+    for _, f in ipairs(SHIPPED) do m:Register("font", f.name, MEDIA .. f.file) end
   end
 end
 
