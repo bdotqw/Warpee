@@ -162,12 +162,15 @@ function ns.Rebase(frame, dbKey)
   local sw = UIParent:GetWidth() or 0
   frame:ClearAllPoints()
   if sw > 0 and (l + w * 0.5) > sw * 0.5 then
-    local rx = ns.SnapValue(frame, l + w - sw)
-    frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", rx, b)
-    if WarpeeDB then WarpeeDB[dbKey] = { p = "BOTTOMRIGHT", rp = "BOTTOMRIGHT", x = rx, y = b } end
+    frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", ns.SnapValue(frame, l + w - sw), b)
+    ns.AlignToScreen(frame)
+    local _, _, _, rx, ry = frame:GetPoint()
+    if WarpeeDB then WarpeeDB[dbKey] = { p = "BOTTOMRIGHT", rp = "BOTTOMRIGHT", x = rx or 0, y = ry or b } end
   else
     frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", l, b)
-    if WarpeeDB then WarpeeDB[dbKey] = { p = "BOTTOMLEFT", rp = "BOTTOMLEFT", x = l, y = b } end
+    ns.AlignToScreen(frame)
+    local _, _, _, lx, ly = frame:GetPoint()
+    if WarpeeDB then WarpeeDB[dbKey] = { p = "BOTTOMLEFT", rp = "BOTTOMLEFT", x = lx or l, y = ly or b } end
   end
   if frame.wpeBar then frame.wpeBar:Refresh() end
 end
@@ -182,6 +185,7 @@ function ns.PlaceWindow(frame, dbKey, def)
   else
     frame:SetPoint("CENTER")
   end
+  ns.AlignToScreen(frame)
   if frame.wpeBar then frame.wpeBar:Refresh() end
 end
 

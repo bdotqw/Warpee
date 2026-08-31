@@ -267,7 +267,65 @@ function ns.SnapFrame(frame)
   if not p then return end
   frame:ClearAllPoints()
   frame:SetPoint(p, rel or UIParent, rp or p, ns.SnapValue(frame, x or 0), ns.SnapValue(frame, y or 0))
-  return p, rp, ns.SnapValue(frame, x or 0), ns.SnapValue(frame, y or 0)
+  -- A snapped offset is only as aligned as the frame it counts from, so let the
+  -- window put its own edges on whole pixels and report back what it settled on.
+  ns.AlignToScreen(frame)
+  local fp, _, frp, fx, fy = frame:GetPoint()
+  return fp or p, frp or rp or p, fx or 0, fy or 0
+end
+
+-- Snapped offsets only keep a frame aligned with the frame it hangs on: where
+-- the whole chain lands on the physical grid is decided further up, and with the
+-- ui scale from the game options that origin often sits on a fraction of a
+-- pixel. Every border inside then rounds to whichever side is closer, which is
+-- how one edge ends up a pixel thick and the opposite one empty. This nudges a
+-- frame by less than a pixel so its own left and bottom edges are whole pixels
+-- again; the offsets stay in the frame's own units, so nothing else moves.
+function ns.AlignToScreen(frame)
+  if not (frame and frame.GetLeft and frame.GetNumPoints) then return end
+  local s = frame:GetEffectiveScale()
+  if not s or s <= 0 then return end
+  local l, b = frame:GetLeft(), frame:GetBottom()
+  if not (l and b) then return end
+  local per = s * (physH / 768)          -- physical pixels per unit
+  if per <= 0 then return end
+  local px, py = l * per, b * per
+  local dx = (math.floor(px + 0.5) - px) / per
+  local dy = (math.floor(py + 0.5) - py) / per
+  if math.abs(dx) < 0.0005 and math.abs(dy) < 0.0005 then return end
+  local n = frame:GetNumPoints()
+  if n == 0 then return end
+  local pts = {}
+  for i = 1, n do
+    local p, rel, rp, x, y = frame:GetPoint(i)
+    if not p then return end
+    pts[i] = { p, rel, rp, (x or 0) + dx, (y or 0) + dy }
+  end
+  frame:ClearAllPoints()
+  for i = 1, n do
+    local t = pts[i]
+    frame:SetPoint(t[1], t[2] or frame:GetParent(), t[3] or t[1], t[4], t[5])
+  end
+end
+
+-- A scroll offset is a position like any other: scrolling by a fraction of a
+-- pixel drags every row of the page off the grid at once. Round the offset, then
+-- add back whatever fraction the page is already carrying.
+function ns.SnapScroll(sf, v)
+  v = math.max(0, tonumber(v) or 0)
+  local unit = ns.PixelUnit(sf)
+  v = math.floor(v / unit + 0.5) * unit
+  local child = sf.GetScrollChild and sf:GetScrollChild()
+  if child then
+    local top = child:GetTop()
+    local s = child:GetEffectiveScale()
+    if top and s and s > 0 then
+      local per = s * (physH / 768)
+      local py = top * per
+      v = v + (py - math.floor(py + 0.5)) / per
+    end
+  end
+  return math.max(0, v)
 end
 
 function ns.RefreshPixels()
