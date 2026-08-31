@@ -178,7 +178,7 @@ function Bags:Build()
   ns.AttachGoldTooltip(money, f)
 
   local rlabel = Theme:Label(content, 11, "reagent")
-  rlabel:SetText("REAGENTS")
+  ns.LocalText(rlabel, "REAGENTS")
   rlabel:Hide()
   self.reagentLabel = rlabel
 
@@ -207,7 +207,7 @@ function Bags:BuildBagWindow()
 
   local title = Theme:Title(w, 14, "accent")
   title:SetPoint("TOPLEFT", BPAD, -8)
-  title:SetText("BAGS")
+  ns.LocalText(title, "BAGS")
   self.bagTitle = title
 
   local wclose = ns.CreateGlyphButton(w, "×")

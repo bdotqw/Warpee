@@ -1,5 +1,6 @@
 local addonName, ns = ...
 
+local L = ns.L
 local Vendor = { batch = 12 }
 ns.Vendor = Vendor
 
@@ -224,7 +225,7 @@ function Vendor:TipLines()
   if #list == 0 then
     out[#out + 1] = { text = "Nothing to sell", color = "dim", size = 12 }
   else
-    out[#out + 1] = { text = ("%d items for %s"):format(#list, ns.FormatMoney(total, false)),
+    out[#out + 1] = { text = (L["%d items for %s"]):format(#list, ns.FormatMoney(total, false)),
                       color = "accentInk" }
   end
   if self:Busy() then
@@ -253,14 +254,14 @@ local function finish()
   pump:Hide()
   ev:UnregisterEvent("BAG_UPDATE_DELAYED")
   if stuck > 0 then
-    print(("|cffd9a85fWarpee|r %d items refused to sell, left in the bags"):format(stuck))
+    print("|cffd9a85fWarpee|r " .. (L["%d items refused to sell, left in the bags"]):format(stuck))
   end
   if open then Vendor:Repair() end
   if sold <= 0 then return end
   C_Timer.After(0.3, function()
     local earned = GetMoney() - start
     if earned < 0 then earned = 0 end
-    print(("|cffd9a85fWarpee|r sold %d items for %s"):format(sold, ns.FormatMoney(earned, false)))
+    print("|cffd9a85fWarpee|r " .. (L["sold %d items for %s"]):format(sold, ns.FormatMoney(earned, false)))
   end)
 end
 
@@ -354,13 +355,13 @@ function Vendor:Repair()
   end
   local by
   if guild then
-    by = "guild funds"
+    by = L["guild funds"]
   elseif mode ~= "guild" and GetMoney() >= cost then
-    by = "your gold"
+    by = L["your gold"]
   end
   if not by then return end
   RepairAllItems(guild)
-  print(("|cffd9a85fWarpee|r repaired for %s from %s")
+  print("|cffd9a85fWarpee|r " .. (L["repaired for %s from %s"])
         :format(ns.FormatMoney(cost, false), by))
 end
 ev:RegisterEvent("MERCHANT_SHOW")

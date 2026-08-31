@@ -31,7 +31,8 @@ function Picker:Build()
   tinsert(UISpecialFrames, "WarpeeCharPicker")
   self.frame = m
 
-  local hide = ns.CreateButton(m, "Hidden", 68, 23)
+  local hide = ns.CreateButton(m, ns.L["Hidden"], 68, 23)
+  ns.LocalText(hide, "Hidden")
   hide:SetPoint("TOPLEFT", PAD, -PAD)
   hide:SetScript("OnEnter", function() self:UpdateHiddenBorder() end)
   hide:SetScript("OnLeave", function() self:UpdateHiddenBorder() end)
@@ -56,7 +57,7 @@ function Picker:Build()
   filter:SetPoint("LEFT", hide, "RIGHT", 4, 0)
   filter:SetPoint("RIGHT", close, "LEFT", -4, 0)
   filter:SetHeight(23)
-  if filter.Hint then filter.Hint:SetText("Filter") end
+  if filter.Hint then ns.LocalText(filter.Hint, "Filter") end
   self.filter = filter
 
   local sf = CreateFrame("ScrollFrame", nil, m)
@@ -119,10 +120,10 @@ function Picker:Row(i)
   self.rows[i] = r
   ns.AddTip(r, function(s)
     if s.kind ~= "char" or not s.key then return nil end
-    return "Left-click: show this character"
+    return ns.L["Left-click: show this character"]
   end, "left", function(s)
     if s.kind ~= "char" or not s.key then return nil end
-    return { { text = ns.Vault:Hidden(s.key) and "Right-click: unhide" or "Right-click: hide",
+    return { { text = ns.Vault:Hidden(s.key) and ns.L["Right-click: unhide"] or ns.L["Right-click: hide"],
                color = "dim" } }
   end)
   return r

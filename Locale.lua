@@ -12,6 +12,32 @@ ns.L = L
 ns.LOCALES = { "enUS", "ruRU" }
 ns.LOCALE_LABELS = { enUS = "English", ruRU = "Русский" }
 
+local watched = {}
+
+local function paint(w)
+  local o = w.obj
+  local t = (o.Text ~= nil) and o.Text or o
+  if t.SetText then t:SetText(L[w.key]) end
+end
+
+function ns.LocalText(obj, key)
+  if not obj then return obj end
+  local w = { obj = obj, key = key }
+  watched[#watched + 1] = w
+  paint(w)
+  return obj
+end
+
+function ns.ApplyLocaleText()
+  for _, w in ipairs(watched) do paint(w) end
+  if ns.Bags and ns.Bags.frame and ns.Bags.frame:IsShown() and ns.Bags.Layout then
+    ns.Bags:Layout()
+  end
+  if ns.Bank and ns.Bank.frame and ns.Bank.frame:IsShown() and ns.Bank.Refresh then
+    ns.Bank:Refresh()
+  end
+end
+
 function ns.LocalePick()
   local pick = WarpeeDB and WarpeeDB.locale
   if pick == "enUS" or pick == "ruRU" then return pick end
@@ -196,6 +222,54 @@ local RU = {
   ["1 item"] = "1 предмет",
   ["%d items"] = "%d предметов",
   ["%d and %d wide"] = "%d и %d в ряду",
+  ["Sort / clean up bags"] = "Разложить сумки",
+  ["Sort / clean up"] = "Разложить",
+  ["Settings"] = "Настройки",
+  ["Bags"] = "Сумки",
+  ["Bank / Warband"] = "Банк и общий банк",
+  ["Sell low gear"] = "Продать старое снаряжение",
+  ["Snapshot of another character"] = "Снимок другого персонажа",
+  ["REAGENTS"] = "РЕАГЕНТЫ",
+  ["BAGS"] = "СУМКИ",
+  ["WARBAND BANK"] = "БАНК ОТРЯДА",
+  ["Warband"] = "Отряд",
+  ["Buy tab"] = "Купить",
+  ["Buy tab · %s"] = "Купить · %s",
+  ["Cost: %s"] = "Цена: %s",
+  ["Hidden"] = "Скрытые",
+  ["Filter"] = "Фильтр",
+  ["Visit a banker to record this bank"] = "Зайди к банкиру, чтобы записать этот банк",
+  ["Browse another character's bank"] = "Посмотреть банк другого персонажа",
+  ["Put your gold into the Warband bank"] = "Положить золото в банк отряда",
+  ["Take gold out of the Warband bank"] = "Забрать золото из банка отряда",
+  ["Buy another bank tab"] = "Купить ещё одну ячейку банка",
+  ["Buy another Warband bank tab"] = "Купить ещё одну ячейку общего банка",
+  ["Show characters you hid"] = "Показать скрытых персонажей",
+  ["Close"] = "Закрыть",
+  ["Left-click: show this character"] = "ЛКМ — показать этого персонажа",
+  ["Right-click: hide"] = "ПКМ — скрыть",
+  ["Right-click: unhide"] = "ПКМ — вернуть",
+  ["Warpee"] = "Warpee",
+  ["Click opens the settings"] = "Клик открывает настройки",
+  ["Drag to move around the minimap"] = "Тащи, чтобы двигать вокруг миникарты",
+  ["Nothing to sell"] = "Продавать нечего",
+  ["Selling now"] = "Продаю",
+  ["Talk to a merchant first"] = "Сначала подойди к торговцу",
+  ["%d items for %s"] = "%d предметов за %s",
+  ["%d items refused to sell, left in the bags"] =
+    "%d предметов отказались продаваться и остались в сумках",
+  ["sold %d items for %s"] = "продано %d предметов за %s",
+  ["repaired for %s from %s"] = "ремонт за %s, оплата: %s",
+  ["guild funds"] = "касса гильдии",
+  ["your gold"] = "своё золото",
+  ["Inventory"] = "Инвентарь",
+  ["Warband bank"] = "Банк отряда",
+  ["Total"] = "Всего",
+  ["%d  (%d bags, %d bank)"] = "%d  (%d в сумках, %d в банке)",
+  ["%d  (bank)"] = "%d  (в банке)",
+  ["%d  (bags)"] = "%d  (в сумках)",
+  ["loaded"] = "загружен",
+  ["columns"] = "ячеек в ряду",
 }
 
 TABLES.ruRU = RU
