@@ -684,7 +684,7 @@ function ns.PaintVaultButton(b, d, bagID)
   ns.SetSlotBorder(b, Theme:C("emptyLine"))
   if ns.QuestMarked(b) then
     ns.SetRarityRing(b)
-  elseif bagID and bagID == ns.reagentBank then
+  elseif bagID and (bagID == ns.reagentBank or bagID == ns.reagentBag) then
     local r = Theme.colors.reagent
     ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
   elseif link and ns.IsLinkUnusable(link) then
