@@ -7,7 +7,7 @@ local btn = CreateFrame("Button", "WarpeeMinimapButton", Minimap)
 btn:SetSize(31, 31)
 btn:SetFrameStrata("MEDIUM")
 btn:SetMovable(true)
-btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+btn:RegisterForClicks("LeftButtonUp")
 btn:RegisterForDrag("LeftButton")
 btn:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 btn:Hide()
@@ -68,18 +68,13 @@ btn:SetScript("OnDragStop", function(self)
   if WarpeeDB then WarpeeDB.minimapAngle = a end
 end)
 
-btn:SetScript("OnClick", function(_, button)
-  if button == "RightButton" then
-    ns.Toggle()
-  else
-    if ns.Options then ns.Options:Toggle() end
-  end
+btn:SetScript("OnClick", function()
+  if ns.Options then ns.Options:Toggle() end
 end)
 
 ns.AddTip(btn, "Warpee", "left", function()
   return {
-    { text = "Left click opens the settings", color = "dim", size = 12 },
-    { text = "Right click opens the bags", color = "dim", size = 12 },
+    { text = "Click opens the settings", color = "dim", size = 12 },
     { text = "Drag to move around the minimap", color = "faint", size = 12 },
   }
 end)
