@@ -482,7 +482,7 @@ function ns.MarkBlocked(b, itemID)
     if not set then b.blocked:SetTexture("Interface\\PetBattles\\PetBattle-LockIcon") end
   end
   local ic = iconOf(b)
-  local sz = math.max(8, math.floor(cellOf(b) * 0.38 + 0.5))
+  local sz = math.max(12, math.floor(cellOf(b) * 0.6 + 0.5))
   b.blocked:SetSize(sz, sz)
   b.blocked:ClearAllPoints()
   b.blocked:SetPoint("TOPRIGHT", ic or b, "TOPRIGHT", -1, -1)
