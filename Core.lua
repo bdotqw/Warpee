@@ -1,5 +1,6 @@
 local addonName, ns = ...
 local Bags = ns.Bags
+local L = ns.L
 
 function ns.Toggle(show)
   local f = Bags:Build()
@@ -209,7 +210,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.bankPool = nil
     if ns.Bank then ns.Bank:HideBlizzard() end
     if ns.ApplyMinimapIcon then ns.ApplyMinimapIcon() end
-    print("|cffd9a85fWarpee|r loaded · v" ..
+    print("|cffd9a85fWarpee|r " .. L["loaded"] .. " · v" ..
       (C_AddOns.GetAddOnMetadata(addonName, "Version") or "?"))
   elseif event == "BAG_UPDATE" then
     Bags.dirty[a1] = true
@@ -291,11 +292,11 @@ local function countLine(e, withBank)
   local bank = withBank and e.bank or 0
   local total = e.bags + bank
   if e.bags > 0 and bank > 0 then
-    return ("%d  (%d bags, %d bank)"):format(total, e.bags, bank)
+    return (L["%d  (%d bags, %d bank)"]):format(total, e.bags, bank)
   elseif bank > 0 then
-    return ("%d  (bank)"):format(bank)
+    return (L["%d  (bank)"]):format(bank)
   end
-  return ("%d  (bags)"):format(e.bags)
+  return (L["%d  (bags)"]):format(e.bags)
 end
 
 local function itemTooltip(tt, data)
@@ -322,16 +323,16 @@ local function itemTooltip(tt, data)
   if total <= 0 then return end
   tt.wpeCounted = true
   tt:AddLine(" ")
-  tt:AddLine("Inventory", 1, 0.82, 0)
+  tt:AddLine(L["Inventory"], 1, 0.82, 0)
   for _, e in ipairs(rows) do
     local col = e.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
     tt:AddDoubleLine(e.name, countLine(e, withBank),
       col and col.r or 1, col and col.g or 1, col and col.b or 1, 1, 1, 1)
   end
   if wb > 0 then
-    tt:AddDoubleLine("Warband bank", tostring(wb), 0.44, 0.71, 0.83, 1, 1, 1)
+    tt:AddDoubleLine(L["Warband bank"], tostring(wb), 0.44, 0.71, 0.83, 1, 1, 1)
   end
-  tt:AddDoubleLine("Total", tostring(total), 1, 0.82, 0, 1, 1, 1)
+  tt:AddDoubleLine(L["Total"], tostring(total), 1, 0.82, 0, 1, 1, 1)
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall
@@ -350,7 +351,7 @@ SlashCmdList["WARPEE"] = function(msg)
     WarpeeDB.cols = cols
     Bags.cols = cols
     if Bags.frame:IsShown() then Bags:Layout() end
-    print("|cff6FB4D4Warpee|r: columns —", cols)
+    print("|cff6FB4D4Warpee|r: " .. L["columns"] .. " —", cols)
   elseif msg == "bank" or msg == "warband" then
     ns.ToggleBank(msg == "warband" and "warband" or "bank")
   else

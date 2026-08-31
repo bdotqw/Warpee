@@ -209,12 +209,14 @@ function View:Build()
   sort.icon = sortIcon
   self.sortBtn = sort
 
-  local bankTab = ns.CreateButton(f, "Bank", 52, HBTN)
+  local bankTab = ns.CreateButton(f, ns.L["Bank"], 52, HBTN)
+  ns.LocalText(bankTab, "Bank")
   bankTab:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -6)
   bankTab:SetScript("OnClick", function() self:SetMode("bank") end)
   bankTab:HookScript("OnLeave", function() self:UpdateTabs() end)
   self.bankTab = bankTab
-  local wbTab = ns.CreateButton(f, "Warband", 68, HBTN)
+  local wbTab = ns.CreateButton(f, ns.L["Warband"], 68, HBTN)
+  ns.LocalText(wbTab, "Warband")
   wbTab:SetPoint("LEFT", bankTab, "RIGHT", 4, 0)
   wbTab:SetScript("OnClick", function() self:SetMode("warband") end)
   wbTab:HookScript("OnLeave", function() self:UpdateTabs() end)
@@ -275,7 +277,7 @@ function View:Build()
 
   local hint = Theme:Label(f, 13, "dim")
   hint:SetPoint("BOTTOMLEFT", PAD, 8)
-  hint:SetText("Visit a banker to record this bank")
+  ns.LocalText(hint, "Visit a banker to record this bank")
   hint:Hide()
   self.hint = hint
 
@@ -343,7 +345,7 @@ function View:UpdateCharBtn()
     for _, e in ipairs(all) do
       if e.key == key then class = e.class; label = e.name; break end
     end
-    if not label and #visible == 0 then label = "Hidden" end
+    if not label and #visible == 0 then label = ns.L["Hidden"] end
     ns.PaintCharTag(b, label or (key and key:match("^(.-)%-")) or "?", class)
   elseif ns.CharPicker then
     ns.CharPicker:Close()
@@ -355,7 +357,7 @@ function View:BuildBuyButtons()
   self.buyBtn = self.buyBtn or {}
   for _, mode in ipairs({ "bank", "warband" }) do
     local bt = not self.buyBtn[mode] and bankTypeFor(mode)
-    local b = bt and ns.CreateButton(self.frame, "Buy tab", 96, 20, "BankPanelPurchaseButtonScriptTemplate")
+    local b = bt and ns.CreateButton(self.frame, ns.L["Buy tab"], 96, 20, "BankPanelPurchaseButtonScriptTemplate")
     if b then
       b:SetAttribute("overrideBankType", bt)
       b:Hide()
@@ -363,7 +365,7 @@ function View:BuildBuyButtons()
         function(btn)
           if not btn.cost then return nil end
           local poor = btn.cost > GetMoney()
-          return { { text = ("Cost: %s"):format(ns.FormatMoney(btn.cost)),
+          return { { text = (ns.L["Cost: %s"]):format(ns.FormatMoney(btn.cost)),
                      color = poor and "gaugeHi" or "text" } }
         end)
       self.buyBtn[mode] = b
@@ -722,7 +724,7 @@ function View:UpdateFooter()
     local cost = live and purchasableCost(bt) or nil
     buy.cost = cost
     if cost then
-      buy.Text:SetText(("Buy tab · %s"):format(ns.FormatGold(cost)))
+      buy.Text:SetText((ns.L["Buy tab · %s"]):format(ns.FormatGold(cost)))
       buy.Text:SetTextColor(Theme:C(cost > GetMoney() and "gaugeHi" or "text"))
       buy:SetWidth(math.max(90, math.ceil(buy.Text:GetStringWidth()) + 22))
       buy:ClearAllPoints()
@@ -746,7 +748,7 @@ function View:UpdateFooter()
     end
     if sum == nil then sum = ns.Vault:WarbandMoney() end
     self.money:SetText(sum and ns.FormatMoney(sum) or "—")
-    self.moneyCaption:SetText("WARBAND BANK")
+    self.moneyCaption:SetText(ns.L["WARBAND BANK"])
   end
 
   local need = PAD * 2 + 12

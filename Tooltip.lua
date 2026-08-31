@@ -42,7 +42,7 @@ function ns.ShowTip(owner, entries, side)
       local fs = tipLine(t, n)
       fs:SetFont(path, e.size or TIP_TEXT, "")
       fs:SetWidth(cap)
-      fs:SetText(e.text)
+      fs:SetText(ns.L[e.text])
       fs:SetTextColor(Theme:C(e.color or "text"))
       widest = math.max(widest, math.ceil(fs:GetStringWidth()))
     end
