@@ -272,7 +272,7 @@ end
 
 function Theme:Label(parent, size, colorKey, flags)
   local fs = parent:CreateFontString(nil, "OVERLAY")
-  fs:SetFont([[Fonts\ARIALN.TTF]], size or 12, flags or "")
+  fs:SetFont(ns.Fonts:Current(), size or 12, flags or "")
   local key = colorKey or "text"
   fs:SetTextColor(self:C(key))
   track(fs, function(x) x:SetTextColor(Theme:C(key)) end)
@@ -281,7 +281,7 @@ end
 
 function Theme:Title(parent, size, colorKey)
   local fs = parent:CreateFontString(nil, "OVERLAY")
-  fs:SetFont([[Fonts\FRIZQT__.TTF]], size or 15, "")
+  fs:SetFont(ns.Fonts:Current(), size or 15, "")
   local key = colorKey or "text"
   fs:SetTextColor(self:C(key))
   track(fs, function(x) x:SetTextColor(Theme:C(key)) end)
@@ -366,4 +366,11 @@ end
 
 function ns.Fonts:Usable(name)
   return self:Path(name) == rawPath(name)
+end
+
+-- The font every label starts with: whatever the player picked, Expressway
+-- otherwise. Call sites that re-apply fonts later still override this.
+function ns.Fonts:Current()
+  local name = (ns.Bags and ns.Bags.font) or (WarpeeDB and WarpeeDB.font) or self.DEFAULT
+  return self:Path(name)
 end

@@ -44,6 +44,18 @@ function ns.LocalePick()
   return (GetLocale() == "ruRU") and "ruRU" or "enUS"
 end
 
+-- The client ships no short coin letters for ruRU, so carry our own. Keyed by
+-- the addon's own language, not the client's, so the picker stays in charge.
+local COIN_LETTERS = {
+  enUS = { g = "g", s = "s", c = "c" },
+  ruRU = { g = "з", s = "с", c = "м" },
+}
+
+function ns.CoinLetter(key)
+  local t = COIN_LETTERS[ns.LocalePick()] or COIN_LETTERS.enUS
+  return t[key] or key
+end
+
 local RU = {
   ["General"] = "Общее",
   ["Grid"] = "Сетка",
@@ -71,6 +83,7 @@ local RU = {
   ["Font"] = "Шрифт",
   ["Language"] = "Язык",
   ["Lock windows"] = "Закрепить окна",
+  ["Hide X/Y fields"] = "Скрыть поля X/Y",
   ["Capacity bar"] = "Полоса заполнения",
   ["Hide minimap icon"] = "Скрыть иконку у миникарты",
   ["Gold format"] = "Формат сумм",
@@ -83,8 +96,10 @@ local RU = {
     "Используется для всех надписей Warpee. Другие аддоны могут добавлять шрифты в этот список.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Язык текста самого аддона. Названия предметов всегда берутся из игры.",
-  ["Freeze the windows in place. Unlocked, each shows X/Y fields at its top-left — type a value or nudge with the arrows (Shift = 10)."] =
-    "Закрепляет окна на месте. Если отметку снять, у каждого окна в левом верхнем углу появятся поля X и Y: значение можно ввести вручную или менять стрелками (Shift — шаг 10).",
+  ["Freeze the windows in place. Unlocked, each shows X/Y fields along its bottom edge — type a value or nudge with the arrows (Shift = 10)."] =
+    "Закрепляет окна на месте. Если отметку снять, у каждого окна снизу появятся поля X и Y: значение можно ввести вручную или менять стрелками (Shift — шаг 10).",
+  ["The windows stay movable by dragging, but the X/Y fields are not drawn."] =
+    "Окна по-прежнему можно перетаскивать мышью, но поля X и Y не показываются.",
   ["Fill bar in the bags header showing how full they are."] =
     "Полоса в шапке сумок, показывающая, насколько они заполнены.",
   ["Takes the Warpee button off the minimap."] = "Убирает кнопку Warpee с миникарты.",

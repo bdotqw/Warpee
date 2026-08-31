@@ -196,8 +196,14 @@ function View:Build()
   close:SetScript("OnClick", function() f:Hide() end)
   self.closeBtn = close
 
+  local gear = ns.CreateGlyphButton(f, "|TInterface\\Buttons\\UI-OptionsButton:15:15:0:0|t", 26)
+  gear:SetPoint("TOPRIGHT", close, "TOPLEFT", -10, 0)
+  gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
+  addTip(gear, "Settings")
+  self.gearBtn = gear
+
   local sort = ns.CreateGlyphButton(f, "", 26)
-  sort:SetPoint("TOPRIGHT", close, "TOPLEFT", -4, 0)
+  sort:SetPoint("TOPRIGHT", gear, "TOPLEFT", -4, 0)
   sort:SetScript("OnClick", function() self:Sort() end)
   addTip(sort, "Sort / clean up")
   local sortIcon = sort:CreateTexture(nil, "ARTWORK")
@@ -592,7 +598,7 @@ function View:Run(st, repaint, tag)
 end
 
 function View:Fonts()
-  local path = ns.Fonts:Path(Bags.font or "Arial Narrow")
+  local path = ns.Fonts:Path(Bags.font or ns.Fonts.DEFAULT)
   local base = self:FontSize()
   self.fontPath, self.fontBase = path, base
   local function put(fs, delta)

@@ -61,7 +61,7 @@ local function attachBorder(b)
   b.bR = borderLine(rf, 2, "ARTWORK"); b.bR:SetPoint("TOPRIGHT");   b.bR:SetPoint("BOTTOMRIGHT"); ns.PixelLine(b.bR, 1, "w")
   b.ilvl = bf:CreateFontString(nil, "OVERLAY")
   b.ilvl:SetDrawLayer("OVERLAY", 6)
-  b.ilvl:SetFont("Fonts\\ARIALN.TTF", 12, "OUTLINE")
+  b.ilvl:SetFont(ns.Fonts:Current(), 12, "OUTLINE")
   b.ilvl:SetPoint("TOPLEFT", 3, -3)
   b.ilvl:SetTextColor(Theme:C("overlay"))
 end
@@ -259,7 +259,7 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
     cd:Clear()
     b.cdText = b.borderFrame:CreateFontString(nil, "OVERLAY")
     b.cdText:SetDrawLayer("OVERLAY", 7)
-    b.cdText:SetFont("Fonts\\ARIALN.TTF", 14, "OUTLINE")
+    b.cdText:SetFont(ns.Fonts:Current(), 14, "OUTLINE")
     b.cdText:SetPoint("CENTER")
     b.cdText:SetTextColor(Theme:C("text"))
   end
@@ -382,7 +382,7 @@ function ns.FitCount(b, count)
   local B = ns.Bags
   if b.fitGen == B.styleGen then return end
   b.fitGen = B.styleGen
-  local path = B.fontPath or ns.Fonts:Path(B.font or "Arial Narrow")
+  local path = B.fontPath or ns.Fonts:Path(B.font or ns.Fonts.DEFAULT)
   c:SetFont(path, B.countSize or 14, "OUTLINE")
 end
 
@@ -391,7 +391,7 @@ function ns.FitIlvl(b, lvl)
   local B = ns.Bags
   if b.ilvlFitGen == B.styleGen then return end
   b.ilvlFitGen = B.styleGen
-  local path = B.fontPath or ns.Fonts:Path(B.font or "Arial Narrow")
+  local path = B.fontPath or ns.Fonts:Path(B.font or ns.Fonts.DEFAULT)
   b.ilvl:SetFont(path, B.ilvlSize or 12, "OUTLINE")
 end
 
@@ -406,7 +406,7 @@ local function cdFont(b)
   local B = ns.Bags
   if b.cdFitGen == B.styleGen then return end
   b.cdFitGen = B.styleGen
-  local path = B.fontPath or ns.Fonts:Path(B.font or "Arial Narrow")
+  local path = B.fontPath or ns.Fonts:Path(B.font or ns.Fonts.DEFAULT)
   b.cdText:SetFont(path, B.countSize or 14, "OUTLINE")
 end
 

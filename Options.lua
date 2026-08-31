@@ -81,6 +81,11 @@ local function lockSet(v)
   WarpeeDB.lockWindows = v and true or nil
   ns.ApplyWindowLock()
 end
+local function hideFieldsGet() return WarpeeDB.hideMoveFields and true or false end
+local function hideFieldsSet(v)
+  WarpeeDB.hideMoveFields = v and true or nil
+  ns.ApplyWindowLock()
+end
 
 local ANCHORS = { "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT" }
 local ANCHOR_LABELS = { TOPLEFT = "Top left", TOPRIGHT = "Top right",
@@ -147,7 +152,7 @@ local function closeDropdown()
 end
 
 local function dropdownFont()
-  return ns.Fonts:Path((Bags and Bags.font) or "Arial Narrow")
+  return ns.Fonts:Path((Bags and Bags.font) or ns.Fonts.DEFAULT)
 end
 
 local function makeMenuRow(parent, index, rowH)
@@ -761,7 +766,7 @@ function factories.chars(parent, spec)
   row.Rebuild = function()
     local list = (ns.Vault and ns.Vault:Chars(true)) or {}
     if #list == 0 then row.delMode = nil end
-    local path = ns.Fonts:Path((Bags and Bags.font) or "Arial Narrow")
+    local path = ns.Fonts:Path((Bags and Bags.font) or ns.Fonts.DEFAULT)
     local colW = math.floor((CONTENT_W - (CHAR_COLS - 1) * 8) / CHAR_COLS)
     del.Text:SetFont(path, math.max(7, BASE_FONT - 2), "")
     del:SetWidth(math.max(86, math.ceil(del.Text:GetStringWidth()) + 20))
@@ -1084,11 +1089,14 @@ local GENERAL_PAGE = {
     desc = "Language for the addon's own text. Item names always come from the game." },
   { type = "header", name = "Windows" },
   { type = "toggle", name = "Lock windows", col = 1, get = lockGet, set = lockSet,
-    desc = "Freeze the windows in place. Unlocked, each shows X/Y fields at its top-left — type a value or nudge with the arrows (Shift = 10)." },
+    desc = "Freeze the windows in place. Unlocked, each shows X/Y fields along its bottom edge — type a value or nudge with the arrows (Shift = 10)." },
   { type = "toggle", name = "Capacity bar", col = 2, get = gaugeGet, set = gaugeSet,
     desc = "Fill bar in the bags header showing how full they are." },
   { type = "toggle", name = "Hide minimap icon", col = 1, get = mmHideGet, set = mmHideSet,
     desc = "Takes the Warpee button off the minimap." },
+  { type = "toggle", name = "Hide X/Y fields", col = 2, get = hideFieldsGet, set = hideFieldsSet,
+    disabled = function() return lockGet() end,
+    desc = "The windows stay movable by dragging, but the X/Y fields are not drawn." },
   { type = "header", name = "Search" },
   { type = "toggle", name = "Clear on close", col = 1, get = sClearGet, set = sClearSet,
     desc = "Empty the search box when the window closes, so it opens unfiltered next time." },
@@ -1406,7 +1414,7 @@ function Options:Select(index)
 end
 
 function Options:ApplyFont()
-  local path = ns.Fonts:Path((Bags and Bags.font) or "Arial Narrow")
+  local path = ns.Fonts:Path((Bags and Bags.font) or ns.Fonts.DEFAULT)
   for _, e in ipairs(fonts) do
     e.fs:SetFont(path, math.max(7, BASE_FONT + e.delta), "")
   end

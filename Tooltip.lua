@@ -33,7 +33,7 @@ end
 function ns.ShowTip(owner, entries, side)
   if not owner or not entries or #entries == 0 then ns.HideTip(); return end
   local t = tipBox()
-  local path = ns.Fonts:Path((ns.Bags and ns.Bags.font) or "Arial Narrow")
+  local path = ns.Fonts:Path((ns.Bags and ns.Bags.font) or ns.Fonts.DEFAULT)
   local cap = TIP_MAXW - TIP_PADT * 2
   local n, widest = 0, 1
   for _, e in ipairs(entries) do
@@ -128,7 +128,7 @@ end
 
 local function showGoldTip(anchor)
   local t = goldTipFrame()
-  local path = ns.Fonts:Path((ns.Bags and ns.Bags.font) or "Arial Narrow")
+  local path = ns.Fonts:Path((ns.Bags and ns.Bags.font) or ns.Fonts.DEFAULT)
   local list, total = ns.Vault:MoneyList()
   local wb = ns.Vault:WarbandMoney()
 
