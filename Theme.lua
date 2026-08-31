@@ -170,6 +170,16 @@ function ns.SnapPoint(frame, point, rel, relPoint, x, y)
   frame:SetPoint(point, rel, relPoint, ns.SnapValue(frame, x), ns.SnapValue(frame, y))
 end
 
+-- Grid metrics on the pixel grid. Rounding each slot offset on its own leaves
+-- the gaps a pixel apart from each other, which is what makes identical cells
+-- look shifted; snapping the step once keeps every cell and every gap equal.
+function ns.GridMetrics(region, size, gap)
+  local px = ns.PixelUnit(region)
+  local s = math.max(px, math.floor((tonumber(size) or 0) / px + 0.5) * px)
+  local g = math.max(0, math.floor((tonumber(gap) or 0) / px + 0.5) * px)
+  return s, g, s + g, px
+end
+
 -- Jobs re-run whenever the scale or the resolution changes.
 local pixelJobs = setmetatable({}, { __mode = "k" })
 function ns.PixelJob(obj, fn)
