@@ -1073,6 +1073,13 @@ local function vGemGet() return WarpeeDB.vendorKeepGems ~= false end
 local function vGemSet(v) WarpeeDB.vendorKeepGems = v and true or false end
 local function vGreyGet() return WarpeeDB.vendorGrey ~= false end
 local function vGreySet(v) WarpeeDB.vendorGrey = v and true or false end
+local function vRepGet() return WarpeeDB.vendorRepair and true or false end
+local function vRepSet(v) WarpeeDB.vendorRepair = v and true or false end
+local REPAIR_BY = { "player", "guild", "both" }
+local REPAIR_LABELS = { player = "Your gold", guild = "Guild bank",
+                        both = "Guild bank, then your gold" }
+local function vRepByGet() return WarpeeDB.vendorRepairBy or "player" end
+local function vRepBySet(v) WarpeeDB.vendorRepairBy = v or "player" end
 local function vRelicGet() return WarpeeDB.vendorRelics ~= false end
 local function vRelicSet(v) WarpeeDB.vendorRelics = v and true or false end
 
@@ -1107,8 +1114,8 @@ local VENDOR_PAGE = {
   { type = "input", name = "Item level under", col = 2, min = 0, max = 9999,
     get = vIlvlGet, set = vIlvlSet,
     desc = "Gear under this item level is sold. Zero keeps every piece of gear." },
-  { type = "toggle", name = "Grey junk", col = 1, get = vGreyGet, set = vGreySet,
-    desc = "Sell every grey item as well, whatever it is and whatever its item level." },
+  { type = "toggle", name = "Auto sell junk", col = 1, get = vGreyGet, set = vGreySet,
+    desc = "Sell every grey item, whatever it is and whatever its item level. Runs by itself the moment a merchant opens, without pressing the button." },
   { type = "toggle", name = "Legion relics", col = 2, get = vRelicGet, set = vRelicSet,
     desc = "Sell artifact relics from Legion. They have no use and no appearance, so the item level is ignored." },
   { type = "toggle", name = "Tier tokens", col = 1, get = vTokenGet, set = vTokenSet,
@@ -1117,6 +1124,13 @@ local VENDOR_PAGE = {
     desc = "Sell potions, elixirs, flasks, food and bandages from expansions older than the previous one. Off by default, since old food can still be worth keeping." },
   { type = "toggle", name = "Sell on open", col = 1, get = vAutoGet, set = vAutoSet,
     desc = "Start selling as soon as a merchant window opens, without pressing the button." },
+  { type = "header", name = "Repair" },
+  { type = "toggle", name = "Auto repair", col = 1, get = vRepGet, set = vRepSet,
+    desc = "Repair everything as soon as a merchant who offers repairs opens. A merchant without repairs is left alone, with no message." },
+  { type = "select", name = "Repair paid by", get = vRepByGet, set = vRepBySet,
+    keys = function() return REPAIR_BY end,
+    label = function(k) return REPAIR_LABELS[k] or k end,
+    desc = "Where the money comes from. The guild bank is used only if your withdraw limit covers the whole bill, otherwise nothing is taken from it." },
   { type = "header", name = "Never sell" },
   { type = "toggle", name = "Keep BoE", col = 1, get = vBoEGet, set = vBoESet,
     desc = "Skip gear that is not bound yet, so it can still go to the auction house." },

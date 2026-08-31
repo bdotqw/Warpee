@@ -158,7 +158,7 @@ function Vendor:Ilvl()
   return tonumber(WarpeeDB and WarpeeDB.vendorIlvl) or 0
 end
 
-function Vendor:Scan()
+function Vendor:Scan(junkOnly)
   local out, total, kept = {}, 0, 0
   local cap = self:Ilvl()
   local low = tonumber(WarpeeDB and WarpeeDB.vendorIlvlMin) or 0
@@ -170,6 +170,9 @@ function Vendor:Scan()
   local relics = not (WarpeeDB.vendorRelics == false)
   local consum = WarpeeDB.vendorConsum and true or false
   local tokens = WarpeeDB.vendorTokens and true or false
+  if junkOnly then
+    relics, consum, tokens, cap = false, false, false, 0
+  end
   for _, bag in ipairs(ns.playerBags) do
     for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
       local info = C_Container.GetContainerItemInfo(bag, slot)
@@ -234,7 +237,8 @@ function Vendor:TipLines()
                       color = "accentInk" }
   end
   if kept > 0 then
-    out[#out + 1] = { text = ("%d kept back"):format(kept), color = "dim", size = 10 }
+    out[#out + 1] = { text = ("%d held by the never-sell rules"):format(kept),
+                      color = "dim", size = 10 }
   end
   if self:Busy() then
     out[#out + 1] = { text = "Selling now", color = "accent", size = 10 }
@@ -262,6 +266,7 @@ local function finish()
   if stuck > 0 then
     print(("|cffd9a85fWarpee|r %d items refused to sell, left in the bags"):format(stuck))
   end
+  if open then Vendor:Repair() end
   if sold <= 0 then return end
   C_Timer.After(0.3, function()
     local earned = GetMoney() - start
@@ -314,13 +319,14 @@ end)
 function Vendor:Pass()
   gen = gen + 1
   if not open then finish(); return end
-  local list = self:Scan()
+  local list = self:Scan(run and run.junk)
   local count = #list
   if run then
+    if not run.started then run.started, run.base = true, count end
     run.left = count
   else
     run = { base = count, left = count, passes = 0, money = GetMoney(),
-            tries = {}, dead = {} }
+            tries = {}, dead = {}, started = true }
   end
   if count == 0 then finish(); return end
   run.passes = run.passes + 1
@@ -331,9 +337,42 @@ function Vendor:Pass()
   pump:Show()
 end
 
-function Vendor:Sell()
+function Vendor:Sell(junkOnly)
   if not open or run then return end
+  run = { base = 0, left = 0, passes = 0, money = GetMoney(),
+          tries = {}, dead = {}, junk = junkOnly and true or false }
   self:Pass()
+end
+
+local function repairCost()
+  if not (CanMerchantRepair and CanMerchantRepair()) then return 0 end
+  if not GetRepairAllCost then return 0 end
+  local cost, can = GetRepairAllCost()
+  if not can then return 0 end
+  return tonumber(cost) or 0
+end
+
+function Vendor:Repair()
+  if not (WarpeeDB and WarpeeDB.vendorRepair) then return end
+  if not RepairAllItems then return end
+  local cost = repairCost()
+  if cost <= 0 then return end
+  local mode = WarpeeDB.vendorRepairBy or "player"
+  local guild = false
+  if mode ~= "player" and CanGuildBankRepair and CanGuildBankRepair() then
+    local limit = GetGuildBankWithdrawMoney and GetGuildBankWithdrawMoney() or 0
+    guild = (limit == -1 or (tonumber(limit) or 0) >= cost)
+  end
+  local by
+  if guild then
+    by = "guild funds"
+  elseif mode ~= "guild" and GetMoney() >= cost then
+    by = "your gold"
+  end
+  if not by then return end
+  RepairAllItems(guild)
+  print(("|cffd9a85fWarpee|r repaired for %s from %s")
+        :format(ns.FormatMoney(cost, false), by))
 end
 ev:RegisterEvent("MERCHANT_SHOW")
 ev:RegisterEvent("MERCHANT_CLOSED")
@@ -342,9 +381,15 @@ ev:SetScript("OnEvent", function(_, event)
   if event == "MERCHANT_SHOW" then
     open = true
     if ns.Bags then ns.Bags:VendorState() end
-    if WarpeeDB and WarpeeDB.vendorAuto then
-      C_Timer.After(0.3, function() if open then Vendor:Sell() end end)
-    end
+    C_Timer.After(0.3, function()
+      if not open then return end
+      Vendor:Repair()
+      if WarpeeDB and WarpeeDB.vendorAuto then
+        Vendor:Sell()
+      elseif WarpeeDB and WarpeeDB.vendorGrey ~= false then
+        Vendor:Sell(true)
+      end
+    end)
   elseif event == "MERCHANT_CLOSED" then
     open = false
     finish()
