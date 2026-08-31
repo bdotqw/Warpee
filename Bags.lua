@@ -27,9 +27,6 @@ local function stepFor(size, gap) return size + gap end
 local function gridWidth(size, cols, gap) return (cols - 1) * (size + gap) + size end
 function Bags:TopOffset() return HEADER + 4 + Theme:TopInset() end
 
--- The skinned theme leaves the title strip empty, so the header row and
--- everything under it start below it. Re-run on every layout: the theme can
--- change while the window is open.
 function Bags:AnchorHeader()
   local top = Theme:TopInset()
   if self.closeBtn then

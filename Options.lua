@@ -150,6 +150,7 @@ local dropdown
 local function closeDropdown()
   if dropdown then dropdown:Hide() end
 end
+ns.CloseDropdown = closeDropdown
 
 local function dropdownFont()
   return ns.Fonts:Path((Bags and Bags.font) or ns.Fonts.DEFAULT)
@@ -235,6 +236,7 @@ local function openDropdown(anchor, spec, onPick)
     if not r then r = makeMenuRow(m.child, i, rowH); m.rows[i] = r end
     r:SetHeight(rowH)
     r.dot:SetSize(3, rowH - 8)
+    r.Text:SetFont(dropdownFont(), BASE_FONT - 1, "")
     r.Text:SetText(T(spec.label(key)))
     local on = (key == cur)
     r.dot:SetShown(on)
@@ -929,8 +931,6 @@ local function buildPage(parent, list)
         row:ClearAllPoints()
         if spec.type == "header" and y > 0 then y = y + 12 end
         local nx = nextSpec(index)
-        -- Every row starts on a whole pixel, otherwise the widgets inside it
-        -- inherit a fractional origin and their padding rounds unevenly.
         local function advance(extra)
           y = ns.SnapValue(row, y + row:GetHeight() + extra)
         end
@@ -1461,8 +1461,6 @@ function Options:ReflowPages()
   for _, row in ipairs(rows) do row.Refresh() end
   for _, area in ipairs(self.areas) do
     area.page.Relayout()
-    -- The offset that was whole pixels at the old scale is a fraction at the new
-    -- one, and a page half a pixel off shows up on every border inside it.
     area:ScrollTo(area:GetVerticalScroll())
     area:PaintBar()
   end
@@ -1474,7 +1472,6 @@ end
 
 function Options:Build()
   if self.frame then return self.frame end
-
 
   local f = CreateFrame("Frame", "WarpeeOptionsFrame", UIParent, "BackdropTemplate")
   f:Hide()
@@ -1551,8 +1548,6 @@ function Options:Build()
   return f
 end
 
--- Blizzard skin: leave the title strip alone and start the window's own header
--- below it. Called again on every theme change.
 function Options:AnchorHeader()
   local f = self.frame
   if not f then return end

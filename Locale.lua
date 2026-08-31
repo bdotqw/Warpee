@@ -44,8 +44,6 @@ function ns.LocalePick()
   return (GetLocale() == "ruRU") and "ruRU" or "enUS"
 end
 
--- The client ships no short coin letters for ruRU, so carry our own. Keyed by
--- the addon's own language, not the client's, so the picker stays in charge.
 local COIN_LETTERS = {
   enUS = { g = "g", s = "s", c = "c" },
   ruRU = { g = "з", s = "с", c = "м" },
@@ -56,9 +54,6 @@ function ns.CoinLetter(key)
   return t[key] or key
 end
 
--- Short amounts. English stacks K/M/B/T; Russian players count in "к" and "кк"
--- and keep going ("1200кк"), so that ladder stops at millions. The decimal mark
--- follows the language too: 284.4K but 284,4к.
 local SHORT_FORMS = {
   enUS = { dec = ".", units = { { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } } },
   ruRU = { dec = ",", units = { { 1e6, "кк" }, { 1e3, "к" } } },

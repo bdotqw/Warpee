@@ -76,9 +76,6 @@ Theme.THEMES = {
     text = { 0.914, 0.886, 0.949, 1 }, dim = { 0.678, 0.635, 0.749, 1 },
     faint = { 0.475, 0.435, 0.545, 1 }, emptyLine = { 0.322, 0.278, 0.404, 1 },
     azure = { 0.643, 0.510, 0.902, 1 }, reagent = { 0.400, 0.816, 0.643, 1 } },
-  -- Borrows the game's own frame art instead of a flat plate: the panel border
-  -- is Blizzard's tooltip edge, the slots are the bag atlas, and emptyLine is
-  -- transparent because that atlas draws its own rim.
   blizzard = { label = "Blizzard", skin = "blizzard",
     bg = { 0.114, 0.110, 0.106, 0.95 }, panel = { 0.169, 0.165, 0.157, 1 },
     panelHi = { 0.216, 0.208, 0.196, 1 }, slot = { 0.129, 0.125, 0.118, 1 },
@@ -116,12 +113,6 @@ Theme:Apply("midnight")
 local WHITE = [[Interface\Buttons\WHITE8x8]]
 Theme.WHITE = WHITE
 
--- pixel grid ----------------------------------------------------------------
--- One interface unit is not one screen pixel: the virtual screen is always
--- 768 units tall, so a unit covers physH/768 * effectiveScale pixels. On 1440p
--- with the default UI scale that is 1.33 px, which makes hairlines land between
--- pixels: some render one pixel wide, some two, some vanish. Every border and
--- every slot offset therefore goes through these helpers.
 local physH = 768
 local function refreshPhys()
   local _, h = GetPhysicalScreenSize()
@@ -135,7 +126,6 @@ function ns.PixelUnit(region)
   return (768 / physH) / s
 end
 
--- Size in units that renders as exactly n whole screen pixels (never below 1).
 function ns.PX(region, n)
   n = n or 1
   local s = (region or UIParent):GetEffectiveScale()
@@ -170,9 +160,6 @@ function ns.SnapPoint(frame, point, rel, relPoint, x, y)
   frame:SetPoint(point, rel, relPoint, ns.SnapValue(frame, x), ns.SnapValue(frame, y))
 end
 
--- Grid metrics on the pixel grid. Rounding each slot offset on its own leaves
--- the gaps a pixel apart from each other, which makes identical cells look
--- shifted; snapping the step once keeps every cell and every gap equal.
 function ns.GridMetrics(region, size, gap)
   local px = ns.PixelUnit(region)
   local s = math.max(px, math.floor((tonumber(size) or 0) / px + 0.5) * px)
@@ -180,9 +167,6 @@ function ns.GridMetrics(region, size, gap)
   return s, g, s + g, px
 end
 
--- Even pixel counts for anything that gets centred: a box with an odd height
--- inside a row with an odd height puts the centre on half a pixel, and whatever
--- sits in it is a pixel off on one side.
 function ns.SnapEven(region, v)
   local px = ns.PixelUnit(region)
   local n = math.max(2, math.floor((tonumber(v) or 0) / px + 0.5))
@@ -190,8 +174,6 @@ function ns.SnapEven(region, v)
   return n * px
 end
 
--- Insets truncate instead of rounding: a padding that rounds up eats the pixel
--- it was supposed to leave, and the two sides then disagree by one.
 function ns.PixelFloor(region, v)
   v = tonumber(v) or 0
   if v == 0 then return 0 end
@@ -201,8 +183,6 @@ function ns.PixelFloor(region, v)
   return n * px
 end
 
--- Stop the client from re-snapping a texture on its own, which shifts small
--- regions off the grid we just put them on.
 function ns.NoPixelSnap(obj)
   if not obj then return obj end
   if obj.SetSnapToPixelGrid then pcall(obj.SetSnapToPixelGrid, obj, false) end
@@ -210,8 +190,6 @@ function ns.NoPixelSnap(obj)
   return obj
 end
 
--- One inset for all four sides, snapped once. Anchoring both corners from the
--- same number is what keeps the padding even; two independent offsets do not.
 function ns.SetInside(obj, anchor, inset, insetY)
   anchor = anchor or obj:GetParent()
   local x = ns.PixelFloor(anchor, inset or 1)
@@ -223,7 +201,6 @@ function ns.SetInside(obj, anchor, inset, insetY)
   return obj
 end
 
--- Jobs re-run whenever the scale or the resolution changes.
 local pixelJobs = setmetatable({}, { __mode = "k" })
 function ns.PixelJob(obj, fn)
   pixelJobs[obj] = fn
@@ -238,8 +215,6 @@ function ns.PixelLine(t, n, axis)
   end)
 end
 
--- SetBackdrop wipes the colors, so remember them and put them back. A caller
--- with its own painter (the themed window frames) sets its colors inside it.
 function ns.PixelBackdrop(frame, painter)
   if not frame.SetBackdrop then Mixin(frame, BackdropTemplateMixin) end
   if not frame.SetBackdrop then return frame end
@@ -267,27 +242,18 @@ function ns.SnapFrame(frame)
   if not p then return end
   frame:ClearAllPoints()
   frame:SetPoint(p, rel or UIParent, rp or p, ns.SnapValue(frame, x or 0), ns.SnapValue(frame, y or 0))
-  -- A snapped offset is only as aligned as the frame it counts from, so let the
-  -- window put its own edges on whole pixels and report back what it settled on.
   ns.AlignToScreen(frame)
   local fp, _, frp, fx, fy = frame:GetPoint()
   return fp or p, frp or rp or p, fx or 0, fy or 0
 end
 
--- Snapped offsets only keep a frame aligned with the frame it hangs on: where
--- the whole chain lands on the physical grid is decided further up, and with the
--- ui scale from the game options that origin often sits on a fraction of a
--- pixel. Every border inside then rounds to whichever side is closer, which is
--- how one edge ends up a pixel thick and the opposite one empty. This nudges a
--- frame by less than a pixel so its own left and bottom edges are whole pixels
--- again; the offsets stay in the frame's own units, so nothing else moves.
 function ns.AlignToScreen(frame)
   if not (frame and frame.GetLeft and frame.GetNumPoints) then return end
   local s = frame:GetEffectiveScale()
   if not s or s <= 0 then return end
   local l, b = frame:GetLeft(), frame:GetBottom()
   if not (l and b) then return end
-  local per = s * (physH / 768)          -- physical pixels per unit
+  local per = s * (physH / 768)
   if per <= 0 then return end
   local px, py = l * per, b * per
   local dx = (math.floor(px + 0.5) - px) / per
@@ -308,9 +274,6 @@ function ns.AlignToScreen(frame)
   end
 end
 
--- A scroll offset is a position like any other: scrolling by a fraction of a
--- pixel drags every row of the page off the grid at once. Round the offset, then
--- add back whatever fraction the page is already carrying.
 function ns.SnapScroll(sf, v)
   v = math.max(0, tonumber(v) or 0)
   local unit = ns.PixelUnit(sf)
@@ -328,12 +291,71 @@ function ns.SnapScroll(sf, v)
   return math.max(0, v)
 end
 
+local function restoreTexture(t)
+  if not (t.GetTexture and t.SetTexture) then return end
+  local atlas = t.GetAtlas and t:GetAtlas()
+  local r, g, b, a
+  if t.GetVertexColor then r, g, b, a = t:GetVertexColor() end
+  if atlas and t.SetAtlas then
+    pcall(t.SetAtlas, t, atlas)
+  else
+    local ok, file = pcall(t.GetTexture, t)
+    if not ok or file == nil then return end
+    local coords
+    if t.GetTexCoord then
+      local got = { pcall(t.GetTexCoord, t) }
+      if got[1] and #got == 9 then coords = got end
+    end
+    pcall(t.SetTexture, t, file)
+    if coords then
+      pcall(t.SetTexCoord, t, coords[2], coords[3], coords[4], coords[5],
+        coords[6], coords[7], coords[8], coords[9])
+    end
+  end
+  if r and t.SetVertexColor then pcall(t.SetVertexColor, t, r, g, b, a) end
+end
+
+local function restoreFont(fs)
+  if not (fs.GetFont and fs.SetFont) then return end
+  local ok, path, size, flags = pcall(fs.GetFont, fs)
+  if not ok or not path or not size or size <= 0 then return end
+  pcall(fs.SetFont, fs, path, size, flags or "")
+end
+
+local function restoreRegions(frame, depth)
+  if not frame or depth > 8 then return end
+  if frame.GetRegions then
+    for _, r in ipairs({ frame:GetRegions() }) do
+      local kind = r.GetObjectType and r:GetObjectType()
+      if kind == "Texture" then restoreTexture(r)
+      elseif kind == "FontString" then restoreFont(r) end
+    end
+  end
+  if frame.GetChildren then
+    for _, c in ipairs({ frame:GetChildren() }) do restoreRegions(c, depth + 1) end
+  end
+end
+
+function ns.RestoreArt(frame)
+  if frame then pcall(restoreRegions, frame, 0) end
+end
+
+local function restoreAll()
+  if ns.Bags then
+    ns.RestoreArt(ns.Bags.frame)
+    ns.RestoreArt(ns.Bags.bagWindow)
+  end
+  if ns.Bank then ns.RestoreArt(ns.Bank.frame) end
+  if ns.Options then ns.RestoreArt(ns.Options.frame) end
+  if ns.CharPicker then ns.RestoreArt(ns.CharPicker.frame) end
+  ns.RestoreArt(_G.WarpeeDropdown)
+  ns.RestoreArt(_G.WarpeeMinimapButton)
+end
+
 function ns.RefreshPixels()
   refreshPhys()
-  -- One bad job must not take the rest of the pass down with it.
   for obj, fn in pairs(pixelJobs) do pcall(fn, obj) end
-  -- Relayout touches secure item buttons, so leave it alone in combat: the next
-  -- bag update lays the grid out again anyway.
+  if ns.CloseDropdown then pcall(ns.CloseDropdown) end
   local quiet = not (InCombatLockdown and InCombatLockdown())
   if ns.Bags then
     if ns.Bags.frame then ns.SnapFrame(ns.Bags.frame) end
@@ -348,7 +370,25 @@ function ns.RefreshPixels()
     if ns.Options.frame then ns.SnapFrame(ns.Options.frame) end
     if ns.Options.ReflowPages then ns.Options:ReflowPages() end
   end
+  restoreAll()
 end
+
+local watcher = CreateFrame("Frame")
+local lastScale = UIParent:GetEffectiveScale() or 1
+local lastPhys = physH
+local since = 0
+watcher:SetScript("OnUpdate", function(_, dt)
+  since = since + (dt or 0)
+  if since < 0.2 then return end
+  since = 0
+  local s = UIParent:GetEffectiveScale() or 1
+  local _, h = GetPhysicalScreenSize()
+  h = (h and h > 0) and h or lastPhys
+  if math.abs(s - lastScale) > 0.0005 or h ~= lastPhys then
+    lastScale, lastPhys = s, h
+    pcall(ns.RefreshPixels)
+  end
+end)
 
 function Theme:C(name) local c = self.colors[name]; return c[1], c[2], c[3], c[4] end
 
@@ -425,8 +465,6 @@ function Theme:Title(parent, size, colorKey)
   return fs
 end
 
--- Game art the Blizzard skin borrows. Nothing is shipped with the addon: these
--- are the client's own files, and a missing one falls back to the flat plate.
 local TIP_BG   = [[Interface\Tooltips\UI-Tooltip-Background]]
 local TIP_EDGE = [[Interface\Tooltips\UI-Tooltip-Border]]
 local SLOT_ATLAS = "bags-item-slot64"
@@ -449,11 +487,6 @@ function Theme:SlotAtlas()
   return self.slotAtlasOK and SLOT_ATLAS or nil
 end
 
--- The real thing: a Blizzard panel frame parked behind the window's content, so
--- the grey nine-slice border, the title strip and the dark tile are the game's
--- own art. Its portrait and close button are hidden — Warpee draws those.
--- The art has to sit behind every button the window puts on top of it, and the
--- template's own frame levels fight that, so drop it a whole strata instead.
 local LOWER_STRATA = { TOOLTIP = "FULLSCREEN_DIALOG", FULLSCREEN_DIALOG = "DIALOG",
                        DIALOG = "HIGH", HIGH = "MEDIUM", MEDIUM = "LOW", LOW = "BACKGROUND" }
 
@@ -473,8 +506,6 @@ local function buildArt(frame)
   art:SetAllPoints(frame)
   art:EnableMouse(false)
   sinkArt(frame, art)
-  -- Whatever ornament the template ships with, Warpee draws its own: the border,
-  -- the strip and the tile are all we keep.
   for _, key in ipairs(ART_HIDE) do
     local part = art[key]
     if part then
@@ -511,7 +542,6 @@ function Theme:WindowArt(frame)
   return frame
 end
 
--- A hairline under the title strip, so the header reads as its own band.
 function Theme:HeaderBand(frame, height)
   if height then frame.wpeBandH = height end
   local line = frame.wpeBandLine
@@ -533,9 +563,6 @@ function Theme:HeaderBand(frame, height)
   line:Show()
 end
 
--- The template's title tile is a fixed 28px strip. Rather than cover it with art
--- of our own, windows in this skin leave that much room at the top and push
--- their header below it, so the strip reads as a real title bar.
 local TITLE_STRIP = 26
 
 function Theme:TopInset()
@@ -548,8 +575,6 @@ function Theme:Panel(frame, bgKey, strokeKey)
     if Theme:Skinned() then
       local art = ART_FRAMES[x] and Theme:RefreshArt(x)
       if art then
-        -- Keep the template's own tile when it has one; fill the inside
-        -- ourselves when it does not, or the window would be see-through.
         if art.Bg then
           x:SetBackdrop(nil)
         else
@@ -646,8 +671,6 @@ function ns.Fonts:Usable(name)
   return self:Path(name) == rawPath(name)
 end
 
--- The font every label starts with: whatever the player picked, Expressway
--- otherwise. Call sites that re-apply fonts later still override this.
 function ns.Fonts:Current()
   local name = (ns.Bags and ns.Bags.font) or (WarpeeDB and WarpeeDB.font) or self.DEFAULT
   return self:Path(name)
