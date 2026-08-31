@@ -756,6 +756,10 @@ function ns.CreateBagButton(parent, bagID, size)
   ns.PixelBackdrop(b)
   b:SetBackdropColor(Theme:C("slot"))
   b:SetBackdropBorderColor(Theme:C("stroke"))
+  Theme:Track(b, function(s)
+    s:SetBackdropColor(Theme:C("slot"))
+    s:SetBackdropBorderColor(Theme:C(s.wpeHover and "accent" or "stroke"))
+  end)
   b.bagID = bagID
   local icon = b:CreateTexture(nil, "ARTWORK")
   icon:SetPoint("TOPLEFT", 1, -1); icon:SetPoint("BOTTOMRIGHT", -1, 1)
@@ -767,6 +771,7 @@ function ns.CreateBagButton(parent, bagID, size)
   b.count = cnt
   b.cntFontSize = cf
   b:SetScript("OnEnter", function(s)
+    s.wpeHover = true
     s:SetBackdropBorderColor(Theme:C("accent"))
     if ns.Bags.HighlightBag then ns.Bags:HighlightBag(bagID) end
     GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
@@ -778,6 +783,7 @@ function ns.CreateBagButton(parent, bagID, size)
     GameTooltip:Show()
   end)
   b:SetScript("OnLeave", function(s)
+    s.wpeHover = nil
     s:SetBackdropBorderColor(Theme:C("stroke"))
     if ns.Bags.ClearBagHighlight then ns.Bags:ClearBagHighlight() end
     GameTooltip:Hide()

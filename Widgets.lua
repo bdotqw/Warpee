@@ -126,9 +126,15 @@ local function barArrow(bar, dir, fn)
     end
     tris[i] = t
   end
-  local function tint(key) for _, t in ipairs(tris) do t:SetVertexColor(Theme:C(key)) end end
-  b:SetScript("OnEnter", function() tint("accent") end)
-  b:SetScript("OnLeave", function() tint("dim") end)
+  local function tint(key)
+    for _, t in ipairs(tris) do
+      t:SetTexture(Theme.WHITE)
+      t:SetVertexColor(Theme:C(key))
+    end
+  end
+  Theme:Track(b, function(s) tint(s.hover and "accent" or "dim") end)
+  b:SetScript("OnEnter", function(s) s.hover = true; tint("accent") end)
+  b:SetScript("OnLeave", function(s) s.hover = nil; tint("dim") end)
   b:SetScript("OnClick", function() fn(IsShiftKeyDown() and 10 or 1) end)
   return b
 end
@@ -137,13 +143,18 @@ local function barField(bar, apply)
   local e = CreateFrame("EditBox", nil, bar, "BackdropTemplate")
   e:SetSize(40, 16)
   ns.PixelBackdrop(e)
-  e:SetBackdropColor(Theme:C("bg"))
+  e:SetBackdropColor(Theme:C("slot"))
   e:SetBackdropBorderColor(Theme:C("stroke"))
   e:SetFont(ns.Fonts:Current(), 11, "")
   e:SetTextColor(Theme:C("text"))
   e:SetJustifyH("CENTER")
   e:SetAutoFocus(false)
   e:SetMaxLetters(6)
+  Theme:Track(e, function(s)
+    s:SetBackdropColor(Theme:C("slot"))
+    s:SetBackdropBorderColor(Theme:C(s:HasFocus() and "accent" or "stroke"))
+    s:SetTextColor(Theme:C("text"))
+  end)
   e:SetScript("OnEditFocusGained", function(s) s:SetBackdropBorderColor(Theme:C("accent")) end)
   e:SetScript("OnEditFocusLost", function(s)
     s:SetBackdropBorderColor(Theme:C("stroke"))
@@ -215,7 +226,7 @@ function ns.CreateMoveBar(frame, dbKey)
     ns.Rebase(frame, dbKey)
   end
 
-  local xl = Theme:Label(bar, 11, "faint")
+  local xl = Theme:Label(bar, 11, "dim")
   xl:SetPoint("LEFT", 1, 0)
   xl:SetText("X")
   bar.xLabel = xl
@@ -227,7 +238,7 @@ function ns.CreateMoveBar(frame, dbKey)
   local xp = barArrow(bar, "right", function(step) nudge(step, 0) end)
   xp:SetPoint("LEFT", xm, "RIGHT", 0, 0)
 
-  local yl = Theme:Label(bar, 11, "faint")
+  local yl = Theme:Label(bar, 11, "dim")
   yl:SetPoint("LEFT", xp, "RIGHT", 10, 0)
   yl:SetText("Y")
   bar.yLabel = yl
@@ -239,10 +250,14 @@ function ns.CreateMoveBar(frame, dbKey)
   local yp = barArrow(bar, "up", function(step) nudge(0, step) end)
   yp:SetPoint("LEFT", ym, "RIGHT", 0, 0)
   bar:SetWidth(176)
-  local bg = Theme:Rect(bar, "bg", "BACKGROUND")
+  local bg = Theme:Rect(bar, "panel", "BACKGROUND")
   bg:SetPoint("TOPLEFT", -4, 3)
   bg:SetPoint("BOTTOMRIGHT", 4, -3)
-  bg:SetAlpha(0.85)
+  bg:SetAlpha(0.92)
+  local edge = Theme:Rect(bar, "strokeSoft", "BACKGROUND")
+  ns.PixelLine(edge, 1)
+  edge:SetPoint("BOTTOMLEFT", bg, "TOPLEFT", 0, 0)
+  edge:SetPoint("BOTTOMRIGHT", bg, "TOPRIGHT", 0, 0)
 
   bar.Refresh = function(s)
     local l, b = frame:GetLeft(), frame:GetBottom()
