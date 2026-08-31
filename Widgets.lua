@@ -88,6 +88,14 @@ function ns.WindowsLocked()
   return (WarpeeDB and WarpeeDB.lockWindows) and true or false
 end
 
+function ns.MoveFieldsHidden()
+  return (WarpeeDB and WarpeeDB.hideMoveFields) and true or false
+end
+
+function ns.MoveBarsVisible()
+  return not ns.WindowsLocked() and not ns.MoveFieldsHidden()
+end
+
 function ns.DragStart(frame)
   if ns.WindowsLocked() then return end
   frame:StartMoving()
@@ -131,7 +139,7 @@ local function barField(bar, apply)
   ns.PixelBackdrop(e)
   e:SetBackdropColor(Theme:C("bg"))
   e:SetBackdropBorderColor(Theme:C("stroke"))
-  e:SetFont("Fonts\\ARIALN.TTF", 11, "")
+  e:SetFont(ns.Fonts:Current(), 11, "")
   e:SetTextColor(Theme:C("text"))
   e:SetJustifyH("CENTER")
   e:SetAutoFocus(false)
@@ -247,17 +255,17 @@ function ns.CreateMoveBar(frame, dbKey)
     s.yField:SetFont(path, size, "")
   end
 
-  bar:SetShown(not ns.WindowsLocked())
+  bar:SetShown(ns.MoveBarsVisible())
   frame.wpeBar = bar
   moveBars[#moveBars + 1] = bar
   return bar
 end
 
 function ns.ApplyWindowLock()
-  local locked = ns.WindowsLocked()
+  local show = ns.MoveBarsVisible()
   for _, bar in ipairs(moveBars) do
-    bar:SetShown(not locked)
-    if not locked then bar:Refresh() end
+    bar:SetShown(show)
+    if show then bar:Refresh() end
   end
 end
 
@@ -312,7 +320,7 @@ end
 
 function ns.CreateGlyphButton(parent, glyph, size)
   local b = ns.CreateButton(parent, glyph, size or 22, size or 22)
-  b.Text:SetFont("Fonts\\FRIZQT__.TTF", math.max(13, math.floor((size or 22) * 0.6)), "")
+  b.Text:SetFont(ns.Fonts:Current(), math.max(13, math.floor((size or 22) * 0.6)), "")
   return b
 end
 
@@ -326,7 +334,7 @@ function ns.CreateSearchBox(parent, onChanged)
     s:SetBackdropColor(Theme:C("bg"))
     if not s:HasFocus() then s:SetBackdropBorderColor(Theme:C("stroke")) end
   end)
-  box:SetFont("Fonts\\ARIALN.TTF", 13, "")
+  box:SetFont(ns.Fonts:Current(), 13, "")
   box:SetTextColor(Theme:C("text"))
   box:SetTextInsets(8, 8, 0, 0)
   box:SetAutoFocus(false)

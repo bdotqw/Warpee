@@ -16,7 +16,7 @@ local ROW2_Y = GAUGE_Y + 6
 
 local Bags = { pool = {}, vpool = {}, cols = COLS_DEFAULT, gap = GAP_DEFAULT, iconSize = SIZE_DEFAULT,
                slotStyle = "tile", showGauge = true, goldLetters = false, goldOnly = false,
-               font = "Arial Narrow", query = "", dirty = {},
+               font = ns.Fonts.DEFAULT, query = "", dirty = {},
                ilvlSize = 12, ilvlAnchor = "TOPLEFT", ilvlX = 3, ilvlY = -3,
                countSize = 14, countAnchor = "BOTTOMRIGHT", countX = -2, countY = 2,
                qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, junkIcon = false,
@@ -314,7 +314,7 @@ function Bags:Layout()
   local step = stepFor(size, gap)
   local i, used, total = 0, 0, 0
   self.byKey = {}
-  self.fontPath = ns.Fonts:Path(self.font or "Arial Narrow")
+  self.fontPath = ns.Fonts:Path(self.font or ns.Fonts.DEFAULT)
   if self.title then self.title:SetFont(self.fontPath, 15, "") end
   if self.money then self.money:SetFont(self.fontPath, 16, "") end
   if self.reagentLabel then self.reagentLabel:SetFont(self.fontPath, 11, "") end
@@ -463,7 +463,7 @@ end
 local function coinUnit(letter)
   if not Bags.goldLetters then return COIN_ICON[letter] end
   local sp = (letter == "g" and WarpeeDB and WarpeeDB.goldFormat == "short") and " " or ""
-  return sp .. "|cff" .. COIN_HEX[letter] .. letter .. "|r"
+  return sp .. "|cff" .. COIN_HEX[letter] .. ns.CoinLetter(letter) .. "|r"
 end
 
 local function coinSeg(num, letter)
@@ -491,7 +491,7 @@ end
 
 function Bags:UpdateBagBar()
   if not self.bagButtons then return end
-  local path = self.fontPath or ns.Fonts:Path(self.font or "Arial Narrow")
+  local path = self.fontPath or ns.Fonts:Path(self.font or ns.Fonts.DEFAULT)
   if self.bagTitle then self.bagTitle:SetFont(path, 14, "") end
   for _, b in ipairs(self.bagButtons) do
     local bagID = b.bagID
