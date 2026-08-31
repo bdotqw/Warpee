@@ -20,11 +20,18 @@ function ns.PaintSlotBg(b)
   b.bg:SetTexCoord(0, 1, 0, 1)
   b.bg:SetVertexColor(1, 1, 1, 1)
   if style ~= "flat" and Theme.Skinned and Theme:Skinned() then
-    if style == "plate" then
-      local atlas = Theme.SlotAtlas and Theme:SlotAtlas()
-      if atlas and b.bg.SetAtlas and pcall(b.bg.SetAtlas, b.bg, atlas) then return end
+    local atlas = Theme.SlotAtlas and Theme:SlotAtlas()
+    if atlas and b.bg.SetAtlas and pcall(b.bg.SetAtlas, b.bg, atlas) then
+      if style == "deep" then
+        local k = Theme:IsLight() and 0.82 or 0.52
+        b.bg:SetVertexColor(k, k, k, 1)
+      end
+      return
     end
-    if pcall(b.bg.SetTexture, b.bg, SLOT_TEXTURE) then return end
+    if pcall(b.bg.SetTexture, b.bg, SLOT_TEXTURE) then
+      b.bg:SetTexCoord(0, 0.578125, 0, 0.578125)
+      return
+    end
   end
   local fn = SLOT_STYLES[style] or SLOT_STYLES.tile
   b.bg:SetColorTexture(fn())

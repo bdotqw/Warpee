@@ -581,25 +581,10 @@ end
 function Theme:HeaderBand(frame, height)
   if height then frame.wpeBandH = height end
   local line = frame.wpeBandLine
-  if not self:Skinned() then
-    if line then line:Hide() end
-    return
-  end
-  if not line then
-    line = frame:CreateTexture(nil, "BORDER")
-    line:SetTexture(WHITE)
-    frame.wpeBandLine = line
-    ns.PixelLine(line, 1)
-    ns.NoPixelSnap(line)
-  end
-  line:SetVertexColor(self:C("strokeSoft"))
-  line:ClearAllPoints()
-  line:SetPoint("TOPLEFT", frame, "TOPLEFT", 5, -(frame.wpeBandH or self:TopInset()))
-  line:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -5, -(frame.wpeBandH or self:TopInset()))
-  line:Show()
+  if line then line:Hide() end
 end
 
-local TITLE_STRIP = 26
+local TITLE_STRIP = 20
 
 function Theme:TopInset()
   return self:Skinned() and TITLE_STRIP or 0
