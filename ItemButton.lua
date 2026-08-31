@@ -58,7 +58,7 @@ local function attachBorder(b)
   b.ilvl:SetDrawLayer("OVERLAY", 6)
   b.ilvl:SetFont("Fonts\\ARIALN.TTF", 12, "OUTLINE")
   b.ilvl:SetPoint("TOPLEFT", 3, -3)
-  b.ilvl:SetTextColor(Theme:C("text"))
+  b.ilvl:SetTextColor(Theme:C("overlay"))
 end
 
 local function iconOf(b)
@@ -568,7 +568,7 @@ function ns.UpdateItemButton(b)
       local c = ITEM_QUALITY_COLORS[iq]
       b.ilvl:SetTextColor(c.r, c.g, c.b)
     else
-      b.ilvl:SetTextColor(Theme:C("text"))
+      b.ilvl:SetTextColor(Theme:C("overlay"))
     end
   end
   SetItemButtonQuality(b, info and info.quality, hl, false, info and info.isBound)
@@ -678,7 +678,7 @@ function ns.PaintVaultButton(b, d, bagID)
       local c = ITEM_QUALITY_COLORS[q]
       b.ilvl:SetTextColor(c.r, c.g, c.b)
     else
-      b.ilvl:SetTextColor(Theme:C("text"))
+      b.ilvl:SetTextColor(Theme:C("overlay"))
     end
   end
   ns.SetSlotBorder(b, Theme:C("emptyLine"))
