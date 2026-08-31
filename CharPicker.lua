@@ -57,7 +57,7 @@ function Picker:Build()
   filter:SetPoint("LEFT", hide, "RIGHT", 4, 0)
   filter:SetPoint("RIGHT", close, "LEFT", -4, 0)
   filter:SetHeight(23)
-  if filter.Hint then ns.LocalText(filter.Hint, "Filter") end
+  if filter.Hint then ns.LocalText(filter.Hint, "Search") end
   self.filter = filter
 
   local sf = CreateFrame("ScrollFrame", nil, m)

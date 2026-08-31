@@ -239,15 +239,13 @@ local ev = CreateFrame("Frame")
 local pump = CreateFrame("Frame")
 pump:Hide()
 local open, run, gen = false, nil, 0
-local PER_FRAME = 3
+local MAX_TRIES = 6
 
 function Vendor:IsOpen() return open end
 function Vendor:Busy() return run ~= nil end
 
 local function finish()
   if not run then return end
-  local sold = run.base - (run.left or 0)
-  local start = run.money or GetMoney()
   local stuck = 0
   for _ in pairs(run.dead or {}) do stuck = stuck + 1 end
   run = nil
@@ -257,18 +255,12 @@ local function finish()
     print("|cffd9a85fWarpee|r " .. (L["%d items refused to sell, left in the bags"]):format(stuck))
   end
   if open then Vendor:Repair() end
-  if sold <= 0 then return end
-  C_Timer.After(0.3, function()
-    local earned = GetMoney() - start
-    if earned < 0 then earned = 0 end
-    print("|cffd9a85fWarpee|r " .. (L["sold %d items for %s"]):format(sold, ns.FormatMoney(earned, false)))
-  end)
 end
 
 local function sendOne(it)
   local key = ("%d:%d:%d"):format(it.id or 0, it.bag, it.slot)
   local n = run.tries[key] or 0
-  if n >= 3 then
+  if n >= MAX_TRIES then
     run.dead[key] = true
     return false
   end
@@ -281,22 +273,17 @@ end
 
 pump:SetScript("OnUpdate", function(self)
   if not (run and run.queue) then self:Hide(); return end
-  local this = 0
-  while this < PER_FRAME and run.qi <= #run.queue and run.qsent < Vendor.batch do
+  while run.qi <= #run.queue and run.qsent < Vendor.batch do
     local it = run.queue[run.qi]
     run.qi = run.qi + 1
-    if sendOne(it) then
-      this = this + 1
-      run.qsent = run.qsent + 1
-    end
+    if sendOne(it) then run.qsent = run.qsent + 1 end
   end
-  if run.qi <= #run.queue and run.qsent < Vendor.batch then return end
   local sent = run.qsent
   run.queue, run.qi, run.qsent = nil, nil, nil
   self:Hide()
   if sent == 0 then
     run.idle = (run.idle or 0) + 1
-    if run.idle >= 3 then finish(); return end
+    if run.idle >= 4 then finish(); return end
   else
     run.idle = 0
   end
@@ -345,6 +332,7 @@ end
 function Vendor:Repair()
   if not (WarpeeDB and WarpeeDB.vendorRepair) then return end
   if not RepairAllItems then return end
+  if self.repaired then return end
   local cost = repairCost()
   if cost <= 0 then return end
   local mode = WarpeeDB.vendorRepairBy or "player"
@@ -361,8 +349,9 @@ function Vendor:Repair()
   end
   if not by then return end
   RepairAllItems(guild)
+  self.repaired = true
   print("|cffd9a85fWarpee|r " .. (L["repaired for %s from %s"])
-        :format(ns.FormatMoney(cost, false), by))
+        :format(ns.FormatGold(cost), by))
 end
 ev:RegisterEvent("MERCHANT_SHOW")
 ev:RegisterEvent("MERCHANT_CLOSED")
@@ -370,6 +359,7 @@ pcall(ev.RegisterEvent, ev, "MERCHANT_CONFIRM_TRADE_TIMER_REMOVAL")
 ev:SetScript("OnEvent", function(_, event)
   if event == "MERCHANT_SHOW" then
     open = true
+    Vendor.repaired = nil
     if ns.Bags then ns.Bags:VendorState() end
     C_Timer.After(0.3, function()
       if not open then return end
@@ -382,6 +372,7 @@ ev:SetScript("OnEvent", function(_, event)
     end)
   elseif event == "MERCHANT_CLOSED" then
     open = false
+    Vendor.repaired = nil
     finish()
     if ns.Bags then ns.Bags:VendorState() end
   elseif event == "BAG_UPDATE_DELAYED" then
