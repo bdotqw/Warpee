@@ -251,8 +251,13 @@ local function finish()
   if not run then return end
   local sold = run.base - (run.left or 0)
   local start = run.money or GetMoney()
+  local stuck = 0
+  for _ in pairs(run.dead or {}) do stuck = stuck + 1 end
   run = nil
   ev:UnregisterEvent("BAG_UPDATE_DELAYED")
+  if stuck > 0 then
+    print(("|cffd9a85fWarpee|r %d items refused to sell, left in the bags"):format(stuck))
+  end
   if sold <= 0 then return end
   C_Timer.After(0.3, function()
     local earned = GetMoney() - start
@@ -269,20 +274,32 @@ function Vendor:Pass()
   if run then
     run.left = count
   else
-    run = { base = count, left = count, passes = 0, money = GetMoney() }
+    run = { base = count, left = count, passes = 0, money = GetMoney(),
+            tries = {}, dead = {} }
   end
   if count == 0 then finish(); return end
   run.passes = run.passes + 1
   if run.passes > 60 then finish(); return end
   if CursorHasItem() then ClearCursor() end
   ev:RegisterEvent("BAG_UPDATE_DELAYED")
-  for i = 1, math.min(count, self.batch) do
+  local sent = 0
+  for i = 1, count do
+    if sent >= self.batch then break end
     local it = list[i]
-    local now = C_Container.GetContainerItemInfo(it.bag, it.slot)
-    if now and not now.isLocked and now.itemID == it.id then
-      C_Container.UseContainerItem(it.bag, it.slot)
+    local key = ("%d:%d:%d"):format(it.id or 0, it.bag, it.slot)
+    local n = run.tries[key] or 0
+    if n >= 3 then
+      run.dead[key] = true
+    else
+      local now = C_Container.GetContainerItemInfo(it.bag, it.slot)
+      if now and not now.isLocked and now.itemID == it.id then
+        run.tries[key] = n + 1
+        C_Container.UseContainerItem(it.bag, it.slot)
+        sent = sent + 1
+      end
     end
   end
+  if sent == 0 then finish(); return end
   local mark = gen
   C_Timer.After(1, function()
     if run and gen == mark then Vendor:Pass() end
