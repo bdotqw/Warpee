@@ -346,15 +346,15 @@ function factories.toggle(parent, spec)
   row:SetHeight(26)
 
   local box = CreateFrame("Frame", nil, row, "BackdropTemplate")
-  box:SetSize(18, 18)
-  box:SetPoint("LEFT", 1, 0)
+  local boxSide = ns.SnapEven(row, 18)
+  box:SetSize(boxSide, boxSide)
+  ns.SnapPoint(box, "LEFT", row, "LEFT", 1, 0)
   ns.PixelBackdrop(box)
   box:SetBackdropColor(Theme:C("slot"))
   box:SetBackdropBorderColor(Theme:C("stroke"))
 
   local mark = Theme:Rect(box, "accent", "OVERLAY")
-  mark:SetPoint("TOPLEFT", 3, -3)
-  mark:SetPoint("BOTTOMRIGHT", -3, 3)
+  ns.SetInside(mark, box, 3)
   mark:Hide()
 
   local fs = track(Theme:Label(row, BASE_FONT, "text"), 0)
@@ -678,19 +678,20 @@ local function charCell(row, i)
   c = CreateFrame("Button", nil, row)
   c:SetHeight(CHAR_CELL_H)
   local box = CreateFrame("Frame", nil, c, "BackdropTemplate")
-  box:SetSize(16, 16)
-  box:SetPoint("LEFT", 1, 0)
+  local cellSide = ns.SnapEven(c, 16)
+  box:SetSize(cellSide, cellSide)
+  ns.SnapPoint(box, "LEFT", c, "LEFT", 1, 0)
   ns.PixelBackdrop(box)
   box:SetBackdropColor(Theme:C("slot"))
   box:SetBackdropBorderColor(Theme:C("stroke"))
   local mark = Theme:Rect(box, "accent", "OVERLAY")
-  mark:SetPoint("TOPLEFT", 3, -3)
-  mark:SetPoint("BOTTOMRIGHT", -3, 3)
+  ns.SetInside(mark, box, 3)
   mark:Hide()
   local minus = Theme:Rect(box, "gaugeHi", "OVERLAY")
-  minus:SetHeight(2)
-  minus:SetPoint("LEFT", 3, 0)
-  minus:SetPoint("RIGHT", -3, 0)
+  ns.PixelLine(minus, 2)
+  ns.NoPixelSnap(minus)
+  minus:SetPoint("LEFT", box, "LEFT", ns.PixelFloor(box, 3), 0)
+  minus:SetPoint("RIGHT", box, "RIGHT", -ns.PixelFloor(box, 3), 0)
   minus:Hide()
   c.box, c.mark, c.minus = box, mark, minus
   local ic = c:CreateTexture(nil, "ARTWORK")
@@ -925,27 +926,35 @@ local function buildPage(parent, list)
         row:ClearAllPoints()
         if spec.type == "header" and y > 0 then y = y + 12 end
         local nx = nextSpec(index)
+        -- Every row starts on a whole pixel, otherwise the widgets inside it
+        -- inherit a fractional origin and their padding rounds unevenly.
+        local function advance(extra)
+          y = ns.SnapValue(row, y + row:GetHeight() + extra)
+        end
+        row:SetHeight(ns.SnapEven(row, row:GetHeight()))
+        local sy = ns.SnapValue(row, y)
         if spec.col then
           local total = spec.of or 2
           local colW = total == 3 and thirdW or halfW
           row:SetWidth(colW)
-          row:SetPoint("TOPLEFT", (spec.col - 1) * (colW + (total == 3 and 10 or 14)), -y)
+          ns.SnapPoint(row, "TOPLEFT", page, "TOPLEFT",
+            (spec.col - 1) * (colW + (total == 3 and 10 or 14)), -sy)
           local nextCol = nx and nx.col
           if spec.col >= total or not nextCol or nextCol <= spec.col then
-            y = y + row:GetHeight() + ROW_GAP
+            advance(ROW_GAP)
           end
         elseif spec.half == "left" then
-          row:SetPoint("TOPLEFT", 0, -y)
+          ns.SnapPoint(row, "TOPLEFT", page, "TOPLEFT", 0, -sy)
           row:SetWidth(halfW)
-          if not (nx and nx.half == "right") then y = y + row:GetHeight() + ROW_GAP end
+          if not (nx and nx.half == "right") then advance(ROW_GAP) end
         elseif spec.half == "right" then
-          row:SetPoint("TOPRIGHT", 0, -y)
+          ns.SnapPoint(row, "TOPRIGHT", page, "TOPRIGHT", 0, -sy)
           row:SetWidth(halfW)
-          y = y + row:GetHeight() + ROW_GAP
+          advance(ROW_GAP)
         else
-          row:SetPoint("TOPLEFT", 0, -y)
-          row:SetPoint("TOPRIGHT", 0, -y)
-          y = y + row:GetHeight() + (spec.type == "header" and 7 or ROW_GAP)
+          ns.SnapPoint(row, "TOPLEFT", page, "TOPLEFT", 0, -sy)
+          ns.SnapPoint(row, "TOPRIGHT", page, "TOPRIGHT", 0, -sy)
+          advance(spec.type == "header" and 7 or ROW_GAP)
         end
       end
     end

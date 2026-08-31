@@ -171,13 +171,56 @@ function ns.SnapPoint(frame, point, rel, relPoint, x, y)
 end
 
 -- Grid metrics on the pixel grid. Rounding each slot offset on its own leaves
--- the gaps a pixel apart from each other, which is what makes identical cells
--- look shifted; snapping the step once keeps every cell and every gap equal.
+-- the gaps a pixel apart from each other, which makes identical cells look
+-- shifted; snapping the step once keeps every cell and every gap equal.
 function ns.GridMetrics(region, size, gap)
   local px = ns.PixelUnit(region)
   local s = math.max(px, math.floor((tonumber(size) or 0) / px + 0.5) * px)
   local g = math.max(0, math.floor((tonumber(gap) or 0) / px + 0.5) * px)
   return s, g, s + g, px
+end
+
+-- Even pixel counts for anything that gets centred: a box with an odd height
+-- inside a row with an odd height puts the centre on half a pixel, and whatever
+-- sits in it is a pixel off on one side.
+function ns.SnapEven(region, v)
+  local px = ns.PixelUnit(region)
+  local n = math.max(2, math.floor((tonumber(v) or 0) / px + 0.5))
+  if n % 2 == 1 then n = n + 1 end
+  return n * px
+end
+
+-- Insets truncate instead of rounding: a padding that rounds up eats the pixel
+-- it was supposed to leave, and the two sides then disagree by one.
+function ns.PixelFloor(region, v)
+  v = tonumber(v) or 0
+  if v == 0 then return 0 end
+  local px = ns.PixelUnit(region)
+  local n = v / px
+  n = (v > 0) and math.floor(n + 0.001) or math.ceil(n - 0.001)
+  return n * px
+end
+
+-- Stop the client from re-snapping a texture on its own, which shifts small
+-- regions off the grid we just put them on.
+function ns.NoPixelSnap(obj)
+  if not obj then return obj end
+  if obj.SetSnapToPixelGrid then pcall(obj.SetSnapToPixelGrid, obj, false) end
+  if obj.SetTexelSnappingBias then pcall(obj.SetTexelSnappingBias, obj, 0) end
+  return obj
+end
+
+-- One inset for all four sides, snapped once. Anchoring both corners from the
+-- same number is what keeps the padding even; two independent offsets do not.
+function ns.SetInside(obj, anchor, inset, insetY)
+  anchor = anchor or obj:GetParent()
+  local x = ns.PixelFloor(anchor, inset or 1)
+  local y = ns.PixelFloor(anchor, insetY or inset or 1)
+  obj:ClearAllPoints()
+  ns.NoPixelSnap(obj)
+  obj:SetPoint("TOPLEFT", anchor, "TOPLEFT", x, -y)
+  obj:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", -x, y)
+  return obj
 end
 
 -- Jobs re-run whenever the scale or the resolution changes.
