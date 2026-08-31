@@ -13,11 +13,7 @@ local SLOT_STYLES = {
 }
 
 local SLOT_TEXTURES = {
-  ridged    = { path = [[Interface\Buttons\UI-Slot-Background]], bright = 0.62, crop = 1 },
-  stone     = { path = [[Interface\FrameGeneral\UI-Background-Rock]], bright = 0.50, crop = 0.22 },
-  marble    = { path = [[Interface\FrameGeneral\UI-Background-Marble]], bright = 0.55, crop = 0.22 },
-  parchment = { path = [[Interface\AchievementFrame\UI-Achievement-Parchment-Horizontal]],
-                bright = 0.58, crop = 0.18 },
+  stone = { path = [[Interface\FrameGeneral\UI-Background-Rock]], bright = 0.52, crop = 0.22 },
 }
 
 local function slotTint(bright)
@@ -29,8 +25,7 @@ end
 
 function ns.PaintSlotBg(b)
   if not (b and b.bg) then return end
-  local style = b.wpeBank and (WarpeeDB and WarpeeDB.bankSlotStyle)
-                or ns.Bags.slotStyle or "tile"
+  local style = ns.Bags.slotStyle or "tile"
   local tex = SLOT_TEXTURES[style]
   if tex then
     b.bg:SetTexture(tex.path, "CLAMP", "CLAMP")
