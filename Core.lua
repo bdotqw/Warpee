@@ -238,7 +238,8 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if event == "PLAYER_MONEY" and Bags.frame and Bags.frame:IsShown() then Bags:UpdateMeta() end
     if ns.Bank and ns.Bank.frame and ns.Bank.frame:IsShown() then ns.Bank:UpdateFooter() end
   elseif event == "ITEM_LOCK_CHANGED" then
-    if not Bags.sorting and Bags.frame and Bags.frame:IsShown() and a2 and Bags.byKey then
+    if not Bags.sorting and not Bags.snap and Bags.frame and Bags.frame:IsShown()
+       and a2 and Bags.byKey then
       local b = Bags.byKey[a1 .. ":" .. a2]
       if b then ns.UpdateItemLock(b) end
     end
