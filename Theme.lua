@@ -790,10 +790,37 @@ local function applied(fs, path, size)
   return (fs:GetStringWidth() or 0) > 0
 end
 
-local function probeFont(path, size)
-  probe = freshString()
-  if not applied(probe, path, size) then return nil end
-  return probe
+local function judgePath(path, size)
+  local fs = freshString()
+  if not pcall(fs.SetFont, fs, path, size or 12, "") then return false end
+  fs:SetText("Mg")
+  if (fs:GetStringWidth() or 0) > 0 then return true end
+  return nil
+end
+
+local checking = {}
+
+local function pathUsable(path)
+  if not path then return false end
+  local known = pathOK[path]
+  if known ~= nil then return known end
+  local now = judgePath(path)
+  if now ~= nil then
+    pathOK[path] = now
+    return now
+  end
+  if not checking[path] then
+    checking[path] = true
+    C_Timer.After(0, function()
+      checking[path] = nil
+      local late = judgePath(path)
+      if late ~= nil then
+        pathOK[path] = late
+        if ns.Fonts.Refresh then ns.Fonts:Refresh() end
+      end
+    end)
+  end
+  return true
 end
 
 local function pairDiff(fs, a, b)
@@ -876,12 +903,7 @@ end
 
 function ns.Fonts:Path(name)
   local p = rawPath(name)
-  local ok = pathOK[p]
-  if ok == nil then
-    ok = probeFont(p) and true or false
-    pathOK[p] = ok
-  end
-  if not ok then p = clientFont() end
+  if not pathUsable(p) then p = clientFont() end
   if self:NeedsCyrillic() and not hasCyrillic(p) then return cyrillicFont() end
   return p
 end
@@ -894,12 +916,7 @@ end
 
 function ns.Fonts:Usable(name)
   local p = rawPath(name)
-  local ok = pathOK[p]
-  if ok == nil then
-    ok = probeFont(p) and true or false
-    pathOK[p] = ok
-  end
-  if not ok then return false end
+  if not pathUsable(p) then return false end
   if self:NeedsCyrillic() and not hasCyrillic(p) then return false end
   return true
 end
