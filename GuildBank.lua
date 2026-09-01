@@ -108,7 +108,7 @@ end
 
 local function paintToggle(b)
   if not b.SetBackdrop then return end
-  local hot = b.wpeLit or b.wpeHot or b:IsMouseOver()
+  local hot = b.wpeLit or b.wpeHot
   b:SetBackdropColor(Theme:C(hot and "panelHi" or "panel"))
   b:SetBackdropBorderColor(Theme:C(hot and "accent" or "stroke"))
   if b.wpeHl then
