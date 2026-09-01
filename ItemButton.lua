@@ -179,17 +179,24 @@ local function clearOverlays(b)
   if b.junk then b.junk:Hide() end
   if b.blocked then b.blocked:Hide() end
 end
+local muted = setmetatable({}, { __mode = "k" })
+
 local function suppress(t)
-  if not t then return end
-  t:Hide(); t:SetAlpha(0)
-  t.Show = t.Hide
-  t.SetShown = t.Hide
+  if not t or muted[t] then return end
+  muted[t] = true
+  t:SetAlpha(0)
+  t:Hide()
+  hooksecurefunc(t, "Show", function(s) s:SetAlpha(0); s:Hide() end)
+  if t.SetShown then
+    hooksecurefunc(t, "SetShown", function(s, on) if on then s:SetAlpha(0); s:Hide() end end)
+  end
 end
 
 local function muteAnim(ag)
-  if not ag then return end
+  if not ag or muted[ag] then return end
+  muted[ag] = true
   if ag.IsPlaying and ag:IsPlaying() then ag:Stop() end
-  ag.Play = ag.Stop
+  hooksecurefunc(ag, "Play", function(s) s:Stop() end)
 end
 
 function ns.SetSlotBorder(b, r, g, bl, a)
@@ -280,13 +287,8 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
     b.cdText:SetPoint("CENTER")
     b.cdText:SetTextColor(Theme:C("text"))
   end
+  b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   b:RegisterForDrag("LeftButton")
-  b:SetScript("OnDragStart", function(self)
-    C_Container.PickupContainerItem(self:GetBagID(), self:GetID())
-  end)
-  b:SetScript("OnReceiveDrag", function(self)
-    C_Container.PickupContainerItem(self:GetBagID(), self:GetID())
-  end)
   return b
 end
 
