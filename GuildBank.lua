@@ -317,6 +317,25 @@ local function dressFrame(frame)
   frame:SetBackdropBorderColor(Theme:C("stroke"))
 end
 
+local function gridBack(frame)
+  local first = frame.Column1 or _G.GuildBankColumn1
+  local last = frame["Column" .. COLUMNS] or _G["GuildBankColumn" .. COLUMNS]
+  first = first and first.Button1
+  last = last and last["Button" .. SLOTS]
+  if not (first and last) then return end
+  local g = Skin.gridBg
+  if not g then
+    g = Theme:Rect(frame, "panel", "BACKGROUND")
+    g:SetDrawLayer("BACKGROUND", 1)
+    Skin.gridBg = g
+  end
+  g:ClearAllPoints()
+  g:SetPoint("TOPLEFT", first, "TOPLEFT", -3, 3)
+  g:SetPoint("BOTTOMRIGHT", last, "BOTTOMRIGHT", 3, -3)
+  g:SetAlpha(Theme:GridAlpha())
+  g:SetShown(first:IsShown() and last:IsShown())
+end
+
 local function placeClose(close)
   local host = close.wpeHost
   if not host then return end
@@ -428,6 +447,8 @@ function Skin:Apply()
     try(skinPanelTab, _G["GuildBankFrameTab" .. i], i)
   end
 
+  try(gridBack, frame)
+
   try(skinSearch, _G.GuildItemSearchBox)
   try(skinScroll, frame.Log and frame.Log.ScrollBar)
 
@@ -504,6 +525,7 @@ function Skin:Refresh()
     lockTab(t)
     paintToggle(t)
   end
+  gridBack(frame)
   self:PaintSlots()
 end
 
