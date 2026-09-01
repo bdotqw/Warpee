@@ -1,12 +1,41 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#12141a"/>
-  <rect x="16" y="16" width="480" height="480" rx="82" fill="none" stroke="#2a2f3a" stroke-width="6"/>
-  <g fill="none" stroke="#d9a85f" stroke-width="26" stroke-linecap="square">
-    <path d="M120 150 L188 362 L256 214 L324 362 L392 150"/>
+  <defs>
+    <linearGradient id="field" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5e1a22"/>
+      <stop offset="1" stop-color="#2e0c11"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f0d090"/>
+      <stop offset="0.5" stop-color="#d9a85f"/>
+      <stop offset="1" stop-color="#9c6f34"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="96" fill="#1b0a0d"/>
+  <path d="M256 34 L446 122 L446 390 L256 478 L66 390 L66 122 Z" fill="url(#field)"/>
+  <path d="M256 34 L446 122 L446 390 L256 478 L66 390 L66 122 Z"
+        fill="none" stroke="url(#gold)" stroke-width="14"/>
+  <path d="M256 66 L418 141 L418 371 L256 446 L94 371 L94 141 Z"
+        fill="none" stroke="#d9a85f" stroke-width="4" opacity="0.55"/>
+
+  <g fill="url(#gold)">
+    <circle cx="256" cy="52" r="11"/>
+    <circle cx="432" cy="132" r="11"/>
+    <circle cx="432" cy="380" r="11"/>
+    <circle cx="256" cy="460" r="11"/>
+    <circle cx="80" cy="380" r="11"/>
+    <circle cx="80" cy="132" r="11"/>
   </g>
+
+  <path d="M142 162 L206 344 L256 232 L306 344 L370 162"
+        fill="none" stroke="#1b0a0d" stroke-width="34"
+        stroke-linecap="square" opacity="0.55"/>
+  <path d="M142 162 L206 344 L256 232 L306 344 L370 162"
+        fill="none" stroke="url(#gold)" stroke-width="26" stroke-linecap="square"/>
+
   <g fill="#d9a85f">
-    <rect x="120" y="398" width="80" height="18" rx="4"/>
-    <rect x="216" y="398" width="80" height="18" rx="4" opacity="0.55"/>
-    <rect x="312" y="398" width="80" height="18" rx="4" opacity="0.3"/>
+    <rect x="168" y="378" width="52" height="16" rx="4"/>
+    <rect x="230" y="378" width="52" height="16" rx="4" opacity="0.6"/>
+    <rect x="292" y="378" width="52" height="16" rx="4" opacity="0.32"/>
   </g>
 </svg>
