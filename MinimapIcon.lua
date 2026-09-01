@@ -18,14 +18,9 @@ bg:SetPoint("CENTER")
 bg:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
 
 local icon = btn:CreateTexture(nil, "ARTWORK")
-icon:SetSize(22, 22)
+icon:SetSize(20, 20)
 icon:SetPoint("CENTER")
 icon:SetTexture(ICON)
-
-local mask = btn:CreateMaskTexture()
-mask:SetTexture("Interface\\Common\\CommonMaskCircle")
-mask:SetAllPoints(icon)
-icon:AddMaskTexture(mask)
 
 local border = btn:CreateTexture(nil, "OVERLAY")
 border:SetSize(50, 50)
