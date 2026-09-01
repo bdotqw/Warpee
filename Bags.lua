@@ -9,7 +9,7 @@ local SIZE_DEFAULT, PAD = 37, 10
 local COLS_DEFAULT, GAP_DEFAULT = 14, 4
 local HEADER, FOOTER = 66, 28
 local DIV = 22
-local HB, HGAP, HBTNS, SEARCH_MIN = 26, 4, 5, 80
+local HB = 26
 local ROW1_Y = 6
 local GAUGE_Y = ROW1_Y + HB + 4
 local ROW2_Y = GAUGE_Y + 6
@@ -168,15 +168,11 @@ function Bags:Build()
   ns.SetButtonEnabled(sell, false)
   self.sellBtn = sell
 
-  local freeText = Theme:Label(f, 12, "dim")
-  self.freeText = freeText
-
   local charTag = ns.CreateCharTag(f, HB, "left")
   charTag:SetPoint("TOPLEFT", PAD, -ROW1_Y)
   charTag:SetScript("OnClick", function(s) Bags:ToggleCharPicker(s) end)
   addTip(charTag, "Bags of another character")
   self.charTag = charTag
-  freeText:SetPoint("LEFT", charTag, "RIGHT", 8, 0)
 
   local search = ns.CreateSearchBox(f, function(text)
     self.query = (text or ""):lower()
@@ -367,7 +363,6 @@ function Bags:Layout()
     self.search:SetFont(self.fontPath, 13, "")
     if self.search.Hint then self.search.Hint:SetFont(self.fontPath, 13, "") end
   end
-  if self.freeText then self.freeText:SetFont(self.fontPath, 12, "") end
   if self.charTag then self.charTag.Text:SetFont(self.fontPath, 12, ""); self:UpdateCharTag() end
   if self.frame and self.frame.wpeBar then self.frame.wpeBar:Fonts(self.fontPath, 11) end
 
@@ -659,13 +654,6 @@ function Bags:FitHeader()
   if not (self.frame and self.search) then return end
   local w = self.frame:GetWidth()
   self.search:Show()
-  local btns = HBTNS
-  if self.sellBtn and self.sellBtn:IsShown() then btns = btns + 1 end
-  local right = PAD + btns * HB + (btns - 1) * HGAP
-  if self.charTag and self.freeText then
-    local left = PAD + self.charTag:GetWidth() + 8 + math.ceil(self.freeText:GetStringWidth())
-    self.freeText:SetShown(left + 8 <= w - right)
-  end
   if self.title and self.money then
     self.title:SetText("WARPEE")
     local room = w - PAD * 2 - math.ceil(self.money:GetStringWidth()) - 12
@@ -677,7 +665,6 @@ end
 
 function Bags:UpdateMeta()
   local used, total = self.used or 0, self.total or 0
-  self.freeText:SetText(("%d/%d"):format(used, total))
   self.money:SetText(self:FormatMoney())
   self:UpdateBagBar()
 

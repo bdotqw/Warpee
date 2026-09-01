@@ -3,64 +3,63 @@ local Theme = ns.Theme
 
 local CLASS_RING = "Interface\\TargetingFrame\\UI-Classes-Circles"
 
-local GLYPH = {
-  up    = { atlas = "editmode-up-arrow", w = 16, h = 11 },
-  down  = { atlas = "friendslist-categorybutton-arrow-down", w = 16, h = 11 },
-  right = { atlas = "friendslist-categorybutton-arrow-right", w = 11, h = 16 },
-  left  = { atlas = "friendslist-categorybutton-arrow-right", w = 11, h = 16, rot = math.pi },
+local TRI = {
+  up    = { { 1, 1, 0 }, { 3, -1, 0 } },
+  down  = { { 2, 1, 0 }, { 4, -1, 0 } },
+  left  = { { 1, 0, -1 }, { 2, 0, 1 } },
+  right = { { 3, 0, -1 }, { 4, 0, 1 } },
 }
 
-local function stripGlyph(f, dir, size)
-  local parts = {}
-  local N = 3
-  local span = math.max(3, size)
-  if dir == "left" or dir == "right" then
-    f:SetSize(N, span)
-    for i = 1, N do
-      local t = Theme:Rect(f, "dim", "ARTWORK")
-      ns.PixelLine(t, 1, "w")
-      t:SetHeight((dir == "right") and (span - (i - 1) * 2) or (3 + (i - 1) * 2))
-      t:SetPoint("LEFT", f, "LEFT", i - 1, 0)
-      parts[i] = t
-    end
-  else
-    f:SetSize(span, N)
-    for i = 1, N do
-      local t = Theme:Rect(f, "dim", "ARTWORK")
-      ns.PixelLine(t, 1)
-      t:SetWidth((dir == "up") and (3 + (i - 1) * 2) or (span - (i - 1) * 2))
-      t:SetPoint("TOP", f, "TOP", 0, -(i - 1))
-      parts[i] = t
-    end
+local function applyTri(t)
+  local host = t:GetParent() or t
+  local w = ns.PX(host, t.wpeW or 8)
+  local h = ns.PX(host, t.wpeH or 8)
+  t:SetSize(w, h)
+  for i = 1, 4 do t:SetVertexOffset(i, 0, 0) end
+  for _, v in ipairs(TRI[t.wpeDir] or TRI.down) do
+    t:SetVertexOffset(v[1], v[2] * w * 0.5, v[3] * h * 0.5)
   end
-  return parts
+end
+
+function ns.Triangle(parent, dir, w, h, colorKey, layer, sub)
+  local t = parent:CreateTexture(nil, layer or "ARTWORK", nil, sub)
+  t:SetColorTexture(1, 1, 1, 1)
+  ns.NoPixelSnap(t)
+  t.wpeDir = TRI[dir] and dir or "down"
+  t.wpeW, t.wpeH = w or 8, h or w or 8
+  t.wpeKey = colorKey or "dim"
+  t:SetVertexColor(Theme:C(t.wpeKey))
+  t.SetTint = function(s, key)
+    s.wpeKey = key or s.wpeKey
+    s:SetVertexColor(Theme:C(s.wpeKey))
+  end
+  t.SetDir = function(s, d)
+    if TRI[d] then s.wpeDir = d end
+    applyTri(s)
+  end
+  t.SetSpan = function(s, ww, hh)
+    s.wpeW, s.wpeH = ww or s.wpeW, hh or s.wpeH
+    applyTri(s)
+  end
+  Theme:Track(t, function(s) s:SetVertexColor(Theme:C(s.wpeKey)) end)
+  ns.PixelJob(t, applyTri, "tri")
+  return t
 end
 
 function ns.ArrowGlyph(parent, dir, size)
-  local spec = GLYPH[dir] or GLYPH.down
+  local d = TRI[dir] and dir or "down"
+  local side = (d == "left" or d == "right")
+  local n = math.max(4, size or 9)
+  local minor = math.max(3, math.floor(n * 0.62 + 0.5))
+  local w, h = side and minor or n, side and n or minor
   local f = CreateFrame("Frame", nil, parent)
-  local h = size or 9
-  local tex = f:CreateTexture(nil, "ARTWORK")
-  local ok = false
-  if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(spec.atlas) then
-    ok = pcall(tex.SetAtlas, tex, spec.atlas) and true or false
-  end
-  if ok then
-    pcall(tex.SetDesaturated, tex, true)
-    ns.SnapBox(f, h * (spec.w / spec.h), h)
-    tex:SetAllPoints(f)
-    if spec.rot then tex:SetRotation(spec.rot) end
-    f.parts = { tex }
-  else
-    tex:Hide()
-    f.parts = stripGlyph(f, dir, h)
-  end
-  f.Tint = function(s, key)
-    for _, p in ipairs(s.parts) do p:SetVertexColor(Theme:C(key)) end
-  end
-  Theme:Track(f, function(s) s:Tint(s.wpeTint or "dim") end)
-  f.SetTint = function(s, key) s.wpeTint = key; s:Tint(key) end
-  f:SetTint("dim")
+  ns.SnapBox(f, w, h)
+  local t = ns.Triangle(f, d, w, h, "dim")
+  t:SetPoint("CENTER")
+  f.tri, f.parts = t, { t }
+  f.Tint = function(_, key) t:SetTint(key) end
+  f.SetTint = function(s, key) s.wpeTint = key; t:SetTint(key) end
+  f.SetDir = function(_, nd) t:SetDir(nd) end
   return f
 end
 
@@ -124,7 +123,10 @@ function ns.PaintCharTag(b, name, class)
   b.Text:SetText(name or "?")
   local col = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
   if col then b.Text:SetTextColor(col.r, col.g, col.b) else b.Text:SetTextColor(Theme:C("text")) end
-  b:SetWidth(math.max(78, math.ceil(b.Text:GetStringWidth()) + 48))
+  local caret = math.ceil((b.caret and b.caret:GetWidth()) or 8)
+  if caret <= 0 then caret = 8 end
+  local extra = 8 + 14 + 6 + 6 + 8 + caret + 2
+  b:SetWidth(math.max(78, math.ceil(b.Text:GetStringWidth()) + extra))
 end
 
 function ns.WindowsLocked()
@@ -351,7 +353,7 @@ end
 
 function ns.CreateGlyphButton(parent, glyph, size)
   local b = ns.CreateButton(parent, glyph, size or 22, size or 22)
-  b.Text:SetFont(ns.Fonts:Current(), math.max(13, math.floor((size or 22) * 0.6)), "")
+  b.Text:SetFont(ns.Fonts:Current(), math.max(16, math.floor((size or 22) * 0.74)), "")
   return b
 end
 
