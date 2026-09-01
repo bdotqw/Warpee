@@ -559,13 +559,6 @@ function Bags:UpdateBagBar()
   end
 end
 
-function Bags:ClearFontStamps()
-  if not self.pool then return end
-  for _, b in ipairs(self.pool) do
-    b.fitGen, b.ilvlFitGen, b.cdFitGen = nil, nil, nil
-  end
-end
-
 function Bags:Refont()
   self.fontPath = ns.Fonts:Refresh()
   if not self.pool then return end

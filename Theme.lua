@@ -908,7 +908,6 @@ function ns.Fonts:Refresh()
   local name = (ns.Bags and ns.Bags.font) or (WarpeeDB and WarpeeDB.font) or self.DEFAULT
   self.active = self:Path(name)
   self:Reapply()
-  if ns.Bags and ns.Bags.ClearFontStamps then ns.Bags:ClearFontStamps() end
   return self.active
 end
 
