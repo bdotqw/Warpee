@@ -378,7 +378,7 @@ function Bags:Layout()
     if not self.snap then
       h:SetID(bag)
       b:SetID(slot)
-      b.bagID = bag
+      b.wpeBagID = bag
     end
     ns.SnapSize(h, size, size)
     b.link = nil
@@ -537,7 +537,7 @@ function Bags:UpdateBagBar()
   local path = self.fontPath or ns.Fonts:Path(self.font or ns.Fonts.DEFAULT)
   if self.bagTitle then self.bagTitle:SetFont(path, 14, "") end
   for _, b in ipairs(self.bagButtons) do
-    local bagID = b.bagID
+    local bagID = b.wpeBagID
     local tex
     if bagID == 0 then
       tex = "Interface\\Buttons\\Button-Backpack-Up"
@@ -557,7 +557,7 @@ function Bags:HighlightBag(bagID)
   for j = 1, (self.shown or 0) do
     local b = self.pool[j]
     if b then
-      local on = (b.bagID == bagID)
+      local on = (b.wpeBagID == bagID)
       b:SetAlpha(on and 1 or 0.15)
       ns.SetSlotHighlight(b, on)
     end
