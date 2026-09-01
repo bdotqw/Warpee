@@ -120,6 +120,16 @@ local function paintToggle(b)
   if fs then fs:SetTextColor(Theme:C(hot and "accent" or "text")) end
 end
 
+local function slotBg(b)
+  if not b.bg then return end
+  if Theme:Skinned() then
+    b.bg:Show()
+    ns.PaintSlotBg(b)
+  else
+    b.bg:Hide()
+  end
+end
+
 local function skinSlot(b)
   if not b or b.wpeSkin then return end
   b.wpeSkin = true
@@ -139,7 +149,7 @@ local function skinSlot(b)
   if not box(b, "slot", "emptyLine") then return end
   b.bg = b:CreateTexture(nil, "BACKGROUND", nil, -1)
   ns.SetInside(b.bg, b, 1)
-  ns.PaintSlotBg(b)
+  slotBg(b)
   local ib = b.IconBorder
   if ib then
     ib:SetAlpha(0)
@@ -154,7 +164,7 @@ local function skinSlot(b)
   end
   Theme:Track(b, function(s)
     s:SetBackdropColor(Theme:C("slot"))
-    ns.PaintSlotBg(s)
+    slotBg(s)
     local q = s.wpeQ
     if q then
       s:SetBackdropBorderColor(q[1], q[2], q[3], 1)
