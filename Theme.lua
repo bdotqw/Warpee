@@ -467,7 +467,6 @@ function Theme:ApplyGridAlpha()
   local a = self:GridAlpha()
   if ns.Bags and ns.Bags.gridBg then ns.Bags.gridBg:SetAlpha(a) end
   if ns.Bank and ns.Bank.gridBg then ns.Bank.gridBg:SetAlpha(a) end
-  if ns.GuildBankSkin and ns.GuildBankSkin.gridBg then ns.GuildBankSkin.gridBg:SetAlpha(a) end
 end
 
 function ns.EscClose(frame)
