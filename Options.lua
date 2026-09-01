@@ -20,9 +20,15 @@ local SCROLL_W = 8
 local CONTENT_W = WIN_W - PAD * 2 - SCROLL_W - 6
 
 local function relayout()
+  Bags.fontPath = ns.Fonts:Path(Bags.font or ns.Fonts.DEFAULT)
   if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
   if ns.Bank and ns.Bank.Refresh then ns.Bank:Refresh() end
   if ns.GuildBankSkin and ns.GuildBankSkin.Restyle then ns.GuildBankSkin:Restyle() end
+  local P = ns.CharPicker
+  if P and P.frame and P.frame:IsShown() and P.Paint then P:Paint(true) end
+  C_Timer.After(0, function()
+    if Bags.frame and Bags.frame:IsShown() then Bags:FitHeader() end
+  end)
 end
 
 local function field(name)
@@ -1431,13 +1437,17 @@ function Options:ApplyFont()
   for _, e in ipairs(fonts) do
     e.fs:SetFont(path, math.max(7, BASE_FONT + e.delta), "")
   end
-  for _, tab in ipairs(self.tabs) do
-    tab:SetWidth(math.max(70, tab.Text:GetStringWidth() + 22))
+  local function measure()
+    for _, tab in ipairs(self.tabs) do
+      tab:SetWidth(math.max(70, tab.Text:GetStringWidth() + 22))
+    end
+    for i, area in ipairs(self.areas) do
+      area.page.Relayout()
+      area:PaintBar()
+    end
   end
-  for i, area in ipairs(self.areas) do
-    area.page.Relayout()
-    area:PaintBar()
-  end
+  measure()
+  C_Timer.After(0, measure)
 end
 
 function Options:ReflowPages()
