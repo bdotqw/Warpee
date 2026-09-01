@@ -9,8 +9,8 @@ local L = setmetatable({}, { __index = function(_, k)
 end })
 ns.L = L
 
-ns.LOCALES = { "enUS", "ruRU" }
-ns.LOCALE_LABELS = { enUS = "English", ruRU = "Русский" }
+ns.LOCALES = { "enUS", "deDE", "ruRU" }
+ns.LOCALE_LABELS = { enUS = "English", deDE = "Deutsch", ruRU = "Русский" }
 
 local watched = {}
 
@@ -38,14 +38,23 @@ function ns.ApplyLocaleText()
   end
 end
 
+local function supported(code)
+  if type(code) ~= "string" then return nil end
+  for _, v in ipairs(ns.LOCALES) do
+    if v == code then return code end
+  end
+  return nil
+end
+
 function ns.LocalePick()
-  local pick = WarpeeDB and WarpeeDB.locale
-  if pick == "enUS" or pick == "ruRU" then return pick end
-  return (GetLocale() == "ruRU") and "ruRU" or "enUS"
+  return supported(WarpeeDB and WarpeeDB.locale)
+      or supported(GetLocale and GetLocale())
+      or "enUS"
 end
 
 local COIN_LETTERS = {
   enUS = { g = "g", s = "s", c = "c" },
+  deDE = { g = "g", s = "s", c = "k" },
   ruRU = { g = "з", s = "с", c = "м" },
 }
 
@@ -56,6 +65,7 @@ end
 
 local SHORT_FORMS = {
   enUS = { dec = ".", units = { { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } } },
+  deDE = { dec = ",", units = { { 1e12, " Bio." }, { 1e9, " Mrd." }, { 1e6, " Mio." }, { 1e3, "k" } } },
   ruRU = { dec = ",", units = { { 1e6, "кк" }, { 1e3, "к" } } },
 }
 
@@ -300,6 +310,258 @@ local RU = {
   ["Drag an item here to keep it one click away"] =
     "Перетащите сюда предмет, чтобы использовать его одним щелчком",
   ["Ctrl + right click clears the slot"] = "Ctrl + правый щелчок освобождает ячейку",
+  ["No gold recorded yet"] = "Данных о золоте пока нет",
+  ["Delete mode"] = "Режим удаления",
+  ["Alt-click an item in your bags while this tab is open."] =
+    "Alt + щелчок по предмету в сумках, пока открыта эта вкладка.",
 }
 
 TABLES.ruRU = RU
+
+local DE = {
+  ["General"] = "Allgemein",
+  ["Grid"] = "Raster",
+  ["Items"] = "Gegenstände",
+  ["Vendor"] = "Händler",
+  ["Characters"] = "Charaktere",
+  ["Look"] = "Aussehen",
+  ["Windows"] = "Fenster",
+  ["Money"] = "Geld",
+  ["Search"] = "Suche",
+  ["Markers"] = "Markierungen",
+  ["Slot look"] = "Aussehen der Plätze",
+  ["Bags grid"] = "Taschenraster",
+  ["Bank and Warband grid"] = "Raster für Bank und Kriegsmeute",
+  ["Item level number"] = "Gegenstandsstufe auf dem Symbol",
+  ["Stack count number"] = "Stapelanzahl auf dem Symbol",
+  ["Locked items"] = "Geschützte Gegenstände",
+  ["Item tooltips"] = "Gegenstands-Tooltips",
+  ["Open bags with"] = "Taschen öffnen mit",
+  ["Runs on its own"] = "Automatisch",
+  ["The coin button"] = "Münzknopf",
+  ["Token expansions"] = "Erweiterungen für Token",
+  ["Never sell"] = "Nie verkaufen",
+  ["Theme"] = "Design",
+  ["Font"] = "Schriftart",
+  ["Language"] = "Sprache",
+  ["Lock windows"] = "Fenster fixieren",
+  ["Hide X/Y fields"] = "X/Y-Felder ausblenden",
+  ["Capacity bar"] = "Füllstandsleiste",
+  ["Hide minimap icon"] = "Minikartensymbol ausblenden",
+  ["Gold format"] = "Zahlenformat",
+  ["Gold only"] = "Nur Gold",
+  ["Coin letters"] = "Münzbuchstaben",
+  ["Clear on close"] = "Beim Schließen leeren",
+  ["Bags and bank together"] = "Taschen und Bank zusammen",
+  ["Color scheme for the whole addon."] = "Farbschema für das ganze Addon.",
+  ["Used for every label Warpee draws. Other addons can add to this list."] =
+    "Wird für jeden Text verwendet, den Warpee zeichnet. Andere Addons können diese Liste erweitern.",
+  ["Language for the addon's own text. Item names always come from the game."] =
+    "Sprache für die Texte des Addons. Gegenstandsnamen kommen immer aus dem Spiel.",
+  ["Freeze the windows in place. Unlocked, each shows X/Y fields along its bottom edge — type a value or nudge with the arrows (Shift = 10)."] =
+    "Hält die Fenster an ihrem Platz. Ohne Fixierung zeigt jedes Fenster am unteren Rand Felder für X und Y: Wert eintippen oder mit den Pfeilen ändern (Shift = 10er-Schritte).",
+  ["The windows stay movable by dragging, but the X/Y fields are not drawn."] =
+    "Die Fenster lassen sich weiter mit der Maus verschieben, die Felder für X und Y werden aber nicht angezeigt.",
+  ["Fill bar in the bags header showing how full they are."] =
+    "Leiste in der Kopfzeile der Taschen, die zeigt, wie voll sie sind.",
+  ["Takes the Warpee button off the minimap."] = "Entfernt den Warpee-Knopf von der Minikarte.",
+  ["Grouping for printed amounts. Short abbreviates to K and M."] =
+    "Wie die Ziffern in Beträgen gruppiert werden. »Kurz« kürzt Tausender zu k und Millionen zu Mio.",
+  ["Show gold only, hide silver and copper."] = "Nur Gold anzeigen, Silber und Kupfer ausblenden.",
+  ["On = g/s/c letters. Off = coin icons."] = "Ein: Buchstaben g/s/k. Aus: Münzsymbole.",
+  ["Empty the search box when the window closes, so it opens unfiltered next time."] =
+    "Leert das Suchfeld beim Schließen des Fensters, damit es beim nächsten Öffnen ungefiltert ist.",
+  ["While both windows are open, typing in either box searches both at once."] =
+    "Solange beide Fenster offen sind, sucht die Eingabe in einem Feld gleichzeitig in beiden.",
+  ["The bags open together with these windows and close with them again."] =
+    "Die Taschen öffnen sich zusammen mit diesen Fenstern und schließen sich mit ihnen wieder.",
+  ["Bank"] = "Bank",
+  ["Mail"] = "Post",
+  ["Auction house"] = "Auktionshaus",
+  ["Trade"] = "Handel",
+  ["Guild bank"] = "Gildenbank",
+  ["Professions"] = "Berufe",
+  ["Icon size"] = "Symbolgröße",
+  ["Slots per row"] = "Plätze pro Reihe",
+  ["Spacing"] = "Abstand",
+  ["Icon zoom"] = "Symbolzoom",
+  ["Merge reagents"] = "Reagenzien zusammenlegen",
+  ["Slot background"] = "Platzhintergrund",
+  ["Plate opacity"] = "Deckkraft der Unterlage",
+  ["Bank slots per row"] = "Bankplätze pro Reihe",
+  ["Warband slots per row"] = "Kriegsmeutenplätze pro Reihe",
+  ["Size of one slot in the bags."] = "Größe eines Platzes in den Taschen.",
+  ["How wide the bag window grows."] = "Davon hängt die Breite des Taschenfensters ab.",
+  ["Gap between slots, in every grid."] = "Abstand zwischen den Plätzen in allen Rastern.",
+  ["1.00 fills the slot. Less shrinks the icon, more crops it."] =
+    "1.00 füllt den Platz ganz aus. Weniger verkleinert das Symbol, mehr beschneidet es.",
+  ["Lay the reagent bag out with the main bags, without its caption."] =
+    "Zeigt die Reagenzientasche zusammen mit den Haupttaschen an, ohne eigene Überschrift.",
+  ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
+    "Was hinter jedem Symbol liegt. »Transparent« lässt die Unterlage durchscheinen, »Aufgehellt« hebt den Platz leicht hervor, »Deckend« schließt ihn ganz ab.",
+  ["The plate behind the slots, seen in the gaps. At Spacing 0 there are none."] =
+    "Die Unterlage hinter den Plätzen, sichtbar in den Zwischenräumen. Bei Abstand 0 gibt es keine Zwischenräume.",
+  ["The bank keeps its own width and icon size, apart from the bags."] =
+    "Die Bank hat ihre eigene Breite und Symbolgröße, unabhängig von den Taschen.",
+  ["One icon size for both bank tabs."] = "Eine Symbolgröße für Bank und Kriegsmeute.",
+  ["Transparent"] = "Transparent",
+  ["Highlight"] = "Aufgehellt",
+  ["Solid"] = "Deckend",
+  ["Top left"] = "Oben links",
+  ["Top right"] = "Oben rechts",
+  ["Bottom left"] = "Unten links",
+  ["Bottom right"] = "Unten rechts",
+  ["Game language"] = "Spielsprache",
+  ["Quality border"] = "Qualitätsrahmen",
+  ["Quest marker"] = "Questmarkierung",
+  ["New item glow"] = "Leuchten neuer Gegenstände",
+  ["Junk coin"] = "Münze auf Schund",
+  ["Border thickness"] = "Rahmenstärke",
+  ["Color by quality"] = "Nach Qualität einfärben",
+  ["Corner"] = "Ecke",
+  ["Size"] = "Größe",
+  ["X offset"] = "X-Versatz",
+  ["Y offset"] = "Y-Versatz",
+  ["Draw a rarity-colored border around uncommon+ items."] =
+    "Zeichnet einen Rahmen in der Qualitätsfarbe um Gegenstände ab »Ungewöhnlich«.",
+  ["Blizzard quest art: a mark for unaccepted quests, a border for quest items."] =
+    "Blizzards Questgrafik: ein Ausrufezeichen für nicht angenommene Quests, ein Rahmen für Questgegenstände.",
+  ["Quality-colored glow on items the game still counts as new."] =
+    "Leuchten in der Qualitätsfarbe auf Gegenständen, die das Spiel noch als neu zählt.",
+  ["Gold coin marker on poor-quality (grey) items."] =
+    "Goldmünze auf Gegenständen schlechter Qualität (grau).",
+  ["Thickness of the quality border."] = "Stärke des Qualitätsrahmens.",
+  ["Tint the number with the item's rarity color."] =
+    "Färbt die Zahl in der Qualitätsfarbe des Gegenstands.",
+  ["Which corner of the slot the number sits in."] = "In welcher Ecke des Platzes die Zahl steht.",
+  ["Which corner of the slot the stack size sits in."] =
+    "In welcher Ecke des Platzes die Stapelanzahl steht.",
+  ["Alt-click an item in the bags or the bank to lock it: a padlock appears and the vendor never sells it. Alt-click again, or the cross here, to unlock."] =
+    "Alt + Klick auf einen Gegenstand in den Taschen oder der Bank schützt ihn: ein Schloss erscheint und beim Händler wird er nie verkauft. Erneutes Alt + Klick oder das Kreuz in dieser Liste hebt den Schutz auf.",
+  ["Count across characters"] = "Über alle Charaktere zählen",
+  ["Include bank"] = "Bank einbeziehen",
+  ["Include Warband"] = "Kriegsmeutenbank einbeziehen",
+  ["Adds an Inventory block to item tooltips: how many each character carries."] =
+    "Fügt Gegenstands-Tooltips einen Abschnitt »Inventar« hinzu: wie viele davon jeder Charakter hat.",
+  ["Count each character's bank too. Off = bags only."] =
+    "Zählt auch die Bank jedes Charakters. Aus: nur die Taschen.",
+  ["Count the shared Warband bank on its own line."] =
+    "Zählt die gemeinsame Kriegsmeutenbank in einer eigenen Zeile.",
+  ["Unchecked characters stay saved but are hidden from the character list."] =
+    "Charaktere ohne Häkchen bleiben gespeichert, erscheinen aber nicht in der Charakterliste.",
+  ["Sell junk"] = "Schund verkaufen",
+  ["Repair"] = "Reparieren",
+  ["Item level from"] = "Gegenstandsstufe ab",
+  ["Item level under"] = "Gegenstandsstufe unter",
+  ["Legion relics"] = "Legion-Relikte",
+  ["Old consumables"] = "Alte Verbrauchsgegenstände",
+  ["Tier tokens"] = "Tier-Token",
+  ["Sell all of this automatically"] = "Alles davon automatisch verkaufen",
+  ["Keep BoE"] = "BoE behalten",
+  ["Keep warbound"] = "Kriegsmeutengebundenes behalten",
+  ["Keep gems and enchants"] = "Mit Sockel/Verzauberung behalten",
+  ["Your gold"] = "Eigenes Gold",
+  ["Guild / yours"] = "Gilde / eigenes",
+  ["These start when a merchant window opens, with no click from you."] =
+    "Läuft von selbst, sobald das Händlerfenster aufgeht, ohne Klick von Euch.",
+  ["Everything below is sold by the coin in the bags header, only when you press it."] =
+    "Alles Folgende wird über die Münze in der Kopfzeile der Taschen verkauft, und nur wenn Ihr sie drückt.",
+  ["Sell every grey item, whatever its item level."] =
+    "Verkauft jeden grauen Gegenstand, unabhängig von der Gegenstandsstufe.",
+  ["Repair at merchants who offer it. Others are left alone, with no message."] =
+    "Repariert bei Händlern, die Reparaturen anbieten. Bei allen anderen passiert nichts und es gibt keine Meldung.",
+  ["Where the repair money comes from. The guild bank is used only if your withdraw limit covers the whole bill."] =
+    "Woher das Gold für die Reparatur kommt. Die Gildenbank wird nur genutzt, wenn Euer Abhebelimit die ganze Rechnung deckt.",
+  ["Gear at or above this item level is sold."] =
+    "Ausrüstung ab dieser Gegenstandsstufe wird verkauft.",
+  ["Gear under this item level is sold. Zero keeps every piece."] =
+    "Ausrüstung unter dieser Gegenstandsstufe wird verkauft. Bei 0 wird keine Ausrüstung verkauft.",
+  ["Sell Legion artifact relics. Item level ignored."] =
+    "Verkauft Artefaktrelikte aus Legion. Die Gegenstandsstufe wird ignoriert.",
+  ["Sell potions, flasks, food and bandages older than the previous expansion."] =
+    "Verkauft Tränke, Fläschchen, Essen und Verbände, die älter als die vorherige Erweiterung sind.",
+  ["Sell raid armor tokens, item level ignored. Only from the expansions ticked below."] =
+    "Verkauft Rüstungsmarken aus Schlachtzügen, unabhängig von der Gegenstandsstufe. Nur aus den unten angehakten Erweiterungen.",
+  ["Sell the list above at every merchant, without pressing the coin."] =
+    "Verkauft alles aus der Liste oben bei jedem Händler, ohne Druck auf die Münze.",
+  ["Sell tier tokens from this expansion."] = "Tier-Token aus dieser Erweiterung verkaufen.",
+  ["Which expansions tokens may be sold from. The four newest are kept by default. Expansions that never had tokens are not listed."] =
+    "Aus welchen Erweiterungen Token verkauft werden dürfen. Die vier neuesten sind standardmäßig ausgenommen. Erweiterungen ohne Token stehen nicht in der Liste.",
+  ["Skip gear that is not bound yet, so it can go to the auction house."] =
+    "Überspringt noch nicht gebundene Ausrüstung, damit sie ins Auktionshaus kann.",
+  ["Skip warbound gear — an alt can still use it."] =
+    "Überspringt kriegsmeutengebundene Ausrüstung: ein anderer Charakter kann sie noch tragen.",
+  ["Skip any piece with a gem socketed or an enchant applied."] =
+    "Überspringt jedes Teil mit eingesetztem Edelstein oder aufgetragener Verzauberung.",
+  ["Commas (5,000,000)"] = "Komma (5,000,000)",
+  ["Dots (5.000.000)"] = "Punkt (5.000.000)",
+  ["Spaces (5 000 000)"] = "Leerzeichen (5 000 000)",
+  ["Short (5M, 284.4K)"] = "Kurz (5 Mio., 284,4k)",
+  ["%d of %d"] = "%d von %d",
+  ["1 item"] = "1 Gegenstand",
+  ["%d items"] = "%d Gegenstände",
+  ["%d and %d wide"] = "%d und %d pro Reihe",
+  ["Sort / clean up bags"] = "Taschen sortieren",
+  ["Sort / clean up"] = "Sortieren",
+  ["Settings"] = "Einstellungen",
+  ["Bags"] = "Taschen",
+  ["Bank / Warband"] = "Bank / Kriegsmeute",
+  ["Sell now"] = "Jetzt verkaufen",
+  ["Bags of another character"] = "Taschen eines anderen Charakters",
+  ["REAGENTS"] = "REAGENZIEN",
+  ["BAGS"] = "TASCHEN",
+  ["WARBAND BANK"] = "KRIEGSMEUTENBANK",
+  ["Warband"] = "Kriegsmeute",
+  ["Buy tab"] = "Fach kaufen",
+  ["Buy tab · %s"] = "Fach kaufen · %s",
+  ["Cost: %s"] = "Kosten: %s",
+  ["Hidden"] = "Versteckt",
+  ["Visit a banker to record this bank"] = "Besucht einen Bankier, um diese Bank zu erfassen",
+  ["Browse another character's bank"] = "Bank eines anderen Charakters ansehen",
+  ["Put your gold into the Warband bank"] = "Gold in die Kriegsmeutenbank einzahlen",
+  ["Take gold out of the Warband bank"] = "Gold aus der Kriegsmeutenbank abheben",
+  ["Buy another bank tab"] = "Ein weiteres Bankfach kaufen",
+  ["Buy another Warband bank tab"] = "Ein weiteres Kriegsmeutenbankfach kaufen",
+  ["Show characters you hid"] = "Versteckte Charaktere anzeigen",
+  ["Close"] = "Schließen",
+  ["Left-click: show this character"] = "Linksklick: diesen Charakter anzeigen",
+  ["Right-click: hide"] = "Rechtsklick: verstecken",
+  ["Right-click: unhide"] = "Rechtsklick: wieder anzeigen",
+  ["Warpee"] = "Warpee",
+  ["Click opens the settings"] = "Klick öffnet die Einstellungen",
+  ["Drag to move around the minimap"] = "Ziehen verschiebt das Symbol um die Minikarte",
+  ["Nothing to sell"] = "Nichts zu verkaufen",
+  ["Selling now"] = "Verkauf läuft",
+  ["Talk to a merchant first"] = "Nur bei einem Händler möglich",
+  ["%d items for %s"] = "Zu verkaufen: %d für %s",
+  ["%d items could not be sold and stayed in the bags"] =
+    "Nicht verkauft: %d – diese Gegenstände bleiben in den Taschen",
+  ["repaired for %s from %s"] = "Reparatur für %s aus %s",
+  ["guild funds"] = "der Gildenkasse",
+  ["your gold"] = "eigenem Gold",
+  ["Inventory"] = "Inventar",
+  ["Warband bank"] = "Kriegsmeutenbank",
+  ["Total"] = "Gesamt",
+  ["%d  (%d bags, %d bank)"] = "%d  (%d Taschen, %d Bank)",
+  ["%d  (bank)"] = "%d  (Bank)",
+  ["%d  (bags)"] = "%d  (Taschen)",
+  ["loaded"] = "geladen",
+  ["columns"] = "Plätze pro Reihe",
+  ["Favourites"] = "Favoriten",
+  ["Favourite slots"] = "Favoritenplätze",
+  ["How many slots"] = "Anzahl der Plätze",
+  ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + right click clears a slot."] =
+    "Eine Reihe Plätze über dem Raster, immer im Blick. Zieht einen Gegenstand darauf, um ihn mit einem Klick zu nutzen; Strg + Rechtsklick leert einen Platz.",
+  ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =
+    "Nie mehr, als das Raster breit ist. Bei 0 ist die Reihe so breit wie das Raster.",
+  ["As the grid"] = "Wie das Raster",
+  ["Drag an item here to keep it one click away"] =
+    "Zieht einen Gegenstand hierher, um ihn mit einem Klick zu nutzen",
+  ["Ctrl + right click clears the slot"] = "Strg + Rechtsklick leert den Platz",
+  ["No gold recorded yet"] = "Noch kein Gold erfasst",
+  ["Delete mode"] = "Löschmodus",
+  ["Alt-click an item in your bags while this tab is open."] =
+    "Alt + Klick auf einen Gegenstand in den Taschen, während diese Seite offen ist.",
+}
+
+TABLES.deDE = DE
