@@ -608,7 +608,7 @@ end
 
 local CLASS_RING = "Interface\\TargetingFrame\\UI-Classes-Circles"
 local CHAR_COLS = 3
-local CHAR_CELL_H, CHAR_HEAD_H, CHAR_DEL_H = 24, 22, 20
+local CHAR_CELL_H, CHAR_HEAD_H, CHAR_DEL_H = 24, 22, 26
 
 local function charHead(row, i)
   local h = row.heads[i]
@@ -729,7 +729,7 @@ function factories.chars(parent, spec)
   row.heads, row.cells = {}, {}
   row.dynamic = true
 
-  local del = ns.CreateButton(row, "Delete mode", 86, CHAR_DEL_H)
+  local del = ns.CreateButton(row, "Delete mode", 104, CHAR_DEL_H)
   local function paintDel(hover)
     local key = row.delMode and "gaugeHi" or (hover and "accent" or "dim")
     del:SetBackdropColor(Theme:C(hover and "panelHi" or "panel"))
@@ -750,8 +750,8 @@ function factories.chars(parent, spec)
     if #list == 0 then row.delMode = nil end
     local path = ns.Fonts:Path((Bags and Bags.font) or ns.Fonts.DEFAULT)
     local colW = math.floor((CONTENT_W - (CHAR_COLS - 1) * 8) / CHAR_COLS)
-    del.Text:SetFont(path, math.max(7, BASE_FONT - 2), "")
-    del:SetWidth(math.max(86, math.ceil(del.Text:GetStringWidth()) + 20))
+    del.Text:SetFont(path, math.max(7, BASE_FONT - 1), "")
+    del:SetWidth(math.max(104, math.ceil(del.Text:GetStringWidth()) + 26))
     del:SetShown(#list > 0)
     paintDel(false)
     local y, hi, ci, col, realm = 0, 0, 0, 0, nil
