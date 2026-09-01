@@ -774,16 +774,19 @@ local probe, cyrProbe, pathOK = nil, nil, {}
 local CYR_FONTS = { [[Fonts\FRIZQT___CYR.TTF]], [[Fonts\ARIALN.TTF]], [[Fonts\FRIZQT__.TTF]] }
 local cyrOK, cyrPick = {}, nil
 
-local function setFontOK(fs, path, size)
-  local ok, res = pcall(fs.SetFont, fs, path, size or 12, "")
-  if not ok then return false end
-  if res == false then return false end
-  return true
+local function freshString()
+  return UIParent:CreateFontString(nil, "OVERLAY")
+end
+
+local function applied(fs, path, size)
+  if not pcall(fs.SetFont, fs, path, size or 12, "") then return false end
+  fs:SetText("Mg")
+  return (fs:GetStringWidth() or 0) > 0
 end
 
 local function probeFont(path, size)
-  probe = probe or UIParent:CreateFontString(nil, "OVERLAY")
-  if not setFontOK(probe, path, size) then return nil end
+  probe = freshString()
+  if not applied(probe, path, size) then return nil end
   return probe
 end
 
@@ -793,8 +796,8 @@ local function hasCyrillic(path)
   if declared ~= nil then return declared end
   local known = cyrOK[path]
   if known ~= nil then return known end
-  cyrProbe = cyrProbe or UIParent:CreateFontString(nil, "OVERLAY")
-  if not setFontOK(cyrProbe, path, 24) then cyrOK[path] = false; return false end
+  cyrProbe = freshString()
+  if not applied(cyrProbe, path, 24) then cyrOK[path] = false; return false end
   cyrProbe:SetText("Ш")
   local wide = cyrProbe:GetStringWidth() or 0
   cyrProbe:SetText("Г")
