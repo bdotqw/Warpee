@@ -55,6 +55,25 @@ local function itemCooldown(id)
   if GetItemCooldown then return GetItemCooldown(id) end
 end
 
+local locBag, locSlot, locsDirty = {}, {}, true
+
+local function scanBag(bag)
+  for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
+    local id = C_Container.GetContainerItemID(bag, slot)
+    if id and not locBag[id] then locBag[id], locSlot[id] = bag, slot end
+  end
+end
+
+local function locate(id)
+  if locsDirty then
+    wipe(locBag); wipe(locSlot)
+    for _, bag in ipairs(ns.playerBags) do scanBag(bag) end
+    if ns.reagentBag then scanBag(ns.reagentBag) end
+    locsDirty = false
+  end
+  return locBag[id], locSlot[id]
+end
+
 local function applyAttr(b, id)
   if InCombatLockdown and InCombatLockdown() then
     Fav.pending[b] = id or false
@@ -62,11 +81,22 @@ local function applyAttr(b, id)
   end
   Fav.pending[b] = nil
   if id then
-    b:SetAttribute("type", "macro")
-    b:SetAttribute("macrotext", "/use item:" .. id)
+    local bag, slot = locate(id)
+    if bag then
+      b:SetAttribute("type", "macro")
+      b:SetAttribute("macrotext", "/use " .. bag .. " " .. slot)
+      b:SetAttribute("item", nil)
+    else
+      b:SetAttribute("type", "item")
+      b:SetAttribute("item", "item:" .. id)
+      b:SetAttribute("macrotext", nil)
+    end
+    b:SetAttribute("ctrl-type2", "none")
   else
     b:SetAttribute("type", nil)
     b:SetAttribute("macrotext", nil)
+    b:SetAttribute("item", nil)
+    b:SetAttribute("ctrl-type2", nil)
   end
 end
 
@@ -176,11 +206,22 @@ local function makeButton(parent, index)
   b:SetScript("PreClick", function(s, button)
     if GetCursorInfo() then
       Fav:PinFromCursor(s.favIndex)
+      if not (InCombatLockdown and InCombatLockdown()) then
+        s:SetAttribute("type", nil)
+        s.wpeSkip = true
+      end
       return
     end
-    if IsControlKeyDown() and button == "RightButton" then
+    if button == "RightButton" and IsControlKeyDown()
+       and not (IsShiftKeyDown() or IsAltKeyDown()) then
       Fav:Set(s.favIndex, nil)
       tipFor(s)
+    end
+  end)
+  b:SetScript("PostClick", function(s)
+    if s.wpeSkip then
+      s.wpeSkip = nil
+      Fav:Paint(s)
     end
   end)
   return b
@@ -226,6 +267,7 @@ ev:RegisterEvent("BAG_UPDATE_COOLDOWN")
 ev:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 ev:RegisterEvent("PLAYER_REGEN_ENABLED")
 ev:SetScript("OnEvent", function(_, event)
+  locsDirty = true
   if event == "PLAYER_REGEN_ENABLED" then
     for b, id in pairs(Fav.pending) do applyAttr(b, id or nil) end
   end
