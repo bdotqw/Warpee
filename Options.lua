@@ -65,15 +65,25 @@ local function mmHideSet(v)
   WarpeeDB.hideMinimapIcon = v and true or false
   if ns.ApplyMinimapIcon then ns.ApplyMinimapIcon() end
 end
-local function localeGet() return ns.LocalePick() end
+local function localeGet() return (WarpeeDB and WarpeeDB.locale) or "auto" end
 local function localeSet(v)
-  WarpeeDB.locale = v
+  WarpeeDB.locale = (v ~= "auto") and v or nil
   if Options.ReflowPages then Options:ReflowPages() end
   if ns.ApplyLocaleText then ns.ApplyLocaleText() end
   relayout()
 end
-local function localeKeys() return ns.LOCALES end
-local function localeLabel(k) return ns.LOCALE_LABELS[k] or k end
+local localeList
+local function localeKeys()
+  if not localeList then
+    localeList = { "auto" }
+    for _, v in ipairs(ns.LOCALES) do localeList[#localeList + 1] = v end
+  end
+  return localeList
+end
+local function localeLabel(k)
+  if k == "auto" then return L["Game language"] end
+  return ns.LOCALE_LABELS[k] or k
+end
 
 local function sClearGet() return WarpeeDB.searchClear ~= false end
 local function sClearSet(v) WarpeeDB.searchClear = v and true or false end
@@ -289,7 +299,13 @@ function factories.header(parent, spec)
   fs:SetPoint("BOTTOMLEFT", spec.key and 22 or 0, 6)
   fs:SetText(T(spec.name):upper())
   if not spec.key then
-    row.Refresh = function() fs:SetText(T(spec.name):upper()) end
+    local plain = spec.state and track(Theme:Label(row, BASE_FONT - 3, "faint"), -3)
+    if plain then plain:SetPoint("BOTTOMRIGHT", 0, 7) end
+    row.Refresh = function()
+      fs:SetText(T(spec.name):upper())
+      if plain then plain:SetText((spec.state and spec.state()) or "") end
+    end
+    row.Refresh()
     return row
   end
 
@@ -695,6 +711,7 @@ local function charCell(row, i)
   c:SetScript("OnClick", function(s)
     if not s.key then return end
     if row.delMode then
+      StaticPopupDialogs["WARPEE_DROP_CHAR"].text = L["Delete saved bags and bank of %s?"]
       StaticPopup_Show("WARPEE_DROP_CHAR", s.Text:GetText() or s.key, nil, s.key)
       return
     end
@@ -1078,7 +1095,7 @@ local GENERAL_PAGE = {
     keys = function() return Theme.THEME_ORDER end, label = function(k) return THEME_LABELS[k] or k end,
     desc = "Color scheme for the whole addon." },
   { type = "select", name = "Font", get = fontGet,
-    set = function(v) fontSet(v); Options:ApplyFont() end,
+    set = function(v) WarpeeDB.fontWish = nil; fontSet(v); Options:ApplyFont() end,
     keys = fontKeys, label = function(k) return k end,
     desc = "Used for every label Warpee draws. Other addons can add to this list." },
   { type = "select", name = "Language", get = localeGet, set = localeSet,

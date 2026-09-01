@@ -27,8 +27,10 @@ end
 
 local function muteStates(b)
   if not (b and b.GetNormalTexture) then return end
-  local parts = { b:GetNormalTexture(), b:GetPushedTexture(), b:GetDisabledTexture() }
-  for _, t in ipairs(parts) do if t then t:SetAlpha(0) end end
+  local n, p, d = b:GetNormalTexture(), b:GetPushedTexture(), b:GetDisabledTexture()
+  if n then n:SetAlpha(0) end
+  if p then p:SetAlpha(0) end
+  if d then d:SetAlpha(0) end
 end
 
 local function accentHighlight(b)
@@ -116,7 +118,7 @@ local function paintToggle(b)
     b.wpeHl:SetAlpha(0.22)
   end
   local fs = textOf(b)
-  if fs then fs:SetTextColor(Theme:C(hot and "accent" or "text")) end
+  if fs then fs:SetTextColor(Theme:C(hot and "accent" or (b.wpeTextKey or "text"))) end
 end
 
 local function hotOn(s) s.wpeHot = true; paintToggle(s) end
@@ -363,6 +365,7 @@ local function skinClose(close, host)
   if hl then hl:SetAlpha(0) end
   ns.SnapBox(close, 22, 22)
   if not box(close, "panel", "stroke") then return end
+  close.wpeTextKey = "dim"
   local glyph = Theme:Label(close, 16, "dim")
   glyph:SetPoint("CENTER")
   glyph:SetText("×")
@@ -412,13 +415,13 @@ function Skin:Apply()
   self.applied = true
 
   try(muteArt, frame)
-  if frame.NineSlice then frame.NineSlice:SetAlpha(0) end
+  if frame.NineSlice then try(frame.NineSlice.SetAlpha, frame.NineSlice, 0) end
   mute(frame.Emblem)
-  if frame.PortraitContainer then frame.PortraitContainer:Hide() end
-  Theme:Panel(frame, "bg", "stroke")
-  dressFrame(frame)
-  if frame.SetToplevel then frame:SetToplevel(true) end
-  frame:HookScript("OnMouseDown", function(s) Theme:Raise(s) end)
+  if frame.PortraitContainer then try(frame.PortraitContainer.Hide, frame.PortraitContainer) end
+  try(Theme.Panel, Theme, frame, "bg", "stroke")
+  try(dressFrame, frame)
+  if frame.SetToplevel then try(frame.SetToplevel, frame, true) end
+  try(frame.HookScript, frame, "OnMouseDown", function(s) Theme:Raise(s) end)
 
   try(label, (frame.TitleContainer and frame.TitleContainer.TitleText)
              or _G.GuildBankFrameTitleText, 15)

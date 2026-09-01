@@ -28,39 +28,16 @@ end
 local unusableCache = {}
 local warboundCache = {}
 
-local function verdictStore()
-  if not (WarpeeDB and ns.Vault) then return nil end
-  local key = ns.Vault:Owner()
-  if not key then return nil end
-  WarpeeDB.unusable = WarpeeDB.unusable or {}
-  local t = WarpeeDB.unusable[key]
-  if not t then t = {}; WarpeeDB.unusable[key] = t end
-  return t
-end
-
 function ns.ClearUnusableCache()
   wipe(unusableCache)
-  local store = verdictStore()
-  if store then wipe(store) end
 end
 
 local function knownVerdict(link)
-  local v = unusableCache[link]
-  if v ~= nil then return v end
-  local store = verdictStore()
-  if store then
-    v = store[link]
-    if v ~= nil then unusableCache[link] = v; return v end
-  end
-  return nil
+  return unusableCache[link]
 end
 
-local function keepVerdict(link, bad, persist)
+local function keepVerdict(link, bad)
   unusableCache[link] = bad
-  if persist then
-    local store = verdictStore()
-    if store then store[link] = bad end
-  end
 end
 
 local function scanRequirements(link, data)
@@ -119,7 +96,7 @@ function ns.IsItemUnusable(bag, slot, link)
   local data = C_TooltipInfo.GetBagItem(bag, slot)
   if not (data and data.lines) then return false end
   local bad = scanRequirements(link, data)
-  keepVerdict(link, bad, true)
+  keepVerdict(link, bad)
   return bad
 end
 
@@ -132,7 +109,7 @@ function ns.IsLinkUnusable(link)
   local data = C_TooltipInfo.GetHyperlink(link)
   if not (data and data.lines) then return false end
   local bad = scanRequirements(link, data)
-  keepVerdict(link, bad, true)
+  keepVerdict(link, bad)
   return bad
 end
 

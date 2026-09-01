@@ -193,7 +193,8 @@ local function showGoldTip(anchor)
 end
 
 function ns.AttachGoldTooltip(region, parent)
-  if not region or region.wpeGoldHit then return region.wpeGoldHit end
+  if not region then return nil end
+  if region.wpeGoldHit then return region.wpeGoldHit end
   local hit = CreateFrame("Frame", nil, parent or region:GetParent())
   hit:SetAllPoints(region)
   hit:EnableMouse(true)

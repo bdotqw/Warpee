@@ -90,11 +90,28 @@ function Vendor:Toggle(id, name)
   blackRepaint()
 end
 
+local function ownSlotFocus()
+  local f
+  if GetMouseFoci then
+    local list = GetMouseFoci()
+    f = type(list) == "table" and list[1] or nil
+  elseif GetMouseFocus then
+    f = GetMouseFocus()
+  end
+  for _ = 1, 4 do
+    if not f or f == UIParent then return false end
+    if f.wpeBagID ~= nil then return true end
+    f = f.GetParent and f:GetParent() or nil
+  end
+  return false
+end
+
 if type(HandleModifiedItemClick) == "function" then
   hooksecurefunc("HandleModifiedItemClick", function(link)
     if not (link and IsAltKeyDown() and not IsShiftKeyDown() and not IsControlKeyDown()) then
       return
     end
+    if not ownSlotFocus() then return end
     local id = (C_Item.GetItemInfoInstant(link))
     if not id then return end
     Vendor:Toggle(id, link:match("%[(.-)%]") or (C_Item.GetItemInfo(link)))
@@ -378,9 +395,9 @@ ev:SetScript("OnEvent", function(_, event)
   elseif event == "BAG_UPDATE_DELAYED" then
     if run and not run.queue then Vendor:Pass() end
   elseif event == "MERCHANT_CONFIRM_TRADE_TIMER_REMOVAL" then
-    if run and SellCursorItem then
-      SellCursorItem()
+    if run then
       if StaticPopup_Hide then StaticPopup_Hide("CONFIRM_MERCHANT_TRADE_TIMER_REMOVAL") end
+      if CursorHasItem and CursorHasItem() then ClearCursor() end
     end
   end
 end)
