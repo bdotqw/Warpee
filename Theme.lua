@@ -469,11 +469,28 @@ function Theme:ApplyGridAlpha()
   if ns.Bank and ns.Bank.gridBg then ns.Bank.gridBg:SetAlpha(a) end
 end
 
+function ns.EscClose(frame)
+  if not (frame and frame.EnableKeyboard) or frame.wpeEsc then return frame end
+  frame.wpeEsc = true
+  frame:EnableKeyboard(true)
+  frame:SetPropagateKeyboardInput(true)
+  frame:HookScript("OnKeyDown", function(s, key)
+    if key ~= "ESCAPE" then
+      s:SetPropagateKeyboardInput(true)
+      return
+    end
+    s:SetPropagateKeyboardInput(false)
+    s:Hide()
+  end)
+  frame:HookScript("OnHide", function(s) s:SetPropagateKeyboardInput(true) end)
+  return frame
+end
+
 Theme.WINDOW_STRATA = "HIGH"
 function Theme:Window(frame, escName)
   frame:SetFrameStrata(self.WINDOW_STRATA)
   frame:SetToplevel(true)
-  if escName then tinsert(UISpecialFrames, escName) end
+  if escName then ns.EscClose(frame) end
   self:WindowArt(frame)
   return frame
 end

@@ -233,7 +233,7 @@ function Bags:BuildBagWindow()
     local pp, rp, x, y = ns.SnapFrame(s)
     if pp then WarpeeDB.bagWinPos = { p = pp, rp = rp, x = x, y = y } end
   end)
-  tinsert(UISpecialFrames, "WarpeeBagsWindow")
+  ns.EscClose(w)
 
   local title = Theme:Title(w, 14, "accent")
   title:SetPoint("TOPLEFT", BPAD, -8)
