@@ -210,6 +210,50 @@ local function skinSideTab(tab, index)
   Skin.tabs[#Skin.tabs + 1] = b
 end
 
+local TAB_PARTS = { "Left", "Middle", "Right", "LeftActive", "MiddleActive", "RightActive",
+                    "LeftHighlight", "MiddleHighlight", "RightHighlight",
+                    "LeftDisabled", "MiddleDisabled", "RightDisabled",
+                    "Glow", "ActiveGlow", "Background", "SelectedTexture" }
+
+local hushed = setmetatable({}, { __mode = "k" })
+
+local function hush(t)
+  if not t or hushed[t] then return end
+  hushed[t] = true
+  t:SetAlpha(0)
+  t:Hide()
+  hooksecurefunc(t, "Show", function(s) s:SetAlpha(0); s:Hide() end)
+  hooksecurefunc(t, "SetAlpha", function(s, a) if a and a ~= 0 then s:SetAlpha(0) end end)
+  if t.SetShown then
+    hooksecurefunc(t, "SetShown", function(s, on) if on then s:SetAlpha(0); s:Hide() end end)
+  end
+end
+
+local function stillTab(t)
+  if not t.GetAnimationGroups then return end
+  for _, ag in ipairs({ t:GetAnimationGroups() }) do
+    if hushed[ag] == nil then
+      hushed[ag] = true
+      if ag.Stop then ag:Stop() end
+      hooksecurefunc(ag, "Play", function(s) s:Stop() end)
+    end
+  end
+end
+
+local function lockTab(t)
+  local a = t.wpeAnchor
+  if a then
+    t:ClearAllPoints()
+    t:SetPoint(a.point, a.rel or t:GetParent(), a.relPoint or a.point, a.x or 0, a.y or 0)
+    if a.h and a.h > 0 then t:SetHeight(a.h) end
+  end
+  local fs = textOf(t)
+  if fs then
+    fs:ClearAllPoints()
+    fs:SetPoint("CENTER", t, "CENTER", 0, 0)
+  end
+end
+
 local function skinPanelTab(t, index)
   if not t or t.wpeSkin then return end
   t.wpeSkin = true
@@ -217,11 +261,14 @@ local function skinPanelTab(t, index)
   muteArt(t, hl)
   muteStates(t)
   steady(t)
-  local fs = textOf(t)
-  if fs then
-    fs:ClearAllPoints()
-    fs:SetPoint("CENTER", t, "CENTER", 0, 0)
+  stillTab(t)
+  for _, key in ipairs(TAB_PARTS) do hush(t[key]) end
+  local point, rel, relPoint, x, y = t:GetPoint()
+  if point then
+    t.wpeAnchor = { point = point, rel = rel, relPoint = relPoint,
+                    x = x, y = y, h = t:GetHeight() }
   end
+  lockTab(t)
   if hl then
     hl:SetColorTexture(Theme:C("accent"))
     hl:SetAlpha(0.22)
@@ -231,7 +278,7 @@ local function skinPanelTab(t, index)
   if not box(t, "panel", "stroke") then return end
   label(textOf(t), 12)
   t.wpeIndex = index
-  Theme:Track(t, paintToggle)
+  Theme:Track(t, function(s) paintToggle(s); lockTab(s) end)
   t:HookScript("OnEnter", paintToggle)
   t:HookScript("OnLeave", paintToggle)
   t:HookScript("OnClick", function() Skin:Refresh() end)
@@ -409,6 +456,7 @@ function Skin:Refresh()
   local sel = _G.GuildBankFrame and _G.GuildBankFrame.selectedTab
   for _, t in ipairs(self.panelTabs) do
     t.wpeLit = (t.wpeIndex == sel) or nil
+    lockTab(t)
     paintToggle(t)
   end
 end
