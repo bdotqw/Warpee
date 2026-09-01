@@ -3,6 +3,13 @@ local Theme = ns.Theme
 
 ns.playerBags = { 0, 1, 2, 3, 4 }
 ns.reagentBag = (Enum and Enum.BagIndex and Enum.BagIndex.ReagentBag) or 5
+
+local OWN_BAGS = { [ns.reagentBag] = true }
+for _, b in ipairs(ns.playerBags) do OWN_BAGS[b] = true end
+
+function ns.IsPlayerBag(id)
+  return OWN_BAGS[id] == true
+end
 ns.reagentBank = (Enum and Enum.BagIndex and Enum.BagIndex.Reagentbank) or -3
 
 local SIZE_DEFAULT, PAD = 37, 10
