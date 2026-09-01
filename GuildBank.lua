@@ -336,7 +336,7 @@ local function fitBand(frame)
   if not box then return end
   local top, boxTop = frame:GetTop(), box:GetTop()
   if not (top and boxTop) then return end
-  local applied = frame.wpeBand or 0
+  local applied = frame.wpeDrop or 0
   local have = (top - Theme:TopInset()) - boxTop
   local total = Theme:Skinned() and (BAND - have + applied) or 0
   if math.abs(total - applied) < 0.5 then return end
@@ -348,7 +348,7 @@ local function fitBand(frame)
     if f and f.SetPoint and anchoredTo(f, frame) then shiftFrame(f, total) end
   end
   local baseH = (frame:GetHeight() or 0) - applied
-  frame.wpeBand = total
+  frame.wpeDrop = total
   if baseH > 0 then frame:SetHeight(baseH + total) end
 end
 
