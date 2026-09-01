@@ -211,22 +211,28 @@ function Fav:Apply(bags, x, top, size, gap)
     local bag, slot = locate(id)
     local px = x + (i - 1) * (size + gap)
     local b, g = self.slots[i], self.ghosts[i]
-    if bag and not b and not InCombatLockdown() then
-      b = ns.CreateItemButton(frame, bag, slot)
-      self.slots[i] = b
-    end
-    if bag and b then
-      local h = b.holder
-      if b.favBag ~= bag or b.favSlot ~= slot then
-        if InCombatLockdown() then
-          waiting = true
-        else
-          b.favBag, b.favSlot, b.wpeBagID = bag, slot, bag
-          h:SetID(bag)
-          b:SetID(slot)
-          b.link = nil
-        end
+    if bag and not b then
+      if InCombatLockdown() then
+        waiting = true
+      else
+        b = ns.CreateItemButton(frame, bag, slot)
+        self.slots[i] = b
       end
+    end
+    local live = (bag and b) and true or false
+    if live and (b.favBag ~= bag or b.favSlot ~= slot) then
+      if InCombatLockdown() then
+        waiting = true
+        live = false
+      else
+        b.favBag, b.favSlot, b.wpeBagID = bag, slot, bag
+        b.holder:SetID(bag)
+        b:SetID(slot)
+        b.link = nil
+      end
+    end
+    if live then
+      local h = b.holder
       ns.SnapSize(h, size, size)
       h:ClearAllPoints()
       ns.SnapPoint(h, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
@@ -254,7 +260,7 @@ function Fav:Apply(bags, x, top, size, gap)
     c:ClearAllPoints()
     ns.SnapPoint(c, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
     c:SetFrameLevel(frame:GetFrameLevel() + 30)
-    c:EnableMouse(catch or not bag)
+    c:EnableMouse(catch or not live)
     c:Show()
   end
   for i = n + 1, last do

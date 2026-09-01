@@ -776,6 +776,7 @@ function ns.ApplySearchToButton(b, filters, blocked)
 end
 
 function ns.UpdateItemLock(b)
+  if not (b and b.wpeBagID) then return end
   local info = C_Container.GetContainerItemInfo(b.wpeBagID, b:GetID())
   SetItemButtonDesaturated(b, ((info and info.isLocked) or b.searchMiss) and true or false)
 end
