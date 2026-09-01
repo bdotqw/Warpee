@@ -239,23 +239,32 @@ local function skinScroll(sb)
   end
 end
 
-local function skinClose(close)
+local function placeClose(close)
+  local host = close.wpeHost
+  if not host then return end
+  close:ClearAllPoints()
+  ns.SnapPoint(close, "TOPRIGHT", host, "TOPRIGHT", -6, -(5 + Theme:TopInset()))
+end
+
+local function skinClose(close, host)
   if not close or close.wpeSkin then return end
   close.wpeSkin = true
+  close.wpeHost = host
   muteArt(close)
   muteStates(close)
   local hl = close.GetHighlightTexture and close:GetHighlightTexture()
   if hl then hl:SetAlpha(0) end
-  ns.SnapBox(close, 24, 24)
+  ns.SnapBox(close, 22, 22)
   if not box(close, "panel", "stroke") then return end
-  local glyph = Theme:Label(close, 15, "dim")
+  local glyph = Theme:Label(close, 16, "dim")
   glyph:SetPoint("CENTER")
   glyph:SetText("×")
   close.Text = glyph
-  Theme:Track(close, paintToggle)
+  Theme:Track(close, function(s) paintToggle(s); placeClose(s) end)
   close:HookScript("OnEnter", paintToggle)
   close:HookScript("OnLeave", paintToggle)
   paintToggle(close)
+  placeClose(close)
 end
 
 local function skinSearch(sb)
@@ -283,7 +292,7 @@ local function skinPopup(pop)
   skinButton((bb and bb.OkayButton) or pop.OkayButton or _G.GuildBankPopupOkayButton)
   skinButton((bb and bb.CancelButton) or pop.CancelButton or _G.GuildBankPopupCancelButton)
   label((bb and bb.IconSelectorEditBox) or _G.GuildBankPopupEditBox, 13)
-  skinClose(pop.CloseButton)
+  skinClose(pop.CloseButton, pop)
 end
 
 function Skin:Apply()
@@ -300,7 +309,7 @@ function Skin:Apply()
 
   label((frame.TitleContainer and frame.TitleContainer.TitleText)
         or _G.GuildBankFrameTitleText, 15)
-  skinClose(frame.CloseButton)
+  skinClose(frame.CloseButton, frame)
 
   skinButton(frame.DepositButton or _G.GuildBankFrameDepositButton)
   skinButton(frame.WithdrawButton or _G.GuildBankFrameWithdrawButton)
