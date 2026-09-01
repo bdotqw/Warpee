@@ -206,6 +206,9 @@ function Fav:Apply(bags, x, top, size, gap)
   local last = math.max(self.max or 0, n)
   self.max = last
   local plusSize = math.max(14, math.floor(size * 0.5))
+  local gen = (bags.styleGen or 0) .. ":" .. tostring(bags.fontPath) .. ":" .. size
+  local repaint = self.paintKey ~= gen
+  self.paintKey = gen
   for i = 1, n do
     local id = list[i]
     local bag, slot = locate(id)
@@ -237,6 +240,7 @@ function Fav:Apply(bags, x, top, size, gap)
       h:ClearAllPoints()
       ns.SnapPoint(h, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
       h:Show(); b:Show()
+      if repaint then b.link = nil end
       ns.UpdateItemButton(b)
       if g then g:Hide() end
     else

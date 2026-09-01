@@ -65,25 +65,15 @@ local function mmHideSet(v)
   WarpeeDB.hideMinimapIcon = v and true or false
   if ns.ApplyMinimapIcon then ns.ApplyMinimapIcon() end
 end
-local function localeGet() return (WarpeeDB and WarpeeDB.locale) or "auto" end
+local function localeGet() return ns.LocalePick() end
 local function localeSet(v)
-  WarpeeDB.locale = (v ~= "auto") and v or nil
+  WarpeeDB.locale = v
   if Options.ReflowPages then Options:ReflowPages() end
   if ns.ApplyLocaleText then ns.ApplyLocaleText() end
   relayout()
 end
-local localeList
-local function localeKeys()
-  if not localeList then
-    localeList = { "auto" }
-    for _, v in ipairs(ns.LOCALES) do localeList[#localeList + 1] = v end
-  end
-  return localeList
-end
-local function localeLabel(k)
-  if k == "auto" then return L["Game language"] end
-  return ns.LOCALE_LABELS[k] or k
-end
+local function localeKeys() return ns.LOCALES end
+local function localeLabel(k) return ns.LOCALE_LABELS[k] or k end
 
 local function sClearGet() return WarpeeDB.searchClear ~= false end
 local function sClearSet(v) WarpeeDB.searchClear = v and true or false end
