@@ -174,6 +174,13 @@ function ns.SnapEven(region, v)
   return n * px
 end
 
+function ns.SnapOdd(region, v)
+  local px = ns.PixelUnit(region)
+  local n = math.max(3, math.floor((tonumber(v) or 0) / px + 0.5))
+  if n % 2 == 0 then n = n + 1 end
+  return n * px
+end
+
 function ns.PixelFloor(region, v)
   v = tonumber(v) or 0
   if v == 0 then return 0 end
