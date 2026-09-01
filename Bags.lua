@@ -378,7 +378,7 @@ function Bags:Layout()
     if not self.snap then
       h:SetID(bag)
       b:SetID(slot)
-      b:SetAttribute("bagid", bag)
+      b.bagID = bag
     end
     ns.SnapSize(h, size, size)
     b.link = nil
