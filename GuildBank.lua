@@ -305,12 +305,15 @@ local function skinScroll(sb)
 end
 
 
+local SKIN_LIFT = 1.30
+
 local function dressFrame(frame)
   if not Theme:Skinned() then return end
   ns.PixelBackdrop(frame)
   if not frame.SetBackdrop then return end
   local r, g, b = Theme:C("bg")
-  frame:SetBackdropColor(r, g, b, 1)
+  frame:SetBackdropColor(math.min(1, r * SKIN_LIFT), math.min(1, g * SKIN_LIFT),
+                         math.min(1, b * SKIN_LIFT), 1)
   frame:SetBackdropBorderColor(Theme:C("stroke"))
 end
 
