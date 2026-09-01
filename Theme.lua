@@ -85,9 +85,28 @@ Theme.THEMES = {
     faint = { 0.545, 0.522, 0.475, 1 },
     emptyLine = { 0.078, 0.075, 0.071, 0.90 },
     azure = { 0.478, 0.729, 0.906, 1 }, reagent = { 0.353, 0.804, 0.616, 1 } },
+  graphite = { label = "Graphite",
+    bg = { 0.071, 0.071, 0.071, 0.96 }, panel = { 0.129, 0.129, 0.129, 1 },
+    panelHi = { 0.184, 0.184, 0.184, 1 }, slot = { 0.094, 0.094, 0.094, 1 },
+    stroke = { 0.251, 0.251, 0.251, 1 }, strokeSoft = { 0.192, 0.192, 0.192, 1 },
+    accent = { 0.878, 0.878, 0.886, 1 }, accentInk = { 0.961, 0.961, 0.969, 1 },
+    text = { 0.902, 0.902, 0.902, 1 }, dim = { 0.612, 0.612, 0.612, 1 },
+    faint = { 0.408, 0.408, 0.408, 1 }, emptyLine = { 0.290, 0.290, 0.290, 1 },
+    azure = { 0.588, 0.647, 0.706, 1 }, reagent = { 0.549, 0.686, 0.588, 1 } },
+  parchment = { label = "Parchment",
+    bg = { 0.898, 0.874, 0.824, 0.96 }, panel = { 0.827, 0.796, 0.733, 1 },
+    panelHi = { 0.769, 0.729, 0.647, 1 }, slot = { 0.859, 0.835, 0.780, 1 },
+    stroke = { 0.478, 0.435, 0.353, 1 }, strokeSoft = { 0.620, 0.580, 0.500, 1 },
+    accent = { 0.482, 0.310, 0.129, 1 }, accentInk = { 0.353, 0.216, 0.086, 1 },
+    text = { 0.161, 0.145, 0.118, 1 }, dim = { 0.353, 0.325, 0.278, 1 },
+    faint = { 0.510, 0.478, 0.420, 1 }, emptyLine = { 0.678, 0.647, 0.580, 1 },
+    overlay = { 0.098, 0.086, 0.071, 1 },
+    azure = { 0.176, 0.376, 0.573, 1 }, reagent = { 0.129, 0.451, 0.310, 1 },
+    gaugeLo = { 0.278, 0.529, 0.412, 1 }, gaugeHi = { 0.706, 0.243, 0.216, 1 },
+    silver = { 0.435, 0.463, 0.502, 1 }, copper = { 0.573, 0.361, 0.239, 1 } },
 }
 Theme.THEME_ORDER = { "midnight", "blizzard", "nightbloom", "void", "nord", "blood",
-                      "obsidian", "forest", "ember" }
+                      "obsidian", "graphite", "forest", "ember", "parchment" }
 
 function Theme:IsLight()
   local c = self.colors.bg
