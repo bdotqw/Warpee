@@ -407,32 +407,20 @@ function ns.ApplyItemFont(b)
   end
 end
 
-local function fontGen(B)
-  return (B.styleGen or 0) .. ":" .. tostring(B.fontPath)
-end
-
 function ns.SetOutlined(fs, size)
   if not fs then return end
-  fs:SetFontObject(ns.Fonts:Object(size, "OUTLINE"))
+  fs:SetFont(ns.Fonts:Current(), size, "OUTLINE")
 end
 
 function ns.FitCount(b, count)
   local c = b.Count or _G[(b:GetName() or "") .. "Count"]
   if not c then return end
-  local B = ns.Bags
-  local gen = fontGen(B)
-  if b.fitGen == gen then return end
-  b.fitGen = gen
-  ns.SetOutlined(c, B.countSize or 14)
+  ns.SetOutlined(c, ns.Bags.countSize or 14)
 end
 
 function ns.FitIlvl(b, lvl)
   if not b.ilvl then return end
-  local B = ns.Bags
-  local gen = fontGen(B)
-  if b.ilvlFitGen == gen then return end
-  b.ilvlFitGen = gen
-  ns.SetOutlined(b.ilvl, B.ilvlSize or 12)
+  ns.SetOutlined(b.ilvl, ns.Bags.ilvlSize or 12)
 end
 
 local function fmtCooldown(s)
@@ -443,11 +431,7 @@ end
 
 local function cdFont(b)
   if not b.cdText then return end
-  local B = ns.Bags
-  local gen = fontGen(B)
-  if b.cdFitGen == gen then return end
-  b.cdFitGen = gen
-  ns.SetOutlined(b.cdText, B.countSize or 14)
+  ns.SetOutlined(b.cdText, ns.Bags.countSize or 14)
 end
 
 local function cdOnUpdate(self, elapsed)
