@@ -565,7 +565,7 @@ end
 
 function Theme:Label(parent, size, colorKey, flags)
   local fs = parent:CreateFontString(nil, "OVERLAY")
-  fs:SetFont(ns.Fonts:Current(), size or 12, flags or "")
+  fs:SetFontObject(ns.Fonts:Object(size or 12, flags or ""))
   local key = colorKey or "text"
   fs:SetTextColor(self:C(key))
   track(fs, function(x) x:SetTextColor(Theme:C(key)) end)
@@ -574,7 +574,7 @@ end
 
 function Theme:Title(parent, size, colorKey)
   local fs = parent:CreateFontString(nil, "OVERLAY")
-  fs:SetFont(ns.Fonts:Current(), size or 15, "")
+  fs:SetFontObject(ns.Fonts:Object(size or 15, ""))
   local key = colorKey or "text"
   fs:SetTextColor(self:C(key))
   track(fs, function(x) x:SetTextColor(Theme:C(key)) end)
@@ -885,4 +885,36 @@ end
 function ns.Fonts:Current()
   local name = (ns.Bags and ns.Bags.font) or (WarpeeDB and WarpeeDB.font) or self.DEFAULT
   return self:Path(name)
+end
+
+local objects = {}
+
+local function dressObject(o, path, size, flags)
+  o:SetFont(path, size, flags)
+  local cur = o:GetFont()
+  if flags ~= "" and not (cur and cur:lower() == path:lower()) then
+    o:SetFont(path, size, "")
+  end
+end
+
+function ns.Fonts:Object(size, flags)
+  size = math.max(6, math.floor(tonumber(size) or 12))
+  flags = flags or ""
+  local key = size .. ":" .. flags
+  local o = objects[key]
+  if not o then
+    o = CreateFont("WarpeeFont" .. size .. flags)
+    o.wpeSize, o.wpeFlags = size, flags
+    o:SetTextColor(1, 1, 1)
+    objects[key] = o
+    dressObject(o, self:Current(), size, flags)
+  end
+  return o
+end
+
+function ns.Fonts:Reapply()
+  local p = self:Current()
+  for _, o in pairs(objects) do
+    dressObject(o, p, o.wpeSize, o.wpeFlags)
+  end
 end

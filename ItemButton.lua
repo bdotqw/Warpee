@@ -78,7 +78,7 @@ local function attachBorder(b)
   b.bR = borderLine(rf, 2, "ARTWORK"); b.bR:SetPoint("TOPRIGHT");   b.bR:SetPoint("BOTTOMRIGHT"); ns.PixelLine(b.bR, 1, "w")
   b.ilvl = bf:CreateFontString(nil, "OVERLAY")
   b.ilvl:SetDrawLayer("OVERLAY", 6)
-  b.ilvl:SetFont(ns.Fonts:Current(), 12, "OUTLINE")
+  b.ilvl:SetFontObject(ns.Fonts:Object(12, "OUTLINE"))
   b.ilvl:SetPoint("TOPLEFT", 3, -3)
   b.ilvl:SetTextColor(Theme:C("overlay"))
 end
@@ -295,7 +295,7 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
     cd:Clear()
     b.cdText = b.borderFrame:CreateFontString(nil, "OVERLAY")
     b.cdText:SetDrawLayer("OVERLAY", 7)
-    b.cdText:SetFont(ns.Fonts:Current(), 14, "OUTLINE")
+    b.cdText:SetFontObject(ns.Fonts:Object(14, "OUTLINE"))
     b.cdText:SetPoint("CENTER")
     b.cdText:SetTextColor(Theme:C("text"))
   end
@@ -411,13 +411,9 @@ local function fontGen(B)
   return (B.styleGen or 0) .. ":" .. tostring(B.fontPath)
 end
 
-function ns.SetOutlined(fs, path, size)
-  if not (fs and path) then return end
-  fs:SetFont(path, size, "OUTLINE")
-  local cur = fs:GetFont()
-  if not (cur and path and cur:lower() == path:lower()) then
-    fs:SetFont(path, size, "")
-  end
+function ns.SetOutlined(fs, size)
+  if not fs then return end
+  fs:SetFontObject(ns.Fonts:Object(size, "OUTLINE"))
 end
 
 function ns.FitCount(b, count)
@@ -427,8 +423,7 @@ function ns.FitCount(b, count)
   local gen = fontGen(B)
   if b.fitGen == gen then return end
   b.fitGen = gen
-  local path = B.fontPath or ns.Fonts:Path(B.font or ns.Fonts.DEFAULT)
-  ns.SetOutlined(c, path, B.countSize or 14)
+  ns.SetOutlined(c, B.countSize or 14)
 end
 
 function ns.FitIlvl(b, lvl)
@@ -437,8 +432,7 @@ function ns.FitIlvl(b, lvl)
   local gen = fontGen(B)
   if b.ilvlFitGen == gen then return end
   b.ilvlFitGen = gen
-  local path = B.fontPath or ns.Fonts:Path(B.font or ns.Fonts.DEFAULT)
-  ns.SetOutlined(b.ilvl, path, B.ilvlSize or 12)
+  ns.SetOutlined(b.ilvl, B.ilvlSize or 12)
 end
 
 local function fmtCooldown(s)
@@ -453,8 +447,7 @@ local function cdFont(b)
   local gen = fontGen(B)
   if b.cdFitGen == gen then return end
   b.cdFitGen = gen
-  local path = B.fontPath or ns.Fonts:Path(B.font or ns.Fonts.DEFAULT)
-  ns.SetOutlined(b.cdText, path, B.countSize or 14)
+  ns.SetOutlined(b.cdText, B.countSize or 14)
 end
 
 local function cdOnUpdate(self, elapsed)
