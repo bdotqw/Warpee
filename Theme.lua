@@ -713,7 +713,7 @@ end
 
 ns.Fonts = {}
 ns.Fonts.DEFAULT = "Friz Quadrata"
-local MEDIA = [[Interface\AddOns\Warpee\Media\]]
+local MEDIA = [[Interface\AddOns\Warpee\Media\Fonts\]]
 local GAME_FONT = [[Fonts\FRIZQT__.TTF]]
 
 local function clientFont()
@@ -723,7 +723,6 @@ local function clientFont()
   return GAME_FONT
 end
 local SHIPPED = {
-  { name = "Expressway",           file = "Expressway.ttf",         cyr = true },
   { name = "Manrope",              file = "Manrope.ttf",            cyr = true },
   { name = "Onest",                file = "Onest.ttf",              cyr = true },
   { name = "Golos Text",           file = "GolosText.ttf",          cyr = true },

@@ -9,4 +9,3 @@ embedded-libraries:
 
 ignore:
   - README.md
-  - logo.svg

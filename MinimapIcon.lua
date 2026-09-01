@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
-local ICON = 7549289
+local ICON = [[Interface\AddOns\Warpee\Media\Icons\logo.tga]]
 local DEFAULT_ANGLE = 2.2
 
 local btn = CreateFrame("Button", "WarpeeMinimapButton", Minimap)
