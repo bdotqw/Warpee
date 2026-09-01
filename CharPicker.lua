@@ -28,7 +28,7 @@ function Picker:Build()
   m:SetFrameStrata("FULLSCREEN_DIALOG")
   m:EnableMouse(true)
   m:SetClampedToScreen(true)
-  tinsert(UISpecialFrames, "WarpeeCharPicker")
+  ns.EscClose(m)
   self.frame = m
 
   local hide = ns.CreateButton(m, ns.L["Hidden"], 68, 23)

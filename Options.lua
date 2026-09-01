@@ -220,7 +220,7 @@ local function ensureDropdown()
   m.rows, m.sf, m.child, m.catcher = {}, sf, child, catcher
   m:SetScript("OnHide", function() catcher:Hide() end)
   catcher:SetScript("OnClick", closeDropdown)
-  tinsert(UISpecialFrames, "WarpeeDropdown")
+  ns.EscClose(m)
   dropdown = m
   return m
 end
