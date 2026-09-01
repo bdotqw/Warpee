@@ -581,7 +581,15 @@ function ns.UpdateItemButton(b)
     local shown = (lvl and lvl > 1) and lvl or nil
     b.ilvl:SetText(shown or "")
     ns.FitIlvl(b, shown)
-    local kc = isKey and shown and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[4]
+    local kc
+    if isKey and shown then
+      local rarity = C_ChallengeMode and C_ChallengeMode.GetKeystoneLevelRarityColor
+      if rarity then
+        local ok, c = pcall(rarity, shown)
+        if ok and type(c) == "table" and c.r then kc = c end
+      end
+      kc = kc or (ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[4])
+    end
     local iq = info and info.quality
     if kc then
       b.ilvl:SetTextColor(kc.r, kc.g, kc.b)
