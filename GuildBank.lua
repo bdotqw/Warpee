@@ -76,7 +76,6 @@ end
 
 local function steady(b)
   if b.SetPushedTextOffset then b:SetPushedTextOffset(0, 0) end
-  if b.SetPushedTexture then b:SetPushedTexture(nil) end
 end
 
 local function skinButton(b, size)
@@ -122,12 +121,8 @@ end
 
 local function slotBg(b)
   if not b.bg then return end
-  if Theme:Skinned() then
-    b.bg:Show()
-    ns.PaintSlotBg(b)
-  else
-    b.bg:Hide()
-  end
+  b.bg:Show()
+  ns.PaintSlotBg(b)
 end
 
 local function skinSlot(b)
@@ -135,7 +130,10 @@ local function skinSlot(b)
   b.wpeSkin = true
   local ic = b.icon or _G[(b:GetName() or "") .. "IconTexture"]
   local hl = b.GetHighlightTexture and b:GetHighlightTexture()
+  muteArt(b, ic, hl)
   muteStates(b)
+  local so = b.searchOverlay or b.SearchOverlay
+  if so then so:SetAlpha(1) end
   if hl then
     hl:SetColorTexture(Theme:C("accent"))
     hl:SetAlpha(0.22)
@@ -331,12 +329,16 @@ local function skinPopup(pop)
   skinClose(pop.CloseButton, pop)
 end
 
+local function try(fn, ...)
+  if fn then pcall(fn, ...) end
+end
+
 function Skin:Apply()
   local frame = _G.GuildBankFrame
   if self.applied or not frame or not ready() then return end
   self.applied = true
 
-  muteArt(frame)
+  try(muteArt, frame)
   if frame.NineSlice then frame.NineSlice:SetAlpha(0) end
   mute(frame.Emblem)
   if frame.PortraitContainer then frame.PortraitContainer:Hide() end
@@ -344,52 +346,52 @@ function Skin:Apply()
   Theme:Panel(frame, "bg", "stroke")
   if frame.SetToplevel then frame:SetToplevel(true) end
   frame:HookScript("OnMouseDown", function(s) Theme:Raise(s) end)
-  fitHeight(frame)
+  try(fitHeight, frame)
 
-  label((frame.TitleContainer and frame.TitleContainer.TitleText)
-        or _G.GuildBankFrameTitleText, 15)
-  skinClose(frame.CloseButton, frame)
+  try(label, (frame.TitleContainer and frame.TitleContainer.TitleText)
+             or _G.GuildBankFrameTitleText, 15)
+  try(skinClose, frame.CloseButton, frame)
 
-  skinButton(frame.DepositButton or _G.GuildBankFrameDepositButton)
-  skinButton(frame.WithdrawButton or _G.GuildBankFrameWithdrawButton)
-  skinButton(_G.GuildBankInfoSaveButton)
-  skinButton((frame.BuyInfo and frame.BuyInfo.PurchaseButton)
-             or _G.GuildBankFramePurchaseButton)
+  try(skinButton, frame.DepositButton or _G.GuildBankFrameDepositButton)
+  try(skinButton, frame.WithdrawButton or _G.GuildBankFrameWithdrawButton)
+  try(skinButton, _G.GuildBankInfoSaveButton)
+  try(skinButton, (frame.BuyInfo and frame.BuyInfo.PurchaseButton)
+                  or _G.GuildBankFramePurchaseButton)
 
   local money = frame.MoneyFrameBG or _G.GuildBankMoneyFrameBG
-  if money then muteArt(money) end
+  if money then try(muteArt, money) end
 
   local black = frame.BlackBG
   if black and black.IsObjectType and black:IsObjectType("Frame") then
-    muteArt(black)
-    box(black, "slot", "strokeSoft")
+    try(muteArt, black)
+    try(box, black, "slot", "strokeSoft")
   else
     mute(black)
   end
 
   for i = 1, (_G.MAX_GUILDBANK_TABS or 8) do
-    skinSideTab(_G["GuildBankTab" .. i], i)
+    try(skinSideTab, _G["GuildBankTab" .. i], i)
   end
 
   for i = 1, COLUMNS do
     local col = frame["Column" .. i] or _G["GuildBankColumn" .. i]
     if col then
-      muteArt(col)
-      for s = 1, SLOTS do skinSlot(col["Button" .. s]) end
+      try(muteArt, col)
+      for s = 1, SLOTS do try(skinSlot, col["Button" .. s]) end
     end
   end
 
   for i = 1, PANEL_TABS do
-    skinPanelTab(_G["GuildBankFrameTab" .. i], i)
+    try(skinPanelTab, _G["GuildBankFrameTab" .. i], i)
   end
 
-  skinSearch(_G.GuildItemSearchBox)
-  skinScroll(frame.Log and frame.Log.ScrollBar)
+  try(skinSearch, _G.GuildItemSearchBox)
+  try(skinScroll, frame.Log and frame.Log.ScrollBar)
 
   local info = _G.GuildBankInfoScrollFrame
   if info then
-    muteArt(info)
-    skinScroll(info.ScrollBar)
+    try(muteArt, info)
+    try(skinScroll, info.ScrollBar)
   end
   label(_G.GuildBankInfoEditBox, 13)
   skinPopup(_G.GuildBankPopupFrame)
