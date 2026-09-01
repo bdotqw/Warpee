@@ -591,7 +591,7 @@ function View:Run(st, repaint, tag)
     local h = b.holder
     if b.wpeBag ~= c.bag or b.wpeSlot ~= c.slot then
       if not snap then
-        h:SetID(c.bag); b:SetID(c.slot); b.bagID = c.bag
+        h:SetID(c.bag); b:SetID(c.slot); b.wpeBagID = c.bag
       end
       b.wpeBag, b.wpeSlot, b.link = c.bag, c.slot, nil
     end

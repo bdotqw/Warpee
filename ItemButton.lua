@@ -120,10 +120,10 @@ function ns.MarkQuestItem(b, isQuestItem, questID, isActive)
 end
 
 function ns.SyncQuestMark(b)
-  if not b.bagID then return false end
+  if not b.wpeBagID then return false end
   local was = ns.QuestMarked(b)
   if ns.Bags.questMarks and C_Container.GetContainerItemQuestInfo then
-    local qi = C_Container.GetContainerItemQuestInfo(b.bagID, b:GetID())
+    local qi = C_Container.GetContainerItemQuestInfo(b.wpeBagID, b:GetID())
     ns.MarkQuestItem(b, qi and qi.isQuestItem, qi and qi.questID, qi and qi.isActive)
   else
     ns.MarkQuestItem(b)
@@ -161,10 +161,10 @@ function ns.MarkNewItem(b, bagID, slot, quality)
 end
 
 function ns.SyncNewItem(b)
-  if not b.bagID then return end
+  if not b.wpeBagID then return end
   local slot = b:GetID()
-  local info = C_Container.GetContainerItemInfo(b.bagID, slot)
-  ns.MarkNewItem(b, b.bagID, slot, info and info.quality)
+  local info = C_Container.GetContainerItemInfo(b.wpeBagID, slot)
+  ns.MarkNewItem(b, b.wpeBagID, slot, info and info.quality)
 end
 
 local function tierAtlas(t)
@@ -260,7 +260,7 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
   b:SetID(slotIndex)
   b:SetAllPoints(holder)
   b.holder = holder
-  b.bagID = bagID
+  b.wpeBagID = bagID
   b.bg = b:CreateTexture(nil, "BACKGROUND", nil, -1)
   b.bg:SetAllPoints(b)
   b.bg:SetColorTexture(Theme:C("slot"))
@@ -449,7 +449,7 @@ end
 function ns.UpdateCooldown(b)
   local cd = b.cd
   if not cd then return end
-  local start, duration, enable = C_Container.GetContainerItemCooldown(b.bagID, b:GetID())
+  local start, duration, enable = C_Container.GetContainerItemCooldown(b.wpeBagID, b:GetID())
   if start and start > 0 and duration and duration > 2 and enable and enable ~= 0 then
     cd:SetCooldown(start, duration)
     b.cdEnd = start + duration
@@ -523,7 +523,7 @@ local function slotLoc(b, bag, slot)
 end
 
 function ns.UpdateItemButton(b)
-  local bagID, slot = b.bagID, b:GetID()
+  local bagID, slot = b.wpeBagID, b:GetID()
   local info = C_Container.GetContainerItemInfo(bagID, slot)
   local link = info and (info.hyperlink or info.iconFileID) or false
   local count = info and info.stackCount or 0
@@ -623,7 +623,7 @@ function ns.UpdateItemButton(b)
   ns.SetSlotBorder(b, Theme:C("emptyLine"))
   if ns.QuestMarked(b) then
     ns.SetRarityRing(b)
-  elseif b.bagID == ns.reagentBag or b.bagID == ns.reagentBank then
+  elseif b.wpeBagID == ns.reagentBag or b.wpeBagID == ns.reagentBank then
     local r = Theme.colors.reagent
     ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
   elseif hl and ns.IsItemUnusable(bagID, slot, hl) then
@@ -764,7 +764,7 @@ function ns.ApplySearchToButton(b, filters, blocked)
 end
 
 function ns.UpdateItemLock(b)
-  local info = C_Container.GetContainerItemInfo(b.bagID, b:GetID())
+  local info = C_Container.GetContainerItemInfo(b.wpeBagID, b:GetID())
   SetItemButtonDesaturated(b, ((info and info.isLocked) or b.searchMiss) and true or false)
 end
 
@@ -779,7 +779,7 @@ function ns.CreateBagButton(parent, bagID, size)
     s:SetBackdropColor(Theme:C("slot"))
     s:SetBackdropBorderColor(Theme:C(s.wpeHover and "accent" or "stroke"))
   end)
-  b.bagID = bagID
+  b.wpeBagID = bagID
   local icon = b:CreateTexture(nil, "ARTWORK")
   icon:SetPoint("TOPLEFT", 1, -1); icon:SetPoint("BOTTOMRIGHT", -1, 1)
   icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
@@ -810,14 +810,14 @@ function ns.CreateBagButton(parent, bagID, size)
   b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   b:RegisterForDrag("LeftButton")
   b:SetScript("OnDragStart", function(s)
-    if s.bagID ~= 0 then PickupBagFromSlot(C_Container.ContainerIDToInventoryID(s.bagID)) end
+    if s.wpeBagID ~= 0 then PickupBagFromSlot(C_Container.ContainerIDToInventoryID(s.wpeBagID)) end
   end)
-  b:SetScript("OnReceiveDrag", function(s) ns.Bags:PlaceBagFromCursor(s.bagID) end)
+  b:SetScript("OnReceiveDrag", function(s) ns.Bags:PlaceBagFromCursor(s.wpeBagID) end)
   b:SetScript("OnClick", function(s, button)
     if CursorHasItem() then
-      ns.Bags:PlaceBagFromCursor(s.bagID)
-    elseif button == "LeftButton" and IsModifiedClick("PICKUPITEM") and s.bagID ~= 0 then
-      PickupBagFromSlot(C_Container.ContainerIDToInventoryID(s.bagID))
+      ns.Bags:PlaceBagFromCursor(s.wpeBagID)
+    elseif button == "LeftButton" and IsModifiedClick("PICKUPITEM") and s.wpeBagID ~= 0 then
+      PickupBagFromSlot(C_Container.ContainerIDToInventoryID(s.wpeBagID))
     end
   end)
   return b

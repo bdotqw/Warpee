@@ -221,7 +221,7 @@ function Fav:Apply(bags, x, top, size, gap)
         if InCombatLockdown() then
           waiting = true
         else
-          b.favBag, b.favSlot, b.bagID = bag, slot, bag
+          b.favBag, b.favSlot, b.wpeBagID = bag, slot, bag
           h:SetID(bag)
           b:SetID(slot)
           b.link = nil
