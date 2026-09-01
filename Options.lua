@@ -343,6 +343,15 @@ function factories.toggle(parent, spec)
   fs:SetPoint("LEFT", box, "RIGHT", 8, 0)
   fs:SetPoint("RIGHT", -2, 0)
   fs:SetJustifyH("LEFT")
+  local function paintBox(hover)
+    if row.off then
+      box:SetKeys("slot", "strokeSoft", "faint")
+    elseif row.on then
+      box:SetKeys("slot", "bg", hover and "accentInk" or "accent")
+    else
+      box:SetKeys("slot", hover and "accent" or "stroke", "accent")
+    end
+  end
   row.Refresh = function()
     if type(spec.name) == "function" then
       fs:SetText(T(spec.name()) or "")
@@ -353,9 +362,9 @@ function factories.toggle(parent, spec)
     local on = spec.get() and true or false
     mark:SetShown(on)
     fs:SetTextColor(Theme:C(off and "faint" or (on and "text" or "dim")))
-    box:SetKeys("slot", off and "strokeSoft" or "stroke", off and "faint" or "accent")
     row:SetEnabled(not off)
-    row.off = off
+    row.off, row.on = off, on
+    paintBox(not off and row:IsMouseOver())
   end
   row:SetScript("OnClick", function()
     if row.off then return end
@@ -365,10 +374,10 @@ function factories.toggle(parent, spec)
   end)
   row:SetScript("OnEnter", function()
     if row.off then return end
-    box:SetKeys(nil, "accent", nil)
+    paintBox(true)
   end)
   row:SetScript("OnLeave", function()
-    box:SetKeys(nil, row.off and "strokeSoft" or "stroke", nil)
+    paintBox(false)
   end)
   row.Refresh()
   tip(row, spec.desc)
@@ -668,11 +677,18 @@ local function charCell(row, i)
   c.Text = fs
 
   c:SetScript("OnEnter", function(s)
-    s.box:SetKeys(nil, row.delMode and "gaugeHi" or "accent", nil)
-    if row.delMode then s.Text:SetTextColor(Theme:C("gaugeHi")) end
+    if row.delMode then
+      s.box:SetKeys(nil, "gaugeHi", nil)
+      s.Text:SetTextColor(Theme:C("gaugeHi"))
+      return
+    end
+    if not ns.Vault:Hidden(s.key or "") then
+      s.box:SetKeys(nil, "bg", "accentInk")
+    else
+      s.box:SetKeys(nil, "accent", nil)
+    end
   end)
   c:SetScript("OnLeave", function(s)
-    s.box:SetKeys(nil, row.delMode and "gaugeHi" or "stroke", nil)
     s:Paint()
   end)
   c:SetScript("OnClick", function(s)
@@ -681,22 +697,21 @@ local function charCell(row, i)
       StaticPopup_Show("WARPEE_DROP_CHAR", s.Text:GetText() or s.key, nil, s.key)
       return
     end
-    local visible = not ns.Vault:Hidden(s.key)
-    ns.Vault:SetHidden(s.key, visible)
-    s.mark:SetShown(not visible)
-    s.Text:SetTextColor(Theme:C((not visible) and "text" or "dim"))
+    ns.Vault:SetHidden(s.key, not ns.Vault:Hidden(s.key))
+    s:Paint()
+    if s:IsMouseOver() then s:GetScript("OnEnter")(s) end
   end)
   c.Paint = function(s)
     local on = not ns.Vault:Hidden(s.key or "")
     if row.delMode then
       s.mark:Hide()
       s.minus:Show()
-      s.box:SetKeys("slot", "gaugeHi", nil)
+      s.box:SetKeys("slot", "gaugeHi", "accent")
       s.Text:SetTextColor(Theme:C(on and "text" or "dim"))
     else
       s.minus:Hide()
       s.mark:SetShown(on)
-      s.box:SetKeys("slot", "stroke", nil)
+      s.box:SetKeys("slot", on and "bg" or "stroke", "accent")
       s.Text:SetTextColor(Theme:C(on and "text" or "dim"))
     end
   end
