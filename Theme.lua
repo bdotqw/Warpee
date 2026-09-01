@@ -723,8 +723,10 @@ local function clientFont()
   return GAME_FONT
 end
 local SHIPPED = {
-  { name = "Manrope",              file = "Manrope.ttf",            cyr = true },
-  { name = "Rubik",                file = "Rubik.ttf",              cyr = true },
+  { name = "Manrope Bold",         file = "ManropeBold.ttf",        cyr = true },
+  { name = "Rubik Bold",           file = "RubikBold.ttf",          cyr = true },
+  { name = "Oswald",               file = "Oswald.ttf",             cyr = true },
+  { name = "Russo One",            file = "RussoOne.ttf",           cyr = true },
   { name = "Archivo",              file = "Archivo.ttf",            cyr = false },
   { name = "Fira Sans Condensed",  file = "FiraSansCondensed.ttf",  cyr = true },
 }
