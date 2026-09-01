@@ -6,6 +6,7 @@
 ## SavedVariables: WarpeeDB
 ## X-Category: Inventory
 ## IconTexture: Interface\AddOns\Warpee\Media\Icons\logo.tga
+## X-Curse-Project-ID: 1678202
 
 Libs\LibStub.lua
 Libs\CallbackHandler-1.0.lua
