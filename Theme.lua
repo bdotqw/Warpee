@@ -93,13 +93,55 @@ Theme.THEMES = {
     text = { 0.902, 0.902, 0.902, 1 }, dim = { 0.612, 0.612, 0.612, 1 },
     faint = { 0.408, 0.408, 0.408, 1 }, emptyLine = { 0.290, 0.290, 0.290, 1 },
     azure = { 0.588, 0.647, 0.706, 1 }, reagent = { 0.549, 0.686, 0.588, 1 } },
+  class = { label = "Class", classAccent = true,
+    bg = { 0.055, 0.059, 0.067, 0.96 }, panel = { 0.106, 0.114, 0.129, 1 },
+    panelHi = { 0.153, 0.165, 0.184, 1 }, slot = { 0.075, 0.082, 0.094, 1 },
+    stroke = { 0.204, 0.216, 0.239, 1 }, strokeSoft = { 0.157, 0.169, 0.188, 1 },
+    accent = { 0.851, 0.659, 0.373, 1 }, accentInk = { 0.910, 0.773, 0.549, 1 },
+    text = { 0.906, 0.918, 0.937, 1 }, dim = { 0.596, 0.620, 0.663, 1 },
+    faint = { 0.392, 0.412, 0.451, 1 }, emptyLine = { 0.235, 0.251, 0.282, 1 },
+    azure = { 0.478, 0.706, 0.847, 1 }, reagent = { 0.353, 0.804, 0.616, 1 } },
+  abyss = { label = "Abyss",
+    bg = { 0.031, 0.063, 0.078, 0.96 }, panel = { 0.055, 0.106, 0.129, 1 },
+    panelHi = { 0.078, 0.145, 0.176, 1 }, slot = { 0.039, 0.078, 0.094, 1 },
+    stroke = { 0.106, 0.196, 0.235, 1 }, strokeSoft = { 0.082, 0.153, 0.184, 1 },
+    accent = { 0.902, 0.639, 0.298, 1 }, accentInk = { 0.949, 0.784, 0.545, 1 },
+    text = { 0.878, 0.910, 0.925, 1 }, dim = { 0.576, 0.643, 0.678, 1 },
+    faint = { 0.376, 0.443, 0.478, 1 }, emptyLine = { 0.176, 0.278, 0.322, 1 },
+    azure = { 0.400, 0.706, 0.816, 1 }, reagent = { 0.353, 0.804, 0.667, 1 } },
+  gunmetal = { label = "Gunmetal",
+    bg = { 0.078, 0.086, 0.094, 0.96 }, panel = { 0.129, 0.141, 0.153, 1 },
+    panelHi = { 0.180, 0.196, 0.212, 1 }, slot = { 0.098, 0.106, 0.118, 1 },
+    stroke = { 0.235, 0.251, 0.271, 1 }, strokeSoft = { 0.180, 0.196, 0.212, 1 },
+    accent = { 0.902, 0.494, 0.208, 1 }, accentInk = { 0.953, 0.667, 0.451, 1 },
+    text = { 0.898, 0.910, 0.922, 1 }, dim = { 0.596, 0.612, 0.635, 1 },
+    faint = { 0.400, 0.416, 0.439, 1 }, emptyLine = { 0.239, 0.255, 0.275, 1 },
+    azure = { 0.494, 0.667, 0.796, 1 }, reagent = { 0.400, 0.769, 0.588, 1 } },
+  moss = { label = "Moss",
+    bg = { 0.067, 0.071, 0.043, 0.96 }, panel = { 0.122, 0.129, 0.078, 1 },
+    panelHi = { 0.169, 0.180, 0.106, 1 }, slot = { 0.086, 0.090, 0.055, 1 },
+    stroke = { 0.239, 0.251, 0.149, 1 }, strokeSoft = { 0.184, 0.196, 0.118, 1 },
+    accent = { 0.796, 0.831, 0.475, 1 }, accentInk = { 0.886, 0.906, 0.678, 1 },
+    text = { 0.914, 0.918, 0.878, 1 }, dim = { 0.639, 0.651, 0.573, 1 },
+    faint = { 0.439, 0.451, 0.384, 1 }, emptyLine = { 0.278, 0.290, 0.184, 1 },
+    azure = { 0.588, 0.784, 0.706, 1 }, reagent = { 0.478, 0.847, 0.588, 1 } },
 }
-Theme.THEME_ORDER = { "midnight", "blizzard", "nightbloom", "void", "nord", "blood",
-                      "obsidian", "graphite", "forest", "ember" }
+Theme.THEME_ORDER = { "midnight", "blizzard", "class", "nightbloom", "void", "nord",
+                      "abyss", "blood", "obsidian", "graphite", "gunmetal",
+                      "forest", "moss", "ember" }
 
 function Theme:IsLight()
   local c = self.colors.bg
   return (c and (c[1] + c[2] + c[3]) > 1.5) and true or false
+end
+
+local function classAccent()
+  local _, cls = UnitClass("player")
+  local col = cls and RAID_CLASS_COLORS and RAID_CLASS_COLORS[cls]
+  if not (col and col.r) then return nil end
+  local function lift(v) return v + (1 - v) * 0.45 end
+  return { col.r, col.g, col.b, 1 },
+         { lift(col.r), lift(col.g), lift(col.b), 1 }
 end
 
 Theme.colors = {}
@@ -108,7 +150,11 @@ function Theme:Apply(name)
   local c = {}
   for k, v in pairs(SHARED) do c[k] = v end
   for k, v in pairs(t) do
-    if k ~= "label" and k ~= "skin" then c[k] = v end
+    if k ~= "label" and k ~= "skin" and k ~= "classAccent" then c[k] = v end
+  end
+  if t.classAccent then
+    local a, ink = classAccent()
+    if a then c.accent, c.accentInk = a, ink end
   end
   c.brass = c.accent
   c.gaugeMid = c.accent
