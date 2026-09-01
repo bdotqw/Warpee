@@ -407,12 +407,17 @@ function ns.ApplyItemFont(b)
   end
 end
 
+local function fontGen(B)
+  return (B.styleGen or 0) .. ":" .. tostring(B.fontPath)
+end
+
 function ns.FitCount(b, count)
   local c = b.Count or _G[(b:GetName() or "") .. "Count"]
   if not c then return end
   local B = ns.Bags
-  if b.fitGen == B.styleGen then return end
-  b.fitGen = B.styleGen
+  local gen = fontGen(B)
+  if b.fitGen == gen then return end
+  b.fitGen = gen
   local path = B.fontPath or ns.Fonts:Path(B.font or ns.Fonts.DEFAULT)
   c:SetFont(path, B.countSize or 14, "OUTLINE")
 end
@@ -420,8 +425,9 @@ end
 function ns.FitIlvl(b, lvl)
   if not b.ilvl then return end
   local B = ns.Bags
-  if b.ilvlFitGen == B.styleGen then return end
-  b.ilvlFitGen = B.styleGen
+  local gen = fontGen(B)
+  if b.ilvlFitGen == gen then return end
+  b.ilvlFitGen = gen
   local path = B.fontPath or ns.Fonts:Path(B.font or ns.Fonts.DEFAULT)
   b.ilvl:SetFont(path, B.ilvlSize or 12, "OUTLINE")
 end
@@ -435,8 +441,9 @@ end
 local function cdFont(b)
   if not b.cdText then return end
   local B = ns.Bags
-  if b.cdFitGen == B.styleGen then return end
-  b.cdFitGen = B.styleGen
+  local gen = fontGen(B)
+  if b.cdFitGen == gen then return end
+  b.cdFitGen = gen
   local path = B.fontPath or ns.Fonts:Path(B.font or ns.Fonts.DEFAULT)
   b.cdText:SetFont(path, B.countSize or 14, "OUTLINE")
 end

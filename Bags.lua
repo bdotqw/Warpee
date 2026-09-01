@@ -665,8 +665,9 @@ function Bags:FitHeader()
   self.search:Show()
   if self.title and self.money then
     self.title:SetText("WARPEE")
+    local tw = math.ceil(self.title:GetStringWidth())
     local room = w - PAD * 2 - math.ceil(self.money:GetStringWidth()) - 12
-    local show = room >= math.ceil(self.title:GetStringWidth())
+    local show = tw <= 0 or room >= tw
     if not show then self.title:SetText("") end
     self.title:SetShown(show)
   end
