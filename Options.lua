@@ -1272,42 +1272,43 @@ local function vIlvlSet(v)
   WarpeeDB.vendorIlvl = tonumber(v) or 0
   if Bags and Bags.VendorState then Bags:VendorState() end
 end
-local function vBoEGet() return WarpeeDB.vendorKeepBoE ~= false end
-local function vBoESet(v) WarpeeDB.vendorKeepBoE = v and true or false end
-local function vWbGet() return WarpeeDB.vendorKeepWarbound ~= false end
-local function vWbSet(v) WarpeeDB.vendorKeepWarbound = v and true or false end
-local function vGemGet() return WarpeeDB.vendorKeepGems ~= false end
-local function vGemSet(v) WarpeeDB.vendorKeepGems = v and true or false end
-local function vGreyGet() return WarpeeDB.vendorGrey ~= false end
-local function vGreySet(v) WarpeeDB.vendorGrey = v and true or false end
-local function vRepGet() return WarpeeDB.vendorRepair and true or false end
-local function vRepSet(v) WarpeeDB.vendorRepair = v and true or false end
-local REPAIR_BY = { "player", "guild", "both" }
-local REPAIR_LABELS = { player = "Your gold", guild = "Guild bank",
-                        both = "Guild / yours" }
-local function vRepByGet() return WarpeeDB.vendorRepairBy or "player" end
-local function vRepBySet(v) WarpeeDB.vendorRepairBy = v or "player" end
-local function vRelicGet() return WarpeeDB.vendorRelics ~= false end
-local function vRelicSet(v) WarpeeDB.vendorRelics = v and true or false end
+local V = {}
+function V.boeGet() return WarpeeDB.vendorKeepBoE ~= false end
+function V.boeSet(v) WarpeeDB.vendorKeepBoE = v and true or false end
+function V.wbGet() return WarpeeDB.vendorKeepWarbound ~= false end
+function V.wbSet(v) WarpeeDB.vendorKeepWarbound = v and true or false end
+function V.gemGet() return WarpeeDB.vendorKeepGems ~= false end
+function V.gemSet(v) WarpeeDB.vendorKeepGems = v and true or false end
+function V.greyGet() return WarpeeDB.vendorGrey ~= false end
+function V.greySet(v) WarpeeDB.vendorGrey = v and true or false end
+function V.repGet() return WarpeeDB.vendorRepair and true or false end
+function V.repSet(v) WarpeeDB.vendorRepair = v and true or false end
+V.REPAIR_BY = { "player", "guild", "both" }
+V.REPAIR_LABELS = { player = "Your gold", guild = "Guild bank",
+                    both = "Guild / yours" }
+function V.repByGet() return WarpeeDB.vendorRepairBy or "player" end
+function V.repBySet(v) WarpeeDB.vendorRepairBy = v or "player" end
+function V.relicGet() return WarpeeDB.vendorRelics ~= false end
+function V.relicSet(v) WarpeeDB.vendorRelics = v and true or false end
 
-local function vMinGet() return tonumber(WarpeeDB.vendorIlvlMin) or 0 end
-local function vMinSet(v) WarpeeDB.vendorIlvlMin = tonumber(v) or 0 end
-local function vConsumGet() return WarpeeDB.vendorConsum and true or false end
-local function vConsumSet(v) WarpeeDB.vendorConsum = v and true or false end
-local function vAutoGet() return WarpeeDB.vendorAuto and true or false end
-local function vAutoSet(v) WarpeeDB.vendorAuto = v and true or false end
-local function vTokenGet() return WarpeeDB.vendorTokens and true or false end
-local function vTokenSet(v) WarpeeDB.vendorTokens = v and true or false end
-local function vTokensOff() return not (WarpeeDB.vendorTokens and true or false) end
-local function vExpGet(i)
+function V.minGet() return tonumber(WarpeeDB.vendorIlvlMin) or 0 end
+function V.minSet(v) WarpeeDB.vendorIlvlMin = tonumber(v) or 0 end
+function V.consumGet() return WarpeeDB.vendorConsum and true or false end
+function V.consumSet(v) WarpeeDB.vendorConsum = v and true or false end
+function V.autoGet() return WarpeeDB.vendorAuto and true or false end
+function V.autoSet(v) WarpeeDB.vendorAuto = v and true or false end
+function V.tokenGet() return WarpeeDB.vendorTokens and true or false end
+function V.tokenSet(v) WarpeeDB.vendorTokens = v and true or false end
+function V.tokensOff() return not (WarpeeDB.vendorTokens and true or false) end
+function V.expGet(i)
   local t = WarpeeDB.vendorTokenExp
   return (t and t[i]) and true or false
 end
-local function vExpSet(i, v)
+function V.expSet(i, v)
   WarpeeDB.vendorTokenExp = WarpeeDB.vendorTokenExp or {}
   WarpeeDB.vendorTokenExp[i] = v and true or false
 end
-local function expName(i)
+function V.expName(i)
   local n = _G["EXPANSION_NAME" .. i]
   if type(n) == "string" and n ~= "" then return n end
   return "Expansion " .. i
@@ -1319,32 +1320,32 @@ local VENDOR_PAGE = {
   { type = "header", name = "Runs on its own" },
   { type = "description",
     name = "These start when a merchant window opens, with no click from you." },
-  { type = "toggle", name = "Sell junk", col = 1, of = 3, get = vGreyGet, set = vGreySet,
+  { type = "toggle", name = "Sell junk", col = 1, of = 3, get = V.greyGet, set = V.greySet,
     desc = "Sell every gray item, whatever its item level." },
-  { type = "toggle", name = "Repair", col = 2, of = 3, get = vRepGet, set = vRepSet,
+  { type = "toggle", name = "Repair", col = 2, of = 3, get = V.repGet, set = V.repSet,
     desc = "Repair at merchants who offer it. Others are left alone, with no message." },
-  { type = "select", name = "", col = 3, of = 3, get = vRepByGet, set = vRepBySet,
-    keys = function() return REPAIR_BY end,
-    label = function(k) return REPAIR_LABELS[k] or k end,
-    disabled = function() return not vRepGet() end,
+  { type = "select", name = "", col = 3, of = 3, get = V.repByGet, set = V.repBySet,
+    keys = function() return V.REPAIR_BY end,
+    label = function(k) return V.REPAIR_LABELS[k] or k end,
+    disabled = function() return not V.repGet() end,
     desc = "Where the repair money comes from. The guild bank is used only if your withdraw limit covers the whole bill." },
   { type = "header", name = "The coin button" },
   { type = "description",
     name = "Everything below is sold by the coin in the bags header, only when you press it." },
   { type = "input", name = "Item level from", col = 1, min = 0, max = 9999,
-    get = vMinGet, set = vMinSet,
+    get = V.minGet, set = V.minSet,
     desc = "Gear at or above this item level is sold." },
   { type = "input", name = "Item level under", col = 2, min = 0, max = 9999,
     get = vIlvlGet, set = vIlvlSet,
     desc = "Gear under this item level is sold. Zero keeps every piece." },
-  { type = "toggle", name = "Legion relics", col = 1, get = vRelicGet, set = vRelicSet,
+  { type = "toggle", name = "Legion relics", col = 1, get = V.relicGet, set = V.relicSet,
     desc = "Sell Legion artifact relics. Item level ignored." },
-  { type = "toggle", name = "Old consumables", col = 2, get = vConsumGet, set = vConsumSet,
+  { type = "toggle", name = "Old consumables", col = 2, get = V.consumGet, set = V.consumSet,
     desc = "Sell potions, flasks, food and bandages older than the previous expansion." },
-  { type = "toggle", name = "Tier tokens", col = 1, get = vTokenGet, set = vTokenSet,
+  { type = "toggle", name = "Tier tokens", col = 1, get = V.tokenGet, set = V.tokenSet,
     desc = "Sell raid armor tokens, item level ignored. Only from the expansions ticked below." },
   { type = "toggle", name = "Sell all of this automatically",
-    get = vAutoGet, set = vAutoSet,
+    get = V.autoGet, set = V.autoSet,
     desc = "Sell the list above at every merchant, without pressing the coin." },
   { type = "header", name = "Token expansions", key = "tokenexp",
     state = function()
@@ -1364,12 +1365,12 @@ local VENDOR_PAGE = {
   { type = "description", section = "tokenexp",
     name = "Which expansions tokens may be sold from. The four newest are kept by default. Expansions that never had tokens are not listed." },
   { type = "header", name = "Never sell",
-    state = function() return onOf({ vBoEGet, vWbGet, vGemGet }) end },
-  { type = "toggle", name = "Keep BoE", col = 1, get = vBoEGet, set = vBoESet,
+    state = function() return onOf({ V.boeGet, V.wbGet, V.gemGet }) end },
+  { type = "toggle", name = "Keep BoE", col = 1, get = V.boeGet, set = V.boeSet,
     desc = "Skip gear that is not bound yet, so it can go to the auction house." },
-  { type = "toggle", name = "Keep warbound", col = 2, get = vWbGet, set = vWbSet,
+  { type = "toggle", name = "Keep warbound", col = 2, get = V.wbGet, set = V.wbSet,
     desc = "Skip warbound gear — an alt can still use it." },
-  { type = "toggle", name = "Keep gems and enchants", col = 1, get = vGemGet, set = vGemSet,
+  { type = "toggle", name = "Keep gems and enchants", col = 1, get = V.gemGet, set = V.gemSet,
     desc = "Skip any piece with a gem socketed or an enchant applied." },
 }
 
@@ -1386,11 +1387,11 @@ do
   for i = 0, cur do
     if not none[i] then
       rows[#rows + 1] = {
-        type = "toggle", name = expName(i), col = (slot % 2 == 0) and 1 or 2,
+        type = "toggle", name = V.expName(i), col = (slot % 2 == 0) and 1 or 2,
         section = "tokenexp",
-        get = function() return vExpGet(i) end,
-        set = function(v) vExpSet(i, v) end,
-        disabled = vTokensOff,
+        get = function() return V.expGet(i) end,
+        set = function(v) V.expSet(i, v) end,
+        disabled = V.tokensOff,
         desc = "Sell tier tokens from this expansion.",
       }
       slot = slot + 1
