@@ -294,7 +294,9 @@ local RU = {
   ["How many slots"] = "Сколько ячеек",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + right click clears a slot."] =
     "Ряд ячеек над сеткой, всегда на виду. Перетащите предмет в ячейку, чтобы держать его под рукой; Ctrl + правый щелчок освобождает ячейку.",
-  ["Never more than the grid is wide."] = "Не больше, чем ширина сетки.",
+  ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =
+    "Не больше, чем ширина сетки. Ноль — во всю ширину сетки.",
+  ["As the grid"] = "Как сетка",
   ["Drag an item here to keep it one click away"] =
     "Перетащите сюда предмет, чтобы использовать его одним щелчком",
   ["Ctrl + right click clears the slot"] = "Ctrl + правый щелчок освобождает ячейку",

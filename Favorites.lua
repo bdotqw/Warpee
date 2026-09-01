@@ -19,8 +19,8 @@ function Fav:Enabled()
 end
 
 function Fav:Count()
-  local n = tonumber(WarpeeDB and WarpeeDB.favCount) or 6
-  return math.max(1, math.min(14, math.floor(n)))
+  local n = math.floor(tonumber(WarpeeDB and WarpeeDB.favCount) or 6)
+  return math.max(0, math.min(14, n))
 end
 
 function Fav:List()
@@ -179,12 +179,15 @@ function Fav:Apply(bags, x, top, size, gap)
   ns.SnapPoint(self.label, "TOPLEFT", frame, "TOPLEFT", x, -top)
   self.label:Show()
 
-  local n = math.min(self:Count(), bags.cols or 14)
+  local cols = bags.cols or 14
+  local want = self:Count()
+  local n = (want <= 0) and cols or math.min(want, cols)
   local rowY = top + LABEL_H + LABEL_GAP
   local list = self:List()
   local catch = (GetCursorInfo() and true) or IsControlKeyDown()
   local last = math.max(self.max or 0, n)
   self.max = last
+  local plusSize = math.max(14, math.floor(size * 0.5))
   for i = 1, n do
     local id = list[i]
     local bag, slot = locate(id)
@@ -214,7 +217,9 @@ function Fav:Apply(bags, x, top, size, gap)
       if id then
         g.icon:SetTexture(itemIcon(id)); g.icon:Show(); g.plus:Hide()
       else
-        g.icon:Hide(); g.plus:Show()
+        g.icon:Hide()
+        g.plus:SetFont(bags.fontPath or ns.Fonts:Current(), plusSize, "")
+        g.plus:Show()
       end
       g:Show()
       if b then b.holder:Hide(); b.favBag = nil end

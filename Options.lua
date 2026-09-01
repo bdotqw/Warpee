@@ -473,6 +473,7 @@ function factories.range(parent, spec)
   end
 
   local function label(v)
+    if spec.format then return spec.format(v) end
     if (spec.step or 1) < 1 then return string.format("%.2f", v) end
     return tostring(v)
   end
@@ -1078,10 +1079,11 @@ local GENERAL_PAGE = {
   { type = "header", name = "Favourites" },
   { type = "toggle", name = "Favourite slots", col = 1, get = fav.showGet, set = fav.showSet,
     desc = "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + right click clears a slot." },
-  { type = "range", name = "How many slots", min = 1, max = 14, step = 1,
+  { type = "range", name = "How many slots", min = 0, max = 14, step = 1,
     get = fav.countGet, set = fav.countSet,
+    format = function(v) return (v or 0) <= 0 and T("As the grid") or tostring(v) end,
     disabled = function() return not fav.showGet() end,
-    desc = "Never more than the grid is wide." },
+    desc = "Never more than the grid is wide. Zero keeps the row as wide as the grid." },
   { type = "header", name = "Search" },
   { type = "toggle", name = "Clear on close", col = 1, get = sClearGet, set = sClearSet,
     desc = "Empty the search box when the window closes, so it opens unfiltered next time." },
