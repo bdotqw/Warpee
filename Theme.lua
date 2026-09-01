@@ -908,6 +908,7 @@ function ns.Fonts:Refresh()
   local name = (ns.Bags and ns.Bags.font) or (WarpeeDB and WarpeeDB.font) or self.DEFAULT
   self.active = self:Path(name)
   self:Reapply()
+  if ns.Bags and ns.Bags.ClearFontStamps then ns.Bags:ClearFontStamps() end
   return self.active
 end
 
@@ -919,10 +920,6 @@ local objects = {}
 
 local function dressObject(o, path, size, flags)
   o:SetFont(path, size, flags)
-  local cur = o:GetFont()
-  if flags ~= "" and not (cur and cur:lower() == path:lower()) then
-    o:SetFont(path, size, "")
-  end
 end
 
 function ns.Fonts:Object(size, flags)
