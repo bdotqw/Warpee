@@ -304,47 +304,14 @@ local function skinScroll(sb)
   end
 end
 
-local ART_T, ART_L, ART_R, ART_B = 20, 6, 1, 1
-local ART_PAD = 4
-
-local function artSides(frame)
-  local l, r = frame:GetLeft(), frame:GetRight()
-  if not (l and r) then return nil end
-  local function grow(f)
-    if not (f and f.IsVisible and f:IsVisible() and f.GetLeft) then return end
-    local fl, fr = f:GetLeft(), f:GetRight()
-    if not (fl and fr) then return end
-    if fl - ART_PAD < l then l = fl - ART_PAD end
-    if fr + ART_PAD > r then r = fr + ART_PAD end
-  end
-  grow(_G.GuildItemSearchBox)
-  grow(frame.BlackBG)
-  for i = 1, COLUMNS do grow(frame["Column" .. i] or _G["GuildBankColumn" .. i]) end
-  for i = 1, PANEL_TABS do grow(_G["GuildBankFrameTab" .. i]) end
-  grow(frame.DepositButton or _G.GuildBankFrameDepositButton)
-  grow(frame.WithdrawButton or _G.GuildBankFrameWithdrawButton)
-  return l, r
-end
 
 local function dressFrame(frame)
-  local art = frame.wpeArt
-  if not (Theme:Skinned() and art) then return end
-  if art.NineSlice then art.NineSlice:Hide() end
-  if art.TitleContainer then art.TitleContainer:Hide() end
-  local dl, dr = -ART_L, ART_R
-  local l, r = artSides(frame)
-  if l and r then
-    dl = math.min(dl, l - frame:GetLeft())
-    dr = math.max(dr, r - frame:GetRight())
-  end
-  art:ClearAllPoints()
-  ns.SnapPoint(art, "TOPLEFT", frame, "TOPLEFT", dl, ART_T)
-  ns.SnapPoint(art, "BOTTOMRIGHT", frame, "BOTTOMRIGHT", dr, -ART_B)
-  ns.PixelBackdrop(art)
-  if not art.SetBackdrop then return end
-  art:SetBackdropColor(0, 0, 0, 0)
-  art:SetBackdropBorderColor(Theme:C("stroke"))
-  if frame.SetBackdrop then frame:SetBackdrop(nil) end
+  if not Theme:Skinned() then return end
+  ns.PixelBackdrop(frame)
+  if not frame.SetBackdrop then return end
+  local r, g, b = Theme:C("bg")
+  frame:SetBackdropColor(r, g, b, 1)
+  frame:SetBackdropBorderColor(Theme:C("stroke"))
 end
 
 local function placeClose(close)
@@ -416,7 +383,6 @@ function Skin:Apply()
   if frame.NineSlice then frame.NineSlice:SetAlpha(0) end
   mute(frame.Emblem)
   if frame.PortraitContainer then frame.PortraitContainer:Hide() end
-  Theme:WindowArt(frame)
   Theme:Panel(frame, "bg", "stroke")
   dressFrame(frame)
   if frame.SetToplevel then frame:SetToplevel(true) end
