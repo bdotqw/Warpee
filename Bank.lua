@@ -197,7 +197,7 @@ function View:Build()
   close:SetScript("OnClick", function() f:Hide() end)
   self.closeBtn = close
 
-  local gear = ns.CreateGlyphButton(f, "|TInterface\\Buttons\\UI-OptionsButton:15:15:0:0|t", 26)
+  local gear = ns.CreateGlyphButton(f, "|TInterface\\Buttons\\UI-OptionsButton:13:13:0:0|t", 26)
   gear:SetPoint("TOPRIGHT", close, "TOPLEFT", -4, 0)
   gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
   addTip(gear, "Settings", nil, "top")
