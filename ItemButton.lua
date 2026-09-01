@@ -187,8 +187,17 @@ local function suppress(t)
   t:SetAlpha(0)
   t:Hide()
   hooksecurefunc(t, "Show", function(s) s:SetAlpha(0); s:Hide() end)
+  hooksecurefunc(t, "SetAlpha", function(s, a) if a and a ~= 0 then s:SetAlpha(0) end end)
   if t.SetShown then
     hooksecurefunc(t, "SetShown", function(s, on) if on then s:SetAlpha(0); s:Hide() end end)
+  end
+end
+
+local function clearAnim(ag)
+  if not ag.GetAnimations then return end
+  for _, a in ipairs({ ag:GetAnimations() }) do
+    local t = a.GetTarget and a:GetTarget()
+    if t and t.SetAlpha then t:SetAlpha(0) end
   end
 end
 
@@ -196,7 +205,10 @@ local function muteAnim(ag)
   if not ag or muted[ag] then return end
   muted[ag] = true
   if ag.IsPlaying and ag:IsPlaying() then ag:Stop() end
-  hooksecurefunc(ag, "Play", function(s) s:Stop() end)
+  hooksecurefunc(ag, "Play", function(s)
+    s:Stop()
+    pcall(clearAnim, s)
+  end)
 end
 
 function ns.SetSlotBorder(b, r, g, bl, a)
