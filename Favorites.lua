@@ -58,49 +58,16 @@ local function itemIcon(id)
   return (GetItemIcon and GetItemIcon(id)) or 134400
 end
 
-local function ilvlOf(link)
-  if not link then return nil end
-  local kl = link:match("keystone:[^:]*:[^:]*:(%d+)")
-  if kl then return tonumber(kl) end
-  local _, _, _, _, _, classID = C_Item.GetItemInfoInstant(link)
-  if classID ~= Enum.ItemClass.Armor and classID ~= Enum.ItemClass.Weapon then return nil end
-  local get = C_Item.GetDetailedItemLevelInfo or GetDetailedItemLevelInfo
-  return get and get(link) or nil
-end
-
 local waiting = false
+local deferred = false
 
-local function bindSlot(b, bag, slot)
-  local want = bag .. " " .. slot
-  if b.favBind == want then return end
-  if InCombatLockdown() then
-    b.favPend = want
-    waiting = true
-    return
-  end
-  b.favBind, b.favPend = want, nil
-  if not b.secure then return end
-  b:SetAttribute("type2", "item")
-  b:SetAttribute("item2", want)
-  b:SetAttribute("ctrl-type2", "")
-end
-
-local function paintSlot(b, bag, slot)
-  if b.favBag ~= bag or b.favSlot ~= slot then
-    b.favBag, b.favSlot, b.bagID = bag, slot, bag
-    b:SetID(slot)
-    b.link = nil
-  end
-  local info = C_Container.GetContainerItemInfo(bag, slot)
-  local d
-  if info then
-    d = b.favData or {}
-    b.favData = d
-    d.l, d.c, d.q, d.b = info.hyperlink, info.stackCount, info.quality, info.isBound
-    d.v = ilvlOf(info.hyperlink)
-  end
-  ns.PaintVaultButton(b, d, bag)
-  ns.UpdateCooldown(b)
+local function later()
+  if deferred then return end
+  deferred = true
+  C_Timer.After(0, function()
+    deferred = false
+    Fav:Refresh()
+  end)
 end
 
 local function makeGhost(parent)
@@ -159,7 +126,7 @@ end
 
 function Fav:Set(index, id)
   self:List()[index] = id or nil
-  self:Refresh()
+  later()
 end
 
 function Fav:PinFromCursor(index)
@@ -191,18 +158,7 @@ end
 function Fav:Flush()
   if not waiting or InCombatLockdown() then return end
   waiting = false
-  for i = 1, (self.max or 0) do
-    local b = self.slots[i]
-    if b and b.favPend then
-      local want = b.favPend
-      b.favBind, b.favPend = want, nil
-      if b.secure then
-        b:SetAttribute("type2", "item")
-        b:SetAttribute("item2", want)
-        b:SetAttribute("ctrl-type2", "")
-      end
-    end
-  end
+  self:Refresh()
 end
 
 function Fav:Hide()
@@ -255,15 +211,27 @@ function Fav:Apply(bags, x, top, size, gap)
     local bag, slot = locate(id)
     local px = x + (i - 1) * (size + gap)
     local b, g = self.slots[i], self.ghosts[i]
-    if bag then
-      if not b then b = ns.CreateFavButton(frame); self.slots[i] = b end
+    if bag and not b and not InCombatLockdown() then
+      b = ns.CreateItemButton(frame, bag, slot)
+      self.slots[i] = b
+    end
+    if bag and b then
       local h = b.holder
+      if b.favBag ~= bag or b.favSlot ~= slot then
+        if InCombatLockdown() then
+          waiting = true
+        else
+          b.favBag, b.favSlot, b.bagID = bag, slot, bag
+          h:SetID(bag)
+          b:SetID(slot)
+          b.link = nil
+        end
+      end
       ns.SnapSize(h, size, size)
       h:ClearAllPoints()
       ns.SnapPoint(h, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
       h:Show(); b:Show()
-      bindSlot(b, bag, slot)
-      paintSlot(b, bag, slot)
+      ns.UpdateItemButton(b)
       if g then g:Hide() end
     else
       if not g then g = makeGhost(frame); self.ghosts[i] = g end
