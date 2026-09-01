@@ -3,8 +3,7 @@ local Theme = ns.Theme
 
 local Fav = {}
 ns.Fav = Fav
-Fav.buttons = {}
-Fav.pending = {}
+Fav.slots, Fav.ghosts, Fav.catchers = {}, {}, {}
 
 local LABEL_H, LABEL_GAP = 13, 4
 
@@ -31,30 +30,6 @@ function Fav:List()
   return WarpeeDB.favorites[k]
 end
 
-local function itemIcon(id)
-  if C_Item and C_Item.GetItemIconByID then
-    local ok, tex = pcall(C_Item.GetItemIconByID, id)
-    if ok and tex then return tex end
-  end
-  return (GetItemIcon and GetItemIcon(id)) or 134400
-end
-
-local function itemCount(id)
-  if C_Item and C_Item.GetItemCount then
-    local ok, n = pcall(C_Item.GetItemCount, id)
-    if ok and n then return n end
-  end
-  return (GetItemCount and GetItemCount(id)) or 0
-end
-
-local function itemCooldown(id)
-  if C_Item and C_Item.GetItemCooldown then
-    local ok, s, d = pcall(C_Item.GetItemCooldown, id)
-    if ok then return s, d end
-  end
-  if GetItemCooldown then return GetItemCooldown(id) end
-end
-
 local locBag, locSlot, locsDirty = {}, {}, true
 
 local function scanBag(bag)
@@ -65,6 +40,7 @@ local function scanBag(bag)
 end
 
 local function locate(id)
+  if not id then return nil end
   if locsDirty then
     wipe(locBag); wipe(locSlot)
     for _, bag in ipairs(ns.playerBags) do scanBag(bag) end
@@ -74,82 +50,40 @@ local function locate(id)
   return locBag[id], locSlot[id]
 end
 
-local function applyAttr(b, id)
-  if InCombatLockdown and InCombatLockdown() then
-    Fav.pending[b] = id or false
-    return
+local function itemIcon(id)
+  if C_Item and C_Item.GetItemIconByID then
+    local ok, tex = pcall(C_Item.GetItemIconByID, id)
+    if ok and tex then return tex end
   end
-  Fav.pending[b] = nil
+  return (GetItemIcon and GetItemIcon(id)) or 134400
+end
+
+local function makeGhost(parent)
+  local g = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+  ns.PixelBackdrop(g)
+  g:SetBackdropColor(Theme:C("slot"))
+  g:SetBackdropBorderColor(Theme:C("emptyLine"))
+  Theme:Track(g, function(s)
+    s:SetBackdropColor(Theme:C("slot"))
+    s:SetBackdropBorderColor(Theme:C("emptyLine"))
+  end)
+  local ic = g:CreateTexture(nil, "ARTWORK")
+  ic:SetPoint("TOPLEFT", 1, -1)
+  ic:SetPoint("BOTTOMRIGHT", -1, 1)
+  ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+  ic:SetDesaturated(true)
+  g.icon = ic
+  local plus = Theme:Label(g, 13, "faint")
+  plus:SetPoint("CENTER")
+  plus:SetText("+")
+  g.plus = plus
+  return g
+end
+
+local function tipFor(f, id)
+  GameTooltip:SetOwner(f, "ANCHOR_RIGHT")
   if id then
-    local bag, slot = locate(id)
-    if bag then
-      b:SetAttribute("type", "macro")
-      b:SetAttribute("macrotext", "/use " .. bag .. " " .. slot)
-      b:SetAttribute("item", nil)
-    else
-      b:SetAttribute("type", "item")
-      b:SetAttribute("item", "item:" .. id)
-      b:SetAttribute("macrotext", nil)
-    end
-    b:SetAttribute("ctrl-type2", "none")
-  else
-    b:SetAttribute("type", nil)
-    b:SetAttribute("macrotext", nil)
-    b:SetAttribute("item", nil)
-    b:SetAttribute("ctrl-type2", nil)
-  end
-end
-
-function Fav:Paint(b)
-  if not b then return end
-  local id = self:List()[b.favIndex]
-  b.itemID = id
-  applyAttr(b, id)
-  local cf = math.max(9, math.floor((b:GetHeight() or 30) * 0.34))
-  b.count:SetFont(ns.Fonts:Current(), cf, "OUTLINE")
-  if id then
-    b.icon:SetTexture(itemIcon(id))
-    b.icon:Show()
-    b.plus:Hide()
-    local n = itemCount(id)
-    b.count:SetText((n and n > 1) and n or "")
-    b.icon:SetDesaturated((n or 0) == 0)
-    local start, dur = itemCooldown(id)
-    b.cd:SetCooldown(start or 0, dur or 0)
-  else
-    b.icon:Hide()
-    b.count:SetText("")
-    b.plus:Show()
-    b.cd:SetCooldown(0, 0)
-  end
-end
-
-function Fav:Set(index, id)
-  local list = self:List()
-  list[index] = id or nil
-  self:Paint(self.buttons[index])
-end
-
-function Fav:PinFromCursor(index)
-  local kind, a, link = GetCursorInfo()
-  if kind ~= "item" then return end
-  local id = tonumber(a)
-  if not id and link then id = tonumber(link:match("item:(%d+)")) end
-  if not id then return end
-  self:Set(index, id)
-  ClearCursor()
-end
-
-function Fav:RefreshAll()
-  for _, b in ipairs(self.buttons) do
-    if b:IsShown() then self:Paint(b) end
-  end
-end
-
-local function tipFor(b)
-  GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
-  if b.itemID then
-    GameTooltip:SetItemByID(b.itemID)
+    GameTooltip:SetItemByID(id)
     GameTooltip:AddLine(ns.L["Ctrl + right click clears the slot"], 0.6, 0.6, 0.6)
   else
     GameTooltip:SetText(ns.L["Favourites"])
@@ -158,81 +92,80 @@ local function tipFor(b)
   GameTooltip:Show()
 end
 
-local function makeButton(parent, index)
-  local b = CreateFrame("Button", "WarpeeFavButton" .. index, parent,
-    "SecureActionButtonTemplate,BackdropTemplate")
-  b.favIndex = index
-  b:RegisterForClicks("AnyUp")
-  ns.PixelBackdrop(b)
-  b:SetBackdropColor(Theme:C("slot"))
-  b:SetBackdropBorderColor(Theme:C("stroke"))
-  Theme:Track(b, function(s)
-    s:SetBackdropColor(Theme:C("slot"))
-    s:SetBackdropBorderColor(Theme:C(s.wpeHover and "accent" or "stroke"))
-  end)
-
-  local ic = b:CreateTexture(nil, "ARTWORK")
-  ic:SetPoint("TOPLEFT", 1, -1)
-  ic:SetPoint("BOTTOMRIGHT", -1, 1)
-  ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-  b.icon = ic
-
-  local cd = CreateFrame("Cooldown", nil, b, "CooldownFrameTemplate")
-  cd:SetAllPoints(ic)
-  cd:SetDrawEdge(false)
-  cd:EnableMouse(false)
-  b.cd = cd
-
-  local cnt = Theme:Label(b, 12, "text", "OUTLINE")
-  cnt:SetPoint("BOTTOMRIGHT", -2, 2)
-  b.count = cnt
-
-  local plus = Theme:Label(b, 13, "faint")
-  plus:SetPoint("CENTER")
-  plus:SetText("+")
-  b.plus = plus
-
-  b:SetScript("OnEnter", function(s)
-    s.wpeHover = true
-    s:SetBackdropBorderColor(Theme:C("accent"))
-    tipFor(s)
-  end)
-  b:SetScript("OnLeave", function(s)
-    s.wpeHover = nil
-    s:SetBackdropBorderColor(Theme:C("stroke"))
-    GameTooltip:Hide()
-  end)
-  b:SetScript("OnReceiveDrag", function(s) Fav:PinFromCursor(s.favIndex) end)
-  b:SetScript("PreClick", function(s, button)
+local function makeCatcher(parent, index)
+  local c = CreateFrame("Button", nil, parent)
+  c.favIndex = index
+  c:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  c:SetScript("OnReceiveDrag", function(s) Fav:PinFromCursor(s.favIndex) end)
+  c:SetScript("OnClick", function(s, button)
     if GetCursorInfo() then
       Fav:PinFromCursor(s.favIndex)
-      if not (InCombatLockdown and InCombatLockdown()) then
-        s:SetAttribute("type", nil)
-        s.wpeSkip = true
-      end
       return
     end
-    if button == "RightButton" and IsControlKeyDown()
-       and not (IsShiftKeyDown() or IsAltKeyDown()) then
+    if button == "RightButton" and IsControlKeyDown() then
       Fav:Set(s.favIndex, nil)
-      tipFor(s)
+      tipFor(s, nil)
     end
   end)
-  b:SetScript("PostClick", function(s)
-    if s.wpeSkip then
-      s.wpeSkip = nil
-      Fav:Paint(s)
-    end
-  end)
-  return b
+  c:SetScript("OnEnter", function(s) tipFor(s, Fav:List()[s.favIndex]) end)
+  c:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  return c
+end
+
+function Fav:Set(index, id)
+  self:List()[index] = id or nil
+  self:Refresh()
+end
+
+function Fav:PinFromCursor(index)
+  local kind, a, link = GetCursorInfo()
+  if kind ~= "item" then return end
+  local id = tonumber(a)
+  if not id and link then id = tonumber(link:match("item:(%d+)")) end
+  if not id then return end
+  ClearCursor()
+  self:Set(index, id)
+end
+
+function Fav:SetCatch()
+  local on = (GetCursorInfo() and true) or IsControlKeyDown()
+  local list = self:List()
+  for i = 1, (self.max or 0) do
+    local c = self.catchers[i]
+    if c and c:IsShown() then c:EnableMouse(on or not locate(list[i])) end
+  end
+end
+
+function Fav:Cooldowns()
+  for i = 1, (self.max or 0) do
+    local b = self.slots[i]
+    if b and b.holder:IsShown() and b.link then ns.UpdateCooldown(b) end
+  end
+end
+
+function Fav:Hide()
+  if self.label then self.label:Hide() end
+  for i = 1, (self.max or 0) do
+    local b, g, c = self.slots[i], self.ghosts[i], self.catchers[i]
+    if b then b.holder:Hide() end
+    if g then g:Hide() end
+    if c then c:Hide() end
+  end
+end
+
+function Fav:Refresh()
+  local a = self.args
+  if a and a.bags and a.bags.frame and a.bags.frame:IsShown() then
+    self:Apply(a.bags, a.x, a.top, a.size, a.gap)
+  end
 end
 
 function Fav:Apply(bags, x, top, size, gap)
   if not (bags and bags.frame) then return 0 end
   local frame = bags.frame
+  self.args = { bags = bags, x = x, top = top, size = size, gap = gap }
   if not self:Enabled() then
-    if self.label then self.label:Hide() end
-    for _, b in ipairs(self.buttons) do b:Hide() end
+    self:Hide()
     return 0
   end
   if not self.label then
@@ -248,16 +181,59 @@ function Fav:Apply(bags, x, top, size, gap)
 
   local n = math.min(self:Count(), bags.cols or 14)
   local rowY = top + LABEL_H + LABEL_GAP
+  local list = self:List()
+  local catch = (GetCursorInfo() and true) or IsControlKeyDown()
+  local last = math.max(self.max or 0, n)
+  self.max = last
   for i = 1, n do
-    local b = self.buttons[i]
-    if not b then b = makeButton(frame, i); self.buttons[i] = b end
-    ns.SnapBox(b, size, size)
-    b:ClearAllPoints()
-    ns.SnapPoint(b, "TOPLEFT", frame, "TOPLEFT", x + (i - 1) * (size + gap), -rowY)
-    b:Show()
-    self:Paint(b)
+    local id = list[i]
+    local bag, slot = locate(id)
+    local px = x + (i - 1) * (size + gap)
+    local b, g = self.slots[i], self.ghosts[i]
+    if bag then
+      if not b then b = ns.CreateItemButton(frame, bag, slot); self.slots[i] = b end
+      local h = b.holder
+      if b.favBag ~= bag or b.favSlot ~= slot then
+        b.favBag, b.favSlot = bag, slot
+        h:SetID(bag)
+        b:SetID(slot)
+        b:SetAttribute("bagid", bag)
+        b.link = nil
+      end
+      ns.SnapSize(h, size, size)
+      h:ClearAllPoints()
+      ns.SnapPoint(h, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
+      h:Show(); b:Show()
+      ns.UpdateItemButton(b)
+      if g then g:Hide() end
+    else
+      if not g then g = makeGhost(frame); self.ghosts[i] = g end
+      ns.SnapBox(g, size, size)
+      g:ClearAllPoints()
+      ns.SnapPoint(g, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
+      if id then
+        g.icon:SetTexture(itemIcon(id)); g.icon:Show(); g.plus:Hide()
+      else
+        g.icon:Hide(); g.plus:Show()
+      end
+      g:Show()
+      if b then b.holder:Hide(); b.favBag = nil end
+    end
+    local c = self.catchers[i]
+    if not c then c = makeCatcher(frame, i); self.catchers[i] = c end
+    ns.SnapBox(c, size, size)
+    c:ClearAllPoints()
+    ns.SnapPoint(c, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
+    c:SetFrameLevel(frame:GetFrameLevel() + 30)
+    c:EnableMouse(catch or not bag)
+    c:Show()
   end
-  for i = n + 1, #self.buttons do self.buttons[i]:Hide() end
+  for i = n + 1, last do
+    local b, g, c = self.slots[i], self.ghosts[i], self.catchers[i]
+    if b then b.holder:Hide() end
+    if g then g:Hide() end
+    if c then c:Hide() end
+  end
   return LABEL_H + LABEL_GAP + size + 6
 end
 
@@ -265,11 +241,21 @@ local ev = CreateFrame("Frame")
 ev:RegisterEvent("BAG_UPDATE_DELAYED")
 ev:RegisterEvent("BAG_UPDATE_COOLDOWN")
 ev:RegisterEvent("SPELL_UPDATE_COOLDOWN")
-ev:RegisterEvent("PLAYER_REGEN_ENABLED")
-ev:SetScript("OnEvent", function(_, event)
-  locsDirty = true
-  if event == "PLAYER_REGEN_ENABLED" then
-    for b, id in pairs(Fav.pending) do applyAttr(b, id or nil) end
+ev:RegisterEvent("CURSOR_CHANGED")
+ev:RegisterEvent("MODIFIER_STATE_CHANGED")
+ev:SetScript("OnEvent", function(_, event, arg1)
+  if event == "MODIFIER_STATE_CHANGED" then
+    if arg1 and arg1:find("CTRL", 1, true) then Fav:SetCatch() end
+    return
   end
-  Fav:RefreshAll()
+  if event == "CURSOR_CHANGED" then
+    Fav:SetCatch()
+    return
+  end
+  if event == "BAG_UPDATE_DELAYED" then
+    locsDirty = true
+    Fav:Refresh()
+    return
+  end
+  Fav:Cooldowns()
 end)
