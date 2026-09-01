@@ -470,6 +470,20 @@ function Skin:PaintSlots()
   end
 end
 
+function Skin:Restyle()
+  local frame = _G.GuildBankFrame
+  if not (self.applied and frame) then return end
+  for i = 1, COLUMNS do
+    local col = frame["Column" .. i] or _G["GuildBankColumn" .. i]
+    if col then
+      for s = 1, SLOTS do
+        local b = col["Button" .. s]
+        if b and b.bg then slotBg(b) end
+      end
+    end
+  end
+end
+
 function Skin:Refresh()
   if not (self.applied and ready()) then return end
   local frame = _G.GuildBankFrame

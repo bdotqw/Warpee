@@ -22,6 +22,7 @@ local CONTENT_W = WIN_W - PAD * 2 - SCROLL_W - 6
 local function relayout()
   if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
   if ns.Bank and ns.Bank.Refresh then ns.Bank:Refresh() end
+  if ns.GuildBankSkin and ns.GuildBankSkin.Restyle then ns.GuildBankSkin:Restyle() end
 end
 
 local function field(name)
