@@ -98,7 +98,7 @@ local function tipFor(f, id)
     GameTooltip:SetItemByID(id)
     GameTooltip:AddLine(ns.L["Ctrl + right click clears the slot"], 0.6, 0.6, 0.6)
   else
-    GameTooltip:SetText(ns.L["Favourites"])
+    GameTooltip:SetText(ns.L["Favorites"])
     GameTooltip:AddLine(ns.L["Drag an item here to keep it one click away"], 0.6, 0.6, 0.6, true)
   end
   GameTooltip:Show()
@@ -189,7 +189,7 @@ function Fav:Apply(bags, x, top, size, gap)
   if not self.label then
     local fs = Theme:Label(frame, 11, "dim")
     fs:SetJustifyH("LEFT")
-    ns.LocalText(fs, "Favourites")
+    ns.LocalText(fs, "Favorites")
     self.label = fs
   end
   self.label:SetFont(bags.fontPath or ns.Fonts:Current(), 11, "")

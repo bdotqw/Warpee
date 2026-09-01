@@ -183,7 +183,7 @@ local RU = {
     "Штатная графика заданий: восклицательный знак для непринятых заданий, рамка для предметов заданий.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Свечение цвета качества на предметах, которые игра ещё считает новыми.",
-  ["Gold coin marker on poor-quality (grey) items."] = "Значок монеты на предметах плохого качества (серых).",
+  ["Gold coin marker on poor-quality (gray) items."] = "Значок монеты на предметах плохого качества (серых).",
   ["Thickness of the quality border."] = "Толщина рамки качества.",
   ["Tint the number with the item's rarity color."] = "Окрашивать число в цвет качества предмета.",
   ["Which corner of the slot the number sits in."] = "В каком углу ячейки стоит число.",
@@ -218,7 +218,7 @@ local RU = {
     "Запускается само при открытии окна торговца, без нажатия кнопок.",
   ["Everything below is sold by the coin in the bags header, only when you press it."] =
     "Всё, что ниже, продаётся кнопкой-монетой в шапке сумок и только по нажатию.",
-  ["Sell every grey item, whatever its item level."] =
+  ["Sell every gray item, whatever its item level."] =
     "Продавать любой серый предмет независимо от уровня.",
   ["Repair at merchants who offer it. Others are left alone, with no message."] =
     "Ремонт у торговцев, которые его предлагают. У остальных ничего не происходит и сообщений нет.",
@@ -299,8 +299,8 @@ local RU = {
   ["%d  (bags)"] = "%d  (в сумках)",
   ["loaded"] = "загружен",
   ["columns"] = "ячеек в ряду",
-  ["Favourites"] = "Избранное",
-  ["Favourite slots"] = "Ячейки избранного",
+  ["Favorites"] = "Избранное",
+  ["Favorite slots"] = "Ячейки избранного",
   ["How many slots"] = "Сколько ячеек",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + right click clears a slot."] =
     "Ряд ячеек над сеткой, всегда на виду. Перетащите предмет в ячейку, чтобы держать его под рукой; Ctrl + правый щелчок освобождает ячейку.",
@@ -428,7 +428,7 @@ local DE = {
     "Blizzards Questgrafik: ein Ausrufezeichen für nicht angenommene Quests, ein Rahmen für Questgegenstände.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Leuchten in der Qualitätsfarbe auf Gegenständen, die das Spiel noch als neu zählt.",
-  ["Gold coin marker on poor-quality (grey) items."] =
+  ["Gold coin marker on poor-quality (gray) items."] =
     "Goldmünze auf Gegenständen schlechter Qualität (grau).",
   ["Thickness of the quality border."] = "Stärke des Qualitätsrahmens.",
   ["Tint the number with the item's rarity color."] =
@@ -466,7 +466,7 @@ local DE = {
     "Läuft von selbst, sobald das Händlerfenster aufgeht, ohne Klick von Euch.",
   ["Everything below is sold by the coin in the bags header, only when you press it."] =
     "Alles Folgende wird über die Münze in der Kopfzeile der Taschen verkauft, und nur wenn Ihr sie drückt.",
-  ["Sell every grey item, whatever its item level."] =
+  ["Sell every gray item, whatever its item level."] =
     "Verkauft jeden grauen Gegenstand, unabhängig von der Gegenstandsstufe.",
   ["Repair at merchants who offer it. Others are left alone, with no message."] =
     "Repariert bei Händlern, die Reparaturen anbieten. Bei allen anderen passiert nichts und es gibt keine Meldung.",
@@ -547,8 +547,8 @@ local DE = {
   ["%d  (bags)"] = "%d  (Taschen)",
   ["loaded"] = "geladen",
   ["columns"] = "Plätze pro Reihe",
-  ["Favourites"] = "Favoriten",
-  ["Favourite slots"] = "Favoritenplätze",
+  ["Favorites"] = "Favoriten",
+  ["Favorite slots"] = "Favoritenplätze",
   ["How many slots"] = "Anzahl der Plätze",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + right click clears a slot."] =
     "Eine Reihe Plätze über dem Raster, immer im Blick. Zieht einen Gegenstand darauf, um ihn mit einem Klick zu nutzen; Strg + Rechtsklick leert einen Platz.",
