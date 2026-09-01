@@ -74,12 +74,18 @@ local function textOf(b)
   return nil
 end
 
+local function steady(b)
+  if b.SetPushedTextOffset then b:SetPushedTextOffset(0, 0) end
+  if b.SetPushedTexture then b:SetPushedTexture(nil) end
+end
+
 local function skinButton(b, size)
   if not b or b.wpeSkin then return end
   b.wpeSkin = true
   local hl = b.GetHighlightTexture and b:GetHighlightTexture()
   muteArt(b, hl)
   muteStates(b)
+  steady(b)
   if hl then
     hl:SetColorTexture(Theme:C("accent"))
     hl:SetAlpha(0.22)
@@ -131,6 +137,9 @@ local function skinSlot(b)
     ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
   end
   if not box(b, "slot", "emptyLine") then return end
+  b.bg = b:CreateTexture(nil, "BACKGROUND", nil, -1)
+  ns.SetInside(b.bg, b, 1)
+  ns.PaintSlotBg(b)
   local ib = b.IconBorder
   if ib then
     ib:SetAlpha(0)
@@ -145,6 +154,7 @@ local function skinSlot(b)
   end
   Theme:Track(b, function(s)
     s:SetBackdropColor(Theme:C("slot"))
+    ns.PaintSlotBg(s)
     local q = s.wpeQ
     if q then
       s:SetBackdropBorderColor(q[1], q[2], q[3], 1)
@@ -198,6 +208,12 @@ local function skinPanelTab(t, index)
   local hl = t.GetHighlightTexture and t:GetHighlightTexture()
   muteArt(t, hl)
   muteStates(t)
+  steady(t)
+  local fs = textOf(t)
+  if fs then
+    fs:ClearAllPoints()
+    fs:SetPoint("CENTER", t, "CENTER", 0, 0)
+  end
   if hl then
     hl:SetColorTexture(Theme:C("accent"))
     hl:SetAlpha(0.22)
@@ -239,11 +255,21 @@ local function skinScroll(sb)
   end
 end
 
+local function fitHeight(frame)
+  local want = Theme:TopInset()
+  local had = frame.wpeAddH or 0
+  if want == had then return end
+  local h = frame:GetHeight() or 0
+  if h <= 0 then return end
+  frame.wpeAddH = want
+  frame:SetHeight(h - had + want)
+end
+
 local function placeClose(close)
   local host = close.wpeHost
   if not host then return end
   close:ClearAllPoints()
-  ns.SnapPoint(close, "TOPRIGHT", host, "TOPRIGHT", -6, -(5 + Theme:TopInset()))
+  ns.SnapPoint(close, "TOPRIGHT", host, "TOPRIGHT", -6, -5)
 end
 
 local function skinClose(close, host)
@@ -306,6 +332,9 @@ function Skin:Apply()
   if frame.PortraitContainer then frame.PortraitContainer:Hide() end
   Theme:WindowArt(frame)
   Theme:Panel(frame, "bg", "stroke")
+  if frame.SetToplevel then frame:SetToplevel(true) end
+  frame:HookScript("OnMouseDown", function(s) Theme:Raise(s) end)
+  fitHeight(frame)
 
   label((frame.TitleContainer and frame.TitleContainer.TitleText)
         or _G.GuildBankFrameTitleText, 15)
@@ -358,6 +387,8 @@ end
 
 function Skin:Refresh()
   if not (self.applied and ready()) then return end
+  local frame = _G.GuildBankFrame
+  if frame then fitHeight(frame) end
   local cur = (GetCurrentGuildBankTab and GetCurrentGuildBankTab()) or 0
   for _, b in ipairs(self.tabs) do
     b.wpeLit = (b.wpeIndex == cur) or nil
