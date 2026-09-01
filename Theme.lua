@@ -805,21 +805,41 @@ local function pairDiff(fs, a, b)
   return math.abs(x - y) > 0.5
 end
 
+local function judgeCyrillic(path)
+  cyrProbe = freshString()
+  if not applied(cyrProbe, path, 24) then return nil end
+  local up = pairDiff(cyrProbe, "Ш", "Г")
+  local low = pairDiff(cyrProbe, "ш", "г")
+  local mix = pairDiff(cyrProbe, "Ё", "ъ")
+  if up == nil or low == nil or mix == nil then return nil end
+  return (up and low and mix) and true or false
+end
+
+local judging = {}
+
 local function hasCyrillic(path)
   if not path then return false end
   local declared = DECLARED[path]
   if declared ~= nil then return declared end
   local known = cyrOK[path]
   if known ~= nil then return known end
-  cyrProbe = freshString()
-  if not applied(cyrProbe, path, 24) then cyrOK[path] = false; return false end
-  local up = pairDiff(cyrProbe, "Ш", "Г")
-  local low = pairDiff(cyrProbe, "ш", "г")
-  local mix = pairDiff(cyrProbe, "Ё", "ъ")
-  if up == nil or low == nil or mix == nil then return false end
-  local ok = (up and low and mix) and true or false
-  cyrOK[path] = ok
-  return ok
+  local now = judgeCyrillic(path)
+  if now ~= nil then
+    cyrOK[path] = now
+    return now
+  end
+  if not judging[path] then
+    judging[path] = true
+    C_Timer.After(0, function()
+      judging[path] = nil
+      local late = judgeCyrillic(path)
+      if late ~= nil then
+        cyrOK[path] = late
+        if ns.Fonts.Refresh then ns.Fonts:Refresh() end
+      end
+    end)
+  end
+  return true
 end
 
 local function cyrillicFont()
@@ -879,12 +899,20 @@ function ns.Fonts:Usable(name)
     ok = probeFont(p) and true or false
     pathOK[p] = ok
   end
-  return ok
+  if not ok then return false end
+  if self:NeedsCyrillic() and not hasCyrillic(p) then return false end
+  return true
+end
+
+function ns.Fonts:Refresh()
+  local name = (ns.Bags and ns.Bags.font) or (WarpeeDB and WarpeeDB.font) or self.DEFAULT
+  self.active = self:Path(name)
+  self:Reapply()
+  return self.active
 end
 
 function ns.Fonts:Current()
-  local name = (ns.Bags and ns.Bags.font) or (WarpeeDB and WarpeeDB.font) or self.DEFAULT
-  return self:Path(name)
+  return self.active or self:Refresh()
 end
 
 local objects = {}

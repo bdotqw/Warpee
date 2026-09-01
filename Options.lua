@@ -161,7 +161,7 @@ end
 ns.CloseDropdown = closeDropdown
 
 local function dropdownFont()
-  return ns.Fonts:Path((Bags and Bags.font) or ns.Fonts.DEFAULT)
+  return ns.Fonts:Current()
 end
 
 local function makeMenuRow(parent, index, rowH)
@@ -758,7 +758,7 @@ function factories.chars(parent, spec)
   row.Rebuild = function()
     local list = (ns.Vault and ns.Vault:Chars(true)) or {}
     if #list == 0 then row.delMode = nil end
-    local path = ns.Fonts:Path((Bags and Bags.font) or ns.Fonts.DEFAULT)
+    local path = ns.Fonts:Current()
     local colW = math.floor((CONTENT_W - (CHAR_COLS - 1) * 8) / CHAR_COLS)
     del.Text:SetFont(path, math.max(7, BASE_FONT - 1), "")
     del:SetWidth(math.max(104, math.ceil(del.Text:GetStringWidth()) + 26))
@@ -1433,7 +1433,7 @@ function Options:Select(index)
 end
 
 function Options:ApplyFont()
-  local path = ns.Fonts:Path((Bags and Bags.font) or ns.Fonts.DEFAULT)
+  local path = ns.Fonts:Current()
   for _, e in ipairs(fonts) do
     e.fs:SetFont(path, math.max(7, BASE_FONT + e.delta), "")
   end

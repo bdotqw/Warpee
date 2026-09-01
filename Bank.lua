@@ -617,7 +617,7 @@ function View:Run(st, repaint, tag)
 end
 
 function View:Fonts()
-  local path = ns.Fonts:Path(Bags.font or ns.Fonts.DEFAULT)
+  local path = ns.Fonts:Current()
   local base = self:FontSize()
   self.fontPath, self.fontBase = path, base
   local function put(fs, delta)

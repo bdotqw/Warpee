@@ -16,7 +16,7 @@ local function classLook(class)
 end
 
 local function fontPath()
-  return ns.Fonts:Path((ns.Bags and ns.Bags.font) or ns.Fonts.DEFAULT)
+  return ns.Fonts:Current()
 end
 
 function Picker:Build()
