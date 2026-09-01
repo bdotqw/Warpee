@@ -218,9 +218,10 @@ function Picker:UpdateHiddenBorder()
   local b = self.hideBtn
   if not b then return end
   if self.showHidden then
-    b:SetBackdropColor(Theme:C("panelHi"))
-    b:SetBackdropBorderColor(1, 0.82, 0.2, 1)
-    b.Text:SetTextColor(1, 0.82, 0.2)
+    local r, g, b2 = Theme:C("accent")
+    b:SetBackdropColor(r, g, b2, b:IsMouseOver() and 0.32 or 0.22)
+    b:SetBackdropBorderColor(Theme:C("accent"))
+    b.Text:SetTextColor(Theme:C("accentInk"))
   elseif b:IsMouseOver() then
     b:SetBackdropColor(Theme:C("panelHi"))
     b:SetBackdropBorderColor(Theme:C("accent"))
