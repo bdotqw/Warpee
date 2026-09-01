@@ -1,12 +1,12 @@
 # Warpee
 
-One window for bags, the bank, the Warband bank and the guild bank in World of Warcraft (Midnight, 12.x). No categories, fast, themed.
+Bag and bank windows for World of Warcraft (Midnight, 12.x). No categories, fast, themed.
 
 ## Features
 
-- **One window** for bags, the bank and the Warband bank, with no category sorting.
+- **Bags in one window**, the character bank and the Warband bank as tabs in a second one, with no category sorting.
 - **14 dark themes**, recolored on the fly, including a Class theme that follows your class color and a Blizzard theme that keeps the default look.
-- **Guild bank skin** matching the rest of the addon.
+- **Guild bank skin** matching the rest of the addon; its contents are not saved.
 - **Snapshots** of other characters' bags and bank, behind a shared switcher popup.
 - **Favorites row** — drag an item in to keep it one click away.
 - **Vendor sell** in one click: item level range in the options, grey junk, Legion relics, old consumables and raid tier tokens optional; BoE, warbound and socketed gear stay in the bags, and any item can be locked with alt-click.
@@ -15,11 +15,11 @@ One window for bags, the bank, the Warband bank and the guild bank in World of W
 - **Gold formats** (commas, dots, spaces, K/M) and a gold tooltip listing characters.
 - **X/Y bar** for placing windows exactly, plus a position lock.
 - **English, Russian and German** interface text.
-- **Eight bundled fonts**; anything registered with LibSharedMedia also shows up.
+- **Seven bundled fonts**; anything registered with LibSharedMedia also shows up.
 
 ## Install
 
-Copy the `Warpee` folder into `Interface\AddOns\`. Fonts ship in `Media\`.
+Copy the `Warpee` folder into `Interface\AddOns\`. Fonts ship in `Media\Fonts\`.
 
 ## Commands
 
@@ -33,4 +33,4 @@ LibStub, CallbackHandler-1.0, LibSharedMedia-3.0 — in `Libs/`, unmodified.
 
 ## Fonts
 
-Onest, Golos Text, Geologica, Rubik, Manrope, Archivo and Fira Sans Condensed are licensed under the SIL Open Font License; each ships with its license text in `Media\`.
+Onest, Golos Text, Geologica, Rubik, Manrope, Archivo and Fira Sans Condensed are licensed under the SIL Open Font License; the copyright and license notices are embedded in each font file.

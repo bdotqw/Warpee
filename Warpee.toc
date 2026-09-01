@@ -1,11 +1,11 @@
 ## Interface: 120100
 ## Title: Warpee
-## Notes: One window for bags, the bank, the Warband bank and the guild bank.
+## Notes: Bag and bank windows with search filters, cross-character snapshots and a themed guild bank.
 ## Author: disru
-## Version: 204
+## Version: 205
 ## SavedVariables: WarpeeDB
 ## X-Category: Inventory
-## IconTexture: 7549289
+## IconTexture: Interface\AddOns\Warpee\Media\Icons\logo.tga
 
 Libs\LibStub.lua
 Libs\CallbackHandler-1.0.lua
