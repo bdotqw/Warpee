@@ -86,8 +86,8 @@ function ns.RefreshBagDim()
   if Bags.frame and Bags.frame:IsShown() and Bags.ApplySearch then Bags:ApplySearch() end
 end
 
-local function addTip(btn, title, extra)
-  ns.AddTip(btn, title, "right", extra)
+local function addTip(btn, title, extra, side)
+  ns.AddTip(btn, title, side or "right", extra)
 end
 
 local MEMBER, OWNER = {}, {}
@@ -200,13 +200,13 @@ function View:Build()
   local gear = ns.CreateGlyphButton(f, "|TInterface\\Buttons\\UI-OptionsButton:15:15:0:0|t", 26)
   gear:SetPoint("TOPRIGHT", close, "TOPLEFT", -4, 0)
   gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
-  addTip(gear, "Settings")
+  addTip(gear, "Settings", nil, "top")
   self.gearBtn = gear
 
   local sort = ns.CreateGlyphButton(f, "", 26)
   sort:SetPoint("TOPRIGHT", gear, "TOPLEFT", -4, 0)
   sort:SetScript("OnClick", function() self:Sort() end)
-  addTip(sort, "Sort / clean up")
+  addTip(sort, "Sort / clean up", nil, "top")
   local sortIcon = sort:CreateTexture(nil, "ARTWORK")
   sortIcon:SetAtlas("auctionhouse-ui-sortarrow")
   sortIcon:SetSize(13, 15)
