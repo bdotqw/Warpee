@@ -344,6 +344,13 @@ local function fitBand(frame)
   for i = 1, COLUMNS do
     list[#list + 1] = frame["Column" .. i] or _G["GuildBankColumn" .. i]
   end
+  local title = (frame.TitleContainer and frame.TitleContainer.TitleText)
+                or _G.GuildBankFrameTitleText
+  for _, r in ipairs({ frame:GetRegions() }) do
+    if r ~= title and r.IsObjectType and r:IsObjectType("FontString") then
+      list[#list + 1] = r
+    end
+  end
   for _, f in ipairs(list) do
     if f and f.SetPoint and anchoredTo(f, frame) then shiftFrame(f, total) end
   end
