@@ -304,6 +304,17 @@ local function skinScroll(sb)
   end
 end
 
+local function dressFrame(frame)
+  local art = frame.wpeArt
+  if not (Theme:Skinned() and art) then return end
+  if art.NineSlice then art.NineSlice:Hide() end
+  if art.TitleContainer then art.TitleContainer:Hide() end
+  ns.PixelBackdrop(frame)
+  if not frame.SetBackdrop then return end
+  frame:SetBackdropColor(0, 0, 0, 0)
+  frame:SetBackdropBorderColor(Theme:C("stroke"))
+end
+
 local function placeClose(close)
   local host = close.wpeHost
   if not host then return end
@@ -373,7 +384,9 @@ function Skin:Apply()
   if frame.NineSlice then frame.NineSlice:SetAlpha(0) end
   mute(frame.Emblem)
   if frame.PortraitContainer then frame.PortraitContainer:Hide() end
+  Theme:WindowArt(frame)
   Theme:Panel(frame, "bg", "stroke")
+  dressFrame(frame)
   if frame.SetToplevel then frame:SetToplevel(true) end
   frame:HookScript("OnMouseDown", function(s) Theme:Raise(s) end)
 
@@ -464,6 +477,7 @@ end
 function Skin:Restyle()
   local frame = _G.GuildBankFrame
   if not (self.applied and frame) then return end
+  C_Timer.After(0, function() pcall(dressFrame, frame) end)
   for i = 1, COLUMNS do
     local col = frame["Column" .. i] or _G["GuildBankColumn" .. i]
     if col then
