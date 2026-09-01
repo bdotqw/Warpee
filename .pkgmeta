@@ -1,0 +1,11 @@
+package-as: Warpee
+
+enable-nolib-creation: no
+
+embedded-libraries:
+  - libstub
+  - callbackhandler
+  - libsharedmedia-3-0
+
+ignore:
+  - README.md
