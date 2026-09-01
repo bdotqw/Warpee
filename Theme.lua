@@ -866,7 +866,7 @@ local function hasCyrillic(path)
       end
     end)
   end
-  return true
+  return false
 end
 
 local function cyrillicFont()
@@ -919,6 +919,23 @@ function ns.Fonts:Usable(name)
   if not pathUsable(p) then return false end
   if self:NeedsCyrillic() and not hasCyrillic(p) then return false end
   return true
+end
+
+function ns.Fonts:Settle()
+  local db = WarpeeDB
+  if not db then return end
+  local wish = db.fontWish or db.font or self.DEFAULT
+  if self:Has(wish) and self:Usable(wish) then
+    db.font, db.fontWish = wish, nil
+  else
+    db.fontWish = wish
+    if not (self:Has(db.font) and self:Usable(db.font)) then
+      db.font = self.DEFAULT
+    end
+  end
+  if ns.Bags then ns.Bags.font = db.font end
+  self.active = nil
+  return db.font
 end
 
 function ns.Fonts:Refresh()
