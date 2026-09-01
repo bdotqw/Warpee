@@ -921,6 +921,14 @@ function ns.Fonts:Usable(name)
   return true
 end
 
+function ns.Fonts:Fallback()
+  if self:Usable(self.DEFAULT) then return self.DEFAULT end
+  for _, n in ipairs(self:List()) do
+    if self:Usable(n) then return n end
+  end
+  return self.DEFAULT
+end
+
 function ns.Fonts:Settle()
   local db = WarpeeDB
   if not db then return end
@@ -930,7 +938,7 @@ function ns.Fonts:Settle()
   else
     db.fontWish = wish
     if not (self:Has(db.font) and self:Usable(db.font)) then
-      db.font = self.DEFAULT
+      db.font = self:Fallback()
     end
   end
   if ns.Bags then ns.Bags.font = db.font end
