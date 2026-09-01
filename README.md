@@ -15,7 +15,7 @@ Bag and bank windows for World of Warcraft (Midnight, 12.x). No categories, fast
 - **Gold formats** (commas, dots, spaces, K/M) and a gold tooltip listing characters.
 - **X/Y bar** for placing windows exactly, plus a position lock.
 - **English, Russian and German** interface text.
-- **Four bundled fonts**; anything registered with LibSharedMedia also shows up.
+- **Six bundled fonts**, two of them bold; anything registered with LibSharedMedia also shows up.
 
 ## Install
 
@@ -33,4 +33,4 @@ LibStub, CallbackHandler-1.0, LibSharedMedia-3.0 — in `Libs/`, unmodified.
 
 ## Fonts
 
-Manrope, Rubik, Archivo and Fira Sans Condensed are licensed under the SIL Open Font License; the copyright and license notices are embedded in each font file.
+Manrope Bold, Rubik Bold, Oswald, Russo One, Archivo and Fira Sans Condensed are licensed under the SIL Open Font License; the copyright and license notices are embedded in each font file.
