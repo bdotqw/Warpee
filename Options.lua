@@ -74,6 +74,7 @@ end
 local function localeGet() return ns.LocalePick() end
 local function localeSet(v)
   WarpeeDB.locale = v
+  ns.Fonts:Settle()
   if Options.ReflowPages then Options:ReflowPages() end
   if ns.ApplyLocaleText then ns.ApplyLocaleText() end
   relayout()
