@@ -145,23 +145,14 @@ local function skinSlot(b)
     ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
   end
   if not box(b, "slot", "emptyLine") then return end
-  b.bg = b:CreateTexture(nil, "BACKGROUND", nil, -1)
+  b:SetBackdropColor(0, 0, 0, 0)
+  b.bg = b:CreateTexture(nil, "BORDER", nil, -1)
   ns.SetInside(b.bg, b, 1)
   slotBg(b)
   local ib = b.IconBorder
-  if ib then
-    ib:SetAlpha(0)
-    hooksecurefunc(ib, "SetVertexColor", function(_, r, g, bl)
-      b.wpeQ = { r, g, bl }
-      b:SetBackdropBorderColor(r, g, bl, 1)
-    end)
-    hooksecurefunc(ib, "Hide", function()
-      b.wpeQ = nil
-      b:SetBackdropBorderColor(Theme:C("emptyLine"))
-    end)
-  end
+  if ib then ib:SetAlpha(0) end
   Theme:Track(b, function(s)
-    s:SetBackdropColor(Theme:C("slot"))
+    s:SetBackdropColor(0, 0, 0, 0)
     slotBg(s)
     local q = s.wpeQ
     if q then
@@ -444,6 +435,41 @@ function Skin:Apply()
   skinPopup(_G.GuildBankPopupFrame)
 end
 
+local function slotQuality(tab, index)
+  if GetGuildBankItemInfo then
+    local ok, _, _, _, _, q = pcall(GetGuildBankItemInfo, tab, index)
+    if ok and q then return q end
+  end
+  local link = GetGuildBankItemLink and GetGuildBankItemLink(tab, index)
+  if not link then return nil end
+  return select(3, C_Item.GetItemInfo(link))
+end
+
+function Skin:PaintSlots()
+  local frame = _G.GuildBankFrame
+  if not frame then return end
+  local tab = (GetCurrentGuildBankTab and GetCurrentGuildBankTab()) or 0
+  for i = 1, COLUMNS do
+    local col = frame["Column" .. i] or _G["GuildBankColumn" .. i]
+    if col then
+      for s = 1, SLOTS do
+        local b = col["Button" .. s]
+        if b and b.wpeSkin and b.SetBackdropBorderColor then
+          local q = slotQuality(tab, (i - 1) * SLOTS + s)
+          local c = (q and q >= 2 and ITEM_QUALITY_COLORS) and ITEM_QUALITY_COLORS[q] or nil
+          if c then
+            b.wpeQ = { c.r, c.g, c.b }
+            b:SetBackdropBorderColor(c.r, c.g, c.b, 1)
+          else
+            b.wpeQ = nil
+            b:SetBackdropBorderColor(Theme:C("emptyLine"))
+          end
+        end
+      end
+    end
+  end
+end
+
 function Skin:Refresh()
   if not (self.applied and ready()) then return end
   local frame = _G.GuildBankFrame
@@ -459,6 +485,7 @@ function Skin:Refresh()
     lockTab(t)
     paintToggle(t)
   end
+  self:PaintSlots()
 end
 
 local ev = CreateFrame("Frame")
