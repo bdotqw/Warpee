@@ -725,7 +725,8 @@ function factories.chars(parent, spec)
   row.heads, row.cells = {}, {}
   row.dynamic = true
 
-  local del = ns.CreateButton(row, "Delete mode", 104, CHAR_DEL_H)
+  local del = ns.CreateButton(row, L["Delete mode"], 104, CHAR_DEL_H)
+  ns.LocalText(del, "Delete mode")
   local function paintDel(hover)
     local key = row.delMode and "gaugeHi" or (hover and "accent" or "dim")
     del:SetBackdropColor(Theme:C(hover and "panelHi" or "panel"))
@@ -837,7 +838,8 @@ function factories.blacklist(parent, spec)
   empty:SetPoint("TOPLEFT")
   empty:SetWidth(CONTENT_W)
   empty:SetJustifyH("LEFT")
-  empty:SetText("Alt-click an item in your bags while this tab is open.")
+  empty:SetText(L["Alt-click an item in your bags while this tab is open."])
+  ns.LocalText(empty, "Alt-click an item in your bags while this tab is open.")
   row.empty = empty
   row.Rebuild = function()
     local list = ns.Vendor and ns.Vendor:BlackList() or {}

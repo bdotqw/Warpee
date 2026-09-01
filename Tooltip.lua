@@ -170,7 +170,7 @@ local function showGoldTip(anchor)
     local col = e.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
     row(e.name, ns.FormatMoney(e.money, true), "text", col)
   end
-  if n == 0 then row("No gold recorded yet", "", "dim") end
+  if n == 0 then row(ns.L["No gold recorded yet"], "", "dim") end
 
   local sum = total
   y = y + 3
@@ -180,10 +180,10 @@ local function showGoldTip(anchor)
   t.sep:Show()
   y = y + 4
   if wb and wb > 0 then
-    row("Warband bank", ns.FormatMoney(wb, true), "azure")
+    row(ns.L["Warband bank"], ns.FormatMoney(wb, true), "azure")
     sum = sum + wb
   end
-  row("Total", ns.FormatMoney(sum, true), "accent")
+  row(ns.L["Total"], ns.FormatMoney(sum, true), "accent")
 
   for i = n + 1, #t.rows do t.rows[i]:Hide() end
   t:SetSize(widest + TIP_PAD * 2, y + TIP_PAD)
