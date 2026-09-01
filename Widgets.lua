@@ -368,23 +368,20 @@ function ns.CreateCheckBox(parent, side)
   ns.SnapBox(box, side or 18, side or 18, true)
   local fill = boxTex(box, "BACKGROUND")
   fill:SetAllPoints(box)
-  local e = {}
-  e[1] = boxTex(box); e[1]:SetPoint("TOPLEFT");    e[1]:SetPoint("TOPRIGHT");    ns.PixelLine(e[1], 1)
-  e[2] = boxTex(box); e[2]:SetPoint("BOTTOMLEFT"); e[2]:SetPoint("BOTTOMRIGHT"); ns.PixelLine(e[2], 1)
-  e[3] = boxTex(box); e[3]:SetPoint("TOPLEFT");    e[3]:SetPoint("BOTTOMLEFT");  ns.PixelLine(e[3], 1, "w")
-  e[4] = boxTex(box); e[4]:SetPoint("TOPRIGHT");   e[4]:SetPoint("BOTTOMRIGHT"); ns.PixelLine(e[4], 1, "w")
-  local mark = boxTex(box, "OVERLAY")
+  local mark = boxTex(box, "ARTWORK")
+  mark:SetAllPoints(box)
   mark:Hide()
+  local e = {}
+  e[1] = boxTex(box, "OVERLAY"); e[1]:SetPoint("TOPLEFT");    e[1]:SetPoint("TOPRIGHT");    ns.PixelLine(e[1], 1)
+  e[2] = boxTex(box, "OVERLAY"); e[2]:SetPoint("BOTTOMLEFT"); e[2]:SetPoint("BOTTOMRIGHT"); ns.PixelLine(e[2], 1)
+  e[3] = boxTex(box, "OVERLAY"); e[3]:SetPoint("TOPLEFT");    e[3]:SetPoint("BOTTOMLEFT");  ns.PixelLine(e[3], 1, "w")
+  e[4] = boxTex(box, "OVERLAY"); e[4]:SetPoint("TOPRIGHT");   e[4]:SetPoint("BOTTOMRIGHT"); ns.PixelLine(e[4], 1, "w")
   box.fill, box.edges, box.mark = fill, e, mark
   box.fillKey, box.edgeKey, box.markKey = "slot", "stroke", "accent"
   box.Repaint = function(s)
     s.fill:SetVertexColor(Theme:C(s.fillKey))
     for _, x in ipairs(s.edges) do x:SetVertexColor(Theme:C(s.edgeKey)) end
     s.mark:SetVertexColor(Theme:C(s.markKey))
-    local inset = math.max(ns.PX(s, 2), ns.PixelFloor(s, 4))
-    s.mark:ClearAllPoints()
-    s.mark:SetPoint("TOPLEFT", s, "TOPLEFT", inset, -inset)
-    s.mark:SetPoint("BOTTOMRIGHT", s, "BOTTOMRIGHT", -inset, inset)
   end
   box.SetKeys = function(s, fillKey, edgeKey, markKey)
     s.fillKey = fillKey or s.fillKey
