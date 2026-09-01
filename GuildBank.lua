@@ -301,21 +301,60 @@ local function skinScroll(sb)
   end
 end
 
-local function fitHeight(frame)
-  local want = Theme:TopInset()
-  local had = frame.wpeAddH or 0
-  if want == had then return end
-  local h = frame:GetHeight() or 0
-  if h <= 0 then return end
-  frame.wpeAddH = want
-  frame:SetHeight(h - had + want)
+local BAND, BAND_GAP = 35, 3
+
+local function anchoredTo(f, host)
+  local n = (f.GetNumPoints and f:GetNumPoints()) or 0
+  if n == 0 then return false end
+  for i = 1, n do
+    local _, rel = f:GetPoint(i)
+    if (rel or f:GetParent()) ~= host then return false end
+  end
+  return true
+end
+
+local function shiftFrame(f, dy)
+  if not f.wpeBasePts then
+    local pts = {}
+    for i = 1, f:GetNumPoints() do
+      local p, rel, rp, x, y = f:GetPoint(i)
+      pts[i] = { p, rel, rp, x or 0, y or 0 }
+    end
+    f.wpeBasePts = pts
+  end
+  f:ClearAllPoints()
+  for _, pt in ipairs(f.wpeBasePts) do
+    f:SetPoint(pt[1], pt[2] or f:GetParent(), pt[3] or pt[1], pt[4], pt[5] - dy)
+  end
+end
+
+local function fitBand(frame)
+  local box = _G.GuildItemSearchBox
+  if not box then return end
+  local top, boxTop = frame:GetTop(), box:GetTop()
+  if not (top and boxTop) then return end
+  local applied = frame.wpeBand or 0
+  local have = (top - Theme:TopInset()) - boxTop
+  local total = Theme:Skinned() and (BAND - have + applied) or 0
+  if math.abs(total - applied) < 0.5 then return end
+  local list = { box, frame.BlackBG }
+  for i = 1, COLUMNS do
+    list[#list + 1] = frame["Column" .. i] or _G["GuildBankColumn" .. i]
+  end
+  for _, f in ipairs(list) do
+    if f and f.SetPoint and anchoredTo(f, frame) then shiftFrame(f, total) end
+  end
+  local baseH = (frame:GetHeight() or 0) - applied
+  frame.wpeBand = total
+  if baseH > 0 then frame:SetHeight(baseH + total) end
 end
 
 local function placeClose(close)
   local host = close.wpeHost
   if not host then return end
   close:ClearAllPoints()
-  ns.SnapPoint(close, "TOPRIGHT", host, "TOPRIGHT", -6, -5)
+  local y = Theme:Skinned() and (BAND_GAP + Theme:TopInset()) or 5
+  ns.SnapPoint(close, "TOPRIGHT", host, "TOPRIGHT", -6, -y)
 end
 
 local function skinClose(close, host)
@@ -384,7 +423,7 @@ function Skin:Apply()
   Theme:Panel(frame, "bg", "stroke")
   if frame.SetToplevel then frame:SetToplevel(true) end
   frame:HookScript("OnMouseDown", function(s) Theme:Raise(s) end)
-  try(fitHeight, frame)
+  try(fitBand, frame)
 
   try(label, (frame.TitleContainer and frame.TitleContainer.TitleText)
              or _G.GuildBankFrameTitleText, 15)
@@ -473,6 +512,7 @@ end
 function Skin:Restyle()
   local frame = _G.GuildBankFrame
   if not (self.applied and frame) then return end
+  fitBand(frame)
   for i = 1, COLUMNS do
     local col = frame["Column" .. i] or _G["GuildBankColumn" .. i]
     if col then
@@ -487,7 +527,7 @@ end
 function Skin:Refresh()
   if not (self.applied and ready()) then return end
   local frame = _G.GuildBankFrame
-  if frame then fitHeight(frame) end
+  if frame then fitBand(frame) end
   local cur = (GetCurrentGuildBankTab and GetCurrentGuildBankTab()) or 0
   for _, b in ipairs(self.tabs) do
     b.wpeLit = (b.wpeIndex == cur) or nil
@@ -501,6 +541,9 @@ function Skin:Refresh()
   end
   self:PaintSlots()
 end
+
+local themeHook = CreateFrame("Frame")
+Theme:Track(themeHook, function() pcall(Skin.Restyle, Skin) end)
 
 local ev = CreateFrame("Frame")
 ev:RegisterEvent("PLAYER_LOGIN")
