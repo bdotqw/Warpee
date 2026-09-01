@@ -559,6 +559,19 @@ function Bags:UpdateBagBar()
   end
 end
 
+function Bags:Refont()
+  self.fontPath = ns.Fonts:Path(self.font or ns.Fonts.DEFAULT)
+  if not self.pool then return end
+  for _, b in ipairs(self.pool) do
+    b.fitGen, b.ilvlFitGen, b.cdFitGen = nil, nil, nil
+    ns.FitCount(b)
+    ns.FitIlvl(b)
+    if b.cdText then
+      b.cdText:SetFont(self.fontPath, self.countSize or 14, "OUTLINE")
+    end
+  end
+end
+
 function Bags:HighlightBag(bagID)
   if self.snap then return end
   self.hlBag = bagID
