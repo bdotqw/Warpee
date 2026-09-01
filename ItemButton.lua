@@ -331,6 +331,68 @@ function ns.CreateVaultButton(parent)
   end)
   return b
 end
+local favCount = 0
+function ns.CreateFavButton(parent)
+  favCount = favCount + 1
+  local holder = CreateFrame("Frame", nil, parent)
+  holder:SetSize(37, 37)
+  local name = "WarpeeFav" .. favCount
+  local ok, made = pcall(CreateFrame, "ItemButton", name, holder, "SecureActionButtonTemplate")
+  if not ok or not made then made = CreateFrame("ItemButton", name, holder) end
+  local b = made
+  b.secure = (ok and true) or nil
+  b:SetAllPoints(holder)
+  b.holder = holder
+  b.bg = b:CreateTexture(nil, "BACKGROUND", nil, -1)
+  b.bg:SetAllPoints(b)
+  b.bg:SetColorTexture(Theme:C("slot"))
+  local nt = b:GetNormalTexture()
+  if nt then nt:SetAlpha(0) end
+  local ic = b.icon or _G[(b:GetName() or "") .. "IconTexture"]
+  if ic then ic:ClearAllPoints(); ic:SetAllPoints(b) end
+  attachBorder(b)
+  local nm = b:GetName() or ""
+  suppress(b.IconBorder); suppress(_G[nm .. "IconBorder"])
+  local cd = CreateFrame("Cooldown", nil, b, "CooldownFrameTemplate")
+  cd:SetAllPoints(b)
+  b.cd = cd
+  cd.wpeOwner = b
+  cd:SetHideCountdownNumbers(true)
+  cd:SetDrawEdge(true)
+  cd:Clear()
+  b.cdText = b.borderFrame:CreateFontString(nil, "OVERLAY")
+  b.cdText:SetDrawLayer("OVERLAY", 7)
+  b.cdText:SetFont(ns.Fonts:Current(), 14, "OUTLINE")
+  b.cdText:SetPoint("CENTER")
+  b.cdText:SetTextColor(Theme:C("text"))
+  b:RegisterForClicks("AnyUp")
+  b:RegisterForDrag("LeftButton")
+  b:SetScript("OnDragStart", function(s)
+    if s.favBag then C_Container.PickupContainerItem(s.favBag, s:GetID()) end
+  end)
+  b:SetScript("OnReceiveDrag", function(s)
+    if s.favBag then C_Container.PickupContainerItem(s.favBag, s:GetID()) end
+  end)
+  local hook = b.secure and b.HookScript or b.SetScript
+  hook(b, "OnClick", function(s, button, down)
+    if down or button ~= "LeftButton" then return end
+    if s.vaultLink and IsModifiedClick() then HandleModifiedItemClick(s.vaultLink) end
+  end)
+  hook(b, "OnEnter", function(s)
+    ns.SetSlotHighlight(s, true)
+    if not s.favBag then return end
+    GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
+    GameTooltip:SetBagItem(s.favBag, s:GetID())
+    GameTooltip:AddLine(ns.L["Ctrl + right click clears the slot"], 0.6, 0.6, 0.6)
+    GameTooltip:Show()
+  end)
+  hook(b, "OnLeave", function(s)
+    ns.SetSlotHighlight(s, false)
+    GameTooltip:Hide()
+  end)
+  return b
+end
+
 local function cellOf(b)
   return (b.view and b.view.iconSize) or ns.Bags.iconSize or 37
 end
