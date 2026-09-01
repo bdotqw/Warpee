@@ -717,6 +717,10 @@ local MEDIA = [[Interface\AddOns\Warpee\Media\]]
 local SHIPPED = {
   { name = "Expressway",           file = "Expressway.ttf" },
   { name = "Manrope",              file = "Manrope.ttf" },
+  { name = "Onest",                file = "Onest.ttf" },
+  { name = "Golos Text",           file = "GolosText.ttf" },
+  { name = "Geologica",            file = "Geologica.ttf" },
+  { name = "Rubik",                file = "Rubik.ttf" },
   { name = "Archivo",              file = "Archivo.ttf" },
   { name = "Fira Sans Condensed",  file = "FiraSansCondensed.ttf" },
 }
@@ -737,6 +741,8 @@ do
   end
 end
 
+local cyrFilter
+
 function ns.Fonts:List()
   local names, seen = {}, {}
   for _, f in ipairs(BUILTIN) do names[#names + 1] = f.name; seen[f.name] = true end
@@ -746,6 +752,7 @@ function ns.Fonts:List()
       if not seen[name] then names[#names + 1] = name; seen[name] = true end
     end
   end
+  if cyrFilter then names = cyrFilter(names) end
   table.sort(names)
   return names
 end
@@ -803,6 +810,15 @@ end
 
 function ns.Fonts:NeedsCyrillic()
   return (ns.LocalePick and ns.LocalePick() == "ruRU") and true or false
+end
+
+cyrFilter = function(names)
+  if not ns.Fonts:NeedsCyrillic() then return names end
+  local out = {}
+  for _, n in ipairs(names) do
+    if hasCyrillic(rawPath(n)) then out[#out + 1] = n end
+  end
+  return (#out > 0) and out or names
 end
 
 function ns.Fonts:Path(name)
