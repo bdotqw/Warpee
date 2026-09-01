@@ -59,16 +59,16 @@ function ns.ShowTip(owner, entries, side)
     y = y + math.ceil(fs:GetStringHeight()) + 3
   end
   for i = n + 1, #t.lines do t.lines[i]:Hide() end
-  t:SetSize(w + TIP_PADT * 2, y + TIP_PADT - 3)
+  t:SetSize(ns.SnapEven(t, w + TIP_PADT * 2), ns.SnapValue(t, y + TIP_PADT - 3))
   t:ClearAllPoints()
   if side == "bottom" then
-    t:SetPoint("TOP", owner, "BOTTOM", 0, -6)
+    ns.SnapPoint(t, "TOP", owner, "BOTTOM", 0, -6)
   elseif side == "top" then
-    t:SetPoint("BOTTOM", owner, "TOP", 0, 6)
+    ns.SnapPoint(t, "BOTTOM", owner, "TOP", 0, 6)
   elseif side == "left" then
-    t:SetPoint("TOPRIGHT", owner, "TOPLEFT", -6, 0)
+    ns.SnapPoint(t, "TOPRIGHT", owner, "TOPLEFT", -6, 0)
   else
-    t:SetPoint("TOPLEFT", owner, "TOPRIGHT", 6, 0)
+    ns.SnapPoint(t, "TOPLEFT", owner, "TOPRIGHT", 6, 0)
   end
   t:Show()
 end
