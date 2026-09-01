@@ -304,15 +304,21 @@ local function skinScroll(sb)
   end
 end
 
+local ART_T, ART_L, ART_R, ART_B = 20, 6, 1, 1
+
 local function dressFrame(frame)
   local art = frame.wpeArt
   if not (Theme:Skinned() and art) then return end
   if art.NineSlice then art.NineSlice:Hide() end
   if art.TitleContainer then art.TitleContainer:Hide() end
-  ns.PixelBackdrop(frame)
-  if not frame.SetBackdrop then return end
-  frame:SetBackdropColor(0, 0, 0, 0)
-  frame:SetBackdropBorderColor(Theme:C("stroke"))
+  art:ClearAllPoints()
+  ns.SnapPoint(art, "TOPLEFT", frame, "TOPLEFT", -ART_L, ART_T)
+  ns.SnapPoint(art, "BOTTOMRIGHT", frame, "BOTTOMRIGHT", ART_R, -ART_B)
+  ns.PixelBackdrop(art)
+  if not art.SetBackdrop then return end
+  art:SetBackdropColor(0, 0, 0, 0)
+  art:SetBackdropBorderColor(Theme:C("stroke"))
+  if frame.SetBackdrop then frame:SetBackdrop(nil) end
 end
 
 local function placeClose(close)
