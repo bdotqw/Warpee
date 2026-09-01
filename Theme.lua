@@ -140,7 +140,7 @@ end
 
 function ns.SnapValue(region, v)
   local unit = ns.PixelUnit(region)
-  return math.floor((tonumber(v) or 0) / unit + 0.5) * unit
+  return math.floor((tonumber(v) or 0) / unit + 0.5 + 0.001) * unit
 end
 
 function ns.SnapSize(frame, w, h)
@@ -210,19 +210,21 @@ function ns.PixelJob(obj, fn, key)
   return obj
 end
 
-function ns.SnapBox(frame, w, h)
+function ns.SnapBox(frame, w, h, even)
   frame.wpeBoxW, frame.wpeBoxH = w, h
+  frame.wpeBoxEven = even and true or nil
   return ns.PixelJob(frame, function(x)
+    local fit = x.wpeBoxEven and ns.SnapEven or ns.SnapValue
     if x.wpeBoxW then
       local cur = x:GetWidth() or 0
       if x.wpeSetW and cur > 0 and math.abs(cur - x.wpeSetW) > 0.5 then x.wpeBoxW = cur end
-      x.wpeSetW = ns.SnapValue(x, x.wpeBoxW)
+      x.wpeSetW = fit(x, x.wpeBoxW)
       x:SetWidth(x.wpeSetW)
     end
     if x.wpeBoxH then
       local cur = x:GetHeight() or 0
       if x.wpeSetH and cur > 0 and math.abs(cur - x.wpeSetH) > 0.5 then x.wpeBoxH = cur end
-      x.wpeSetH = ns.SnapValue(x, x.wpeBoxH)
+      x.wpeSetH = fit(x, x.wpeBoxH)
       x:SetHeight(x.wpeSetH)
     end
     ns.AlignToScreen(x)
