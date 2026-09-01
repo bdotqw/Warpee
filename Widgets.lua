@@ -363,7 +363,7 @@ end
 
 function ns.CreateCheckBox(parent, side)
   local box = CreateFrame("Frame", nil, parent)
-  ns.SnapBox(box, side or 18, side or 18)
+  ns.SnapBox(box, side or 18, side or 18, true)
   local fill = boxTex(box, "BACKGROUND")
   fill:SetAllPoints(box)
   local e = {}
