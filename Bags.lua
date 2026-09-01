@@ -363,7 +363,7 @@ function Bags:Layout()
   self.pxSize, self.pxGap = size, gap
   local i, used, total = 0, 0, 0
   self.byKey = {}
-  self.fontPath = ns.Fonts:Path(self.font or ns.Fonts.DEFAULT)
+  self.fontPath = ns.Fonts:Current()
   if self.title then self.title:SetFont(self.fontPath, 15, "") end
   if self.money then self.money:SetFont(self.fontPath, 16, "") end
   if self.reagentLabel then self.reagentLabel:SetFont(self.fontPath, 11, "") end
@@ -542,7 +542,7 @@ end
 
 function Bags:UpdateBagBar()
   if not self.bagButtons then return end
-  local path = self.fontPath or ns.Fonts:Path(self.font or ns.Fonts.DEFAULT)
+  local path = ns.Fonts:Current()
   if self.bagTitle then self.bagTitle:SetFont(path, 14, "") end
   for _, b in ipairs(self.bagButtons) do
     local bagID = b.wpeBagID
@@ -560,8 +560,7 @@ function Bags:UpdateBagBar()
 end
 
 function Bags:Refont()
-  self.fontPath = ns.Fonts:Path(self.font or ns.Fonts.DEFAULT)
-  ns.Fonts:Reapply()
+  self.fontPath = ns.Fonts:Refresh()
   if not self.pool then return end
   for _, b in ipairs(self.pool) do
     b.fitGen, b.ilvlFitGen, b.cdFitGen = nil, nil, nil
