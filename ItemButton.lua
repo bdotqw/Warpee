@@ -411,6 +411,15 @@ local function fontGen(B)
   return (B.styleGen or 0) .. ":" .. tostring(B.fontPath)
 end
 
+function ns.SetOutlined(fs, path, size)
+  if not (fs and path) then return end
+  fs:SetFont(path, size, "OUTLINE")
+  local cur = fs:GetFont()
+  if not (cur and path and cur:lower() == path:lower()) then
+    fs:SetFont(path, size, "")
+  end
+end
+
 function ns.FitCount(b, count)
   local c = b.Count or _G[(b:GetName() or "") .. "Count"]
   if not c then return end
@@ -419,7 +428,7 @@ function ns.FitCount(b, count)
   if b.fitGen == gen then return end
   b.fitGen = gen
   local path = B.fontPath or ns.Fonts:Path(B.font or ns.Fonts.DEFAULT)
-  c:SetFont(path, B.countSize or 14, "OUTLINE")
+  ns.SetOutlined(c, path, B.countSize or 14)
 end
 
 function ns.FitIlvl(b, lvl)
@@ -429,7 +438,7 @@ function ns.FitIlvl(b, lvl)
   if b.ilvlFitGen == gen then return end
   b.ilvlFitGen = gen
   local path = B.fontPath or ns.Fonts:Path(B.font or ns.Fonts.DEFAULT)
-  b.ilvl:SetFont(path, B.ilvlSize or 12, "OUTLINE")
+  ns.SetOutlined(b.ilvl, path, B.ilvlSize or 12)
 end
 
 local function fmtCooldown(s)
@@ -445,7 +454,7 @@ local function cdFont(b)
   if b.cdFitGen == gen then return end
   b.cdFitGen = gen
   local path = B.fontPath or ns.Fonts:Path(B.font or ns.Fonts.DEFAULT)
-  b.cdText:SetFont(path, B.countSize or 14, "OUTLINE")
+  ns.SetOutlined(b.cdText, path, B.countSize or 14)
 end
 
 local function cdOnUpdate(self, elapsed)

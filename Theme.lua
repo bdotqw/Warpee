@@ -796,6 +796,15 @@ local function probeFont(path, size)
   return probe
 end
 
+local function pairDiff(fs, a, b)
+  fs:SetText(a)
+  local x = fs:GetStringWidth() or 0
+  fs:SetText(b)
+  local y = fs:GetStringWidth() or 0
+  if x <= 0 or y <= 0 then return nil end
+  return math.abs(x - y) > 0.5
+end
+
 local function hasCyrillic(path)
   if not path then return false end
   local declared = DECLARED[path]
@@ -804,11 +813,11 @@ local function hasCyrillic(path)
   if known ~= nil then return known end
   cyrProbe = freshString()
   if not applied(cyrProbe, path, 24) then cyrOK[path] = false; return false end
-  cyrProbe:SetText("Ш")
-  local wide = cyrProbe:GetStringWidth() or 0
-  cyrProbe:SetText("Г")
-  local narrow = cyrProbe:GetStringWidth() or 0
-  local ok = (wide > 0 and narrow > 0 and math.abs(wide - narrow) > 0.5) and true or false
+  local up = pairDiff(cyrProbe, "Ш", "Г")
+  local low = pairDiff(cyrProbe, "ш", "г")
+  local mix = pairDiff(cyrProbe, "Ё", "ъ")
+  if up == nil or low == nil or mix == nil then return false end
+  local ok = (up and low and mix) and true or false
   cyrOK[path] = ok
   return ok
 end

@@ -555,7 +555,7 @@ function Bags:UpdateBagBar()
     b.icon:SetTexture(tex or "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag")
     local free = select(1, C_Container.GetContainerNumFreeSlots(bagID)) or 0
     b.count:SetText(free > 0 and free or "")
-    if b.count and b.cntFontSize then b.count:SetFont(path, b.cntFontSize, "OUTLINE") end
+    if b.count and b.cntFontSize then ns.SetOutlined(b.count, path, b.cntFontSize) end
   end
 end
 
@@ -567,7 +567,7 @@ function Bags:Refont()
     ns.FitCount(b)
     ns.FitIlvl(b)
     if b.cdText then
-      b.cdText:SetFont(self.fontPath, self.countSize or 14, "OUTLINE")
+      ns.SetOutlined(b.cdText, self.fontPath, self.countSize or 14)
     end
   end
 end
