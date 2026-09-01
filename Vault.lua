@@ -25,6 +25,15 @@ local function store()
         c.bags, c.at = nil, nil
       end
     end
+    if ns.IsPlayerBag then
+      for _, c in pairs(v.chars) do
+        if type(c) == "table" and type(c.inv) == "table" and type(c.inv.bags) == "table" then
+          for bag in pairs(c.inv.bags) do
+            if not ns.IsPlayerBag(bag) then c.inv.bags[bag] = nil end
+          end
+        end
+      end
+    end
     migrated = true
   end
   return v
@@ -336,10 +345,16 @@ function Vault:Capture(mode, only)
   if only and not (box and box.bags) then only = nil end
 
   if only then
+    local allow = {}
+    for _, sec in ipairs(self:Sections(mode)) do
+      for _, bag in ipairs(sec.ids) do allow[bag] = true end
+    end
     local touched = false
     for bag in pairs(only) do
-      local entry = scanBag(bag)
-      if entry then box.bags[bag] = entry; touched = true end
+      if allow[bag] then
+        local entry = scanBag(bag)
+        if entry then box.bags[bag] = entry; touched = true end
+      end
     end
     if not touched then return false end
     box.at = time()

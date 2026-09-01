@@ -228,7 +228,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     print("|cffd9a85fWarpee|r " .. L["loaded"] .. " · v" ..
       (C_AddOns.GetAddOnMetadata(addonName, "Version") or "?"))
   elseif event == "BAG_UPDATE" then
-    Bags.dirty[a1] = true
+    if ns.IsPlayerBag(a1) then Bags.dirty[a1] = true end
     if ns.Bank and ns.IsBankContainer and ns.IsBankContainer(a1) then ns.Bank:QueueRefresh(a1) end
   elseif event == "BAG_UPDATE_DELAYED" then
     if Bags.sorting then Bags:SortSettle() else Bags:UpdateDirty() end
