@@ -306,34 +306,44 @@ end
 
 
 local SKIN_LIFT = 1.30
+local GRAIN = [[Interface\FrameGeneral\UI-Background-Rock]]
+local GRAIN_ALPHA = 0.10
 
-local function dressFrame(frame)
-  if not Theme:Skinned() then return end
-  ns.PixelBackdrop(frame)
-  if not frame.SetBackdrop then return end
-  local r, g, b = Theme:C("bg")
-  frame:SetBackdropColor(math.min(1, r * SKIN_LIFT), math.min(1, g * SKIN_LIFT),
-                         math.min(1, b * SKIN_LIFT), 1)
-  frame:SetBackdropBorderColor(Theme:C("stroke"))
+local function grainTex(frame)
+  local t = Skin.grain
+  if t ~= nil then return t or nil end
+  t = frame:CreateTexture(nil, "BACKGROUND", nil, 1)
+  if not pcall(t.SetTexture, t, GRAIN, "REPEAT", "REPEAT") then
+    t:Hide()
+    Skin.grain = false
+    return nil
+  end
+  t:SetHorizTile(true)
+  t:SetVertTile(true)
+  t:SetBlendMode("BLEND")
+  t:SetAlpha(GRAIN_ALPHA)
+  ns.SetInside(t, frame, 1)
+  Skin.grain = t
+  return t
 end
 
-local function gridBack(frame)
-  local first = frame.Column1 or _G.GuildBankColumn1
-  local last = frame["Column" .. COLUMNS] or _G["GuildBankColumn" .. COLUMNS]
-  first = first and first.Button1
-  last = last and last["Button" .. SLOTS]
-  if not (first and last) then return end
-  local g = Skin.gridBg
-  if not g then
-    g = Theme:Rect(frame, "panel", "BACKGROUND")
-    g:SetDrawLayer("BACKGROUND", 1)
-    Skin.gridBg = g
+local function dressFrame(frame)
+  local grain = grainTex(frame)
+  if not Theme:Skinned() then
+    if grain then grain:Hide() end
+    return
   end
-  g:ClearAllPoints()
-  g:SetPoint("TOPLEFT", first, "TOPLEFT", -3, 3)
-  g:SetPoint("BOTTOMRIGHT", last, "BOTTOMRIGHT", 3, -3)
-  g:SetAlpha(Theme:GridAlpha())
-  g:SetShown(first:IsShown() and last:IsShown())
+  ns.PixelBackdrop(frame)
+  if frame.SetBackdrop then
+    local r, g, b = Theme:C("bg")
+    frame:SetBackdropColor(math.min(1, r * SKIN_LIFT), math.min(1, g * SKIN_LIFT),
+                           math.min(1, b * SKIN_LIFT), 1)
+    frame:SetBackdropBorderColor(Theme:C("stroke"))
+  end
+  if grain then
+    grain:SetAlpha(GRAIN_ALPHA)
+    grain:Show()
+  end
 end
 
 local function placeClose(close)
@@ -447,7 +457,6 @@ function Skin:Apply()
     try(skinPanelTab, _G["GuildBankFrameTab" .. i], i)
   end
 
-  try(gridBack, frame)
 
   try(skinSearch, _G.GuildItemSearchBox)
   try(skinScroll, frame.Log and frame.Log.ScrollBar)
@@ -525,7 +534,6 @@ function Skin:Refresh()
     lockTab(t)
     paintToggle(t)
   end
-  gridBack(frame)
   self:PaintSlots()
 end
 
