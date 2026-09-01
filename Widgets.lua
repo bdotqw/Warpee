@@ -324,6 +324,10 @@ function ns.CreateButton(parent, text, width, height, template)
     if s.Text then s.Text:SetTextColor(Theme:C(s.offDuty and "faint" or "text")) end
   end)
   local fs = Theme:Label(b, 12, "text")
+  Theme:Track(fs, function(s)
+    local p = s:GetParent()
+    s:SetTextColor(Theme:C((p and p.offDuty) and "faint" or "text"))
+  end)
   fs:SetPoint("CENTER")
   fs:SetText(text)
   b.Text = fs

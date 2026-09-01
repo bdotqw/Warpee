@@ -502,7 +502,7 @@ Theme.Track = function(_, obj, fn) return track(obj, fn) end
 
 function Theme:Restyle(name)
   self:Apply(name)
-  for obj, fn in pairs(tracked) do fn(obj) end
+  for obj, fn in pairs(tracked) do pcall(fn, obj) end
   if ns.Bags and ns.Bags.Restyle then ns.Bags:Restyle() end
   if ns.Bank and ns.Bank.Restyle then ns.Bank:Restyle() end
   local P = ns.CharPicker
@@ -715,14 +715,14 @@ ns.Fonts = {}
 ns.Fonts.DEFAULT = "Expressway"
 local MEDIA = [[Interface\AddOns\Warpee\Media\]]
 local SHIPPED = {
-  { name = "Expressway",           file = "Expressway.ttf" },
-  { name = "Manrope",              file = "Manrope.ttf" },
-  { name = "Onest",                file = "Onest.ttf" },
-  { name = "Golos Text",           file = "GolosText.ttf" },
-  { name = "Geologica",            file = "Geologica.ttf" },
-  { name = "Rubik",                file = "Rubik.ttf" },
-  { name = "Archivo",              file = "Archivo.ttf" },
-  { name = "Fira Sans Condensed",  file = "FiraSansCondensed.ttf" },
+  { name = "Expressway",           file = "Expressway.ttf",         cyr = true },
+  { name = "Manrope",              file = "Manrope.ttf",            cyr = true },
+  { name = "Onest",                file = "Onest.ttf",              cyr = true },
+  { name = "Golos Text",           file = "GolosText.ttf",          cyr = true },
+  { name = "Geologica",            file = "Geologica.ttf",          cyr = true },
+  { name = "Rubik",                file = "Rubik.ttf",              cyr = true },
+  { name = "Archivo",              file = "Archivo.ttf",            cyr = false },
+  { name = "Fira Sans Condensed",  file = "FiraSansCondensed.ttf",  cyr = true },
 }
 local BUILTIN = {
   { name = "Arial Narrow",  path = [[Fonts\ARIALN.TTF]] },
@@ -730,8 +730,11 @@ local BUILTIN = {
   { name = "Skurri",        path = [[Fonts\SKURRI.TTF]] },
   { name = "Morpheus",      path = [[Fonts\MORPHEUS.TTF]] },
 }
+local DECLARED = {}
 for i = #SHIPPED, 1, -1 do
-  table.insert(BUILTIN, 1, { name = SHIPPED[i].name, path = MEDIA .. SHIPPED[i].file })
+  local p = MEDIA .. SHIPPED[i].file
+  DECLARED[p] = SHIPPED[i].cyr and true or false
+  table.insert(BUILTIN, 1, { name = SHIPPED[i].name, path = p })
 end
 local function LSM() return _G.LibStub and _G.LibStub("LibSharedMedia-3.0", true) or nil end
 do
@@ -766,26 +769,36 @@ local function rawPath(name)
   return FALLBACK_FONT
 end
 
-local probe, pathOK = nil, {}
+local probe, cyrProbe, pathOK = nil, nil, {}
 
 local CYR_FONTS = { [[Fonts\FRIZQT___CYR.TTF]], [[Fonts\ARIALN.TTF]], [[Fonts\FRIZQT__.TTF]] }
 local cyrOK, cyrPick = {}, nil
 
+local function setFontOK(fs, path, size)
+  local ok, res = pcall(fs.SetFont, fs, path, size or 12, "")
+  if not ok then return false end
+  if res == false then return false end
+  return true
+end
+
 local function probeFont(path, size)
   probe = probe or UIParent:CreateFontString(nil, "OVERLAY")
-  if not pcall(probe.SetFont, probe, path, size or 12, "") then return nil end
+  if not setFontOK(probe, path, size) then return nil end
   return probe
 end
 
 local function hasCyrillic(path)
+  if not path then return false end
+  local declared = DECLARED[path]
+  if declared ~= nil then return declared end
   local known = cyrOK[path]
   if known ~= nil then return known end
-  local fs = probeFont(path, 24)
-  if not fs then cyrOK[path] = false; return false end
-  fs:SetText("Ш")
-  local wide = fs:GetStringWidth() or 0
-  fs:SetText("Г")
-  local narrow = fs:GetStringWidth() or 0
+  cyrProbe = cyrProbe or UIParent:CreateFontString(nil, "OVERLAY")
+  if not setFontOK(cyrProbe, path, 24) then cyrOK[path] = false; return false end
+  cyrProbe:SetText("Ш")
+  local wide = cyrProbe:GetStringWidth() or 0
+  cyrProbe:SetText("Г")
+  local narrow = cyrProbe:GetStringWidth() or 0
   local ok = (wide > 0 and narrow > 0 and math.abs(wide - narrow) > 0.5) and true or false
   cyrOK[path] = ok
   return ok

@@ -139,8 +139,15 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
       if ns.Fonts:Usable(ns.Fonts.DEFAULT) then WarpeeDB.font = ns.Fonts.DEFAULT end
     end
     WarpeeDB.font = WarpeeDB.font or ns.Fonts.DEFAULT
-    if not ns.Fonts:Has(WarpeeDB.font) then WarpeeDB.font = ns.Fonts.DEFAULT end
-    if not ns.Fonts:Usable(WarpeeDB.font) then WarpeeDB.font = "Arial Narrow" end
+    local wish = WarpeeDB.fontWish or WarpeeDB.font
+    if ns.Fonts:Has(wish) and ns.Fonts:Usable(wish) then
+      WarpeeDB.font, WarpeeDB.fontWish = wish, nil
+    else
+      WarpeeDB.fontWish = wish
+      if not (ns.Fonts:Has(WarpeeDB.font) and ns.Fonts:Usable(WarpeeDB.font)) then
+        WarpeeDB.font = ns.Fonts:Usable(ns.Fonts.DEFAULT) and ns.Fonts.DEFAULT or "Arial Narrow"
+      end
+    end
     WarpeeDB.ilvlSize    = WarpeeDB.ilvlSize or 12
     WarpeeDB.ilvlAnchor  = WarpeeDB.ilvlAnchor or "TOPLEFT"
     WarpeeDB.ilvlX       = WarpeeDB.ilvlX or 3
@@ -181,6 +188,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.optSections = WarpeeDB.optSections or {}
     if WarpeeDB.hideMinimapIcon == nil then WarpeeDB.hideMinimapIcon = false end
     if WarpeeDB.locale == "auto" then WarpeeDB.locale = nil end
+    WarpeeDB.unusable = nil
     if WarpeeDB.searchClear == nil then WarpeeDB.searchClear = true end
     if WarpeeDB.searchLink == nil then WarpeeDB.searchLink = true end
     WarpeeDB.minimapAngle = tonumber(WarpeeDB.minimapAngle) or 2.2

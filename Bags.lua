@@ -86,6 +86,7 @@ function Bags:Build()
   f:SetScript("OnHide", function()
     ns.ClearSearch(Bags.search)
     if ns.CharPicker then ns.CharPicker:Close() end
+    if Bags.bagWindow then Bags.bagWindow:Hide() end
     if ns.Vault:SetView("bags", nil) then
       Bags.snap = nil
       Bags:UpdateCharTag()
@@ -579,6 +580,7 @@ function Bags:ClearBagHighlight()
     if b then
       ns.SetSlotHighlight(b, false)
       b:SetAlpha(1)
+      b.searchMiss = nil
       self:ApplyToButton(b)
     end
   end
