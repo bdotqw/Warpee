@@ -781,70 +781,80 @@ do
   for i = 0, CUR_EXP do
     local n = _G["EXPANSION_NAME" .. i]
     if type(n) == "string" and n ~= "" and not n:find("%s") then
-      local k = n:lower()
+      local k = ns.SearchFold(n)
       if EXP_WORDS[k] == nil then EXP_WORDS[k] = i end
     end
   end
 end
+local function classify(f, token)
+  local bare = token:match("^[!%-](.+)$")
+  local lo, hi = token:match("^ilvl(%d+)%-(%d+)$")
+  local gt = token:match("^ilvl>=?(%d+)$")
+  local lt = token:match("^ilvl<=?(%d+)$")
+  local num = token:match("^ilvl(%d+)$") or token:match("^(%d+)$")
+  if bare then
+    f.nots = f.nots or {}
+    f.nots[#f.nots + 1] = ns.ParseSearch(bare)
+  elseif lo then
+    f.ilvlMin, f.ilvlMax = tonumber(lo), tonumber(hi)
+  elseif gt then
+    f.ilvlMin = tonumber(gt) + (token:find(">=", 1, true) and 0 or 1)
+  elseif lt then
+    f.ilvlMax = tonumber(lt) - (token:find("<=", 1, true) and 0 or 1)
+  elseif num then
+    f.ilvl = tonumber(num)
+  elseif QUALITY_WORDS[token] then
+    f.quality = QUALITY_WORDS[token]
+  elseif SLOT_WORDS[token] then
+    f.slots = f.slots or {}
+    for k in pairs(SLOT_WORDS[token]) do f.slots[k] = true end
+  elseif KIND_WORDS[token] then
+    f.kinds = f.kinds or {}
+    f.kinds[#f.kinds + 1] = KIND_WORDS[token]
+  elseif EXP_WORDS[token] then
+    f.exps = f.exps or {}
+    f.exps[EXP_WORDS[token]] = true
+  elseif token == "current" then
+    f.exps = f.exps or {}
+    f.exps[CUR_EXP] = true
+  elseif token == "legacy" or token == "old" then
+    f.expMax = CUR_EXP - 1
+  elseif token == "warbound" or token == "wb" or token == "warband" then
+    f.warbound = true
+  elseif token == "soulbound" or token == "sb" or token == "bound" or token == "bop" then
+    f.soulbound = true
+  elseif token == "boe" or token == "unbound" then
+    f.boe = true
+  elseif token == "token" or token == "tier" then
+    f.token = true
+  elseif token == "locked" or token == "blocked" then
+    f.locked = true
+  elseif token == "reagent" or token == "reagents" or token == "mats" then
+    f.reagent = true
+  elseif token == "keystone" or token == "key" or token == "mythic" then
+    f.keystone = true
+  elseif token == "quest" then
+    f.quest = true
+  elseif token == "consumable" or token == "consumables" then
+    f.consumable = true
+  elseif token == "gear" or token == "equip" or token == "equipment" then
+    f.gear = true
+  else
+    return false
+  end
+  return true
+end
+
 function ns.ParseSearch(q)
   q = (q or ""):gsub("^%s+", ""):gsub("%s+$", "")
   local f = { text = {} }
   f.empty = q == ""
   for token in q:gmatch("%S+") do
-    local bare = token:match("^[!%-](.+)$")
-    local lo, hi = token:match("^ilvl(%d+)%-(%d+)$")
-    local gt = token:match("^ilvl>=?(%d+)$")
-    local lt = token:match("^ilvl<=?(%d+)$")
-    local num = token:match("^ilvl(%d+)$") or token:match("^(%d+)$")
-    if bare then
-      f.nots = f.nots or {}
-      f.nots[#f.nots + 1] = ns.ParseSearch(bare)
-    elseif lo then
-      f.ilvlMin, f.ilvlMax = tonumber(lo), tonumber(hi)
-    elseif gt then
-      f.ilvlMin = tonumber(gt) + (token:find(">=", 1, true) and 0 or 1)
-    elseif lt then
-      f.ilvlMax = tonumber(lt) - (token:find("<=", 1, true) and 0 or 1)
-    elseif num then
-      f.ilvl = tonumber(num)
-    elseif QUALITY_WORDS[token] then
-      f.quality = QUALITY_WORDS[token]
-    elseif SLOT_WORDS[token] then
-      f.slots = f.slots or {}
-      for k in pairs(SLOT_WORDS[token]) do f.slots[k] = true end
-    elseif KIND_WORDS[token] then
-      f.kinds = f.kinds or {}
-      f.kinds[#f.kinds + 1] = KIND_WORDS[token]
-    elseif EXP_WORDS[token] then
-      f.exps = f.exps or {}
-      f.exps[EXP_WORDS[token]] = true
-    elseif token == "current" then
-      f.exps = f.exps or {}
-      f.exps[CUR_EXP] = true
-    elseif token == "legacy" or token == "old" then
-      f.expMax = CUR_EXP - 1
-    elseif token == "warbound" or token == "wb" or token == "warband" then
-      f.warbound = true
-    elseif token == "soulbound" or token == "sb" or token == "bound" or token == "bop" then
-      f.soulbound = true
-    elseif token == "boe" or token == "unbound" then
-      f.boe = true
-    elseif token == "token" or token == "tier" then
-      f.token = true
-    elseif token == "locked" or token == "blocked" then
-      f.locked = true
-    elseif token == "reagent" or token == "reagents" or token == "mats" then
-      f.reagent = true
-    elseif token == "keystone" or token == "key" or token == "mythic" then
-      f.keystone = true
-    elseif token == "quest" then
-      f.quest = true
-    elseif token == "consumable" or token == "consumables" then
-      f.consumable = true
-    elseif token == "gear" or token == "equip" or token == "equipment" then
-      f.gear = true
-    else
-      f.text[#f.text + 1] = token
+    if not classify(f, token) then
+      local alias = ns.SearchAlias(ns.SearchFold(token))
+      if not (alias and classify(f, alias)) then
+        f.text[#f.text + 1] = token
+      end
     end
   end
   return f

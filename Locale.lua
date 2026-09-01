@@ -73,6 +73,132 @@ function ns.ShortForm()
   return SHORT_FORMS[ns.LocalePick()] or SHORT_FORMS.enUS
 end
 
+local function foldByte(ch)
+  local a, b = ch:byte(1, 2)
+  if a == 208 then
+    if b >= 144 and b <= 159 then return "\208" .. string.char(b + 32) end
+    if b >= 160 and b <= 175 then return "\209" .. string.char(b - 32) end
+    if b == 129 then return "\209\145" end
+  elseif a == 195 then
+    if b >= 128 and b <= 158 and b ~= 151 then return "\195" .. string.char(b + 32) end
+  end
+  return ch
+end
+
+function ns.SearchFold(s)
+  if type(s) ~= "string" then return s end
+  return (s:lower():gsub("[\195\208\209][\128-\191]", foldByte))
+end
+
+local RU_WORDS = {
+  ["плохое"] = "poor", ["хлам"] = "junk", ["серое"] = "gray", ["серый"] = "gray",
+  ["обычное"] = "common", ["белое"] = "white",
+  ["необычное"] = "uncommon", ["зеленое"] = "green", ["зелёное"] = "green",
+  ["редкое"] = "rare", ["синее"] = "blue",
+  ["эпическое"] = "epic", ["эпик"] = "epic", ["фиолетовое"] = "purple",
+  ["легендарное"] = "legendary", ["оранжевое"] = "orange",
+  ["артефакт"] = "artifact", ["наследие"] = "heirloom",
+  ["голова"] = "head", ["шлем"] = "helm", ["шея"] = "neck",
+  ["плечи"] = "shoulder", ["плечо"] = "shoulder",
+  ["спина"] = "back", ["плащ"] = "cloak", ["грудь"] = "chest",
+  ["запястья"] = "wrist", ["наручи"] = "bracers",
+  ["перчатки"] = "gloves", ["кисти"] = "hands",
+  ["пояс"] = "waist", ["ремень"] = "belt",
+  ["ноги"] = "legs", ["штаны"] = "pants",
+  ["ступни"] = "feet", ["сапоги"] = "boots", ["ботинки"] = "boots",
+  ["палец"] = "finger", ["кольцо"] = "ring", ["кольца"] = "rings",
+  ["аксессуар"] = "trinket", ["тринкет"] = "trinket",
+  ["щит"] = "shield", ["накидка"] = "tabard", ["рубашка"] = "shirt",
+  ["реликвия"] = "relic",
+  ["дальнобойное"] = "ranged", ["метательное"] = "thrown",
+  ["боеприпасы"] = "ammo", ["патроны"] = "ammo", ["колчан"] = "quiver",
+  ["инструмент"] = "tool", ["профснаряжение"] = "profgear",
+  ["слотсумки"] = "bagslot",
+  ["оружие"] = "weapon", ["правая"] = "mainhand", ["левая"] = "offhand",
+  ["двуручное"] = "2h", ["двуруч"] = "2h",
+  ["одноручное"] = "1h", ["одноруч"] = "1h",
+  ["ткань"] = "cloth", ["кожа"] = "leather", ["кольчуга"] = "mail", ["латы"] = "plate",
+  ["косметическое"] = "cosmetic", ["косметика"] = "cosmetic",
+  ["кинжал"] = "dagger", ["меч"] = "sword", ["топор"] = "axe",
+  ["дробящее"] = "mace", ["булава"] = "mace",
+  ["древковое"] = "polearm", ["копье"] = "polearm", ["копьё"] = "polearm",
+  ["посох"] = "staff", ["лук"] = "bow",
+  ["огнестрельное"] = "gun", ["ружье"] = "gun", ["ружьё"] = "gun",
+  ["арбалет"] = "crossbow", ["жезл"] = "wand", ["кистевое"] = "fist",
+  ["глефа"] = "warglaive", ["глефы"] = "warglaive", ["удочка"] = "fishing",
+  ["транспорт"] = "mount", ["маунт"] = "mount",
+  ["самоцвет"] = "gem", ["рецепт"] = "recipe", ["символ"] = "glyph",
+  ["сумка"] = "bag", ["сумки"] = "bag", ["контейнер"] = "container",
+  ["питомец"] = "pet", ["снаряды"] = "projectile",
+  ["хозтовары"] = "tradegoods", ["товары"] = "tradegoods",
+  ["разное"] = "misc", ["улучшение"] = "enhancement",
+  ["реагент"] = "reagent", ["реагенты"] = "reagents", ["маты"] = "mats",
+  ["задание"] = "quest", ["квест"] = "quest",
+  ["расходуемые"] = "consumable", ["расходники"] = "consumables",
+  ["снаряжение"] = "gear", ["экип"] = "equip",
+  ["ключ"] = "keystone", ["мифик"] = "mythic",
+  ["токен"] = "token", ["тир"] = "tier",
+  ["заблокировано"] = "locked", ["заперто"] = "blocked",
+  ["отряд"] = "warband", ["персональное"] = "soulbound",
+  ["неперсональное"] = "boe",
+  ["текущее"] = "current", ["старое"] = "legacy",
+}
+
+local DE_WORDS = {
+  ["schlecht"] = "poor", ["schrott"] = "junk", ["grau"] = "gray",
+  ["gewöhnlich"] = "common", ["weiß"] = "white", ["weiss"] = "white",
+  ["ungewöhnlich"] = "uncommon", ["grün"] = "green", ["gruen"] = "green",
+  ["selten"] = "rare", ["blau"] = "blue",
+  ["episch"] = "epic", ["lila"] = "purple", ["violett"] = "purple",
+  ["legendär"] = "legendary", ["artefakt"] = "artifact", ["erbstück"] = "heirloom",
+  ["kopf"] = "head", ["hals"] = "neck", ["schulter"] = "shoulder",
+  ["rücken"] = "back", ["umhang"] = "cloak", ["brust"] = "chest",
+  ["handgelenke"] = "wrist", ["armschienen"] = "bracers",
+  ["hände"] = "hands", ["handschuhe"] = "gloves",
+  ["taille"] = "waist", ["gürtel"] = "belt",
+  ["beine"] = "legs", ["hose"] = "pants",
+  ["füße"] = "feet", ["stiefel"] = "boots",
+  ["schmuck"] = "trinket", ["schild"] = "shield",
+  ["wappenrock"] = "tabard", ["hemd"] = "shirt", ["relikt"] = "relic",
+  ["distanz"] = "ranged", ["wurfwaffe"] = "thrown",
+  ["munition"] = "ammo", ["köcher"] = "quiver",
+  ["werkzeug"] = "tool", ["berufsausrüstung"] = "profgear",
+  ["taschenplatz"] = "bagslot",
+  ["waffe"] = "weapon", ["waffenhand"] = "mainhand", ["nebenhand"] = "offhand",
+  ["zweihand"] = "2h", ["einhand"] = "1h",
+  ["stoff"] = "cloth", ["leder"] = "leather",
+  ["kette"] = "mail", ["ketten"] = "mail",
+  ["platte"] = "plate", ["platten"] = "plate", ["kosmetisch"] = "cosmetic",
+  ["dolch"] = "dagger", ["schwert"] = "sword", ["axt"] = "axe",
+  ["streitkolben"] = "mace", ["stangenwaffe"] = "polearm", ["stab"] = "staff",
+  ["bogen"] = "bow", ["schusswaffe"] = "gun", ["armbrust"] = "crossbow",
+  ["zauberstab"] = "wand", ["faustwaffe"] = "fist", ["kriegsglefe"] = "warglaive",
+  ["angel"] = "fishing", ["angelrute"] = "fishing",
+  ["reittier"] = "mount", ["edelstein"] = "gem", ["rezept"] = "recipe",
+  ["glyphe"] = "glyph", ["tasche"] = "bag", ["behälter"] = "container",
+  ["haustier"] = "pet", ["projektil"] = "projectile",
+  ["handelswaren"] = "tradegoods", ["verschiedenes"] = "misc",
+  ["verbesserung"] = "enhancement",
+  ["reagenz"] = "reagent", ["reagenzien"] = "reagents",
+  ["verbrauchbar"] = "consumable", ["ausrüstung"] = "gear",
+  ["schlüsselstein"] = "keystone", ["marke"] = "token",
+  ["gesperrt"] = "locked", ["kriegsmeute"] = "warband",
+  ["seelengebunden"] = "soulbound", ["anlegen"] = "boe",
+  ["aktuell"] = "current", ["alt"] = "legacy",
+}
+
+local aliasMap
+
+function ns.SearchAlias(token)
+  if not aliasMap then
+    aliasMap = {}
+    for _, t in ipairs({ RU_WORDS, DE_WORDS }) do
+      for k, v in pairs(t) do aliasMap[ns.SearchFold(k)] = v end
+    end
+  end
+  return aliasMap[ns.SearchFold(token)]
+end
+
 local RU = {
   ["General"] = "Общее",
   ["Grid"] = "Сетка",
