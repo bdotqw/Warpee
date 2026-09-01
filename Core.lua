@@ -145,7 +145,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     else
       WarpeeDB.fontWish = wish
       if not (ns.Fonts:Has(WarpeeDB.font) and ns.Fonts:Usable(WarpeeDB.font)) then
-        WarpeeDB.font = ns.Fonts:Usable(ns.Fonts.DEFAULT) and ns.Fonts.DEFAULT or "Arial Narrow"
+        WarpeeDB.font = ns.Fonts.DEFAULT
       end
     end
     WarpeeDB.ilvlSize    = WarpeeDB.ilvlSize or 12

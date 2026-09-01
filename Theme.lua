@@ -712,8 +712,16 @@ function Theme:Panel(frame, bgKey, strokeKey)
 end
 
 ns.Fonts = {}
-ns.Fonts.DEFAULT = "Expressway"
+ns.Fonts.DEFAULT = "Friz Quadrata"
 local MEDIA = [[Interface\AddOns\Warpee\Media\]]
+local GAME_FONT = [[Fonts\FRIZQT__.TTF]]
+
+local function clientFont()
+  local fo = _G.GameFontNormal
+  local p = fo and fo.GetFont and fo:GetFont()
+  if type(p) == "string" and p ~= "" then return p end
+  return GAME_FONT
+end
 local SHIPPED = {
   { name = "Expressway",           file = "Expressway.ttf",         cyr = true },
   { name = "Manrope",              file = "Manrope.ttf",            cyr = true },
@@ -726,7 +734,7 @@ local SHIPPED = {
 }
 local BUILTIN = {
   { name = "Arial Narrow",  path = [[Fonts\ARIALN.TTF]] },
-  { name = "Friz Quadrata", path = [[Fonts\FRIZQT__.TTF]] },
+  { name = "Friz Quadrata", live = clientFont },
   { name = "Skurri",        path = [[Fonts\SKURRI.TTF]] },
   { name = "Morpheus",      path = [[Fonts\MORPHEUS.TTF]] },
 }
@@ -760,13 +768,13 @@ function ns.Fonts:List()
   return names
 end
 
-local FALLBACK_FONT = [[Fonts\ARIALN.TTF]]
-
 local function rawPath(name)
-  for _, f in ipairs(BUILTIN) do if f.name == name then return f.path end end
+  for _, f in ipairs(BUILTIN) do
+    if f.name == name then return f.live and f.live() or f.path end
+  end
   local lsm = LSM()
   if lsm then local pth = lsm:Fetch("font", name, true); if pth then return pth end end
-  return FALLBACK_FONT
+  return clientFont()
 end
 
 local probe, cyrProbe, pathOK = nil, nil, {}
@@ -809,10 +817,12 @@ end
 
 local function cyrillicFont()
   if cyrPick then return cyrPick end
+  local own = clientFont()
+  if hasCyrillic(own) then cyrPick = own; return own end
   for _, path in ipairs(CYR_FONTS) do
     if hasCyrillic(path) then cyrPick = path; return path end
   end
-  cyrPick = FALLBACK_FONT
+  cyrPick = own
   return cyrPick
 end
 
@@ -844,7 +854,7 @@ function ns.Fonts:Path(name)
     ok = probeFont(p) and true or false
     pathOK[p] = ok
   end
-  if not ok then p = FALLBACK_FONT end
+  if not ok then p = clientFont() end
   if self:NeedsCyrillic() and not hasCyrillic(p) then return cyrillicFont() end
   return p
 end
