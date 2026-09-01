@@ -724,9 +724,6 @@ local function clientFont()
 end
 local SHIPPED = {
   { name = "Manrope",              file = "Manrope.ttf",            cyr = true },
-  { name = "Onest",                file = "Onest.ttf",              cyr = true },
-  { name = "Golos Text",           file = "GolosText.ttf",          cyr = true },
-  { name = "Geologica",            file = "Geologica.ttf",          cyr = true },
   { name = "Rubik",                file = "Rubik.ttf",              cyr = true },
   { name = "Archivo",              file = "Archivo.ttf",            cyr = false },
   { name = "Fira Sans Condensed",  file = "FiraSansCondensed.ttf",  cyr = true },
