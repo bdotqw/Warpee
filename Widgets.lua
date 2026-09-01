@@ -12,8 +12,9 @@ local TRI = {
 
 local function applyTri(t)
   local host = t:GetParent() or t
-  local w = ns.PX(host, t.wpeW or 8)
-  local h = ns.PX(host, t.wpeH or 8)
+  local side = (t.wpeDir == "left" or t.wpeDir == "right")
+  local w = side and ns.PX(host, t.wpeW or 8) or ns.SnapOdd(host, t.wpeW or 8)
+  local h = side and ns.SnapOdd(host, t.wpeH or 8) or ns.PX(host, t.wpeH or 8)
   t:SetSize(w, h)
   for i = 1, 4 do t:SetVertexOffset(i, 0, 0) end
   for _, v in ipairs(TRI[t.wpeDir] or TRI.down) do
@@ -24,7 +25,6 @@ end
 function ns.Triangle(parent, dir, w, h, colorKey, layer, sub)
   local t = parent:CreateTexture(nil, layer or "ARTWORK", nil, sub)
   t:SetColorTexture(1, 1, 1, 1)
-  ns.NoPixelSnap(t)
   t.wpeDir = TRI[dir] and dir or "down"
   t.wpeW, t.wpeH = w or 8, h or w or 8
   t.wpeKey = colorKey or "dim"
@@ -53,9 +53,12 @@ function ns.ArrowGlyph(parent, dir, size)
   local minor = math.max(3, math.floor(n * 0.62 + 0.5))
   local w, h = side and minor or n, side and n or minor
   local f = CreateFrame("Frame", nil, parent)
-  ns.SnapBox(f, w, h)
   local t = ns.Triangle(f, d, w, h, "dim")
-  t:SetPoint("CENTER")
+  t:SetPoint("TOPLEFT")
+  ns.PixelJob(f, function(s)
+    t:SetSpan()
+    s:SetSize(t:GetWidth(), t:GetHeight())
+  end, "fit")
   f.tri, f.parts = t, { t }
   f.Tint = function(_, key) t:SetTint(key) end
   f.SetTint = function(s, key) s.wpeTint = key; t:SetTint(key) end
