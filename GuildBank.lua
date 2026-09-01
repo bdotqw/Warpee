@@ -108,7 +108,7 @@ end
 
 local function paintToggle(b)
   if not b.SetBackdrop then return end
-  local hot = b.wpeLit or b:IsMouseOver()
+  local hot = b.wpeLit or b.wpeHot or b:IsMouseOver()
   b:SetBackdropColor(Theme:C(hot and "panelHi" or "panel"))
   b:SetBackdropBorderColor(Theme:C(hot and "accent" or "stroke"))
   if b.wpeHl then
@@ -118,6 +118,9 @@ local function paintToggle(b)
   local fs = textOf(b)
   if fs then fs:SetTextColor(Theme:C(hot and "accent" or "text")) end
 end
+
+local function hotOn(s) s.wpeHot = true; paintToggle(s) end
+local function hotOff(s) s.wpeHot = nil; paintToggle(s) end
 
 local function slotBg(b)
   if not b.bg then return end
@@ -195,8 +198,8 @@ local function skinSideTab(tab, index)
   if not box(b, "panel", "stroke") then return end
   b.wpeIndex = index
   Theme:Track(b, paintToggle)
-  b:HookScript("OnEnter", paintToggle)
-  b:HookScript("OnLeave", paintToggle)
+  b:HookScript("OnEnter", hotOn)
+  b:HookScript("OnLeave", hotOff)
   b:HookScript("OnClick", function() Skin:Refresh() end)
   Skin.tabs[#Skin.tabs + 1] = b
 end
@@ -270,8 +273,8 @@ local function skinPanelTab(t, index)
   label(textOf(t), 12)
   t.wpeIndex = index
   Theme:Track(t, function(s) paintToggle(s); lockTab(s) end)
-  t:HookScript("OnEnter", paintToggle)
-  t:HookScript("OnLeave", paintToggle)
+  t:HookScript("OnEnter", hotOn)
+  t:HookScript("OnLeave", hotOff)
   t:HookScript("OnClick", function() Skin:Refresh() end)
   Skin.panelTabs[#Skin.panelTabs + 1] = t
 end
@@ -301,7 +304,7 @@ local function skinScroll(sb)
   end
 end
 
-local BAND, BAND_GAP = 35, 3
+local BAND, BAND_GAP = 35, 7
 
 local function anchoredTo(f, host)
   local n = (f.GetNumPoints and f:GetNumPoints()) or 0
@@ -353,6 +356,11 @@ local function placeClose(close)
   local host = close.wpeHost
   if not host then return end
   close:ClearAllPoints()
+  local sb = (host == _G.GuildBankFrame) and _G.GuildItemSearchBox or nil
+  if sb and Theme:Skinned() then
+    ns.SnapPoint(close, "TOPRIGHT", sb, "TOPRIGHT", 0, BAND - BAND_GAP)
+    return
+  end
   local y = Theme:Skinned() and (BAND_GAP + Theme:TopInset()) or 5
   ns.SnapPoint(close, "TOPRIGHT", host, "TOPRIGHT", -6, -y)
 end
@@ -372,8 +380,8 @@ local function skinClose(close, host)
   glyph:SetText("×")
   close.Text = glyph
   Theme:Track(close, function(s) paintToggle(s); placeClose(s) end)
-  close:HookScript("OnEnter", paintToggle)
-  close:HookScript("OnLeave", paintToggle)
+  close:HookScript("OnEnter", hotOn)
+  close:HookScript("OnLeave", hotOff)
   paintToggle(close)
   placeClose(close)
 end
