@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
-local TABLES, COINS, SHORTS, WORDS = {}, {}, {}, {}
+local TABLES, COINS, SHORTS, WORDS, ALIAS = {}, {}, {}, {}, {}
 
 local L = setmetatable({}, { __index = function(_, k)
   local t = TABLES[ns.LocalePick()]
@@ -24,6 +24,7 @@ function ns.AddLocale(code, label, def)
   COINS[code] = def.coin
   SHORTS[code] = def.short
   if def.words then WORDS[#WORDS + 1] = def.words end
+  for _, c in ipairs(def.also or {}) do ALIAS[c] = code end
   aliasMap = nil
 end
 
@@ -55,6 +56,7 @@ end
 
 local function supported(code)
   if type(code) ~= "string" then return nil end
+  code = ALIAS[code] or code
   for _, v in ipairs(ns.LOCALES) do
     if v == code then return code end
   end
