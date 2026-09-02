@@ -153,16 +153,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
       WarpeeDB.fontMigrated = true
       if ns.Fonts:Usable(ns.Fonts.DEFAULT) then WarpeeDB.font = ns.Fonts.DEFAULT end
     end
-    WarpeeDB.font = WarpeeDB.font or ns.Fonts.DEFAULT
-    local wish = WarpeeDB.fontWish or WarpeeDB.font
-    if ns.Fonts:Has(wish) and ns.Fonts:Usable(wish) then
-      WarpeeDB.font, WarpeeDB.fontWish = wish, nil
-    else
-      WarpeeDB.fontWish = wish
-      if not (ns.Fonts:Has(WarpeeDB.font) and ns.Fonts:Usable(WarpeeDB.font)) then
-        WarpeeDB.font = ns.Fonts.DEFAULT
-      end
-    end
+    ns.Fonts:Settle()
     WarpeeDB.ilvlSize    = WarpeeDB.ilvlSize or 14
     WarpeeDB.ilvlAnchor  = WarpeeDB.ilvlAnchor or "BOTTOMRIGHT"
     WarpeeDB.ilvlX       = WarpeeDB.ilvlX or 0
@@ -343,9 +334,10 @@ local function tipFont()
 end
 
 local function TT(s)
-  if ns.Fonts:NeedsCyrillic() then
+  local need = ns.Fonts:Need()
+  if need then
     local p = tipFont()
-    if p and not ns.Fonts:HasCyrillic(p) then return s end
+    if p and not ns.Fonts:Covers(need, p) then return s end
   end
   return L[s]
 end

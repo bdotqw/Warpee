@@ -722,13 +722,30 @@ local function clientFont()
   if type(p) == "string" and p ~= "" then return p end
   return GAME_FONT
 end
+local SCRIPTS = {
+  cyrillic = {
+    chars = { "Ш", "Г", "ш", "г", "Ё", "ъ" },
+    fonts = { [[Fonts\FRIZQT___CYR.TTF]], [[Fonts\ARIALN.TTF]], [[Fonts\FRIZQT__.TTF]] },
+  },
+  latin1 = {
+    chars = { "ß", "Ä", "ü", "Ö", "ä", "Ü", "ö" },
+    fonts = { [[Fonts\FRIZQT__.TTF]], [[Fonts\ARIALN.TTF]], [[Fonts\FRIZQT___CYR.TTF]] },
+  },
+}
+local NEEDS = { deDE = "latin1", ruRU = "cyrillic" }
+
+local DECLARED, scriptOK, scriptPick, judging = {}, {}, {}, {}
+for k in pairs(SCRIPTS) do
+  DECLARED[k], scriptOK[k], judging[k] = {}, {}, {}
+end
+
 local SHIPPED = {
-  { name = "Manrope Bold",         file = "ManropeBold.ttf",        cyr = true },
-  { name = "Rubik Bold",           file = "RubikBold.ttf",          cyr = true },
-  { name = "Oswald",               file = "Oswald.ttf",             cyr = true },
-  { name = "Russo One",            file = "RussoOne.ttf",           cyr = true },
-  { name = "Archivo",              file = "Archivo.ttf",            cyr = false },
-  { name = "Fira Sans Condensed",  file = "FiraSansCondensed.ttf",  cyr = true },
+  { name = "Manrope Bold",         file = "ManropeBold.ttf",        cyr = true,  lat = true },
+  { name = "Rubik Bold",           file = "RubikBold.ttf",          cyr = true,  lat = true },
+  { name = "Oswald",               file = "Oswald.ttf",             cyr = true,  lat = true },
+  { name = "Russo One",            file = "RussoOne.ttf",           cyr = true,  lat = true },
+  { name = "Archivo",              file = "Archivo.ttf",            cyr = false, lat = true },
+  { name = "Fira Sans Condensed",  file = "FiraSansCondensed.ttf",  cyr = true,  lat = true },
 }
 local BUILTIN = {
   { name = "Arial Narrow",  path = [[Fonts\ARIALN.TTF]] },
@@ -736,10 +753,10 @@ local BUILTIN = {
   { name = "Skurri",        path = [[Fonts\SKURRI.TTF]] },
   { name = "Morpheus",      path = [[Fonts\MORPHEUS.TTF]] },
 }
-local DECLARED = {}
 for i = #SHIPPED, 1, -1 do
   local p = MEDIA .. SHIPPED[i].file
-  DECLARED[p] = SHIPPED[i].cyr and true or false
+  DECLARED.cyrillic[p] = SHIPPED[i].cyr and true or false
+  DECLARED.latin1[p] = SHIPPED[i].lat and true or false
   table.insert(BUILTIN, 1, { name = SHIPPED[i].name, path = p })
 end
 local function LSM() return _G.LibStub and _G.LibStub("LibSharedMedia-3.0", true) or nil end
@@ -750,7 +767,7 @@ do
   end
 end
 
-local cyrFilter
+local needFilter
 
 function ns.Fonts:List()
   local names, seen = {}, {}
@@ -761,7 +778,7 @@ function ns.Fonts:List()
       if not seen[name] then names[#names + 1] = name; seen[name] = true end
     end
   end
-  if cyrFilter then names = cyrFilter(names) end
+  if needFilter then names = needFilter(names) end
   table.sort(names)
   return names
 end
@@ -775,10 +792,7 @@ local function rawPath(name)
   return clientFont()
 end
 
-local probe, cyrProbe, pathOK = nil, nil, {}
-
-local CYR_FONTS = { [[Fonts\FRIZQT___CYR.TTF]], [[Fonts\ARIALN.TTF]], [[Fonts\FRIZQT__.TTF]] }
-local cyrOK, cyrPick = {}, nil
+local glyphProbe, pathOK = nil, {}
 
 local function freshString()
   return UIParent:CreateFontString(nil, "OVERLAY")
@@ -823,45 +837,56 @@ local function pathUsable(path)
   return true
 end
 
-local function pairDiff(fs, a, b)
-  fs:SetText(a)
-  local x = fs:GetStringWidth() or 0
-  fs:SetText(b)
-  local y = fs:GetStringWidth() or 0
-  if x <= 0 or y <= 0 then return nil end
-  return math.abs(x - y) > 0.5
+local ABSENT = { "\239\183\144", "\239\183\145", "\226\191\160" }
+
+local function measure(fs, s)
+  fs:SetText(s)
+  return fs:GetStringWidth() or 0
 end
 
-local function judgeCyrillic(path)
-  cyrProbe = freshString()
-  if not applied(cyrProbe, path, 24) then return nil end
-  local up = pairDiff(cyrProbe, "Ш", "Г")
-  local low = pairDiff(cyrProbe, "ш", "г")
-  local mix = pairDiff(cyrProbe, "Ё", "ъ")
-  if up == nil or low == nil or mix == nil then return nil end
-  return (up and low and mix) and true or false
+local function judgeScript(script, path)
+  local set = SCRIPTS[script]
+  if not set then return true end
+  glyphProbe = freshString()
+  if not applied(glyphProbe, path, 24) then return nil end
+  local first, same = nil, true
+  for _, ch in ipairs(set.chars) do
+    local w = measure(glyphProbe, ch)
+    if w <= 0 then return nil end
+    if not first then
+      first = w
+    elseif math.abs(w - first) > 0.5 then
+      same = false
+    end
+  end
+  if not same then return true end
+  local ref = measure(glyphProbe, ABSENT[1])
+  if ref <= 0 then return false end
+  for i = 2, #ABSENT do
+    if math.abs(measure(glyphProbe, ABSENT[i]) - ref) > 0.5 then return false end
+  end
+  return math.abs(first - ref) > 0.5
 end
 
-local judging = {}
-
-local function hasCyrillic(path)
+local function hasScript(script, path)
   if not path then return false end
-  local declared = DECLARED[path]
+  if not SCRIPTS[script] then return true end
+  local declared = DECLARED[script][path]
   if declared ~= nil then return declared end
-  local known = cyrOK[path]
+  local known = scriptOK[script][path]
   if known ~= nil then return known end
-  local now = judgeCyrillic(path)
+  local now = judgeScript(script, path)
   if now ~= nil then
-    cyrOK[path] = now
+    scriptOK[script][path] = now
     return now
   end
-  if not judging[path] then
-    judging[path] = true
+  if not judging[script][path] then
+    judging[script][path] = true
     C_Timer.After(0, function()
-      judging[path] = nil
-      local late = judgeCyrillic(path)
+      judging[script][path] = nil
+      local late = judgeScript(script, path)
       if late ~= nil then
-        cyrOK[path] = late
+        scriptOK[script][path] = late
         if ns.Fonts.Refresh then ns.Fonts:Refresh() end
       end
     end)
@@ -869,34 +894,34 @@ local function hasCyrillic(path)
   return false
 end
 
-local function cyrillicFont()
-  if cyrPick then return cyrPick end
+local function scriptFont(script)
+  local pick = scriptPick[script]
+  if pick then return pick end
   local own = clientFont()
-  if hasCyrillic(own) then cyrPick = own; return own end
-  for _, path in ipairs(CYR_FONTS) do
-    if hasCyrillic(path) then cyrPick = path; return path end
+  local set = SCRIPTS[script]
+  if not set then return own end
+  if hasScript(script, own) then scriptPick[script] = own; return own end
+  for _, path in ipairs(set.fonts) do
+    if hasScript(script, path) then scriptPick[script] = path; return path end
   end
-  cyrPick = own
-  return cyrPick
+  return own
 end
 
-function ns.Fonts:CyrillicPath()
-  return cyrillicFont()
+function ns.Fonts:Need()
+  return NEEDS[(ns.LocalePick and ns.LocalePick()) or "enUS"]
 end
 
-function ns.Fonts:HasCyrillic(path)
-  return path and hasCyrillic(path) or false
+function ns.Fonts:Covers(script, path)
+  if not script then return true end
+  return hasScript(script, path) and true or false
 end
 
-function ns.Fonts:NeedsCyrillic()
-  return (ns.LocalePick and ns.LocalePick() == "ruRU") and true or false
-end
-
-cyrFilter = function(names)
-  if not ns.Fonts:NeedsCyrillic() then return names end
+needFilter = function(names)
+  local need = ns.Fonts:Need()
+  if not need then return names end
   local out = {}
   for _, n in ipairs(names) do
-    if hasCyrillic(rawPath(n)) then out[#out + 1] = n end
+    if hasScript(need, rawPath(n)) then out[#out + 1] = n end
   end
   return (#out > 0) and out or names
 end
@@ -904,7 +929,8 @@ end
 function ns.Fonts:Path(name)
   local p = rawPath(name)
   if not pathUsable(p) then p = clientFont() end
-  if self:NeedsCyrillic() and not hasCyrillic(p) then return cyrillicFont() end
+  local need = self:Need()
+  if need and not hasScript(need, p) then return scriptFont(need) end
   return p
 end
 
@@ -917,7 +943,8 @@ end
 function ns.Fonts:Usable(name)
   local p = rawPath(name)
   if not pathUsable(p) then return false end
-  if self:NeedsCyrillic() and not hasCyrillic(p) then return false end
+  local need = self:Need()
+  if need and not hasScript(need, p) then return false end
   return true
 end
 
