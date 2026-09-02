@@ -2,15 +2,11 @@ local addonName, ns = ...
 local Bags = ns.Bags
 local L = ns.L
 
-local ANCHOR_OK = { TOPLEFT = true, TOPRIGHT = true,
-                    BOTTOMLEFT = true, BOTTOMRIGHT = true }
 local PICKS = {
   slotStyle      = { def = "flat", ok = { flat = true, plate = true, deep = true } },
   goldFormat     = { def = "short",
                      ok = { commas = true, dots = true, spaces = true, short = true } },
   vendorRepairBy = { def = "player", ok = { player = true, guild = true, both = true } },
-  ilvlAnchor     = { def = "BOTTOMRIGHT", ok = ANCHOR_OK },
-  countAnchor    = { def = "BOTTOMRIGHT", ok = ANCHOR_OK },
 }
 
 function ns.Toggle(show)
@@ -159,14 +155,12 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
       if ns.Fonts:Usable(ns.Fonts.DEFAULT) then WarpeeDB.font = ns.Fonts.DEFAULT end
     end
     ns.Fonts:Settle()
-    WarpeeDB.ilvlSize    = WarpeeDB.ilvlSize or 14
-    WarpeeDB.ilvlAnchor  = WarpeeDB.ilvlAnchor or "BOTTOMRIGHT"
-    WarpeeDB.ilvlX       = WarpeeDB.ilvlX or 0
-    WarpeeDB.ilvlY       = WarpeeDB.ilvlY or 2
-    WarpeeDB.countSize   = WarpeeDB.countSize or 14
-    WarpeeDB.countAnchor = WarpeeDB.countAnchor or "BOTTOMRIGHT"
-    WarpeeDB.countX      = WarpeeDB.countX or 0
-    WarpeeDB.countY      = WarpeeDB.countY or 2
+    WarpeeDB.badge = WarpeeDB.badge or {}
+    ns.BadgeMigrate(WarpeeDB, WarpeeDB.badge)
+    WarpeeDB.ilvlSize, WarpeeDB.ilvlAnchor = nil, nil
+    WarpeeDB.ilvlX, WarpeeDB.ilvlY = nil, nil
+    WarpeeDB.countSize, WarpeeDB.countAnchor = nil, nil
+    WarpeeDB.countX, WarpeeDB.countY = nil, nil
     if WarpeeDB.qualityColorIlvl == nil then WarpeeDB.qualityColorIlvl = false end
     if WarpeeDB.qualityBorder == nil then WarpeeDB.qualityBorder = true end
     if WarpeeDB.mergeReagents == nil then WarpeeDB.mergeReagents = false end
@@ -232,14 +226,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     Bags.goldOnly = WarpeeDB.goldOnly
     Bags.font = WarpeeDB.font
     Bags.showGauge = WarpeeDB.showGauge
-    Bags.ilvlSize    = WarpeeDB.ilvlSize
-    Bags.ilvlAnchor  = WarpeeDB.ilvlAnchor
-    Bags.ilvlX       = WarpeeDB.ilvlX
-    Bags.ilvlY       = WarpeeDB.ilvlY
-    Bags.countSize   = WarpeeDB.countSize
-    Bags.countAnchor = WarpeeDB.countAnchor
-    Bags.countX      = WarpeeDB.countX
-    Bags.countY      = WarpeeDB.countY
+    Bags.badge = WarpeeDB.badge
     Bags.qualityColorIlvl = WarpeeDB.qualityColorIlvl
     Bags.qualityBorder    = WarpeeDB.qualityBorder
     Bags.mergeReagents    = WarpeeDB.mergeReagents
