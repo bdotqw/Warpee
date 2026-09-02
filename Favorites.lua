@@ -125,7 +125,13 @@ local function makeCatcher(parent, index)
 end
 
 function Fav:Set(index, id)
-  self:List()[index] = id or nil
+  local list = self:List()
+  if id then
+    for i, own in pairs(list) do
+      if own == id and i ~= index then list[i] = nil end
+    end
+  end
+  list[index] = id or nil
   later()
 end
 
@@ -209,8 +215,11 @@ function Fav:Apply(bags, x, top, size, gap)
   local gen = (bags.styleGen or 0) .. ":" .. tostring(bags.fontPath) .. ":" .. size
   local repaint = self.paintKey ~= gen
   self.paintKey = gen
+  local seen = {}
   for i = 1, n do
     local id = list[i]
+    if id and seen[id] then list[i], id = nil, nil end
+    if id then seen[id] = true end
     local bag, slot = locate(id)
     local px = x + (i - 1) * (size + gap)
     local b, g = self.slots[i], self.ghosts[i]
@@ -219,6 +228,8 @@ function Fav:Apply(bags, x, top, size, gap)
         waiting = true
       else
         b = ns.CreateItemButton(frame, bag, slot)
+        b:RegisterForClicks("RightButtonUp")
+        b:RegisterForDrag()
         self.slots[i] = b
       end
     end
