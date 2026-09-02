@@ -344,6 +344,7 @@ function View:AnchorHeader()
     ns.SnapPoint(self.bankTab, "TOPLEFT", self.frame, "TOPLEFT", PAD, -row1)
   end
   Theme:HeaderBand(self.frame)
+  self:UpdateTabs()
   self:AnchorSearch()
 end
 
@@ -444,16 +445,24 @@ function View:UpdateTabs()
   end
   paint(self.bankTab, self.mode == "bank")
   paint(self.wbTab, self.mode == "warband")
+  local row1 = ROW1_Y + Theme:TopInset() + Theme:HeadDrop()
   local bankOn = self:ModeAvailable("bank")
   if self.bankTab then self.bankTab:SetShown(bankOn) end
+  local last = bankOn and self.bankTab or nil
   if self.wbTab then
-    self.wbTab:SetShown(self:ModeAvailable("warband"))
+    local wbOn = self:ModeAvailable("warband")
+    self.wbTab:SetShown(wbOn)
     self.wbTab:ClearAllPoints()
     if bankOn then
       self.wbTab:SetPoint("LEFT", self.bankTab, "RIGHT", 4, 0)
     else
-      self.wbTab:SetPoint("TOPLEFT", self.frame, "TOPLEFT", PAD, -6)
+      ns.SnapPoint(self.wbTab, "TOPLEFT", self.frame, "TOPLEFT", PAD, -row1)
     end
+    if wbOn then last = self.wbTab end
+  end
+  if self.freeText and last then
+    self.freeText:ClearAllPoints()
+    self.freeText:SetPoint("LEFT", last, "RIGHT", 12, 0)
   end
 end
 
