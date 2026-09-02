@@ -1,5 +1,10 @@
 # Warpee
 
+## 1.2.1
+
+- Slot words in the search now work on snapshots as well: `hands`, `ring` or `2h` find items in another character's bags and in a recorded bank
+- Searching a snapshot by plain text also looks at the item type and subtype, the way it already does in your own bags
+
 ## 1.2.0
 
 - Spanish interface text, and Spanish words in the search; Latin American clients use it too
