@@ -104,7 +104,7 @@ local STRINGS = {
   ["Grouping for printed amounts. Short abbreviates to K and M."] =
     "Séparateur des milliers dans les sommes affichées. « Court » abrège en k et M.",
   ["Show gold only, hide silver and copper."] = "N'afficher que l'or, sans l'argent ni le cuivre.",
-  ["On = g/s/c letters. Off = coin icons."] = "Activé : lettres po/pa/pc. Désactivé : icônes des pièces.",
+  ["On = g/s/c letters. Off = coin icons."] = "Activé : lettres o/a/c. Désactivé : icônes des pièces.",
   ["Empty the search box when the window closes, so it opens unfiltered next time."] =
     "Vide le champ de recherche à la fermeture de la fenêtre, pour qu'elle s'ouvre sans filtre la fois suivante.",
   ["While both windows are open, typing in either box searches both at once."] =
@@ -304,7 +304,7 @@ local STRINGS = {
 }
 
 ns.AddLocale("frFR", "Français", {
-  coin = { g = "po", s = "pa", c = "pc" },
+  coin = { g = "o", s = "a", c = "c" },
   short = { dec = ",", units = { { 1e9, " Md" }, { 1e6, " M" }, { 1e3, " k" } } },
   words = WORDS,
   strings = STRINGS,
