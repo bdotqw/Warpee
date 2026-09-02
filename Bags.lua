@@ -24,8 +24,7 @@ local ROW2_Y = GAUGE_Y + 6
 local Bags = { pool = {}, vpool = {}, cols = COLS_DEFAULT, gap = GAP_DEFAULT, iconSize = SIZE_DEFAULT,
                slotStyle = "tile", showGauge = true, goldLetters = false, goldOnly = false,
                font = ns.Fonts.DEFAULT, query = "", dirty = {},
-               ilvlSize = 12, ilvlAnchor = "TOPLEFT", ilvlX = 3, ilvlY = -3,
-               countSize = 14, countAnchor = "BOTTOMRIGHT", countX = -2, countY = 2,
+               badge = ns.BadgeDefaults(),
                qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, junkIcon = false, reagentTint = true,
                revFill = false, fillUp = false, reagentTop = false,
                styleGen = 1 }
@@ -281,7 +280,7 @@ function Bags:LayoutBagWindow()
   local BGAP, BPAD = 6, 12
   local BHEAD = 30 + Theme:TopInset()
   local size = self:BagWinButtonSize()
-  local cf = self.countSize or 14
+  local cf = ns.Badge("count").s
   if self.bagTitle then
     self.bagTitle:ClearAllPoints()
     self.bagTitle:SetPoint("TOPLEFT", w, "TOPLEFT", BPAD, -(8 + Theme:TopInset()))

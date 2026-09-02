@@ -349,6 +349,74 @@ local function cellOf(b)
   return (b.view and b.view.iconSize) or ns.Bags.iconSize or 37
 end
 
+local BADGES = {
+  { key = "ilvl",                c = "BOTTOMRIGHT", x =  0, y =  2, s = 14 },
+  { key = "count",               c = "BOTTOMRIGHT", x =  0, y =  2, s = 14 },
+  { key = "junk",    tex = true, c = "TOPLEFT",     x =  1, y = -1, s = 0.42, m = 8 },
+  { key = "blocked", tex = true, c = "TOPRIGHT",    x = -1, y = -1, s = 0.60, m = 12 },
+}
+local BADGE = {}
+for _, d in ipairs(BADGES) do BADGE[d.key] = d end
+ns.BADGES, ns.BADGE = BADGES, BADGE
+ns.BADGE_CORNERS = { TOPLEFT = true, TOPRIGHT = true,
+                     BOTTOMLEFT = true, BOTTOMRIGHT = true }
+
+local BADGE_FIELDS = { "c", "x", "y", "s" }
+local BADGE_LEGACY = {
+  ilvl  = { c = "ilvlAnchor",  x = "ilvlX",  y = "ilvlY",  s = "ilvlSize"  },
+  count = { c = "countAnchor", x = "countX", y = "countY", s = "countSize" },
+}
+
+function ns.BadgeDefaults()
+  local t = {}
+  for _, d in ipairs(BADGES) do
+    t[d.key] = { c = d.c, x = d.x, y = d.y, s = d.s, on = true }
+  end
+  return t
+end
+
+function ns.BadgeMigrate(db, t)
+  for _, d in ipairs(BADGES) do
+    local g = t[d.key]
+    if type(g) ~= "table" then g = {}; t[d.key] = g end
+    local old = BADGE_LEGACY[d.key]
+    for _, f in ipairs(BADGE_FIELDS) do
+      if g[f] == nil and old then g[f] = db[old[f]] end
+      if g[f] == nil then g[f] = d[f] end
+    end
+    if not ns.BADGE_CORNERS[g.c] then g.c = d.c end
+    g.x, g.y = tonumber(g.x) or d.x, tonumber(g.y) or d.y
+    g.s = tonumber(g.s) or d.s
+    g.on = g.on ~= false
+  end
+end
+
+function ns.Badge(key)
+  local t = ns.Bags and ns.Bags.badge
+  return (t and t[key]) or BADGE[key]
+end
+
+local function badgeObj(b, key)
+  if key == "count" then return b.Count or _G[(b:GetName() or "") .. "Count"] end
+  return b[key]
+end
+
+function ns.ApplyBadge(b, key)
+  local o = badgeObj(b, key)
+  if not o then return end
+  local d, g = BADGE[key], ns.Badge(key)
+  if d.tex then
+    local sz = math.max(d.m or 8, math.floor(cellOf(b) * (g.s or d.s) + 0.5))
+    o:SetSize(sz, sz)
+  else
+    ns.SetOutlined(o, g.s or d.s)
+  end
+  local ref = iconOf(b) or b
+  o:ClearAllPoints()
+  o:SetPoint(g.c, ref, g.c, g.x, g.y)
+  o:SetAlpha(g.on and 1 or 0)
+end
+
 local function decorated(t)
   if not (t and t:IsShown()) then return false end
   return not tierAtlas(t)
@@ -395,16 +463,7 @@ end
 function ns.ApplyItemFont(b)
   if b.styleGen == ns.Bags.styleGen then return end
   b.styleGen = ns.Bags.styleGen
-  local B = ns.Bags
-  if b.ilvl then
-    local a = B.ilvlAnchor or "TOPLEFT"
-    b.ilvl:ClearAllPoints(); b.ilvl:SetPoint(a, b, a, B.ilvlX or 3, B.ilvlY or -3)
-  end
-  local count = b.Count or _G[(b:GetName() or "") .. "Count"]
-  if count then
-    local a = B.countAnchor or "BOTTOMRIGHT"
-    count:ClearAllPoints(); count:SetPoint(a, b, a, B.countX or -2, B.countY or 2)
-  end
+  for _, d in ipairs(BADGES) do ns.ApplyBadge(b, d.key) end
 end
 
 function ns.SetOutlined(fs, size)
@@ -415,12 +474,12 @@ end
 function ns.FitCount(b, count)
   local c = b.Count or _G[(b:GetName() or "") .. "Count"]
   if not c then return end
-  ns.SetOutlined(c, ns.Bags.countSize or 14)
+  ns.SetOutlined(c, ns.Badge("count").s)
 end
 
 function ns.FitIlvl(b, lvl)
   if not b.ilvl then return end
-  ns.SetOutlined(b.ilvl, ns.Bags.ilvlSize or 12)
+  ns.SetOutlined(b.ilvl, ns.Badge("ilvl").s)
 end
 
 local function fmtCooldown(s)
@@ -431,7 +490,7 @@ end
 
 local function cdFont(b)
   if not b.cdText then return end
-  ns.SetOutlined(b.cdText, ns.Bags.countSize or 14)
+  ns.SetOutlined(b.cdText, ns.Badge("count").s)
 end
 
 local function cdOnUpdate(self, elapsed)
@@ -484,11 +543,7 @@ function ns.MarkJunk(b, quality)
       b.junk:SetTexture("Interface\\MoneyFrame\\UI-GoldIcon")
     end
   end
-  local ic = iconOf(b)
-  local sz = math.max(8, math.floor(cellOf(b) * 0.42 + 0.5))
-  b.junk:SetSize(sz, sz)
-  b.junk:ClearAllPoints()
-  b.junk:SetPoint("TOPLEFT", ic or b, "TOPLEFT", 1, -1)
+  ns.ApplyBadge(b, "junk")
   b.junk:Show()
 end
 
@@ -511,11 +566,7 @@ function ns.MarkBlocked(b, itemID)
     end
     if not set then b.blocked:SetTexture("Interface\\PetBattles\\PetBattle-LockIcon") end
   end
-  local ic = iconOf(b)
-  local sz = math.max(12, math.floor(cellOf(b) * 0.6 + 0.5))
-  b.blocked:SetSize(sz, sz)
-  b.blocked:ClearAllPoints()
-  b.blocked:SetPoint("TOPRIGHT", ic or b, "TOPRIGHT", -1, -1)
+  ns.ApplyBadge(b, "blocked")
   b.blocked:Show()
 end
 

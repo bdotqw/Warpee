@@ -1126,14 +1126,24 @@ local function goldFmtGet() return WarpeeDB.goldFormat or "commas" end
 local function goldFmtSet(v) WarpeeDB.goldFormat = v; relayout() end
 local qColorGet, qColorSet   = styleField("qualityColorIlvl")
 local qBorderGet, qBorderSet = styleField("qualityBorder")
-local ilvlSizeGet, ilvlSizeSet     = styleField("ilvlSize")
-local ilvlAnchorGet, ilvlAnchorSet = styleField("ilvlAnchor")
-local ilvlXGet, ilvlXSet           = styleField("ilvlX")
-local ilvlYGet, ilvlYSet           = styleField("ilvlY")
-local countSizeGet, countSizeSet     = styleField("countSize")
-local countAnchorGet, countAnchorSet = styleField("countAnchor")
-local countXGet, countXSet           = styleField("countX")
-local countYGet, countYSet           = styleField("countY")
+local bg = {}
+bg.field = function(key, f)
+  local get = function() return ns.Badge(key)[f] end
+  local set = function(v)
+    ns.Badge(key)[f] = v
+    Bags.styleGen = (Bags.styleGen or 0) + 1
+    relayout()
+  end
+  return get, set
+end
+bg.ilvlSizeGet, bg.ilvlSizeSet     = bg.field("ilvl", "s")
+bg.ilvlAnchorGet, bg.ilvlAnchorSet = bg.field("ilvl", "c")
+bg.ilvlXGet, bg.ilvlXSet           = bg.field("ilvl", "x")
+bg.ilvlYGet, bg.ilvlYSet           = bg.field("ilvl", "y")
+bg.countSizeGet, bg.countSizeSet     = bg.field("count", "s")
+bg.countAnchorGet, bg.countAnchorSet = bg.field("count", "c")
+bg.countXGet, bg.countXSet           = bg.field("count", "x")
+bg.countYGet, bg.countYSet           = bg.field("count", "y")
 local bankColsGet, bankColsSet = dbField("bankCols", 24)
 local wbColsGet, wbColsSet     = dbField("warbandCols", 24)
 local bankSizeGet, bankSizeSet = dbField("bankIconSize", 40)
@@ -1239,33 +1249,33 @@ local ITEMS_PAGE = {
     desc = "Thickness of the quality border." },
   { type = "header", name = "Item level number", key = "ilvlnum",
     state = function()
-      return ("%d px, %s"):format(ilvlSizeGet(), (T(anchorLabel(ilvlAnchorGet()))):lower())
+      return ("%d px, %s"):format(bg.ilvlSizeGet(), (T(anchorLabel(bg.ilvlAnchorGet()))):lower())
     end },
   { type = "toggle", name = "Color by quality", col = 1, section = "ilvlnum",
     get = qColorGet, set = qColorSet,
     desc = "Tint the number with the item's rarity color." },
-  { type = "select", name = "Corner", get = ilvlAnchorGet, set = ilvlAnchorSet,
+  { type = "select", name = "Corner", get = bg.ilvlAnchorGet, set = bg.ilvlAnchorSet,
     section = "ilvlnum", keys = anchorKeys, label = anchorLabel,
     desc = "Which corner of the slot the number sits in." },
   { type = "range", name = "Size", min = 6, max = 24, step = 1, section = "ilvlnum",
-    get = ilvlSizeGet, set = ilvlSizeSet, half = "left" },
+    get = bg.ilvlSizeGet, set = bg.ilvlSizeSet, half = "left" },
   { type = "range", name = "X offset", min = -20, max = 20, step = 1, section = "ilvlnum",
-    get = ilvlXGet, set = ilvlXSet, half = "right" },
+    get = bg.ilvlXGet, set = bg.ilvlXSet, half = "right" },
   { type = "range", name = "Y offset", min = -20, max = 20, step = 1, section = "ilvlnum",
-    get = ilvlYGet, set = ilvlYSet, half = "left" },
+    get = bg.ilvlYGet, set = bg.ilvlYSet, half = "left" },
   { type = "header", name = "Stack count number", key = "countnum",
     state = function()
-      return ("%d px, %s"):format(countSizeGet(), (T(anchorLabel(countAnchorGet()))):lower())
+      return ("%d px, %s"):format(bg.countSizeGet(), (T(anchorLabel(bg.countAnchorGet()))):lower())
     end },
-  { type = "select", name = "Corner", get = countAnchorGet, set = countAnchorSet,
+  { type = "select", name = "Corner", get = bg.countAnchorGet, set = bg.countAnchorSet,
     section = "countnum", keys = anchorKeys, label = anchorLabel,
     desc = "Which corner of the slot the stack size sits in." },
   { type = "range", name = "Size", min = 6, max = 24, step = 1, section = "countnum",
-    get = countSizeGet, set = countSizeSet, half = "left" },
+    get = bg.countSizeGet, set = bg.countSizeSet, half = "left" },
   { type = "range", name = "X offset", min = -20, max = 20, step = 1, section = "countnum",
-    get = countXGet, set = countXSet, half = "right" },
+    get = bg.countXGet, set = bg.countXSet, half = "right" },
   { type = "range", name = "Y offset", min = -20, max = 20, step = 1, section = "countnum",
-    get = countYGet, set = countYSet, half = "left" },
+    get = bg.countYGet, set = bg.countYSet, half = "left" },
   { type = "header", name = "Locked items", key = "locked",
     state = function()
       local n = 0
