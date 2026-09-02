@@ -676,7 +676,7 @@ function Theme:TopInset()
   return self:Skinned() and TITLE_STRIP or 0
 end
 
-function Theme:HeadLift()
+function Theme:HeadDrop()
   return self:Skinned() and 1 or 0
 end
 

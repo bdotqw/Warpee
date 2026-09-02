@@ -329,7 +329,7 @@ end
 function View:AnchorHeader()
   if not self.frame then return end
   local top = Theme:TopInset()
-  local row1 = ROW1_Y + top - Theme:HeadLift()
+  local row1 = ROW1_Y + top + Theme:HeadDrop()
   if self.closeBtn then
     self.closeBtn:ClearAllPoints()
     ns.SnapPoint(self.closeBtn, "TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row1)
