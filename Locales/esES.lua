@@ -77,6 +77,11 @@ local STRINGS = {
   ["Theme"] = "Tema",
   ["Font"] = "Fuente",
   ["Language"] = "Idioma",
+  ["English"] = "Inglés",
+  ["German"] = "Alemán",
+  ["Spanish"] = "Español",
+  ["French"] = "Francés",
+  ["Russian"] = "Ruso",
   ["Lock windows"] = "Fijar las ventanas",
   ["Hide X/Y fields"] = "Ocultar los campos X/Y",
   ["Capacity bar"] = "Barra de ocupación",
@@ -312,7 +317,7 @@ local STRINGS = {
     "Alt + clic en un objeto de tus bolsas mientras esta página está abierta.",
 }
 
-ns.AddLocale("esES", "Español", {
+ns.AddLocale("esES", "Spanish", {
   also = { "esMX" },
   coin = { g = "o", s = "p", c = "c" },
   short = { dec = ",", units = { { 1e6, " M" }, { 1e3, " k" } } },

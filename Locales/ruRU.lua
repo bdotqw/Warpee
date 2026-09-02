@@ -80,6 +80,11 @@ local STRINGS = {
   ["Theme"] = "Тема",
   ["Font"] = "Шрифт",
   ["Language"] = "Язык",
+  ["English"] = "Английский",
+  ["German"] = "Немецкий",
+  ["Spanish"] = "Испанский",
+  ["French"] = "Французский",
+  ["Russian"] = "Русский",
   ["Lock windows"] = "Закрепить окна",
   ["Hide X/Y fields"] = "Скрыть поля X/Y",
   ["Capacity bar"] = "Полоса заполнения",
@@ -313,7 +318,7 @@ local STRINGS = {
     "Alt + щелчок по предмету в сумках, пока открыта эта вкладка.",
 }
 
-ns.AddLocale("ruRU", "Русский", {
+ns.AddLocale("ruRU", "Russian", {
   coin = { g = "з", s = "с", c = "м" },
   short = { dec = ",", units = { { 1e6, "кк" }, { 1e3, "к" } } },
   words = WORDS,

@@ -80,6 +80,11 @@ local STRINGS = {
   ["Theme"] = "Thème",
   ["Font"] = "Police",
   ["Language"] = "Langue",
+  ["English"] = "Anglais",
+  ["German"] = "Allemand",
+  ["Spanish"] = "Espagnol",
+  ["French"] = "Français",
+  ["Russian"] = "Russe",
   ["Lock windows"] = "Verrouiller les fenêtres",
   ["Hide X/Y fields"] = "Masquer les champs X/Y",
   ["Capacity bar"] = "Barre de remplissage",
@@ -318,7 +323,7 @@ local STRINGS = {
     "Alt + clic sur un objet de vos sacs pendant que cette page est ouverte.",
 }
 
-ns.AddLocale("frFR", "Français", {
+ns.AddLocale("frFR", "French", {
   coin = { g = "o", s = "a", c = "c" },
   short = { dec = ",", units = { { 1e9, " Md" }, { 1e6, " M" }, { 1e3, " k" } } },
   words = WORDS,

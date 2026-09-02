@@ -69,6 +69,11 @@ local STRINGS = {
   ["Theme"] = "Design",
   ["Font"] = "Schriftart",
   ["Language"] = "Sprache",
+  ["English"] = "Englisch",
+  ["German"] = "Deutsch",
+  ["Spanish"] = "Spanisch",
+  ["French"] = "Französisch",
+  ["Russian"] = "Russisch",
   ["Lock windows"] = "Fenster fixieren",
   ["Hide X/Y fields"] = "X/Y-Felder ausblenden",
   ["Capacity bar"] = "Füllstandsleiste",
@@ -305,7 +310,7 @@ local STRINGS = {
     "Alt + Klick auf einen Gegenstand in den Taschen, während diese Seite offen ist.",
 }
 
-ns.AddLocale("deDE", "Deutsch", {
+ns.AddLocale("deDE", "German", {
   coin = { g = "G", s = "S", c = "K" },
   short = { dec = ",", units = { { 1e12, " Bio." }, { 1e9, " Mrd." }, { 1e6, " Mio." }, { 1e3, "k" } } },
   words = WORDS,
