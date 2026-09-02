@@ -102,6 +102,7 @@ for _, e in ipairs({ "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CH
                      "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED", "ACCOUNT_MONEY",
                      "TRADE_SKILL_SHOW", "TRADE_SKILL_CLOSE",
                      "UI_SCALE_CHANGED", "DISPLAY_SIZE_CHANGED", "CVAR_UPDATE",
+                     "PLAYER_REGEN_ENABLED",
                      "PLAYER_INTERACTION_MANAGER_FRAME_SHOW",
                      "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" }) do
   pcall(ev.RegisterEvent, ev, e)
@@ -114,6 +115,12 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
   end
   if event == "CVAR_UPDATE" then
     if type(a1) == "string" and SCALE_CVARS[a1:lower()] then ns.ScaleChanged() end
+    return
+  end
+  if event == "PLAYER_REGEN_ENABLED" then
+    if Bags.cold then Bags:Warm(); Bags:Refresh() end
+    local B = ns.Bank
+    if B and B.cold then B.cold = nil; B:Refresh() end
     return
   end
   if event == "PLAYER_LOGIN" then
@@ -245,6 +252,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     Bags.reagentTint      = WarpeeDB.reagentTint
     Bags:Build()
     Bags:RestorePos()
+    Bags:Warm()
     ns.Theme:ApplyGridAlpha()
     HookBagToggles()
     WarpeeDB.bankCols = WarpeeDB.bankCols or 28
@@ -257,6 +265,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if ns.Bank then ns.Bank:HideBlizzard() end
     if ns.ApplyMinimapIcon then ns.ApplyMinimapIcon() end
   elseif event == "BAG_UPDATE" then
+    if not Bags.warmed then Bags:Warm() end
     if ns.IsPlayerBag(a1) then Bags.dirty[a1] = true end
     if ns.Bank and ns.IsBankContainer and ns.IsBankContainer(a1) then ns.Bank:QueueRefresh(a1) end
   elseif event == "BAG_UPDATE_DELAYED" then

@@ -510,6 +510,7 @@ function View:Acquire(st, i)
   end
   local b = st.pool[i]
   if not b then
+    if InCombatLockdown() then self.cold = true; return nil end
     b = ns.CreateItemButton(st.content, 0, 1)
     b.view = st
     st.pool[i] = b
@@ -622,6 +623,7 @@ function View:Run(st, repaint, tag)
   st.filling = true
   self:Drip(st, tag or "fill", st.plan, st.planCount, function(c, i)
     local b = self:Acquire(st, i)
+    if not b then return end
     local h = b.holder
     if b.wpeBag ~= c.bag or b.wpeSlot ~= c.slot then
       if not snap then
