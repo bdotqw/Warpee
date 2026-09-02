@@ -405,7 +405,7 @@ SlashCmdList["WARPEE"] = function(msg)
     WarpeeDB.cols = cols
     Bags.cols = cols
     if Bags.frame:IsShown() then Bags:Layout() end
-    print("|cff6FB4D4Warpee|r: " .. L["columns"] .. " —", cols)
+    print("|cffd9a85fWarpee|r " .. L["columns"] .. " — " .. cols)
   elseif msg == "bank" or msg == "warband" then
     ns.ToggleBank(msg == "warband" and "warband" or "bank")
   else
