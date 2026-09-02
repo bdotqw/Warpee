@@ -157,12 +157,21 @@ function Vault:OwnerBox(mode, create)
   return (charSub(v, key, mode, create))
 end
 
-function Vault:Chars(includeHidden)
+local function byRealmName(a, b)
+  local ra, rb = (a.realm or ""):lower(), (b.realm or ""):lower()
+  if ra ~= rb then return ra < rb end
+  return a.name:lower() < b.name:lower()
+end
+
+function Vault:Chars(includeHidden, mode)
   local v = store()
   if not v then return {} end
+  local f = mode and (FIELD[mode] or "bank") or nil
   local out = {}
   for key, c in pairs(v.chars) do
-    if type(c) == "table" and (c.bank or c.inv) then
+    local keep = type(c) == "table"
+      and (f and hasBags(c[f]) or (not f and (c.bank or c.inv)))
+    if keep then
       local hidden = v.hidden[key] and true or false
       if includeHidden or not hidden then
         local name, realm = key:match("^(.-)%-(.*)$")
@@ -171,12 +180,30 @@ function Vault:Chars(includeHidden)
       end
     end
   end
-  table.sort(out, function(a, b)
-    local ra, rb = (a.realm or ""):lower(), (b.realm or ""):lower()
-    if ra ~= rb then return ra < rb end
-    return a.name:lower() < b.name:lower()
-  end)
+  table.sort(out, byRealmName)
   return out
+end
+
+function Vault:Others(mode)
+  local own = self:Owner()
+  local n = 0
+  for _, e in ipairs(self:Chars(true, mode)) do
+    if e.key ~= own then n = n + 1 end
+  end
+  return n
+end
+
+function Vault:WithOwner(list)
+  local key = self:Owner()
+  if not key then return list end
+  for _, e in ipairs(list) do
+    if e.key == key then return list end
+  end
+  local name, realm = key:match("^(.-)%-(.*)$")
+  local _, class = UnitClass("player")
+  list[#list + 1] = { key = key, name = name or key, realm = realm, class = class }
+  table.sort(list, byRealmName)
+  return list
 end
 
 local function bankTypeFor(mode)

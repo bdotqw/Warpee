@@ -26,18 +26,15 @@ function ns.Toggle(show)
   end
 end
 
-function ns.ToggleBank(mode)
+function ns.ToggleBank()
   local B = ns.Bank
   if not B then return end
-  local asked = mode
-  mode = mode or B.mode or "bank"
   if B.frame and B.frame:IsShown() then
-    if mode ~= B.mode then B:SetMode(mode) else B:OnBankClosed() end
+    B:OnBankClosed()
   elseif B.bankerOpen then
     B:OnBankOpened()
-    if mode == "warband" then B:SetMode(mode) end
   else
-    B:OpenSnapshot(mode, not asked)
+    B:OpenSnapshot(B.mode or "bank")
   end
 end
 
@@ -402,13 +399,6 @@ end
 
 SLASH_WARPEE1 = "/warpee"
 SLASH_WARPEE2 = "/wpe"
-SlashCmdList["WARPEE"] = function(msg)
-  msg = (msg or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
-  if msg == "bags" or msg == "bag" or msg == "toggle" then
-    ns.Toggle()
-  elseif msg == "bank" or msg == "warband" then
-    ns.ToggleBank(msg == "warband" and "warband" or "bank")
-  else
-    if ns.Options then ns.Options:Toggle() end
-  end
+SlashCmdList["WARPEE"] = function()
+  if ns.Options then ns.Options:Toggle() end
 end

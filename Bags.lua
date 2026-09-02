@@ -182,7 +182,10 @@ function Bags:Build()
   local charTag = ns.CreateCharTag(f, HB, "left")
   charTag:SetPoint("TOPLEFT", PAD, -ROW1_Y)
   charTag:SetScript("OnClick", function(s) Bags:ToggleCharPicker(s) end)
-  addTip(charTag, "Bags of another character")
+  ns.AddTip(charTag, "Bags of another character", "top", function(s)
+    if s:IsEnabled() then return nil end
+    return { { text = "Nothing saved for other characters yet", color = "dim" } }
+  end)
   self.charTag = charTag
 
   local search = ns.CreateSearchBox(f, function(text)
@@ -648,7 +651,7 @@ end
 function Bags:ToggleCharPicker(anchor)
   if not ns.CharPicker then return end
   ns.CharPicker:Toggle(anchor or self.charTag, "left",
-    function(key) self:SelectChar(key) end, ns.Vault:ViewKey("bags"))
+    function(key) self:SelectChar(key) end, ns.Vault:ViewKey("bags"), "bags")
 end
 
 function Bags:SelectChar(key)
@@ -685,8 +688,9 @@ function Bags:BrowseState()
   end
   local t = self.charTag
   if t then
-    local on = #V:Chars(true) > 0
+    local on = V:Others("bags") > 0 or (self.snap and true or false)
     t:SetEnabled(on)
+    t:SetAlpha(on and 1 or 0.6)
     if t.caret then t.caret:SetTint(on and "dim" or "faint") end
   end
 end

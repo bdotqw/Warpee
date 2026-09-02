@@ -179,7 +179,7 @@ function Picker:Paint(keepScroll)
   if not self.frame then return end
   local scroll = keepScroll and self.sf:GetVerticalScroll() or 0
   local path = fontPath()
-  local list = ns.Vault:Chars(self.showHidden)
+  local list = ns.Vault:WithOwner(ns.Vault:Chars(self.showHidden, self.mode))
   local q = self.query
   local n, y, widest, realm = 0, 0, MIN_W, nil
   for _, e in ipairs(list) do
@@ -233,10 +233,11 @@ function Picker:UpdateHiddenBorder()
   end
 end
 
-function Picker:Toggle(anchor, side, onSelect, currentKey)
+function Picker:Toggle(anchor, side, onSelect, currentKey, mode)
   local m = self:Build()
   if m:IsShown() and self.anchor == anchor then m:Hide(); return end
   self.anchor, self.onSelect, self.currentKey = anchor, onSelect, currentKey
+  self.mode = mode
   self.query, self.showHidden = nil, false
   if self.filter then self.filter:SetText(""); self.filter:ClearFocus() end
   self:UpdateHiddenBorder()

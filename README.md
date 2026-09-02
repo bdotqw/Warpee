@@ -24,7 +24,9 @@ Copy the `Warpee` folder into `Interface\AddOns\`. Fonts ship in `Media\Fonts\`.
 ## Commands
 
 - `/warpee` or `/wpe` — open the options
-- `/wpe bags` — bags, `/wpe bank` — bank, `/wpe warband` — Warband
+
+Bags open on the game's own bag key or the minimap button; the bank and the
+Warband bank open from the header of the bag window, or at a banker.
 
 ## Libraries
 

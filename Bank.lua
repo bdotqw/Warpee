@@ -300,9 +300,12 @@ function View:BuildCharPicker()
   local b = ns.CreateCharTag(self.frame, 22, "right")
   b:SetScript("OnClick", function(s)
     ns.CharPicker:Toggle(s, "right", function(k) self:SelectChar(k) end,
-      ns.Vault:ViewKey("bank"))
+      ns.Vault:ViewKey("bank"), "bank")
   end)
-  addTip(b, "Browse another character's bank")
+  addTip(b, "Browse another character's bank", function(s)
+    if s:IsEnabled() then return nil end
+    return { { text = "Nothing saved for other characters yet", color = "dim" } }
+  end)
   b:Hide()
   self.charBtn = b
   return b
@@ -362,21 +365,30 @@ end
 function View:UpdateCharBtn()
   local b = self.charBtn
   if not b then return end
-  local all = ns.Vault:Chars(true)
-  local visible = ns.Vault:Chars()
-  local show = (self.mode == "bank" and #all > 0) and true or false
-  b:SetShown(show)
-  if show then
-    local key = ns.Vault:ViewKey("bank")
-    local class, label
-    for _, e in ipairs(all) do
-      if e.key == key then class = e.class; label = e.name; break end
-    end
-    if not label and #visible == 0 then label = ns.L["Hidden"] end
-    ns.PaintCharTag(b, label or (key and key:match("^(.-)%-")) or "?", class)
-  elseif ns.CharPicker then
-    ns.CharPicker:Close()
+  b:SetShown(self.mode == "bank")
+  if self.mode ~= "bank" then
+    if ns.CharPicker then ns.CharPicker:Close() end
+    self:AnchorSearch()
+    return
   end
+  local all = ns.Vault:Chars(true, "bank")
+  local key = ns.Vault:ViewKey("bank")
+  local on = ns.Vault:Others("bank") > 0 or key ~= ns.Vault:Owner()
+  b:SetEnabled(on)
+  b:SetAlpha(on and 1 or 0.6)
+  if b.caret then b.caret:SetTint(on and "dim" or "faint") end
+  if not on and ns.CharPicker then ns.CharPicker:Close() end
+  local class, label
+  for _, e in ipairs(all) do
+    if e.key == key then class = e.class; label = e.name; break end
+  end
+  if not label and key == ns.Vault:Owner() then
+    label = UnitName("player")
+    local _, cls = UnitClass("player")
+    class = cls
+  end
+  if not label and on and #ns.Vault:Chars(false, "bank") == 0 then label = ns.L["Hidden"] end
+  ns.PaintCharTag(b, label or (key and key:match("^(.-)%-")) or "?", class)
   self:AnchorSearch()
 end
 
@@ -414,6 +426,7 @@ end
 function View:ModeAvailable(mode)
   if mode == "warband" and not ns.WarbandActive() then return false end
   if mode == "bank" and self:AccountOnly() then return false end
+  if not self.bankerOpen and not ns.Vault:Saved(mode) then return false end
   return true
 end
 
@@ -935,12 +948,10 @@ function View:OnBankOpened()
   ns.RefreshBagDim()
 end
 
-function View:OpenSnapshot(mode, auto)
+function View:OpenSnapshot(mode)
   mode = mode or "bank"
-  if not self:ModeAvailable(mode) then mode = "bank" end
-  if auto and not ns.Vault:Saved(mode) then
-    local other = (mode == "bank") and "warband" or "bank"
-    if ns.Vault:Saved(other) and self:ModeAvailable(other) then mode = other end
+  if not self:ModeAvailable(mode) then
+    mode = self:ModeAvailable("warband") and "warband" or "bank"
   end
   self:Build()
   if not self.snap then self.snap = true; self:HideSlots() end
