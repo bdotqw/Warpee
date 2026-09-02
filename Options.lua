@@ -1027,14 +1027,14 @@ end
 local colsGet, colsSet       = field("cols")
 local sizeGet, sizeSet       = field("iconSize")
 local gapGet, gapSet         = field("gap")
-local styleGet, styleSet     = field("slotStyle")
+local styleGet, styleSet     = styleField("slotStyle")
 local fontGet, fontSet       = styleField("font")
 local zoomGet, zoomSet       = styleField("iconZoom")
 local edgeGet, edgeSet       = styleField("borderWidth")
 local mergeGet, mergeSet     = field("mergeReagents")
 local questGet, questSet     = styleField("questMarks")
 local newGet, newSet         = styleField("newItemGlow")
-local junkGet, junkSet       = field("junkIcon")
+local junkGet, junkSet       = styleField("junkIcon")
 local function gridAlphaGet() return Theme:GridAlpha() end
 local function gridAlphaSet(v) WarpeeDB.gridAlpha = v; Theme:ApplyGridAlpha() end
 local gaugeGet, gaugeSet     = field("showGauge")
@@ -1061,8 +1061,8 @@ local GOLD_FORMAT_LABELS = {
 }
 local function goldFmtGet() return WarpeeDB.goldFormat or "commas" end
 local function goldFmtSet(v) WarpeeDB.goldFormat = v; relayout() end
-local qColorGet, qColorSet   = field("qualityColorIlvl")
-local qBorderGet, qBorderSet = field("qualityBorder")
+local qColorGet, qColorSet   = styleField("qualityColorIlvl")
+local qBorderGet, qBorderSet = styleField("qualityBorder")
 local ilvlSizeGet, ilvlSizeSet     = styleField("ilvlSize")
 local ilvlAnchorGet, ilvlAnchorSet = styleField("ilvlAnchor")
 local ilvlXGet, ilvlXSet           = styleField("ilvlX")
@@ -1159,6 +1159,7 @@ local ITEMS_PAGE = {
     set = function(v)
       Bags.reagentTint = v
       WarpeeDB.reagentTint = v
+      Bags.styleGen = (Bags.styleGen or 0) + 1
       relayout()
     end,
     desc = "Tint slots in the reagent bag. Turn it off and reagents take the quality border instead." },
