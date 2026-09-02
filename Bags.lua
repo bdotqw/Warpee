@@ -142,7 +142,10 @@ function Bags:Build()
   local bank = ns.CreateGlyphButton(f, "", HB)
   bank:SetPoint("TOPRIGHT", bagsToggle, "TOPLEFT", -4, 0)
   bank:SetScript("OnClick", function() if ns.ToggleBank then ns.ToggleBank() end end)
-  addTip(bank, "Bank / Warband")
+  ns.AddTip(bank, "Bank / Warband", "top", function(s)
+    if s:IsEnabled() then return nil end
+    return { { text = "Visit a banker to record this bank", color = "dim" } }
+  end)
   local bankIcon = bank:CreateTexture(nil, "ARTWORK")
   local atlasOK = C_Texture and C_Texture.GetAtlasInfo
                   and C_Texture.GetAtlasInfo("Minimap_tracking_banker")
@@ -450,6 +453,7 @@ function Bags:Layout()
   if self.sortBtn then self.sortBtn:SetShown(not self.snap) end
   self:VendorState()
   if not self.snap then ns.Vault:Capture("bags") end
+  self:BrowseState()
   self.shown, self.used, self.total = i, used, total
   self:Resize(contentH)
   if self.bagWindow and self.bagWindow:IsShown() then self:LayoutBagWindow() end
@@ -665,6 +669,26 @@ function Bags:VendorState()
     b.icon:SetAlpha(on and 1 or 0.45)
   end
   self:FitHeader()
+end
+
+function Bags:BrowseState()
+  local V = ns.Vault
+  local b = self.bankBtn
+  if b then
+    local on = ((ns.Bank and ns.Bank.bankerOpen) or V:Saved("bank") or V:Saved("warband"))
+               and true or false
+    ns.SetButtonEnabled(b, on)
+    if b.icon then
+      b.icon:SetDesaturated(not on)
+      b.icon:SetAlpha(on and 1 or 0.45)
+    end
+  end
+  local t = self.charTag
+  if t then
+    local on = #V:Chars(true) > 0
+    t:SetEnabled(on)
+    if t.caret then t.caret:SetTint(on and "dim" or "faint") end
+  end
 end
 
 function Bags:FitHeader()

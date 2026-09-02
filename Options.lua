@@ -667,6 +667,24 @@ StaticPopupDialogs["WARPEE_DROP_CHAR"] = {
   OnAccept = function(_, key) dropChar(key) end,
 }
 
+local function dropWarband()
+  if not ns.Vault:DropWarband() then return end
+  if ns.Bank and ns.Bank.frame and ns.Bank.frame:IsShown() then ns.Bank:Repaint() end
+  if Bags and Bags.BrowseState then Bags:BrowseState() end
+  if ns.Options and ns.Options.ReflowPages then ns.Options:ReflowPages() end
+end
+
+StaticPopupDialogs["WARPEE_DROP_WARBAND"] = {
+  text = "Delete the saved Warband bank?",
+  button1 = _G.DELETE or "Delete",
+  button2 = _G.CANCEL or "Cancel",
+  timeout = 0,
+  whileDead = true,
+  hideOnEscape = true,
+  showAlert = true,
+  OnAccept = function() dropWarband() end,
+}
+
 local function charCell(row, i)
   local c = row.cells[i]
   if c then return c end
@@ -758,14 +776,31 @@ function factories.chars(parent, spec)
   end)
   row.delBtn, row.paintDel = del, paintDel
 
+  local wb = ns.CreateButton(row, L["Warband bank"], 104, CHAR_DEL_H)
+  ns.LocalText(wb, "Warband bank")
+  local function paintWb(hover)
+    wb:SetBackdropColor(Theme:C(hover and "panelHi" or "panel"))
+    wb:SetBackdropBorderColor(Theme:C("gaugeHi"))
+    wb.Text:SetTextColor(Theme:C(hover and "gaugeHi" or "dim"))
+  end
+  wb:SetScript("OnEnter", function() paintWb(true) end)
+  wb:SetScript("OnLeave", function() paintWb(false) end)
+  wb:SetScript("OnClick", function()
+    StaticPopupDialogs["WARPEE_DROP_WARBAND"].text = L["Delete the saved Warband bank?"]
+    StaticPopup_Show("WARPEE_DROP_WARBAND")
+  end)
+  wb:Hide()
+  row.wbBtn = wb
+
   row.Rebuild = function()
     local list = (ns.Vault and ns.Vault:Chars(true)) or {}
-    if #list == 0 then row.delMode = nil end
+    local wbSaved = (ns.Vault and ns.Vault:Saved("warband")) and true or false
+    if #list == 0 and not wbSaved then row.delMode = nil end
     local path = ns.Fonts:Current()
     local colW = math.floor((CONTENT_W - (CHAR_COLS - 1) * 8) / CHAR_COLS)
     del.Text:SetFont(path, math.max(7, BASE_FONT - 1), "")
     del:SetWidth(math.max(104, math.ceil(del.Text:GetStringWidth()) + 26))
-    del:SetShown(#list > 0)
+    del:SetShown(#list > 0 or wbSaved)
     paintDel(false)
     local y, hi, ci, col, realm = 0, 0, 0, 0, nil
     for _, e in ipairs(list) do
@@ -805,9 +840,21 @@ function factories.chars(parent, spec)
     if col > 0 then y = y + CHAR_CELL_H end
     for i = hi + 1, #row.heads do row.heads[i]:Hide() end
     for i = ci + 1, #row.cells do row.cells[i]:Hide() end
-    if #list > 0 then
+    local wbOn = (row.delMode and wbSaved) and true or false
+    wb:SetShown(wbOn)
+    if wbOn then
+      wb.Text:SetFont(path, math.max(7, BASE_FONT - 1), "")
+      wb:SetWidth(math.max(104, math.ceil(wb.Text:GetStringWidth()) + 26))
+      paintWb(wb:IsMouseOver())
+    end
+    if #list > 0 or wbSaved then
+      local shift = wbOn and math.floor((wb:GetWidth() + 8) / 2) or 0
       del:ClearAllPoints()
-      del:SetPoint("TOP", row, "TOP", 0, -(y + 8))
+      del:SetPoint("TOP", row, "TOP", -shift, -(y + 8))
+      if wbOn then
+        wb:ClearAllPoints()
+        wb:SetPoint("LEFT", del, "RIGHT", 8, 0)
+      end
       y = y + 8 + CHAR_DEL_H
     end
     row:SetHeight(math.max(CHAR_CELL_H, y))
@@ -1258,6 +1305,14 @@ local function tipWbGet() return WarpeeDB.tipWarband ~= false end
 local function tipWbSet(v) WarpeeDB.tipWarband = v and true or false end
 local function tipOff() return not tipOnGet() end
 
+local snap = {}
+snap.bagsGet = function() return WarpeeDB.keepBags ~= false end
+snap.bagsSet = function(v) WarpeeDB.keepBags = v and true or false; relayout() end
+snap.bankGet = function() return WarpeeDB.keepBank ~= false end
+snap.bankSet = function(v) WarpeeDB.keepBank = v and true or false; relayout() end
+snap.wbGet = function() return WarpeeDB.keepWarband ~= false end
+snap.wbSet = function(v) WarpeeDB.keepWarband = v and true or false; relayout() end
+
 local CHARS_PAGE = {
   { type = "header", name = "Item tooltips",
     state = function() return onOf({ tipOnGet, tipBankGet, tipWbGet }) end },
@@ -1269,6 +1324,16 @@ local CHARS_PAGE = {
   { type = "toggle", name = "Include Warband", col = 1, get = tipWbGet, set = tipWbSet,
     disabled = tipOff,
     desc = "Count the shared Warband bank on its own line." },
+  { type = "header", name = "Snapshots",
+    state = function() return onOf({ snap.bagsGet, snap.bankGet, snap.wbGet }) end },
+  { type = "description",
+    name = "Copies of what you carry, so another character's bags and bank open from your own window." },
+  { type = "toggle", name = "Remember bags", col = 1, get = snap.bagsGet, set = snap.bagsSet,
+    desc = "Save this character's bags and gold whenever the bag window opens. Off = other characters stop seeing them." },
+  { type = "toggle", name = "Remember bank", col = 2, get = snap.bankGet, set = snap.bankSet,
+    desc = "Save the character bank while you stand at a banker." },
+  { type = "toggle", name = "Remember Warband bank", col = 1, get = snap.wbGet, set = snap.wbSet,
+    desc = "Save the shared Warband bank while you stand at a banker." },
   { type = "header", name = "Characters" },
   { type = "description",
     name = "Unchecked characters stay saved but are hidden from the character list." },

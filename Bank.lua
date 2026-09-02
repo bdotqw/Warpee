@@ -84,7 +84,9 @@ function ns.DepositBlocked(b)
 end
 
 function ns.RefreshBagDim()
-  if Bags.frame and Bags.frame:IsShown() and Bags.ApplySearch then Bags:ApplySearch() end
+  if not (Bags.frame and Bags.frame:IsShown()) then return end
+  if Bags.ApplySearch then Bags:ApplySearch() end
+  if Bags.BrowseState then Bags:BrowseState() end
 end
 
 local function addTip(btn, title, extra, side)
@@ -930,11 +932,16 @@ function View:OnBankOpened()
   self:Activate(self.mode)
   if not self:AccountOnly() then ns.Vault:Capture("bank") end
   if ns.WarbandActive() then ns.Vault:Capture("warband") end
+  ns.RefreshBagDim()
 end
 
-function View:OpenSnapshot(mode)
+function View:OpenSnapshot(mode, auto)
   mode = mode or "bank"
   if not self:ModeAvailable(mode) then mode = "bank" end
+  if auto and not ns.Vault:Saved(mode) then
+    local other = (mode == "bank") and "warband" or "bank"
+    if ns.Vault:Saved(other) and self:ModeAvailable(other) then mode = other end
+  end
   self:Build()
   if not self.snap then self.snap = true; self:HideSlots() end
   self.mode = mode

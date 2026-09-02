@@ -184,6 +184,19 @@ local STRINGS = {
     "Cuenta el banco compartido de la banda guerrera en una línea aparte.",
   ["Unchecked characters stay saved but are hidden from the character list."] =
     "Los personajes sin marcar siguen guardados, pero no aparecen en la lista.",
+  ["Snapshots"] = "Datos guardados",
+  ["Copies of what you carry, so another character's bags and bank open from your own window."] =
+    "Copias de lo que llevas, para abrir las bolsas y el banco de otro personaje en tu propia ventana.",
+  ["Remember bags"] = "Guardar las bolsas",
+  ["Save this character's bags and gold whenever the bag window opens. Off = other characters stop seeing them."] =
+    "Guarda las bolsas y el oro de este personaje cada vez que se abre la ventana de bolsas. Desactivado: los demás personajes dejan de verlas.",
+  ["Remember bank"] = "Guardar el banco",
+  ["Save the character bank while you stand at a banker."] =
+    "Guarda el banco del personaje mientras estás con un banquero.",
+  ["Remember Warband bank"] = "Guardar el banco de banda guerrera",
+  ["Save the shared Warband bank while you stand at a banker."] =
+    "Guarda el banco compartido de banda guerrera mientras estás con un banquero.",
+  ["Delete the saved Warband bank?"] = "¿Borrar el banco de banda guerrera guardado?",
   ["Sell junk"] = "Vender la basura",
   ["Repair"] = "Reparar",
   ["Item level from"] = "Nivel de objeto desde",
