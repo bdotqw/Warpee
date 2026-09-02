@@ -1154,15 +1154,7 @@ SECTION_CLOSED.countnum = true
 
 local ITEMS_PAGE = {
   { type = "header", name = "Markers" },
-  { type = "toggle", name = "Quality border", col = 1, get = qBorderGet, set = qBorderSet,
-    desc = "Draw a rarity-colored border around uncommon+ items." },
-  { type = "toggle", name = "Quest marker", col = 2, get = questGet, set = questSet,
-    desc = "Blizzard quest art: a mark for unaccepted quests, a border for quest items." },
-  { type = "toggle", name = "New item glow", col = 1, get = newGet, set = newSet,
-    desc = "Quality-colored glow on items the game still counts as new." },
-  { type = "toggle", name = "Junk coin", col = 2, get = junkGet, set = junkSet,
-    desc = "Gold coin marker on poor-quality (gray) items." },
-  { type = "toggle", name = "Reagent border",
+  { type = "toggle", name = "Reagent border", col = 1,
     get = function() return Bags.reagentTint end,
     set = function(v)
       Bags.reagentTint = v
@@ -1170,6 +1162,14 @@ local ITEMS_PAGE = {
       relayout()
     end,
     desc = "Tint slots in the reagent bag. Turn it off and reagents take the quality border instead." },
+  { type = "toggle", name = "Quality border", col = 2, get = qBorderGet, set = qBorderSet,
+    desc = "Draw a rarity-colored border around uncommon+ items." },
+  { type = "toggle", name = "Quest marker", col = 1, get = questGet, set = questSet,
+    desc = "Blizzard quest art: a mark for unaccepted quests, a border for quest items." },
+  { type = "toggle", name = "New item glow", col = 2, get = newGet, set = newSet,
+    desc = "Quality-colored glow on items the game still counts as new." },
+  { type = "toggle", name = "Junk coin", col = 1, get = junkGet, set = junkSet,
+    desc = "Gold coin marker on poor-quality (gray) items." },
   { type = "range", name = "Border thickness", min = 1, max = 6, step = 1,
     get = edgeGet, set = edgeSet, disabled = function() return not qBorderGet() end,
     desc = "Thickness of the quality border." },
