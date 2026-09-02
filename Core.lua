@@ -168,6 +168,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.questMarks == nil then WarpeeDB.questMarks = true end
     if WarpeeDB.newItemGlow == nil then WarpeeDB.newItemGlow = false end
     if WarpeeDB.junkIcon == nil then WarpeeDB.junkIcon = true end
+    if WarpeeDB.reagentTint == nil then WarpeeDB.reagentTint = true end
     WarpeeDB.goldFormat = WarpeeDB.goldFormat or "short"
     WarpeeDB.vendorIlvl = tonumber(WarpeeDB.vendorIlvl) or 100
     WarpeeDB.vendorIlvlMin = tonumber(WarpeeDB.vendorIlvlMin) or 10
@@ -234,6 +235,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     Bags.questMarks       = WarpeeDB.questMarks
     Bags.newItemGlow      = WarpeeDB.newItemGlow
     Bags.junkIcon         = WarpeeDB.junkIcon
+    Bags.reagentTint      = WarpeeDB.reagentTint
     Bags:Build()
     Bags:RestorePos()
     ns.Theme:ApplyGridAlpha()
@@ -398,14 +400,8 @@ SLASH_WARPEE1 = "/warpee"
 SLASH_WARPEE2 = "/wpe"
 SlashCmdList["WARPEE"] = function(msg)
   msg = (msg or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
-  local cols = tonumber(msg:match("^cols%s+(%d+)$"))
   if msg == "bags" or msg == "bag" or msg == "toggle" then
     ns.Toggle()
-  elseif cols and cols >= 6 and cols <= 24 then
-    WarpeeDB.cols = cols
-    Bags.cols = cols
-    if Bags.frame:IsShown() then Bags:Layout() end
-    print("|cffd9a85fWarpee|r " .. L["columns"] .. " — " .. cols)
   elseif msg == "bank" or msg == "warband" then
     ns.ToggleBank(msg == "warband" and "warband" or "bank")
   else

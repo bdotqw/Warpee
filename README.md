@@ -25,7 +25,6 @@ Copy the `Warpee` folder into `Interface\AddOns\`. Fonts ship in `Media\Fonts\`.
 
 - `/warpee` or `/wpe` — open the options
 - `/wpe bags` — bags, `/wpe bank` — bank, `/wpe warband` — Warband
-- `/wpe cols N` — column count in the bags
 
 ## Libraries
 

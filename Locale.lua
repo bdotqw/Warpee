@@ -297,6 +297,7 @@ local RU = {
   ["Quest marker"] = "Метка задания",
   ["New item glow"] = "Свечение новых предметов",
   ["Junk coin"] = "Монета на хламе",
+  ["Reagent border"] = "Рамка реагентов",
   ["Border thickness"] = "Толщина рамки",
   ["Color by quality"] = "Цвет по качеству",
   ["Corner"] = "Угол",
@@ -310,6 +311,8 @@ local RU = {
   ["Quality-colored glow on items the game still counts as new."] =
     "Свечение цвета качества на предметах, которые игра ещё считает новыми.",
   ["Gold coin marker on poor-quality (gray) items."] = "Значок монеты на предметах плохого качества (серых).",
+  ["Tint slots in the reagent bag. Turn it off and reagents take the quality border instead."] =
+    "Подсвечивать ячейки реагентной сумки. Выключите — и у реагентов будет рамка качества.",
   ["Thickness of the quality border."] = "Толщина рамки качества.",
   ["Tint the number with the item's rarity color."] = "Окрашивать число в цвет качества предмета.",
   ["Which corner of the slot the number sits in."] = "В каком углу ячейки стоит число.",
@@ -423,7 +426,6 @@ local RU = {
   ["%d  (%d bags, %d bank)"] = "%d  (%d в сумках, %d в банке)",
   ["%d  (bank)"] = "%d  (в банке)",
   ["%d  (bags)"] = "%d  (в сумках)",
-  ["columns"] = "ячеек в ряду",
   ["Favorites"] = "Избранное",
   ["Favorite slots"] = "Ячейки избранного",
   ["How many slots"] = "Сколько ячеек",
@@ -541,6 +543,7 @@ local DE = {
   ["Quest marker"] = "Questmarkierung",
   ["New item glow"] = "Leuchten neuer Gegenstände",
   ["Junk coin"] = "Münze auf Schund",
+  ["Reagent border"] = "Reagenzien-Rahmen",
   ["Border thickness"] = "Rahmenstärke",
   ["Color by quality"] = "Nach Qualität einfärben",
   ["Corner"] = "Ecke",
@@ -555,6 +558,8 @@ local DE = {
     "Leuchten in der Qualitätsfarbe auf Gegenständen, die das Spiel noch als neu zählt.",
   ["Gold coin marker on poor-quality (gray) items."] =
     "Goldmünze auf Gegenständen schlechter Qualität (grau).",
+  ["Tint slots in the reagent bag. Turn it off and reagents take the quality border instead."] =
+    "Plätze der Reagenzientasche einfärben. Aus, und Reagenzien bekommen stattdessen den Qualitätsrahmen.",
   ["Thickness of the quality border."] = "Stärke des Qualitätsrahmens.",
   ["Tint the number with the item's rarity color."] =
     "Färbt die Zahl in der Qualitätsfarbe des Gegenstands.",
@@ -670,7 +675,6 @@ local DE = {
   ["%d  (%d bags, %d bank)"] = "%d  (%d Taschen, %d Bank)",
   ["%d  (bank)"] = "%d  (Bank)",
   ["%d  (bags)"] = "%d  (Taschen)",
-  ["columns"] = "Plätze pro Reihe",
   ["Favorites"] = "Favoriten",
   ["Favorite slots"] = "Favoritenplätze",
   ["How many slots"] = "Anzahl der Plätze",

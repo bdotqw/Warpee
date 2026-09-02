@@ -1162,6 +1162,14 @@ local ITEMS_PAGE = {
     desc = "Quality-colored glow on items the game still counts as new." },
   { type = "toggle", name = "Junk coin", col = 2, get = junkGet, set = junkSet,
     desc = "Gold coin marker on poor-quality (gray) items." },
+  { type = "toggle", name = "Reagent border",
+    get = function() return Bags.reagentTint end,
+    set = function(v)
+      Bags.reagentTint = v
+      WarpeeDB.reagentTint = v
+      relayout()
+    end,
+    desc = "Tint slots in the reagent bag. Turn it off and reagents take the quality border instead." },
   { type = "range", name = "Border thickness", min = 1, max = 6, step = 1,
     get = edgeGet, set = edgeSet, disabled = function() return not qBorderGet() end,
     desc = "Thickness of the quality border." },

@@ -26,7 +26,7 @@ local Bags = { pool = {}, vpool = {}, cols = COLS_DEFAULT, gap = GAP_DEFAULT, ic
                font = ns.Fonts.DEFAULT, query = "", dirty = {},
                ilvlSize = 12, ilvlAnchor = "TOPLEFT", ilvlX = 3, ilvlY = -3,
                countSize = 14, countAnchor = "BOTTOMRIGHT", countX = -2, countY = 2,
-               qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, junkIcon = false,
+               qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, junkIcon = false, reagentTint = true,
                styleGen = 1 }
 ns.Bags = Bags
 
