@@ -723,16 +723,32 @@ local function clientFont()
   return GAME_FONT
 end
 local SCRIPTS = {
-  cyrillic = {
-    chars = { "Ш", "Г", "ш", "г", "Ё", "ъ" },
-    fonts = { [[Fonts\FRIZQT___CYR.TTF]], [[Fonts\ARIALN.TTF]], [[Fonts\FRIZQT__.TTF]] },
-  },
   latin1 = {
-    chars = { "ß", "Ä", "ü", "Ö", "ä", "Ü", "ö" },
+    chars = { "ß", "ä", "ö", "ü", "ç", "é", "à", "ñ", "ó", "ã", "ì", "ÿ" },
     fonts = { [[Fonts\FRIZQT__.TTF]], [[Fonts\ARIALN.TTF]], [[Fonts\FRIZQT___CYR.TTF]] },
   },
+  cyrillic = {
+    chars = { "Ш", "Г", "ш", "г", "Ё", "ъ" },
+    fonts = { [[Fonts\FRIZQT___CYR.TTF]], [[Fonts\ARIALN.TTF]], [[Fonts\NIM_____.ttf]] },
+  },
+  hangul = {
+    chars = { "가", "한", "글", "자", "요" },
+    fonts = { [[Fonts\2002.TTF]], [[Fonts\2002B.TTF]], [[Fonts\K_Pagetext.TTF]] },
+  },
+  hanS = {
+    chars = { "的", "是", "我", "你", "好" },
+    fonts = { [[Fonts\ARHei.TTF]], [[Fonts\ARKai_T.TTF]], [[Fonts\ARKai_C.TTF]] },
+  },
+  hanT = {
+    chars = { "們", "個", "這", "沒", "麼" },
+    fonts = { [[Fonts\bHEI00M.ttf]], [[Fonts\bLEI00D.ttf]], [[Fonts\bKAI00M.ttf]], [[Fonts\ARKai_T.TTF]] },
+  },
 }
-local NEEDS = { deDE = "latin1", ruRU = "cyrillic" }
+local NEEDS = {
+  deDE = "latin1", esES = "latin1", esMX = "latin1", frFR = "latin1",
+  itIT = "latin1", ptBR = "latin1", ruRU = "cyrillic", koKR = "hangul",
+  zhCN = "hanS", zhTW = "hanT",
+}
 
 local DECLARED, scriptOK, scriptPick, judging = {}, {}, {}, {}
 for k in pairs(SCRIPTS) do
@@ -740,12 +756,12 @@ for k in pairs(SCRIPTS) do
 end
 
 local SHIPPED = {
-  { name = "Manrope Bold",         file = "ManropeBold.ttf",        cyr = true,  lat = true },
-  { name = "Rubik Bold",           file = "RubikBold.ttf",          cyr = true,  lat = true },
-  { name = "Oswald",               file = "Oswald.ttf",             cyr = true,  lat = true },
-  { name = "Russo One",            file = "RussoOne.ttf",           cyr = true,  lat = true },
-  { name = "Archivo",              file = "Archivo.ttf",            cyr = false, lat = true },
-  { name = "Fira Sans Condensed",  file = "FiraSansCondensed.ttf",  cyr = true,  lat = true },
+  { name = "Manrope Bold",         file = "ManropeBold.ttf",        has = { latin1 = true, cyrillic = true } },
+  { name = "Rubik Bold",           file = "RubikBold.ttf",          has = { latin1 = true, cyrillic = true } },
+  { name = "Oswald",               file = "Oswald.ttf",             has = { latin1 = true, cyrillic = true } },
+  { name = "Russo One",            file = "RussoOne.ttf",           has = { latin1 = true, cyrillic = true } },
+  { name = "Archivo",              file = "Archivo.ttf",            has = { latin1 = true } },
+  { name = "Fira Sans Condensed",  file = "FiraSansCondensed.ttf",  has = { latin1 = true, cyrillic = true } },
 }
 local BUILTIN = {
   { name = "Arial Narrow",  path = [[Fonts\ARIALN.TTF]] },
@@ -755,8 +771,8 @@ local BUILTIN = {
 }
 for i = #SHIPPED, 1, -1 do
   local p = MEDIA .. SHIPPED[i].file
-  DECLARED.cyrillic[p] = SHIPPED[i].cyr and true or false
-  DECLARED.latin1[p] = SHIPPED[i].lat and true or false
+  local has = SHIPPED[i].has
+  for k in pairs(SCRIPTS) do DECLARED[k][p] = has[k] and true or false end
   table.insert(BUILTIN, 1, { name = SHIPPED[i].name, path = p })
 end
 local function LSM() return _G.LibStub and _G.LibStub("LibSharedMedia-3.0", true) or nil end
