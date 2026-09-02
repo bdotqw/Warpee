@@ -1091,6 +1091,10 @@ local fontGet, fontSet       = styleField("font")
 local zoomGet, zoomSet       = styleField("iconZoom")
 local edgeGet, edgeSet       = styleField("borderWidth")
 local mergeGet, mergeSet     = field("mergeReagents")
+local flow = {}
+flow.topGet, flow.topSet = field("reagentTop")
+flow.revGet, flow.revSet = field("revFill")
+flow.upGet, flow.upSet   = field("fillUp")
 local questGet, questSet     = styleField("questMarks")
 local newGet, newSet         = styleField("newItemGlow")
 local junkGet, junkSet       = styleField("junkIcon")
@@ -1288,6 +1292,15 @@ local GRID_PAGE = {
     desc = "1.00 fills the slot. Less shrinks the icon, more crops it." },
   { type = "toggle", name = "Merge reagents", col = 1, of = 2, get = mergeGet, set = mergeSet,
     desc = "Lay the reagent bag out with the main bags, without its caption." },
+  { type = "toggle", name = "Reagents on top", col = 2, of = 2,
+    get = flow.topGet, set = flow.topSet, disabled = mergeGet,
+    desc = "Draw the reagent bag above the main bags instead of below them." },
+  { type = "toggle", name = "Reverse fill", col = 1, of = 2,
+    get = flow.revGet, set = flow.revSet,
+    desc = "Lay every grid out back to front, so the last slot of the last bag takes the first cell." },
+  { type = "toggle", name = "Fill upwards", col = 2, of = 2,
+    get = flow.upGet, set = flow.upSet,
+    desc = "Rows build from the bottom of each grid upwards. The part-filled last row sits at the top." },
   { type = "header", name = "Slot look" },
   { type = "select", name = "Slot background",
     get = styleGet, set = styleSet,

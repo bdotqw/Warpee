@@ -127,6 +127,9 @@ local STRINGS = {
   ["Spacing"] = "Отступ",
   ["Icon zoom"] = "Масштаб иконки",
   ["Merge reagents"] = "Объединить реагенты",
+  ["Reagents on top"] = "Реагенты сверху",
+  ["Reverse fill"] = "Обратное заполнение",
+  ["Fill upwards"] = "Заполнять снизу вверх",
   ["Slot background"] = "Фон ячейки",
   ["Plate opacity"] = "Плотность подложки",
   ["Bank slots per row"] = "Ячеек в ряду (банк)",
@@ -138,6 +141,12 @@ local STRINGS = {
     "1.00 — иконка занимает всю ячейку. Меньше — уменьшает иконку, больше — обрезает её края.",
   ["Lay the reagent bag out with the main bags, without its caption."] =
     "Показывать сумку реагентов вместе с основными, без отдельного заголовка.",
+  ["Draw the reagent bag above the main bags instead of below them."] =
+    "Показывать сумку реагентов над основными сумками, а не под ними.",
+  ["Lay every grid out back to front, so the last slot of the last bag takes the first cell."] =
+    "Раскладывать все сетки с конца: последняя ячейка последней сумки становится первой.",
+  ["Rows build from the bottom of each grid upwards. The part-filled last row sits at the top."] =
+    "Ряды выстраиваются от низа сетки вверх. Неполный последний ряд оказывается сверху.",
   ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
     "Что находится за иконкой. «Прозрачный» — сквозь ячейку видна подложка, «Подсветка» — ячейка чуть светлее фона, «Заливка» — фон полностью закрыт.",
   ["The plate behind the slots, seen in the gaps. At Spacing 0 there are none."] =

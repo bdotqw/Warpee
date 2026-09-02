@@ -155,7 +155,10 @@ function View:Sections(mode)
       ids[#ids + 1] = ns.reagentBank
       return { { ids = ids } }
     end
-    return { { ids = BANK_MAIN }, { ids = { ns.reagentBank }, label = "REAGENTS", color = "reagent" } }
+    local main = { ids = BANK_MAIN }
+    local reag = { ids = { ns.reagentBank }, label = "REAGENTS", color = "reagent" }
+    if Bags.reagentTop then return { reag, main } end
+    return { main, reag }
   end
   return { { ids = BANK_MAIN } }
 end
@@ -568,13 +571,18 @@ function View:Plan(st, size, cols, gap)
         lbl:SetText(sec.label)
         lbl:SetPoint("TOPLEFT", st.content, "TOPLEFT", 2, -(bottom + 6))
         lbl:Show()
+      elseif bottom > 0 then
+        secTop = bottom + DIV
       end
+      local rows = math.ceil(count / cols)
       for k = 1, count do
         local c = plan[first + k]
-        local col, row = (k - 1) % cols, math.floor((k - 1) / cols)
+        local j = Bags.revFill and (count - k + 1) or k
+        local col, row = (j - 1) % cols, math.floor((j - 1) / cols)
+        if Bags.fillUp then row = rows - 1 - row end
         c.x, c.y = col * step, -(secTop + row * step)
       end
-      bottom = secTop + (math.ceil(count / cols) - 1) * step + size
+      bottom = secTop + (rows - 1) * step + size
       n = first + count
     end
   end
