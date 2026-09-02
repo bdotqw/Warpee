@@ -2,7 +2,7 @@
 ## Title: Warpee
 ## Notes: Bag and bank windows with search filters, cross-character snapshots and a themed guild bank.
 ## Author: Naavo
-## Version: 1.2.1
+## Version: 1.3.0
 ## SavedVariables: WarpeeDB
 ## X-Category: Inventory
 ## IconTexture: Interface\AddOns\Warpee\Media\Icons\logo.tga
