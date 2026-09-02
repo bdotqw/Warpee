@@ -547,7 +547,7 @@ function ns.UpdateItemButton(b)
     local nt = b:GetNormalTexture()
     if nt then nt:SetAlpha(0) end
     ns.SetSlotBorder(b, Theme:C("emptyLine"))
-    if bagID == ns.reagentBag or bagID == ns.reagentBank then
+    if ns.Bags.reagentTint and (bagID == ns.reagentBag or bagID == ns.reagentBank) then
       local r = Theme.colors.reagent
       ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
     else
@@ -628,7 +628,7 @@ function ns.UpdateItemButton(b)
   ns.SetSlotBorder(b, Theme:C("emptyLine"))
   if ns.QuestMarked(b) then
     ns.SetRarityRing(b)
-  elseif b.wpeBagID == ns.reagentBag or b.wpeBagID == ns.reagentBank then
+  elseif ns.Bags.reagentTint and (b.wpeBagID == ns.reagentBag or b.wpeBagID == ns.reagentBank) then
     local r = Theme.colors.reagent
     ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
   elseif hl and ns.IsItemUnusable(bagID, slot, hl) then
@@ -723,7 +723,7 @@ function ns.PaintVaultButton(b, d, bagID)
   ns.SetSlotBorder(b, Theme:C("emptyLine"))
   if ns.QuestMarked(b) then
     ns.SetRarityRing(b)
-  elseif bagID and (bagID == ns.reagentBank or bagID == ns.reagentBag) then
+  elseif ns.Bags.reagentTint and bagID and (bagID == ns.reagentBank or bagID == ns.reagentBag) then
     local r = Theme.colors.reagent
     ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
   elseif link and ns.IsLinkUnusable(link) then
