@@ -681,10 +681,11 @@ function ns.PaintVaultButton(b, d, bagID)
   b.link, b.count = link, count
   b.vaultLink = d and d.l or nil
   local q = d and d.q
-  local iconID, classID, gear, subID, itemID
+  local iconID, classID, gear, subID, itemID, equipLoc, iType, iSub
   if link then
-    local iid, _, _, _, ic, cid, sid = C_Item.GetItemInfoInstant(link)
+    local iid, ity, isub, iloc, ic, cid, sid = C_Item.GetItemInfoInstant(link)
     iconID, classID, subID, itemID = ic, cid, sid, iid
+    iType, iSub, equipLoc = ity, isub, iloc
     gear = (cid == Enum.ItemClass.Armor or cid == Enum.ItemClass.Weapon)
   end
   SetItemButtonTexture(b, iconID)
@@ -739,10 +740,10 @@ function ns.PaintVaultButton(b, d, bagID)
   if link then
     local name = link:match("%[(.-)%]")
     local m = b.meta or {}
-    m.text = (name or ""):lower()
+    m.text = ((name or "") .. " " .. (iType or "") .. " " .. (iSub or "")):lower()
     m.q, m.ilvl, m.classID = q, d.v, classID
     m.subID, m.id = subID, itemID
-    m.equipLoc, m.isGear = nil, gear and true or false
+    m.equipLoc, m.isGear = equipLoc, gear and true or false
     m.bag, m.slot, m.loc = nil, nil, nil
     m.link = link
     m.bound = d.b and true or false
