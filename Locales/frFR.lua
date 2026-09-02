@@ -188,6 +188,19 @@ local STRINGS = {
     "Compte la banque de bataillon partagée sur une ligne à part.",
   ["Unchecked characters stay saved but are hidden from the character list."] =
     "Les personnages décochés restent enregistrés mais n'apparaissent plus dans la liste.",
+  ["Snapshots"] = "Données enregistrées",
+  ["Copies of what you carry, so another character's bags and bank open from your own window."] =
+    "Des copies de ce que vous transportez, pour ouvrir les sacs et la banque d'un autre personnage dans votre propre fenêtre.",
+  ["Remember bags"] = "Enregistrer les sacs",
+  ["Save this character's bags and gold whenever the bag window opens. Off = other characters stop seeing them."] =
+    "Enregistre les sacs et l'or de ce personnage à chaque ouverture de la fenêtre des sacs. Désactivé : les autres personnages ne les voient plus.",
+  ["Remember bank"] = "Enregistrer la banque",
+  ["Save the character bank while you stand at a banker."] =
+    "Enregistre la banque du personnage quand vous êtes chez le banquier.",
+  ["Remember Warband bank"] = "Enregistrer la banque de bataillon",
+  ["Save the shared Warband bank while you stand at a banker."] =
+    "Enregistre la banque de bataillon partagée quand vous êtes chez le banquier.",
+  ["Delete the saved Warband bank?"] = "Supprimer la banque de bataillon enregistrée ?",
   ["Sell junk"] = "Vendre la camelote",
   ["Repair"] = "Réparer",
   ["Item level from"] = "Niveau d'objet à partir de",

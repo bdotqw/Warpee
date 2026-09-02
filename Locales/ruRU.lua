@@ -185,6 +185,19 @@ local STRINGS = {
     "Считать общий банк отряда отдельной строкой.",
   ["Unchecked characters stay saved but are hidden from the character list."] =
     "Персонажи без отметки остаются в сохранённых данных, но не показываются в списке.",
+  ["Snapshots"] = "Сохранённые данные",
+  ["Copies of what you carry, so another character's bags and bank open from your own window."] =
+    "Копии того, что лежит у персонажей, чтобы открывать чужие сумки и банк в своём окне.",
+  ["Remember bags"] = "Запоминать сумки",
+  ["Save this character's bags and gold whenever the bag window opens. Off = other characters stop seeing them."] =
+    "Сохранять сумки и золото этого персонажа при открытии окна сумок. Выкл. — другие персонажи их больше не увидят.",
+  ["Remember bank"] = "Запоминать банк",
+  ["Save the character bank while you stand at a banker."] =
+    "Сохранять банк персонажа, пока вы стоите у банкира.",
+  ["Remember Warband bank"] = "Запоминать банк отряда",
+  ["Save the shared Warband bank while you stand at a banker."] =
+    "Сохранять общий банк отряда, пока вы стоите у банкира.",
+  ["Delete the saved Warband bank?"] = "Удалить сохранённый банк отряда?",
   ["Sell junk"] = "Продавать хлам",
   ["Repair"] = "Ремонт",
   ["Item level from"] = "Уровень предмета от",

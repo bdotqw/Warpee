@@ -29,6 +29,7 @@ end
 function ns.ToggleBank(mode)
   local B = ns.Bank
   if not B then return end
+  local asked = mode
   mode = mode or B.mode or "bank"
   if B.frame and B.frame:IsShown() then
     if mode ~= B.mode then B:SetMode(mode) else B:OnBankClosed() end
@@ -36,7 +37,7 @@ function ns.ToggleBank(mode)
     B:OnBankOpened()
     if mode == "warband" then B:SetMode(mode) end
   else
-    B:OpenSnapshot(mode)
+    B:OpenSnapshot(mode, not asked)
   end
 end
 
@@ -197,6 +198,9 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.tipCounts == nil then WarpeeDB.tipCounts = true end
     if WarpeeDB.tipBank == nil then WarpeeDB.tipBank = true end
     if WarpeeDB.tipWarband == nil then WarpeeDB.tipWarband = true end
+    if WarpeeDB.keepBags == nil then WarpeeDB.keepBags = true end
+    if WarpeeDB.keepBank == nil then WarpeeDB.keepBank = true end
+    if WarpeeDB.keepWarband == nil then WarpeeDB.keepWarband = true end
     if WarpeeDB.locale == "auto" then WarpeeDB.locale = nil end
     WarpeeDB.unusable = nil
     if WarpeeDB.searchClear == nil then WarpeeDB.searchClear = true end

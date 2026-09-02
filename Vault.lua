@@ -10,6 +10,11 @@ local lastMode, lastBag, lastSlots
 local migrated
 
 local FIELD = { bank = "bank", bags = "inv" }
+local KEEP = { bags = "keepBags", bank = "keepBank", warband = "keepWarband" }
+
+local function hasBags(box)
+  return (box and box.bags and next(box.bags)) and true or false
+end
 
 local function store()
   if not WarpeeDB then return nil end
@@ -90,6 +95,31 @@ function Vault:Delete(key)
   end
   invalidate()
   return true
+end
+
+function Vault:DropWarband()
+  local v = store()
+  if not (v and hasBags(v.warband)) then return false end
+  v.warband = {}
+  invalidate()
+  return true
+end
+
+function Vault:Keeps(mode)
+  local key = KEEP[mode]
+  if not (key and WarpeeDB) then return true end
+  return WarpeeDB[key] ~= false
+end
+
+function Vault:Saved(mode)
+  local v = store()
+  if not v then return false end
+  if mode == "warband" then return hasBags(v.warband) end
+  local f = FIELD[mode] or "bank"
+  for _, c in pairs(v.chars) do
+    if type(c) == "table" and hasBags(c[f]) then return true end
+  end
+  return false
 end
 
 local function charSub(v, key, mode, create)
@@ -340,7 +370,7 @@ function Vault:MoneyList()
 end
 
 function Vault:Capture(mode, only)
-  if not (WarpeeDB and readable(mode)) then return false end
+  if not (WarpeeDB and readable(mode) and self:Keeps(mode)) then return false end
   local box = only and self:OwnerBox(mode) or nil
   if only and not (box and box.bags) then only = nil end
 

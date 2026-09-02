@@ -177,6 +177,19 @@ local STRINGS = {
     "Zählt die gemeinsame Kriegsmeutenbank in einer eigenen Zeile.",
   ["Unchecked characters stay saved but are hidden from the character list."] =
     "Charaktere ohne Häkchen bleiben gespeichert, erscheinen aber nicht in der Charakterliste.",
+  ["Snapshots"] = "Gespeicherte Daten",
+  ["Copies of what you carry, so another character's bags and bank open from your own window."] =
+    "Kopien eures Inventars, damit Taschen und Bank eines anderen Charakters in eurem eigenen Fenster aufgehen.",
+  ["Remember bags"] = "Taschen speichern",
+  ["Save this character's bags and gold whenever the bag window opens. Off = other characters stop seeing them."] =
+    "Speichert Taschen und Gold dieses Charakters, sobald das Taschenfenster geöffnet wird. Aus: andere Charaktere sehen sie nicht mehr.",
+  ["Remember bank"] = "Bank speichern",
+  ["Save the character bank while you stand at a banker."] =
+    "Speichert die Charakterbank, während ihr beim Bankier steht.",
+  ["Remember Warband bank"] = "Kriegsmeutenbank speichern",
+  ["Save the shared Warband bank while you stand at a banker."] =
+    "Speichert die gemeinsame Kriegsmeutenbank, während ihr beim Bankier steht.",
+  ["Delete the saved Warband bank?"] = "Gespeicherte Kriegsmeutenbank löschen?",
   ["Sell junk"] = "Schund verkaufen",
   ["Repair"] = "Reparieren",
   ["Item level from"] = "Gegenstandsstufe ab",
