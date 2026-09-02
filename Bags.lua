@@ -27,6 +27,7 @@ local Bags = { pool = {}, vpool = {}, cols = COLS_DEFAULT, gap = GAP_DEFAULT, ic
                ilvlSize = 12, ilvlAnchor = "TOPLEFT", ilvlX = 3, ilvlY = -3,
                countSize = 14, countAnchor = "BOTTOMRIGHT", countX = -2, countY = 2,
                qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, junkIcon = false, reagentTint = true,
+               revFill = false, fillUp = false, reagentTop = false,
                styleGen = 1 }
 ns.Bags = Bags
 
@@ -409,43 +410,54 @@ function Bags:Layout()
 
   local n = 0
   local merge = self.mergeReagents and true or false
+  local rnum = self:Slots(ns.reagentBag)
+  local split = (not merge) and rnum > 0
+  local mainCount = merge and rnum or 0
+  for _, bag in ipairs(ns.playerBags) do mainCount = mainCount + self:Slots(bag) end
+  local mainRows = math.max(1, math.ceil(mainCount / cols))
+  local rRows = split and math.max(1, math.ceil(rnum / cols)) or 0
+  local rBlock = split and ((rRows - 1) * step + size) or 0
+  local onTop = split and self.reagentTop and true or false
+  local mainTop = onTop and (rBlock + DIV * 2) or 0
+  local mainBottom = mainTop + (mainRows - 1) * step + size
+  local rTop = onTop and DIV or (mainBottom + DIV)
+
+  local function cellXY(k, count, rows, top)
+    local j = self.revFill and (count - k + 1) or k
+    local col, row = (j - 1) % cols, math.floor((j - 1) / cols)
+    if self.fillUp then row = rows - 1 - row end
+    return col * step, -(top + row * step)
+  end
+
   for _, bag in ipairs(ns.playerBags) do
     local num = self:Slots(bag)
     for slot = 1, num do
-      local col, row = n % cols, math.floor(n / cols)
-      place(bag, slot, col * step, -row * step)
       n = n + 1
+      place(bag, slot, cellXY(n, mainCount, mainRows, mainTop))
     end
     total = total + num
     used = used + self:Taken(bag)
   end
-  local rnum = self:Slots(ns.reagentBag)
-  if merge and rnum > 0 then
-    for slot = 1, rnum do
-      local col, row = n % cols, math.floor(n / cols)
-      place(ns.reagentBag, slot, col * step, -row * step)
-      n = n + 1
-    end
+  if rnum > 0 then
     total = total + rnum
     used = used + self:Taken(ns.reagentBag)
+    if merge then
+      for slot = 1, rnum do
+        n = n + 1
+        place(ns.reagentBag, slot, cellXY(n, mainCount, mainRows, mainTop))
+      end
+    end
   end
-  local normalRows = math.max(1, math.ceil(n / cols))
-  local normalBottom = (normalRows - 1) * step + size
-  local contentH = normalBottom
 
-  if not merge and rnum > 0 then
-    local top = normalBottom + DIV
+  local contentH = mainBottom
+  if split then
     self.reagentLabel:ClearAllPoints()
-    self.reagentLabel:SetPoint("TOPLEFT", self.content, "TOPLEFT", 2, -(normalBottom + 6))
+    self.reagentLabel:SetPoint("TOPLEFT", self.content, "TOPLEFT", 2, -(rTop - DIV + 6))
     self.reagentLabel:Show()
     for slot = 1, rnum do
-      local col, row = (slot - 1) % cols, math.floor((slot - 1) / cols)
-      place(ns.reagentBag, slot, col * step, -(top + row * step))
+      place(ns.reagentBag, slot, cellXY(slot, rnum, rRows, rTop))
     end
-    local rRows = math.ceil(rnum / cols)
-    contentH = top + ((rRows - 1) * step + size)
-    total = total + rnum
-    used = used + self:Taken(ns.reagentBag)
+    if not onTop then contentH = rTop + rBlock end
   else
     self.reagentLabel:Hide()
   end

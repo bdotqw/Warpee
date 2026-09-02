@@ -127,6 +127,9 @@ local STRINGS = {
   ["Spacing"] = "Espacement",
   ["Icon zoom"] = "Zoom des icônes",
   ["Merge reagents"] = "Fusionner les composants",
+  ["Reagents on top"] = "Composants au-dessus",
+  ["Reverse fill"] = "Remplissage inversé",
+  ["Fill upwards"] = "Remplir de bas en haut",
   ["Slot background"] = "Fond des emplacements",
   ["Plate opacity"] = "Opacité du fond",
   ["Bank slots per row"] = "Emplacements par ligne (banque)",
@@ -138,6 +141,12 @@ local STRINGS = {
     "1.00 remplit l'emplacement. Moins réduit l'icône, plus la rogne.",
   ["Lay the reagent bag out with the main bags, without its caption."] =
     "Affiche le sac à composants avec les sacs principaux, sans titre séparé.",
+  ["Draw the reagent bag above the main bags instead of below them."] =
+    "Affiche le sac à composants au-dessus des sacs principaux au lieu d'en dessous.",
+  ["Lay every grid out back to front, so the last slot of the last bag takes the first cell."] =
+    "Dispose chaque grille de la fin vers le début : le dernier emplacement du dernier sac devient le premier.",
+  ["Rows build from the bottom of each grid upwards. The part-filled last row sits at the top."] =
+    "Les lignes se construisent du bas de la grille vers le haut. La dernière ligne incomplète se retrouve en haut.",
   ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
     "Ce qui se trouve derrière chaque icône. « Transparent » laisse voir le fond, « Éclairci » détache légèrement l'emplacement, « Opaque » le referme complètement.",
   ["The plate behind the slots, seen in the gaps. At Spacing 0 there are none."] =

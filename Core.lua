@@ -163,6 +163,9 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.qualityColorIlvl == nil then WarpeeDB.qualityColorIlvl = false end
     if WarpeeDB.qualityBorder == nil then WarpeeDB.qualityBorder = true end
     if WarpeeDB.mergeReagents == nil then WarpeeDB.mergeReagents = false end
+    if WarpeeDB.reagentTop == nil then WarpeeDB.reagentTop = false end
+    if WarpeeDB.revFill == nil then WarpeeDB.revFill = false end
+    if WarpeeDB.fillUp == nil then WarpeeDB.fillUp = false end
     if WarpeeDB.questMarks == nil then WarpeeDB.questMarks = true end
     if WarpeeDB.newItemGlow == nil then WarpeeDB.newItemGlow = false end
     if WarpeeDB.junkIcon == nil then WarpeeDB.junkIcon = true end
@@ -233,6 +236,9 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     Bags.qualityColorIlvl = WarpeeDB.qualityColorIlvl
     Bags.qualityBorder    = WarpeeDB.qualityBorder
     Bags.mergeReagents    = WarpeeDB.mergeReagents
+    Bags.reagentTop       = WarpeeDB.reagentTop
+    Bags.revFill          = WarpeeDB.revFill
+    Bags.fillUp           = WarpeeDB.fillUp
     Bags.questMarks       = WarpeeDB.questMarks
     Bags.newItemGlow      = WarpeeDB.newItemGlow
     Bags.junkIcon         = WarpeeDB.junkIcon
