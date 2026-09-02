@@ -13,6 +13,9 @@ Libs\CallbackHandler-1.0.lua
 Libs\LibSharedMedia-3.0.lua
 
 Locale.lua
+Locales\deDE.lua
+Locales\frFR.lua
+Locales\ruRU.lua
 Theme.lua
 Widgets.lua
 Tooltip.lua
