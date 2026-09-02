@@ -2,6 +2,10 @@ package-as: Warpee
 
 enable-nolib-creation: no
 
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
 embedded-libraries:
   - libstub
   - callbackhandler
