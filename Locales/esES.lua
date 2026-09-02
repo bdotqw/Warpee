@@ -125,8 +125,8 @@ local STRINGS = {
   ["Icon zoom"] = "Zoom de los iconos",
   ["Merge reagents"] = "Unir los componentes",
   ["Reagents on top"] = "Componentes arriba",
-  ["Reverse fill"] = "Llenado inverso",
-  ["Fill upwards"] = "Llenar de abajo arriba",
+  ["Reverse slot order"] = "Orden inverso de espacios",
+  ["Fill grid upwards"] = "Filas de abajo arriba",
   ["Slot background"] = "Fondo de los espacios",
   ["Plate opacity"] = "Opacidad del fondo",
   ["Bank slots per row"] = "Espacios por fila (banco)",
@@ -140,10 +140,10 @@ local STRINGS = {
     "Muestra la bolsa de componentes junto con las bolsas principales, sin título propio.",
   ["Draw the reagent bag above the main bags instead of below them."] =
     "Muestra la bolsa de componentes encima de las bolsas principales, no debajo.",
-  ["Lay every grid out back to front, so the last slot of the last bag takes the first cell."] =
-    "Coloca todas las cuadrículas del final al principio: el último espacio de la última bolsa pasa a ser el primero.",
-  ["Rows build from the bottom of each grid upwards. The part-filled last row sits at the top."] =
-    "Las filas crecen desde el borde inferior de la cuadrícula hacia arriba. La última fila incompleta queda arriba.",
+  ["The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in."] =
+    "Los espacios de las bolsas se recorren al revés: el último espacio de la última bolsa ocupa la primera casilla. Dentro de las bolsas nada se mueve, solo cambia el orden en que se dibujan.",
+  ["The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top."] =
+    "Las filas de casillas se apilan desde el borde inferior hacia arriba. La última fila incompleta queda arriba.",
   ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
     "Lo que hay detrás de cada icono. «Transparente» deja ver el fondo, «Aclarado» resalta un poco el espacio, «Opaco» lo cierra del todo.",
   ["The plate behind the slots, seen in the gaps. At Spacing 0 there are none."] =
