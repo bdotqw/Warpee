@@ -1,5 +1,11 @@
 # Warpee
 
+## 1.2.0
+
+- Spanish interface text, and Spanish words in the search; Latin American clients use it too
+- Coin letters now match the ones the game itself uses in each language
+- The favourites row redraws at once when a marker or slot setting changes, instead of waiting for a reload
+
 ## 1.1.0
 
 - French interface text, and French words in the search

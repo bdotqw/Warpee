@@ -93,7 +93,7 @@ local STRINGS = {
   ["Grouping for printed amounts. Short abbreviates to K and M."] =
     "Wie die Ziffern in Beträgen gruppiert werden. »Kurz« kürzt Tausender zu k und Millionen zu Mio.",
   ["Show gold only, hide silver and copper."] = "Nur Gold anzeigen, Silber und Kupfer ausblenden.",
-  ["On = g/s/c letters. Off = coin icons."] = "Ein: Buchstaben g/s/k. Aus: Münzsymbole.",
+  ["On = g/s/c letters. Off = coin icons."] = "Ein: Buchstaben G/S/K. Aus: Münzsymbole.",
   ["Empty the search box when the window closes, so it opens unfiltered next time."] =
     "Leert das Suchfeld beim Schließen des Fensters, damit es beim nächsten Öffnen ungefiltert ist.",
   ["While both windows are open, typing in either box searches both at once."] =
@@ -291,7 +291,7 @@ local STRINGS = {
 }
 
 ns.AddLocale("deDE", "Deutsch", {
-  coin = { g = "g", s = "s", c = "k" },
+  coin = { g = "G", s = "S", c = "K" },
   short = { dec = ",", units = { { 1e12, " Bio." }, { 1e9, " Mrd." }, { 1e6, " Mio." }, { 1e3, "k" } } },
   words = WORDS,
   strings = STRINGS,
