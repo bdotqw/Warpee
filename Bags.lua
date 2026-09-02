@@ -337,10 +337,27 @@ function Bags:Acquire(i)
   end
   local b = self.pool[i]
   if not b then
+    if InCombatLockdown() then self.cold = true; return nil end
     b = ns.CreateItemButton(self.content, 0, 1)
     self.pool[i] = b
   end
   return b
+end
+
+function Bags:Warm()
+  if InCombatLockdown() or not self.content then return end
+  local n = 0
+  for _, bag in ipairs(ns.playerBags) do
+    n = n + (C_Container.GetContainerNumSlots(bag) or 0)
+  end
+  n = n + (C_Container.GetContainerNumSlots(ns.reagentBag) or 0)
+  if n == 0 then return end
+  for i = 1, n do
+    if not self.pool[i] then
+      self.pool[i] = ns.CreateItemButton(self.content, 0, 1)
+    end
+  end
+  self.warmed, self.cold = true, nil
 end
 
 function Bags:Pool()
@@ -389,6 +406,7 @@ function Bags:Layout()
   local function place(bag, slot, x, y)
     i = i + 1
     local b = self:Acquire(i)
+    if not b then return end
     local h = b.holder
     if not self.snap then
       h:SetID(bag)
