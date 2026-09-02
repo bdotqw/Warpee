@@ -1,5 +1,12 @@
 # Warpee
 
+## 1.3.0
+
+- No more blocked action errors while a window is open in combat: Esc closes the windows through the game's own list instead of a keyboard hook of ours
+- Esc now closes every open Warpee window at once, the way the rest of the interface behaves
+- Favourites keep one slot per item: pinning something that already sits in the row moves it there instead of adding a copy, and rows saved with duplicates lose them
+- An item can no longer be pulled out of a favourite slot with the left button; right click uses it as before
+
 ## 1.2.1
 
 - Slot words in the search now work on snapshots as well: `hands`, `ring` or `2h` find items in another character's bags and in a recorded bank
