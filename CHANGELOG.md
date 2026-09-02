@@ -1,6 +1,6 @@
 # Warpee
 
-## 1.3.1
+## 1.3.2
 
 - Snapshots are a choice now: three checkboxes on the Characters page decide whether your bags, your bank and the Warband bank get recorded at all
 - The saved Warband bank can be deleted, from its own entry in the character list under Delete mode
