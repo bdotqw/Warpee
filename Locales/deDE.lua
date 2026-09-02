@@ -117,8 +117,8 @@ local STRINGS = {
   ["Icon zoom"] = "Symbolzoom",
   ["Merge reagents"] = "Reagenzien zusammenlegen",
   ["Reagents on top"] = "Reagenzien oben",
-  ["Reverse fill"] = "Umgekehrt füllen",
-  ["Fill upwards"] = "Von unten füllen",
+  ["Reverse slot order"] = "Taschenplätze umkehren",
+  ["Fill grid upwards"] = "Raster von unten füllen",
   ["Slot background"] = "Platzhintergrund",
   ["Plate opacity"] = "Deckkraft der Unterlage",
   ["Bank slots per row"] = "Bankplätze pro Reihe",
@@ -132,10 +132,10 @@ local STRINGS = {
     "Zeigt die Reagenzientasche zusammen mit den Haupttaschen an, ohne eigene Überschrift.",
   ["Draw the reagent bag above the main bags instead of below them."] =
     "Zeichnet die Reagenzientasche über den Haupttaschen statt darunter.",
-  ["Lay every grid out back to front, so the last slot of the last bag takes the first cell."] =
-    "Legt jedes Raster von hinten nach vorn aus: der letzte Platz der letzten Tasche steht an erster Stelle.",
-  ["Rows build from the bottom of each grid upwards. The part-filled last row sits at the top."] =
-    "Die Reihen wachsen vom unteren Rand des Rasters nach oben. Die letzte, unvollständige Reihe steht oben.",
+  ["The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in."] =
+    "Die Taschenplätze laufen rückwärts: der letzte Platz der letzten Tasche steht an erster Stelle im Raster. In den Taschen selbst wird nichts verschoben, nur die Zeichenreihenfolge ändert sich.",
+  ["The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top."] =
+    "Die Reihen des Rasters werden von der Unterkante nach oben gestapelt. Die letzte, unvollständige Reihe steht dann oben.",
   ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
     "Was hinter jedem Symbol liegt. »Transparent« lässt die Unterlage durchscheinen, »Aufgehellt« hebt den Platz leicht hervor, »Deckend« schließt ihn ganz ab.",
   ["The plate behind the slots, seen in the gaps. At Spacing 0 there are none."] =

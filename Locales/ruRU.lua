@@ -128,8 +128,8 @@ local STRINGS = {
   ["Icon zoom"] = "Масштаб иконки",
   ["Merge reagents"] = "Объединить реагенты",
   ["Reagents on top"] = "Реагенты сверху",
-  ["Reverse fill"] = "Обратное заполнение",
-  ["Fill upwards"] = "Заполнять снизу вверх",
+  ["Reverse slot order"] = "Обратный порядок слотов",
+  ["Fill grid upwards"] = "Ряды снизу вверх",
   ["Slot background"] = "Фон ячейки",
   ["Plate opacity"] = "Плотность подложки",
   ["Bank slots per row"] = "Ячеек в ряду (банк)",
@@ -143,10 +143,10 @@ local STRINGS = {
     "Показывать сумку реагентов вместе с основными, без отдельного заголовка.",
   ["Draw the reagent bag above the main bags instead of below them."] =
     "Показывать сумку реагентов над основными сумками, а не под ними.",
-  ["Lay every grid out back to front, so the last slot of the last bag takes the first cell."] =
-    "Раскладывать все сетки с конца: последняя ячейка последней сумки становится первой.",
-  ["Rows build from the bottom of each grid upwards. The part-filled last row sits at the top."] =
-    "Ряды выстраиваются от низа сетки вверх. Неполный последний ряд оказывается сверху.",
+  ["The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in."] =
+    "Слоты сумок идут в обратном порядке: последний слот последней сумки попадает в первую ячейку. В самих сумках ничего не двигается, меняется только порядок отрисовки.",
+  ["The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top."] =
+    "Ряды ячеек выстраиваются от нижнего края сетки вверх. Неполный последний ряд оказывается сверху.",
   ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
     "Что находится за иконкой. «Прозрачный» — сквозь ячейку видна подложка, «Подсветка» — ячейка чуть светлее фона, «Заливка» — фон полностью закрыт.",
   ["The plate behind the slots, seen in the gaps. At Spacing 0 there are none."] =
