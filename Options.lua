@@ -652,6 +652,7 @@ local function dropChar(key)
     Bags:UpdateCharTag()
     if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
   end
+  if Bags and Bags.BrowseState then Bags:BrowseState() end
   if ns.CharPicker then ns.CharPicker:Close() end
   if ns.Options and ns.Options.ReflowPages then ns.Options:ReflowPages() end
 end
@@ -716,6 +717,7 @@ local function charCell(row, i)
       s.Text:SetTextColor(Theme:C("gaugeHi"))
       return
     end
+    if s.warband then return end
     if not ns.Vault:Hidden(s.key or "") then
       s.box:SetKeys(nil, "bg", "accentInk")
     else
@@ -726,6 +728,12 @@ local function charCell(row, i)
     s:Paint()
   end)
   c:SetScript("OnClick", function(s)
+    if s.warband then
+      if not row.delMode then return end
+      StaticPopupDialogs["WARPEE_DROP_WARBAND"].text = L["Delete the saved Warband bank?"]
+      StaticPopup_Show("WARPEE_DROP_WARBAND")
+      return
+    end
     if not s.key then return end
     if row.delMode then
       StaticPopupDialogs["WARPEE_DROP_CHAR"].text = L["Delete saved bags and bank of %s?"]
@@ -737,6 +745,14 @@ local function charCell(row, i)
     if s:IsMouseOver() then s:GetScript("OnEnter")(s) end
   end)
   c.Paint = function(s)
+    if s.warband then
+      s.mark:SetShown(not row.delMode)
+      s.minus:SetShown(row.delMode and true or false)
+      s.box:SetKeys("slot", row.delMode and "gaugeHi" or "strokeSoft",
+        row.delMode and "accent" or "dim")
+      s.Text:SetTextColor(Theme:C(row.delMode and "text" or "dim"))
+      return
+    end
     local on = not ns.Vault:Hidden(s.key or "")
     if row.delMode then
       s.mark:Hide()
@@ -776,22 +792,6 @@ function factories.chars(parent, spec)
   end)
   row.delBtn, row.paintDel = del, paintDel
 
-  local wb = ns.CreateButton(row, L["Warband bank"], 104, CHAR_DEL_H)
-  ns.LocalText(wb, "Warband bank")
-  local function paintWb(hover)
-    wb:SetBackdropColor(Theme:C(hover and "panelHi" or "panel"))
-    wb:SetBackdropBorderColor(Theme:C("gaugeHi"))
-    wb.Text:SetTextColor(Theme:C(hover and "gaugeHi" or "dim"))
-  end
-  wb:SetScript("OnEnter", function() paintWb(true) end)
-  wb:SetScript("OnLeave", function() paintWb(false) end)
-  wb:SetScript("OnClick", function()
-    StaticPopupDialogs["WARPEE_DROP_WARBAND"].text = L["Delete the saved Warband bank?"]
-    StaticPopup_Show("WARPEE_DROP_WARBAND")
-  end)
-  wb:Hide()
-  row.wbBtn = wb
-
   row.Rebuild = function()
     local list = (ns.Vault and ns.Vault:Chars(true)) or {}
     local wbSaved = (ns.Vault and ns.Vault:Saved("warband")) and true or false
@@ -820,7 +820,7 @@ function factories.chars(parent, spec)
       end
       ci = ci + 1
       local c = charCell(row, ci)
-      c.key = e.key
+      c.key, c.warband = e.key, nil
       c:SetWidth(colW)
       c:ClearAllPoints()
       c:SetPoint("TOPLEFT", col * (colW + 8), -y)
@@ -838,23 +838,35 @@ function factories.chars(parent, spec)
       if col >= CHAR_COLS then col = 0; y = y + CHAR_CELL_H end
     end
     if col > 0 then y = y + CHAR_CELL_H end
+    if wbSaved then
+      if y > 0 then y = y + 6 end
+      hi = hi + 1
+      local h = charHead(row, hi)
+      h:ClearAllPoints()
+      h:SetPoint("TOPLEFT", 0, -y)
+      h:SetPoint("TOPRIGHT", 0, -y)
+      h.Text:SetText((L["Account"]):upper())
+      h.Text:SetFont(path, math.max(7, BASE_FONT - 3), "")
+      h:Show()
+      y = y + CHAR_HEAD_H + 2
+      ci = ci + 1
+      local c = charCell(row, ci)
+      c.key, c.warband = nil, true
+      c:SetWidth(colW)
+      c:ClearAllPoints()
+      c:SetPoint("TOPLEFT", 0, -y)
+      c.icon:Hide()
+      c.Text:SetText(L["Warband bank"])
+      c.Text:SetFont(path, math.max(7, BASE_FONT - 2), "")
+      c:Paint()
+      c:Show()
+      y = y + CHAR_CELL_H
+    end
     for i = hi + 1, #row.heads do row.heads[i]:Hide() end
     for i = ci + 1, #row.cells do row.cells[i]:Hide() end
-    local wbOn = (row.delMode and wbSaved) and true or false
-    wb:SetShown(wbOn)
-    if wbOn then
-      wb.Text:SetFont(path, math.max(7, BASE_FONT - 1), "")
-      wb:SetWidth(math.max(104, math.ceil(wb.Text:GetStringWidth()) + 26))
-      paintWb(wb:IsMouseOver())
-    end
     if #list > 0 or wbSaved then
-      local shift = wbOn and math.floor((wb:GetWidth() + 8) / 2) or 0
       del:ClearAllPoints()
-      del:SetPoint("TOP", row, "TOP", -shift, -(y + 8))
-      if wbOn then
-        wb:ClearAllPoints()
-        wb:SetPoint("LEFT", del, "RIGHT", 8, 0)
-      end
+      del:SetPoint("TOP", row, "TOP", 0, -(y + 8))
       y = y + 8 + CHAR_DEL_H
     end
     row:SetHeight(math.max(CHAR_CELL_H, y))

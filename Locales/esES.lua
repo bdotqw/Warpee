@@ -197,6 +197,8 @@ local STRINGS = {
   ["Save the shared Warband bank while you stand at a banker."] =
     "Guarda el banco compartido de banda guerrera mientras estás con un banquero.",
   ["Delete the saved Warband bank?"] = "¿Borrar el banco de banda guerrera guardado?",
+  ["Account"] = "Cuenta",
+  ["Nothing saved for other characters yet"] = "Todavía no hay nada guardado de otros personajes",
   ["Sell junk"] = "Vender la basura",
   ["Repair"] = "Reparar",
   ["Item level from"] = "Nivel de objeto desde",

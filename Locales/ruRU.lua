@@ -198,6 +198,8 @@ local STRINGS = {
   ["Save the shared Warband bank while you stand at a banker."] =
     "Сохранять общий банк отряда, пока вы стоите у банкира.",
   ["Delete the saved Warband bank?"] = "Удалить сохранённый банк отряда?",
+  ["Account"] = "Аккаунт",
+  ["Nothing saved for other characters yet"] = "Для других персонажей пока ничего не сохранено",
   ["Sell junk"] = "Продавать хлам",
   ["Repair"] = "Ремонт",
   ["Item level from"] = "Уровень предмета от",

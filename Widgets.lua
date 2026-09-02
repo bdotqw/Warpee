@@ -102,7 +102,9 @@ function ns.CreateCharTag(parent, height, dir)
     fs:SetPoint("RIGHT", caret, "LEFT", -GAP, 0)
   end
   local function caretColor(k) b.caret:SetTint(k) end
+  b:SetMotionScriptsWhileDisabled(true)
   b:SetScript("OnEnter", function(s)
+    if not s:IsEnabled() then return end
     s:SetBackdropColor(Theme:C("panelHi"))
     s:SetBackdropBorderColor(Theme:C("accent"))
     caretColor("accent")
@@ -110,7 +112,7 @@ function ns.CreateCharTag(parent, height, dir)
   b:SetScript("OnLeave", function(s)
     s:SetBackdropColor(Theme:C("panel"))
     s:SetBackdropBorderColor(Theme:C("stroke"))
-    caretColor("dim")
+    caretColor(s:IsEnabled() and "dim" or "faint")
   end)
   return b
 end

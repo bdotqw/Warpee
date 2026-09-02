@@ -190,6 +190,8 @@ local STRINGS = {
   ["Save the shared Warband bank while you stand at a banker."] =
     "Speichert die gemeinsame Kriegsmeutenbank, während ihr beim Bankier steht.",
   ["Delete the saved Warband bank?"] = "Gespeicherte Kriegsmeutenbank löschen?",
+  ["Account"] = "Konto",
+  ["Nothing saved for other characters yet"] = "Für andere Charaktere ist noch nichts gespeichert",
   ["Sell junk"] = "Schund verkaufen",
   ["Repair"] = "Reparieren",
   ["Item level from"] = "Gegenstandsstufe ab",
