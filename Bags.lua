@@ -17,8 +17,8 @@ local COLS_DEFAULT, GAP_DEFAULT = 14, 4
 local HEADER, FOOTER = 66, 28
 local DIV = 22
 local HB = 26
-local ROW1_Y = 6
-local GAUGE_Y = ROW1_Y + HB + 4
+local ROW1_Y = 4
+local GAUGE_Y = ROW1_Y + HB + 6
 local ROW2_Y = GAUGE_Y + 6
 
 local Bags = { pool = {}, vpool = {}, cols = COLS_DEFAULT, gap = GAP_DEFAULT, iconSize = SIZE_DEFAULT,
@@ -105,7 +105,7 @@ function Bags:Build()
   end
 
   local close = ns.CreateGlyphButton(f, "×", HB)
-  close:SetPoint("TOPRIGHT", -PAD, -6)
+  close:SetPoint("TOPRIGHT", -PAD, -ROW1_Y)
   close:SetScript("OnClick", function() ns.Toggle(false) end)
   self.closeBtn = close
 

@@ -21,6 +21,7 @@ local WARBAND   = idList({ "AccountBankTab_1", "AccountBankTab_2", "AccountBankT
 
 local PAD, DIV = 10, 22
 local HBTN = 26
+local ROW1_Y = 4
 local SEARCH_MIN = 80
 local function headerH(base) return math.max(34, base + 16) end
 local function footerH(base) return math.max(28, base + 10) end
@@ -193,7 +194,7 @@ function View:Build()
   ns.CreateMoveBar(f, "bankPos")
 
   local close = ns.CreateGlyphButton(f, "×", 26)
-  close:SetPoint("TOPRIGHT", -PAD, -6)
+  close:SetPoint("TOPRIGHT", -PAD, -ROW1_Y)
   close:SetScript("OnClick", function() f:Hide() end)
   self.closeBtn = close
 
@@ -218,7 +219,7 @@ function View:Build()
 
   local bankTab = ns.CreateButton(f, ns.L["Bank"], 52, HBTN)
   ns.LocalText(bankTab, "Bank")
-  bankTab:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -6)
+  bankTab:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -ROW1_Y)
   bankTab:SetScript("OnClick", function() self:SetMode("bank") end)
   bankTab:HookScript("OnLeave", function() self:UpdateTabs() end)
   self.bankTab = bankTab
@@ -328,7 +329,7 @@ end
 function View:AnchorHeader()
   if not self.frame then return end
   local top = Theme:TopInset()
-  local row1 = 6 + top - Theme:HeadLift()
+  local row1 = ROW1_Y + top - Theme:HeadLift()
   if self.closeBtn then
     self.closeBtn:ClearAllPoints()
     ns.SnapPoint(self.closeBtn, "TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row1)
