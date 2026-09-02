@@ -1,5 +1,12 @@
 # Warpee
 
+## 1.1.0
+
+- French interface text, and French words in the search
+- Reagent border is a setting now: turn it off and reagents take the quality border instead
+- Marker checkboxes reordered on the Items page
+- Removed the `/warpee cols` command, the column count stays in the settings
+
 ## 1.0.0
 
 First release.
