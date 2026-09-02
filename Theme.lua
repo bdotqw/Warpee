@@ -524,19 +524,14 @@ function Theme:ApplyGridAlpha()
 end
 
 function ns.EscClose(frame)
-  if not (frame and frame.EnableKeyboard) or frame.wpeEsc then return frame end
+  if not frame or frame.wpeEsc then return frame end
+  local name = frame.GetName and frame:GetName()
+  if not (name and _G[name] == frame and type(UISpecialFrames) == "table") then return frame end
   frame.wpeEsc = true
-  frame:EnableKeyboard(true)
-  frame:SetPropagateKeyboardInput(true)
-  frame:HookScript("OnKeyDown", function(s, key)
-    if key ~= "ESCAPE" then
-      s:SetPropagateKeyboardInput(true)
-      return
-    end
-    s:SetPropagateKeyboardInput(false)
-    s:Hide()
-  end)
-  frame:HookScript("OnHide", function(s) s:SetPropagateKeyboardInput(true) end)
+  for _, n in ipairs(UISpecialFrames) do
+    if n == name then return frame end
+  end
+  UISpecialFrames[#UISpecialFrames + 1] = name
   return frame
 end
 
