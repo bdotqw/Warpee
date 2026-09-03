@@ -1026,7 +1026,6 @@ function factories.badges(parent, spec)
   mark:Hide()
 
   local readout = track(Theme:Label(row, BASE_FONT - 1, "accentInk"), -1)
-  readout:SetPoint("TOP", cell, "BOTTOM", 0, -7)
 
   local art, chips = {}, {}
   for _, d in ipairs(ns.BADGES) do
@@ -1073,6 +1072,16 @@ function factories.badges(parent, spec)
     c.Text:SetTextColor(Theme:C((not on) and "faint" or (sel and "accentInk" or "text")))
   end
 
+  local function dropFor()
+    local d = 7
+    for _, def in ipairs(ns.BADGES) do
+      if ns.Badge(def.key).on then
+        d = math.max(d, (art[def.key]:GetHeight() or 0) / 2 + 5)
+      end
+    end
+    return math.floor(d + 0.5)
+  end
+
   local function paint()
     local f, solo = factor(), bg.soloGet()
     cell:SetBackdropColor(Theme:C("panel"))
@@ -1112,6 +1121,8 @@ function factories.badges(parent, spec)
       end
     end
     local g = bg.cur()
+    readout:ClearAllPoints()
+    readout:SetPoint("TOP", cell, "BOTTOM", 0, -dropFor())
     readout:SetText(("%s     x %d     y %d")
       :format(T(ANCHOR_LABELS[g.c] or g.c), g.x or 0, g.y or 0))
     readout:SetTextColor(Theme:C("accentInk"))
@@ -1234,7 +1245,7 @@ function factories.badges(parent, spec)
       if x ~= g.x or y ~= g.y then g.x, g.y = x, y; moved = true end
     end
     if moved then bg.bump() end
-    row:SetHeight(h + PREV + 42)
+    row:SetHeight(h + PREV + 34 + dropFor())
   end
   row.Rebuild = row.Refresh
   bg.repaint = paint
