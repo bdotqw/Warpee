@@ -777,7 +777,7 @@ function ns.UpdateItemButton(b)
         end
       end
     end
-    local shown = (lvl and lvl > 1) and lvl or nil
+    local shown = (lvl and lvl > 1) and ns.Badge("ilvl").on and lvl or nil
     b.ilvl:SetText(shown or "")
     ns.FitIlvl(b, shown)
     local kc
@@ -911,7 +911,7 @@ function ns.PaintVaultButton(b, d, bagID)
   if nt then nt:SetAlpha(0) end
   if b.ilvl then
     local lvl = d and d.v
-    local shown = (lvl and lvl > 1) and lvl or nil
+    local shown = (lvl and lvl > 1) and ns.Badge("ilvl").on and lvl or nil
     b.ilvl:SetText(shown or "")
     ns.FitIlvl(b, shown)
     if ns.Bags.qualityColorIlvl and q and ITEM_QUALITY_COLORS[q] then
