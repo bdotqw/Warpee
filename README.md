@@ -5,7 +5,7 @@ Bag and bank windows for World of Warcraft (Midnight, 12.x). No categories, fast
 ## Features
 
 - **Bags in one window**, the character bank and the Warband bank as tabs in a second one, with no category sorting.
-- **15 dark themes**, recolored on the fly, including a Class theme that follows your class color, a Blizzard theme that keeps the default look and a flat take on it.
+- **14 dark themes**, recolored on the fly, including a Class theme that follows your class color and a Blizzard theme that keeps the default look.
 - **Guild bank skin** matching the rest of the addon; its contents are not saved.
 - **Snapshots** of other characters' bags and bank, behind a shared switcher popup.
 - **Favorites row** — drag an item in to keep it one click away.
