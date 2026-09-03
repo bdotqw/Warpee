@@ -83,7 +83,7 @@ local STRINGS = {
   ["Which corner of the slot the badge is pinned to."] =
     "К какому углу ячейки прижат значок.",
   ["Drag a badge around the cell, or click where you want it. Click a name to show and pick that badge, right-click a name to hide it."] =
-    "Тащи значок по клетке или щёлкни там, где он должен стоять. Щелчок по названию показывает и выбирает значок, правый щелчок скрывает его.",
+    "Тащи значок по квадрату или щёлкни там, где он должен стоять. Щелчок по названию значка показывает и выбирает его, правый щелчок по названию скрывает значок.",
   ["Show only the selected badge"] = "Показывать только выбранный значок",
   ["The item level of gear, and the level of a keystone."] =
     "Уровень предмета у снаряжения и уровень ключа подземелья.",
@@ -92,12 +92,12 @@ local STRINGS = {
     "BoE, пока предмет ещё не привязан, WuE для привязки к отряду до надевания, BoA для привязки к учётной записи.",
   ["The name of the equipment set the item belongs to, cut to a few letters."] =
     "Название набора экипировки, к которому относится предмет, укороченное до нескольких букв.",
-  ["A coin on poor quality items, the ones the vendor takes."] =
-    "Монета на предметах плохого качества, тех, что уходят торговцу.",
-  ["A padlock on the items you locked, which the vendor never sells."] =
-    "Замок на предметах, которые ты защитил, торговец их не продаст.",
-  ["In the cell above, draw only the badge you are moving."] =
-    "В ячейке выше рисовать только тот значок, который двигаешь.",
+  ["A coin on poor quality items, the gray junk a merchant buys."] =
+    "Монета на предметах плохого качества, серый хлам, который скупает торговец.",
+  ["A padlock on the items you locked with Alt-click, which the vendor never sells."] =
+    "Замок на предметах, которые ты защитил через Alt + щелчок, торговец их не продаст.",
+  ["In the cell above, hide every badge except the selected one."] =
+    "В квадрате выше скрывать все значки, кроме выбранного.",
   ["Locked items"] = "Защищённые предметы",
   ["Item tooltips"] = "Подсказки предметов",
   ["Open bags with"] = "Открывать сумки вместе с",
@@ -212,8 +212,11 @@ local STRINGS = {
   ["Thickness of the quality border."] = "Толщина рамки качества.",
   ["Tint the item level number with the item's rarity color."] =
     "Окрашивать уровень предмета в цвет его качества.",
-  ["Alt-click an item in the bags or the bank to lock it: a padlock appears and the vendor never sells it. Alt-click again, or the cross here, to unlock."] =
-    "Alt + щелчок по предмету в сумках или банке защищает его: появляется замок, и торговец такой предмет не продаст. Повторный Alt + щелчок или крестик в этом списке снимает защиту.",
+  ["Alt-click an item in the bags or the bank to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Alt-click again, or the cross here, to unlock."] =
+    "Alt + щелчок по предмету в сумках или банке защищает его: появляется замок, и предмет больше не продать, ни автоматически, ни правым щелчком у торговца. Повторный Alt + щелчок или крестик в этом списке снимает защиту.",
+  ["Alt-click to lock it from the vendor"] = "Alt + щелчок, чтобы защитить от продажи",
+  ["Locked from the vendor. Alt-click to unlock"] =
+    "Защищено от продажи. Alt + щелчок снимает защиту",
   ["Count across characters"] = "Считать по всем персонажам",
   ["Include bank"] = "Учитывать банк",
   ["Include Warband"] = "Учитывать банк отряда",

@@ -1543,7 +1543,7 @@ local ITEMS_PAGE = {
     desc = "Drag a badge around the cell, or click where you want it. Click a name to show and pick that badge, right-click a name to hide it." },
   { type = "toggle", name = "Show only the selected badge", col = 1, section = "badges",
     get = bg.soloGet, set = bg.soloSet,
-    desc = "In the cell above, draw only the badge you are moving." },
+    desc = "In the cell above, hide every badge except the selected one." },
   { type = "select", name = "Corner", get = bg.cGet, set = bg.cSet, section = "badges",
     keys = anchorKeys, label = anchorLabel,
     desc = "Which corner of the slot the badge is pinned to." },
@@ -1565,7 +1565,7 @@ local ITEMS_PAGE = {
       return (n == 1) and L["1 item"] or (L["%d items"]):format(n)
     end },
   { type = "description", section = "locked",
-    name = "Alt-click an item in the bags or the bank to lock it: a padlock appears and the vendor never sells it. Alt-click again, or the cross here, to unlock." },
+    name = "Alt-click an item in the bags or the bank to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Alt-click again, or the cross here, to unlock." },
   { type = "blacklist", section = "locked" },
 }
 

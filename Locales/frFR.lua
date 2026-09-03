@@ -83,7 +83,7 @@ local STRINGS = {
   ["Which corner of the slot the badge is pinned to."] =
     "À quel coin de l'emplacement le badge est fixé.",
   ["Drag a badge around the cell, or click where you want it. Click a name to show and pick that badge, right-click a name to hide it."] =
-    "Déplace un badge dans la case ou clique là où tu le veux. Un clic sur un nom affiche et sélectionne ce badge, un clic droit le masque.",
+    "Déplace un badge dans la case ou clique là où tu le veux. Un clic sur un nom affiche et sélectionne ce badge, un clic droit sur le nom le masque.",
   ["Show only the selected badge"] = "Afficher seulement le badge choisi",
   ["The item level of gear, and the level of a keystone."] =
     "Le niveau d'objet de l'équipement et le niveau d'une clé.",
@@ -92,12 +92,12 @@ local STRINGS = {
     "BoE tant que l'objet n'est pas encore lié, WuE pour lié au bataillon jusqu'à l'équipement, BoA pour lié au compte.",
   ["The name of the equipment set the item belongs to, cut to a few letters."] =
     "Le nom de l'ensemble d'équipement auquel appartient l'objet, coupé à quelques lettres.",
-  ["A coin on poor quality items, the ones the vendor takes."] =
-    "Une pièce sur les objets de qualité médiocre, ceux qui partent chez le marchand.",
-  ["A padlock on the items you locked, which the vendor never sells."] =
-    "Un cadenas sur les objets que tu as protégés, le marchand ne les vend jamais.",
-  ["In the cell above, draw only the badge you are moving."] =
-    "Dans la case ci-dessus, n'afficher que le badge que tu déplaces.",
+  ["A coin on poor quality items, the gray junk a merchant buys."] =
+    "Une pièce sur les objets de qualité médiocre, la camelote grise qu'un marchand achète.",
+  ["A padlock on the items you locked with Alt-click, which the vendor never sells."] =
+    "Un cadenas sur les objets que tu as protégés avec Alt + clic, le marchand ne les vend jamais.",
+  ["In the cell above, hide every badge except the selected one."] =
+    "Dans la case ci-dessus, masquer tous les badges sauf celui choisi.",
   ["Locked items"] = "Objets protégés",
   ["Item tooltips"] = "Infobulles des objets",
   ["Open bags with"] = "Ouvrir les sacs avec",
@@ -212,8 +212,11 @@ local STRINGS = {
   ["Thickness of the quality border."] = "Épaisseur de la bordure de qualité.",
   ["Tint the item level number with the item's rarity color."] =
     "Colore le niveau d'objet selon la rareté de l'objet.",
-  ["Alt-click an item in the bags or the bank to lock it: a padlock appears and the vendor never sells it. Alt-click again, or the cross here, to unlock."] =
-    "Alt + clic sur un objet dans les sacs ou la banque le protège : un cadenas apparaît et le marchand ne le vendra jamais. Un nouvel Alt + clic, ou la croix dans cette liste, retire la protection.",
+  ["Alt-click an item in the bags or the bank to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Alt-click again, or the cross here, to unlock."] =
+    "Alt + clic sur un objet dans les sacs ou la banque le protège : un cadenas apparaît et l'objet ne peut plus être vendu, ni automatiquement ni par un clic droit chez le marchand. Un nouvel Alt + clic, ou la croix dans cette liste, retire la protection.",
+  ["Alt-click to lock it from the vendor"] = "Alt + clic pour le protéger de la vente",
+  ["Locked from the vendor. Alt-click to unlock"] =
+    "Protégé de la vente. Alt + clic retire la protection",
   ["Count across characters"] = "Compter sur tous les personnages",
   ["Include bank"] = "Inclure la banque",
   ["Include Warband"] = "Inclure le bataillon",

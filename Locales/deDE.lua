@@ -72,7 +72,7 @@ local STRINGS = {
   ["Which corner of the slot the badge is pinned to."] =
     "An welcher Ecke des Platzes das Abzeichen hängt.",
   ["Drag a badge around the cell, or click where you want it. Click a name to show and pick that badge, right-click a name to hide it."] =
-    "Zieh ein Abzeichen in der Zelle umher oder klick dorthin, wo es stehen soll. Ein Klick auf einen Namen zeigt und wählt das Abzeichen, ein Rechtsklick blendet es aus.",
+    "Zieh ein Abzeichen in der Zelle umher oder klick dorthin, wo es stehen soll. Ein Klick auf einen Namen zeigt und wählt das Abzeichen, ein Rechtsklick auf den Namen blendet es aus.",
   ["Show only the selected badge"] = "Nur das gewählte Abzeichen zeigen",
   ["The item level of gear, and the level of a keystone."] =
     "Die Gegenstandsstufe von Ausrüstung und die Stufe eines Schlüsselsteins.",
@@ -81,12 +81,12 @@ local STRINGS = {
     "BoE solange der Gegenstand noch nicht gebunden ist, WuE für kriegsmeutengebunden bis angelegt, BoA für accountgebunden.",
   ["The name of the equipment set the item belongs to, cut to a few letters."] =
     "Der Name des Ausrüstungssets, zu dem der Gegenstand gehört, auf wenige Buchstaben gekürzt.",
-  ["A coin on poor quality items, the ones the vendor takes."] =
-    "Eine Münze auf Gegenständen schlechter Qualität, die beim Händler landen.",
-  ["A padlock on the items you locked, which the vendor never sells."] =
-    "Ein Schloss auf den Gegenständen, die du geschützt hast, der Händler verkauft sie nie.",
-  ["In the cell above, draw only the badge you are moving."] =
-    "In der Zelle oben nur das Abzeichen zeichnen, das du bewegst.",
+  ["A coin on poor quality items, the gray junk a merchant buys."] =
+    "Eine Münze auf Gegenständen schlechter Qualität, dem grauen Schund, den ein Händler kauft.",
+  ["A padlock on the items you locked with Alt-click, which the vendor never sells."] =
+    "Ein Schloss auf den Gegenständen, die du mit Alt + Klick geschützt hast, der Händler verkauft sie nie.",
+  ["In the cell above, hide every badge except the selected one."] =
+    "In der Zelle oben alle Abzeichen außer dem gewählten ausblenden.",
   ["Locked items"] = "Geschützte Gegenstände",
   ["Item tooltips"] = "Gegenstands-Tooltips",
   ["Open bags with"] = "Taschen öffnen mit",
@@ -201,8 +201,11 @@ local STRINGS = {
   ["Thickness of the quality border."] = "Stärke des Qualitätsrahmens.",
   ["Tint the item level number with the item's rarity color."] =
     "Färbt die Gegenstandsstufe in der Qualitätsfarbe des Gegenstands.",
-  ["Alt-click an item in the bags or the bank to lock it: a padlock appears and the vendor never sells it. Alt-click again, or the cross here, to unlock."] =
-    "Alt + Klick auf einen Gegenstand in den Taschen oder der Bank schützt ihn: ein Schloss erscheint und beim Händler wird er nie verkauft. Erneutes Alt + Klick oder das Kreuz in dieser Liste hebt den Schutz auf.",
+  ["Alt-click an item in the bags or the bank to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Alt-click again, or the cross here, to unlock."] =
+    "Alt + Klick auf einen Gegenstand in den Taschen oder der Bank schützt ihn: ein Schloss erscheint, und der Gegenstand lässt sich nicht mehr verkaufen, weder automatisch noch mit einem Rechtsklick beim Händler. Erneutes Alt + Klick oder das Kreuz in dieser Liste hebt den Schutz auf.",
+  ["Alt-click to lock it from the vendor"] = "Alt + Klick, um ihn vor dem Verkauf zu schützen",
+  ["Locked from the vendor. Alt-click to unlock"] =
+    "Vor dem Verkauf geschützt. Alt + Klick hebt den Schutz auf",
   ["Count across characters"] = "Über alle Charaktere zählen",
   ["Include bank"] = "Bank einbeziehen",
   ["Include Warband"] = "Kriegsmeutenbank einbeziehen",
