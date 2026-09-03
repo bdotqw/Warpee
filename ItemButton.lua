@@ -84,8 +84,13 @@ local function attachBorder(b)
   b.bind = bf:CreateFontString(nil, "OVERLAY")
   b.bind:SetDrawLayer("OVERLAY", 6)
   b.bind:SetFontObject(ns.Fonts:Object(12, "OUTLINE"))
-  b.bind:SetPoint("BOTTOMLEFT", 2, 2)
+  b.bind:SetPoint("TOPLEFT", 2, -2)
   b.bind:SetTextColor(ns.WARBOUND[1], ns.WARBOUND[2], ns.WARBOUND[3])
+  b.outfit = bf:CreateFontString(nil, "OVERLAY")
+  b.outfit:SetDrawLayer("OVERLAY", 6)
+  b.outfit:SetFontObject(ns.Fonts:Object(11, "OUTLINE"))
+  b.outfit:SetPoint("BOTTOMLEFT", 2, 2)
+  b.outfit:SetTextColor(Theme:C("overlay"))
 end
 
 local function iconOf(b)
@@ -182,6 +187,7 @@ local function clearOverlays(b)
   if b.IconOverlay2 then b.IconOverlay2:Hide() end
   if b.ProfessionQualityOverlay then b.ProfessionQualityOverlay:Hide() end
   if b.bind then b.bind:SetText("") end
+  if b.outfit then b.outfit:SetText("") end
   if b.junk then b.junk:Hide() end
   if b.blocked then b.blocked:Hide() end
 end
@@ -356,9 +362,11 @@ local function cellOf(b)
 end
 
 local BADGES = {
-  { key = "ilvl",  n = "Item level",  p = "447", c = "BOTTOMRIGHT", x = 0, y = 2, s = 14 },
-  { key = "count", n = "Stack count", p = "20",  c = "BOTTOMRIGHT", x = 0, y = 2, s = 14 },
-  { key = "bind",  n = "Binding",     p = "BoE", c = "BOTTOMLEFT",  x = 2, y = 2, s = 12 },
+  { key = "ilvl",   n = "Item level",  p = "447",  c = "BOTTOMRIGHT", x = 0, y = 2, s = 14 },
+  { key = "count",  n = "Stack count", p = "20",   c = "BOTTOMRIGHT", x = 0, y = 2, s = 14 },
+  { key = "bind",   n = "Binding",     p = "BoE",  c = "TOPLEFT",    x = 2, y = -2, s = 12 },
+  { key = "outfit", n = "Outfit",      p = "Myth", c = "BOTTOMLEFT", x = 2, y =  2, s = 11,
+    k = 4 },
   { key = "junk",    n = "Junk coin",   tex = true,
     c = "TOPLEFT",  x =  1, y = -1, s = 0.42, m = 8 },
   { key = "blocked", n = "Vendor lock", tex = true,
@@ -379,7 +387,7 @@ local BADGE_LEGACY = {
 function ns.BadgeDefaults()
   local t = {}
   for _, d in ipairs(BADGES) do
-    t[d.key] = { c = d.c, x = d.x, y = d.y, s = d.s, on = true }
+    t[d.key] = { c = d.c, x = d.x, y = d.y, s = d.s, k = d.k, on = true }
   end
   return t
 end
@@ -396,6 +404,7 @@ function ns.BadgeMigrate(db, t)
     if not ns.BADGE_CORNERS[g.c] then g.c = d.c end
     g.x, g.y = tonumber(g.x) or d.x, tonumber(g.y) or d.y
     g.s = tonumber(g.s) or d.s
+    if d.k then g.k = tonumber(g.k) or d.k end
     g.on = g.on ~= false
   end
 end
@@ -609,6 +618,70 @@ function ns.MarkBind(b, label, quality)
   end
 end
 
+local CUT, CUT_N = {}, nil
+
+local function utf8cut(s, n)
+  local i, out, len = 1, 0, #s
+  while i <= len and out < n do
+    local c = s:byte(i)
+    local step = 1
+    if c >= 240 then step = 4 elseif c >= 224 then step = 3 elseif c >= 192 then step = 2 end
+    i = i + step
+    out = out + 1
+  end
+  return s:sub(1, i - 1)
+end
+
+local function abbrev(name, n)
+  if CUT_N ~= n then CUT, CUT_N = {}, n end
+  local v = CUT[name]
+  if not v then v = utf8cut(name, n); CUT[name] = v end
+  return v
+end
+
+local Sets = { map = {}, dirty = true }
+ns.Sets = Sets
+
+function Sets:Dirty() self.dirty = true end
+
+function Sets:Map()
+  if not self.dirty then return self.map end
+  self.dirty = false
+  local m = self.map
+  for k in pairs(m) do m[k] = nil end
+  local E = C_EquipmentSet
+  if not (E and E.GetEquipmentSetIDs and E.GetItemLocations
+          and EquipmentManager_UnpackLocation) then return m end
+  for _, id in ipairs(E.GetEquipmentSetIDs()) do
+    local name = E.GetEquipmentSetInfo(id)
+    local locs = name and E.GetItemLocations(id)
+    if locs then
+      for _, packed in pairs(locs) do
+        if type(packed) == "number" and packed > 1 then
+          local _, _, bags, _, slot, bag = EquipmentManager_UnpackLocation(packed)
+          if bags and bag and slot then
+            local key = bag .. ":" .. slot
+            if not m[key] then m[key] = name end
+          end
+        end
+      end
+    end
+  end
+  return m
+end
+
+function ns.OutfitLabel(bagID, slot)
+  local g = ns.Badge("outfit")
+  if not (g.on and bagID and slot) then return nil end
+  local name = Sets:Map()[bagID .. ":" .. slot]
+  if not name then return nil end
+  return abbrev(name, g.k or 4)
+end
+
+function ns.MarkOutfit(b, label)
+  if b.outfit then b.outfit:SetText(label or "") end
+end
+
 function ns.MarkJunk(b, quality)
   if not (ns.Badge("junk").on and quality == 0) then
     if b.junk then b.junk:Hide() end
@@ -768,6 +841,7 @@ function ns.UpdateItemButton(b)
                 and C_Item.DoesItemExist(loc)
                 and C_Item.IsBoundToAccountUntilEquip(loc) or false
     ns.MarkBind(b, ns.BindLabel(hl, iItemID, info.isBound, wue), info.quality)
+    ns.MarkOutfit(b, ns.OutfitLabel(bagID, slot))
     local il = isGear and gearIlvl or nil
     if isGear and not il then
       il = C_Item.DoesItemExist(loc) and C_Item.GetCurrentItemLevel(loc) or nil
@@ -822,6 +896,7 @@ function ns.PaintVaultButton(b, d, bagID)
     ns.MarkJunk(b, q)
     ns.MarkBlocked(b, (C_Item.GetItemInfoInstant(link)))
     ns.MarkBind(b, ns.BindLabel(link, itemID, d.b, false), q)
+    ns.MarkOutfit(b, nil)
   else
     clearOverlays(b)
     SetItemButtonQuality(b, nil)

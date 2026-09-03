@@ -149,9 +149,12 @@ bg.cGet, bg.cSet = bg.getter("c"), bg.setter("c")
 bg.xGet, bg.xSet = bg.getter("x"), bg.setter("x")
 bg.yGet, bg.ySet = bg.getter("y"), bg.setter("y")
 bg.sGet, bg.sSet = bg.getter("s"), bg.setter("s")
+bg.kGet = function() return bg.cur().k or 4 end
+bg.kSet = bg.setter("k")
 bg.isTex   = function() return bg.def().tex and true or false end
 bg.isText  = function() return not bg.def().tex end
 bg.notIlvl = function() return bg.sel ~= "ilvl" end
+bg.notFit  = function() return bg.sel ~= "outfit" end
 bg.label   = function(key) return (ns.BADGE[key] or {}).n or key end
 bg.prev    = 132
 bg.max     = 40
@@ -1424,6 +1427,9 @@ local ITEMS_PAGE = {
     get = bg.sGet, set = bg.sSet, hidden = bg.isTex },
   { type = "range", name = "Icon scale", min = 0.2, max = 1, step = 0.02, section = "badges",
     get = bg.sGet, set = bg.sSet, hidden = bg.isText },
+  { type = "range", name = "Letters", min = 2, max = 8, step = 1, section = "badges",
+    get = bg.kGet, set = bg.kSet, hidden = bg.notFit,
+    desc = "How many letters of the outfit name to show." },
   { type = "toggle", name = "Color by quality", col = 1, section = "badges",
     get = qColorGet, set = qColorSet, hidden = bg.notIlvl,
     desc = "Tint the number with the item's rarity color." },

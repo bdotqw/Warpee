@@ -99,6 +99,8 @@ for _, e in ipairs({ "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CH
                      "TRADE_SKILL_SHOW", "TRADE_SKILL_CLOSE",
                      "UI_SCALE_CHANGED", "DISPLAY_SIZE_CHANGED", "CVAR_UPDATE",
                      "PLAYER_REGEN_ENABLED",
+                     "EQUIPMENT_SETS_CHANGED", "EQUIPMENT_SWAP_FINISHED",
+                     "PLAYER_EQUIPMENT_CHANGED",
                      "PLAYER_INTERACTION_MANAGER_FRAME_SHOW",
                      "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" }) do
   pcall(ev.RegisterEvent, ev, e)
@@ -256,6 +258,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if ns.IsPlayerBag(a1) then Bags.dirty[a1] = true end
     if ns.Bank and ns.IsBankContainer and ns.IsBankContainer(a1) then ns.Bank:QueueRefresh(a1) end
   elseif event == "BAG_UPDATE_DELAYED" then
+    ns.Sets:Dirty()
     if Bags.sorting then Bags:SortSettle() else Bags:UpdateDirty() end
   elseif event == "BAG_UPDATE_COOLDOWN" then
     Bags:RefreshCooldowns()
@@ -281,6 +284,11 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if Bags.pool then for _, b in ipairs(Bags.pool) do b.link = nil end end
     if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
     if ns.Bank then ns.Bank:Repaint() end
+  elseif event == "EQUIPMENT_SETS_CHANGED" or event == "EQUIPMENT_SWAP_FINISHED"
+      or event == "PLAYER_EQUIPMENT_CHANGED" then
+    ns.Sets:Dirty()
+    if Bags.pool then for _, b in ipairs(Bags.pool) do b.link = nil end end
+    if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
   elseif event == "BANKFRAME_OPENED" then
     if ns.Bank then ns.Bank.bankerOpen = true; ns.Bank:OnBankOpened() end
     autoOpenBags("bank")

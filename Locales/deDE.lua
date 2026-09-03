@@ -63,6 +63,10 @@ local STRINGS = {
   ["Item level"] = "Gegenstandsstufe",
   ["Stack count"] = "Stapelanzahl",
   ["Binding"] = "Bindung",
+  ["Outfit"] = "Set",
+  ["Letters"] = "Buchstaben",
+  ["How many letters of the outfit name to show."] =
+    "Wie viele Buchstaben des Setnamens gezeigt werden.",
   ["Vendor lock"] = "Verkaufsschutz",
   ["Icon scale"] = "Symbolgröße",
   ["Which corner of the slot the badge is pinned to."] =

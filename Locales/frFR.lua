@@ -74,6 +74,10 @@ local STRINGS = {
   ["Item level"] = "Niveau d'objet",
   ["Stack count"] = "Taille de pile",
   ["Binding"] = "Liaison",
+  ["Outfit"] = "Ensemble",
+  ["Letters"] = "Lettres",
+  ["How many letters of the outfit name to show."] =
+    "Combien de lettres du nom de l'ensemble sont affichées.",
   ["Vendor lock"] = "Protection de vente",
   ["Icon scale"] = "Taille de l'icône",
   ["Which corner of the slot the badge is pinned to."] =
