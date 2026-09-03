@@ -70,6 +70,15 @@ local STRINGS = {
   ["Bank and Warband grid"] = "Сетка банка и банка отряда",
   ["Item level number"] = "Уровень предмета на иконке",
   ["Stack count number"] = "Количество в стопке",
+  ["Badges"] = "Значки",
+  ["Item level"] = "Уровень предмета",
+  ["Stack count"] = "Количество в стопке",
+  ["Vendor lock"] = "Защита от продажи",
+  ["Icon scale"] = "Размер значка",
+  ["Which corner of the slot the badge is pinned to."] =
+    "К какому углу ячейки прижат значок.",
+  ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge."] =
+    "Перетаскивай значок внутри ячейки, чтобы поставить его на место, и вытащи за пределы ячейки, чтобы убрать. Правый клик по названию показывает или скрывает значок.",
   ["Locked items"] = "Защищённые предметы",
   ["Item tooltips"] = "Подсказки предметов",
   ["Open bags with"] = "Открывать сумки вместе с",

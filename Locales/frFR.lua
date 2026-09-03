@@ -70,6 +70,15 @@ local STRINGS = {
   ["Bank and Warband grid"] = "Grille de la banque et du bataillon",
   ["Item level number"] = "Niveau d'objet sur l'icône",
   ["Stack count number"] = "Taille de pile sur l'icône",
+  ["Badges"] = "Badges",
+  ["Item level"] = "Niveau d'objet",
+  ["Stack count"] = "Taille de pile",
+  ["Vendor lock"] = "Protection de vente",
+  ["Icon scale"] = "Taille de l'icône",
+  ["Which corner of the slot the badge is pinned to."] =
+    "À quel coin de l'emplacement le badge est fixé.",
+  ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge."] =
+    "Fais glisser un badge dans la case pour le placer, hors de la case pour le masquer. Clic droit sur un nom pour l'afficher ou le masquer.",
   ["Locked items"] = "Objets protégés",
   ["Item tooltips"] = "Infobulles des objets",
   ["Open bags with"] = "Ouvrir les sacs avec",

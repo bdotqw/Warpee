@@ -157,6 +157,8 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     ns.Fonts:Settle()
     WarpeeDB.badge = WarpeeDB.badge or {}
     ns.BadgeMigrate(WarpeeDB, WarpeeDB.badge)
+    if WarpeeDB.junkIcon == false then WarpeeDB.badge.junk.on = false end
+    WarpeeDB.junkIcon = nil
     WarpeeDB.ilvlSize, WarpeeDB.ilvlAnchor = nil, nil
     WarpeeDB.ilvlX, WarpeeDB.ilvlY = nil, nil
     WarpeeDB.countSize, WarpeeDB.countAnchor = nil, nil
@@ -169,7 +171,6 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.fillUp == nil then WarpeeDB.fillUp = false end
     if WarpeeDB.questMarks == nil then WarpeeDB.questMarks = true end
     if WarpeeDB.newItemGlow == nil then WarpeeDB.newItemGlow = false end
-    if WarpeeDB.junkIcon == nil then WarpeeDB.junkIcon = true end
     if WarpeeDB.reagentTint == nil then WarpeeDB.reagentTint = true end
     WarpeeDB.goldFormat = WarpeeDB.goldFormat or "short"
     WarpeeDB.vendorIlvl = tonumber(WarpeeDB.vendorIlvl) or 100
@@ -235,7 +236,6 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     Bags.fillUp           = WarpeeDB.fillUp
     Bags.questMarks       = WarpeeDB.questMarks
     Bags.newItemGlow      = WarpeeDB.newItemGlow
-    Bags.junkIcon         = WarpeeDB.junkIcon
     Bags.reagentTint      = WarpeeDB.reagentTint
     Bags:Build()
     Bags:RestorePos()

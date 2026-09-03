@@ -136,6 +136,36 @@ local factories = {}
 
 local SECTION_CLOSED = {}
 
+local bg = { sel = "ilvl" }
+bg.cur = function() return ns.Badge(bg.sel) end
+bg.def = function() return ns.BADGE[bg.sel] or ns.BADGES[1] end
+bg.bump = function()
+  Bags.styleGen = (Bags.styleGen or 0) + 1
+  relayout()
+end
+bg.getter = function(f) return function() return bg.cur()[f] end end
+bg.setter = function(f) return function(v) bg.cur()[f] = v; bg.bump() end end
+bg.cGet, bg.cSet = bg.getter("c"), bg.setter("c")
+bg.xGet, bg.xSet = bg.getter("x"), bg.setter("x")
+bg.yGet, bg.ySet = bg.getter("y"), bg.setter("y")
+bg.sGet, bg.sSet = bg.getter("s"), bg.setter("s")
+bg.isTex   = function() return bg.def().tex and true or false end
+bg.isText  = function() return not bg.def().tex end
+bg.notIlvl = function() return bg.sel ~= "ilvl" end
+bg.label   = function(key) return (ns.BADGE[key] or {}).n or key end
+bg.prev    = 132
+bg.max     = 40
+bg.clamp   = function(v)
+  v = math.floor(v + 0.5)
+  if v > bg.max then return bg.max elseif v < -bg.max then return -bg.max end
+  return v
+end
+bg.shown = function()
+  local n = 0
+  for _, d in ipairs(ns.BADGES) do if ns.Badge(d.key).on then n = n + 1 end end
+  return n
+end
+
 local function sectionOpen(key)
   if not key then return true end
   local t = WarpeeDB and WarpeeDB.optSections
@@ -945,6 +975,160 @@ function factories.blacklist(parent, spec)
   return row
 end
 
+function factories.badges(parent, spec)
+  local PREV = bg.prev
+  local row = CreateFrame("Frame", nil, parent)
+  row.dynamic = true
+
+  local cell = CreateFrame("Frame", nil, row, "BackdropTemplate")
+  ns.SnapBox(cell, PREV, PREV)
+  cell:SetPoint("TOPLEFT", 1, -1)
+  ns.PixelBackdrop(cell)
+  cell:EnableMouse(true)
+
+  local readout = track(Theme:Label(row, BASE_FONT - 1, "accentInk"), -1)
+  readout:SetPoint("TOPLEFT", cell, "BOTTOMLEFT", 1, -7)
+
+  local art, chips = {}, {}
+  for _, d in ipairs(ns.BADGES) do
+    if d.tex then
+      local t = cell:CreateTexture(nil, "OVERLAY")
+      ns.BadgeArt(t, d.key)
+      art[d.key] = t
+    else
+      art[d.key] = Theme:Label(cell, BASE_FONT, "overlay")
+    end
+  end
+
+  local function factor() return PREV / (Bags.iconSize or 40) end
+
+  local function paintChip(c)
+    local sel, on = c.wpeKey == bg.sel, ns.Badge(c.wpeKey).on
+    local hover = c:IsMouseOver()
+    c:SetBackdropColor(Theme:C(hover and "panelHi" or "panel"))
+    c:SetBackdropBorderColor(Theme:C(sel and "accent" or (hover and "accentInk" or "stroke")))
+    c.Text:SetTextColor(Theme:C((not on) and "faint" or (sel and "accentInk" or "text")))
+  end
+
+  local function paint()
+    local f = factor()
+    cell:SetBackdropColor(Theme:C("panel"))
+    cell:SetBackdropBorderColor(Theme:C("stroke"))
+    for _, d in ipairs(ns.BADGES) do
+      local g, o, sel = ns.Badge(d.key), art[d.key], d.key == bg.sel
+      if d.tex then
+        local sz = math.max(6, PREV * (g.s or d.s))
+        o:SetSize(sz, sz)
+        o:SetVertexColor(1, 1, 1, sel and 1 or 0.65)
+      else
+        ns.SetOutlined(o, math.max(6, math.floor((g.s or d.s) * f + 0.5)))
+        o:SetText(d.p or d.key)
+        o:SetTextColor(Theme:C(sel and "accentInk" or "overlay"))
+      end
+      o:SetDrawLayer("OVERLAY", sel and 7 or 5)
+      o:ClearAllPoints()
+      o:SetPoint(g.c, cell, g.c, (g.x or 0) * f, (g.y or 0) * f)
+      o:SetShown(g.on and true or false)
+    end
+    local g = bg.cur()
+    readout:SetText(("%s     x %d     y %d")
+      :format(T(ANCHOR_LABELS[g.c] or g.c), g.x or 0, g.y or 0))
+    for _, c in ipairs(chips) do paintChip(c) end
+  end
+
+  local function layoutChips()
+    local path, x, y = ns.Fonts:Current(), 0, 0
+    local maxW = CONTENT_W - PREV - 18
+    for _, c in ipairs(chips) do
+      c.Text:SetFont(path, BASE_FONT - 2, "")
+      local w = math.max(62, math.ceil(c.Text:GetStringWidth()) + 20)
+      if x > 0 and x + w > maxW then x = 0; y = y + 26 end
+      c:SetWidth(w)
+      c:ClearAllPoints()
+      c:SetPoint("TOPLEFT", cell, "TOPRIGHT", 14 + x, -y)
+      x = x + w + 6
+    end
+    return y + 26
+  end
+
+  for _, d in ipairs(ns.BADGES) do
+    local c = ns.CreateButton(row, T(d.n or d.key), 62, 22)
+    c.wpeKey = d.key
+    ns.LocalText(c, d.n or d.key)
+    c:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    c:SetScript("OnEnter", paintChip)
+    c:SetScript("OnLeave", paintChip)
+    c:SetScript("OnClick", function(s, button)
+      if button == "RightButton" then
+        local g = ns.Badge(s.wpeKey)
+        g.on = not g.on
+        bg.bump()
+      end
+      bg.sel = s.wpeKey
+      Options:ReflowPages()
+    end)
+    chips[#chips + 1] = c
+  end
+
+  local function cursorXY()
+    local s = cell:GetEffectiveScale()
+    local cx, cy = GetCursorPosition()
+    return cx / s - (cell:GetLeft() or 0), cy / s - (cell:GetBottom() or 0)
+  end
+
+  local function place(px, py)
+    local o, g, f = art[bg.sel], bg.cur(), factor()
+    local w, h = o:GetWidth() or 0, o:GetHeight() or 0
+    local W, H = cell:GetWidth(), cell:GetHeight()
+    local l, d = px - w / 2, py - h / 2
+    local horiz = (px < W / 2) and "LEFT" or "RIGHT"
+    local vert  = (py < H / 2) and "BOTTOM" or "TOP"
+    g.c = vert .. horiz
+    g.x = bg.clamp(((horiz == "LEFT") and l or (l + w - W)) / f)
+    g.y = bg.clamp(((vert == "BOTTOM") and d or (d + h - H)) / f)
+  end
+
+  local grab
+  local function stop()
+    grab = nil
+    cell:SetScript("OnUpdate", nil)
+    local px, py = cursorXY()
+    if px < 0 or py < 0 or px > cell:GetWidth() or py > cell:GetHeight() then
+      bg.cur().on = false
+    end
+    bg.bump()
+    Options:ReflowPages()
+  end
+
+  cell:SetScript("OnMouseDown", function(s, button)
+    if button ~= "LeftButton" then return end
+    local g, o = bg.cur(), art[bg.sel]
+    local px, py = cursorXY()
+    if not g.on then g.on = true; place(px, py); paint() end
+    local w, h = o:GetWidth() or 0, o:GetHeight() or 0
+    local ox = (o:GetLeft() or 0) + w / 2 - (cell:GetLeft() or 0)
+    local oy = (o:GetBottom() or 0) + h / 2 - (cell:GetBottom() or 0)
+    local held = math.abs(px - ox) <= w / 2 + 4 and math.abs(py - oy) <= h / 2 + 4
+    grab = { dx = held and (ox - px) or 0, dy = held and (oy - py) or 0 }
+    s:SetScript("OnUpdate", function()
+      if not (grab and IsMouseButtonDown("LeftButton")) then stop(); return end
+      local x, y = cursorXY()
+      place(x + grab.dx, y + grab.dy)
+      paint()
+    end)
+  end)
+
+  row.Refresh = function()
+    local h = layoutChips()
+    paint()
+    row:SetHeight(math.max(PREV + 28, h + 4))
+  end
+  row.Rebuild = row.Refresh
+  row.Refresh()
+  tip(cell, spec.desc)
+  return row
+end
+
 local function buildPage(parent, list)
   local page = CreateFrame("Frame", nil, parent)
   page:SetPoint("TOPLEFT")
@@ -1097,7 +1281,6 @@ flow.revGet, flow.revSet = field("revFill")
 flow.upGet, flow.upSet   = field("fillUp")
 local questGet, questSet     = styleField("questMarks")
 local newGet, newSet         = styleField("newItemGlow")
-local junkGet, junkSet       = styleField("junkIcon")
 local function gridAlphaGet() return Theme:GridAlpha() end
 local function gridAlphaSet(v) WarpeeDB.gridAlpha = v; Theme:ApplyGridAlpha() end
 local gaugeGet, gaugeSet     = field("showGauge")
@@ -1126,24 +1309,6 @@ local function goldFmtGet() return WarpeeDB.goldFormat or "commas" end
 local function goldFmtSet(v) WarpeeDB.goldFormat = v; relayout() end
 local qColorGet, qColorSet   = styleField("qualityColorIlvl")
 local qBorderGet, qBorderSet = styleField("qualityBorder")
-local bg = {}
-bg.field = function(key, f)
-  local get = function() return ns.Badge(key)[f] end
-  local set = function(v)
-    ns.Badge(key)[f] = v
-    Bags.styleGen = (Bags.styleGen or 0) + 1
-    relayout()
-  end
-  return get, set
-end
-bg.ilvlSizeGet, bg.ilvlSizeSet     = bg.field("ilvl", "s")
-bg.ilvlAnchorGet, bg.ilvlAnchorSet = bg.field("ilvl", "c")
-bg.ilvlXGet, bg.ilvlXSet           = bg.field("ilvl", "x")
-bg.ilvlYGet, bg.ilvlYSet           = bg.field("ilvl", "y")
-bg.countSizeGet, bg.countSizeSet     = bg.field("count", "s")
-bg.countAnchorGet, bg.countAnchorSet = bg.field("count", "c")
-bg.countXGet, bg.countXSet           = bg.field("count", "x")
-bg.countYGet, bg.countYSet           = bg.field("count", "y")
 local bankColsGet, bankColsSet = dbField("bankCols", 24)
 local wbColsGet, wbColsSet     = dbField("warbandCols", 24)
 local bankSizeGet, bankSizeSet = dbField("bankIconSize", 40)
@@ -1222,9 +1387,6 @@ local GENERAL_PAGE = {
     get = profGet, set = profSet },
 }
 
-SECTION_CLOSED.ilvlnum = true
-SECTION_CLOSED.countnum = true
-
 local ITEMS_PAGE = {
   { type = "header", name = "Markers" },
   { type = "toggle", name = "Reagent border", col = 1,
@@ -1242,40 +1404,29 @@ local ITEMS_PAGE = {
     desc = "Blizzard quest art: a mark for unaccepted quests, a border for quest items." },
   { type = "toggle", name = "New item glow", col = 2, get = newGet, set = newSet,
     desc = "Quality-colored glow on items the game still counts as new." },
-  { type = "toggle", name = "Junk coin", col = 1, get = junkGet, set = junkSet,
-    desc = "Gold coin marker on poor-quality (gray) items." },
   { type = "range", name = "Border thickness", min = 1, max = 6, step = 1,
     get = edgeGet, set = edgeSet, disabled = function() return not qBorderGet() end,
     desc = "Thickness of the quality border." },
-  { type = "header", name = "Item level number", key = "ilvlnum",
+  { type = "header", name = "Badges", key = "badges",
     state = function()
-      return ("%d px, %s"):format(bg.ilvlSizeGet(), (T(anchorLabel(bg.ilvlAnchorGet()))):lower())
+      return ("%s, %d/%d"):format(T(bg.label(bg.sel)), bg.shown(), #ns.BADGES)
     end },
-  { type = "toggle", name = "Color by quality", col = 1, section = "ilvlnum",
-    get = qColorGet, set = qColorSet,
+  { type = "badges", section = "badges",
+    desc = "Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge." },
+  { type = "select", name = "Corner", get = bg.cGet, set = bg.cSet, section = "badges",
+    keys = anchorKeys, label = anchorLabel,
+    desc = "Which corner of the slot the badge is pinned to." },
+  { type = "range", name = "X offset", min = -40, max = 40, step = 1, section = "badges",
+    get = bg.xGet, set = bg.xSet, half = "left" },
+  { type = "range", name = "Y offset", min = -40, max = 40, step = 1, section = "badges",
+    get = bg.yGet, set = bg.ySet, half = "right" },
+  { type = "range", name = "Size", min = 6, max = 24, step = 1, section = "badges",
+    get = bg.sGet, set = bg.sSet, hidden = bg.isTex },
+  { type = "range", name = "Icon scale", min = 0.2, max = 1, step = 0.02, section = "badges",
+    get = bg.sGet, set = bg.sSet, hidden = bg.isText },
+  { type = "toggle", name = "Color by quality", col = 1, section = "badges",
+    get = qColorGet, set = qColorSet, hidden = bg.notIlvl,
     desc = "Tint the number with the item's rarity color." },
-  { type = "select", name = "Corner", get = bg.ilvlAnchorGet, set = bg.ilvlAnchorSet,
-    section = "ilvlnum", keys = anchorKeys, label = anchorLabel,
-    desc = "Which corner of the slot the number sits in." },
-  { type = "range", name = "Size", min = 6, max = 24, step = 1, section = "ilvlnum",
-    get = bg.ilvlSizeGet, set = bg.ilvlSizeSet, half = "left" },
-  { type = "range", name = "X offset", min = -20, max = 20, step = 1, section = "ilvlnum",
-    get = bg.ilvlXGet, set = bg.ilvlXSet, half = "right" },
-  { type = "range", name = "Y offset", min = -20, max = 20, step = 1, section = "ilvlnum",
-    get = bg.ilvlYGet, set = bg.ilvlYSet, half = "left" },
-  { type = "header", name = "Stack count number", key = "countnum",
-    state = function()
-      return ("%d px, %s"):format(bg.countSizeGet(), (T(anchorLabel(bg.countAnchorGet()))):lower())
-    end },
-  { type = "select", name = "Corner", get = bg.countAnchorGet, set = bg.countAnchorSet,
-    section = "countnum", keys = anchorKeys, label = anchorLabel,
-    desc = "Which corner of the slot the stack size sits in." },
-  { type = "range", name = "Size", min = 6, max = 24, step = 1, section = "countnum",
-    get = bg.countSizeGet, set = bg.countSizeSet, half = "left" },
-  { type = "range", name = "X offset", min = -20, max = 20, step = 1, section = "countnum",
-    get = bg.countXGet, set = bg.countXSet, half = "right" },
-  { type = "range", name = "Y offset", min = -20, max = 20, step = 1, section = "countnum",
-    get = bg.countYGet, set = bg.countYSet, half = "left" },
   { type = "header", name = "Locked items", key = "locked",
     state = function()
       local n = 0

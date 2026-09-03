@@ -534,7 +534,7 @@ end
 function View:PaintKey(size)
   return table.concat({ size, Bags.slotStyle or "tile", Bags.styleGen or 0,
                         Bags.qualityBorder and 1 or 0, Bags.qualityColorIlvl and 1 or 0,
-                        Bags.junkIcon and 1 or 0, Bags.reagentTint and 1 or 0 }, ":")
+                        ns.Badge("junk").on and 1 or 0, Bags.reagentTint and 1 or 0 }, ":")
 end
 
 function View:Plan(st, size, cols, gap)

@@ -25,7 +25,7 @@ local Bags = { pool = {}, vpool = {}, cols = COLS_DEFAULT, gap = GAP_DEFAULT, ic
                slotStyle = "tile", showGauge = true, goldLetters = false, goldOnly = false,
                font = ns.Fonts.DEFAULT, query = "", dirty = {},
                badge = ns.BadgeDefaults(),
-               qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, junkIcon = false, reagentTint = true,
+               qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, reagentTint = true,
                revFill = false, fillUp = false, reagentTop = false,
                styleGen = 1 }
 ns.Bags = Bags
