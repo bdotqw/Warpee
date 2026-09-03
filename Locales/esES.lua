@@ -67,6 +67,15 @@ local STRINGS = {
   ["Bank and Warband grid"] = "Cuadrícula del banco y la banda guerrera",
   ["Item level number"] = "Nivel de objeto en el icono",
   ["Stack count number"] = "Tamaño del montón en el icono",
+  ["Badges"] = "Distintivos",
+  ["Item level"] = "Nivel de objeto",
+  ["Stack count"] = "Tamaño del montón",
+  ["Vendor lock"] = "Protección de venta",
+  ["Icon scale"] = "Tamaño del icono",
+  ["Which corner of the slot the badge is pinned to."] =
+    "En qué esquina del espacio se ancla el distintivo.",
+  ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge."] =
+    "Arrastra un distintivo dentro de la casilla para colocarlo y fuera de la casilla para ocultarlo. Clic derecho en un nombre para mostrarlo u ocultarlo.",
   ["Locked items"] = "Objetos protegidos",
   ["Item tooltips"] = "Información de los objetos",
   ["Open bags with"] = "Abrir las bolsas con",

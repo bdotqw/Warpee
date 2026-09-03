@@ -350,10 +350,12 @@ local function cellOf(b)
 end
 
 local BADGES = {
-  { key = "ilvl",                c = "BOTTOMRIGHT", x =  0, y =  2, s = 14 },
-  { key = "count",               c = "BOTTOMRIGHT", x =  0, y =  2, s = 14 },
-  { key = "junk",    tex = true, c = "TOPLEFT",     x =  1, y = -1, s = 0.42, m = 8 },
-  { key = "blocked", tex = true, c = "TOPRIGHT",    x = -1, y = -1, s = 0.60, m = 12 },
+  { key = "ilvl",  n = "Item level",  p = "447", c = "BOTTOMRIGHT", x = 0, y = 2, s = 14 },
+  { key = "count", n = "Stack count", p = "20",  c = "BOTTOMRIGHT", x = 0, y = 2, s = 14 },
+  { key = "junk",    n = "Junk coin",   tex = true,
+    c = "TOPLEFT",  x =  1, y = -1, s = 0.42, m = 8 },
+  { key = "blocked", n = "Vendor lock", tex = true,
+    c = "TOPRIGHT", x = -1, y = -1, s = 0.60, m = 12 },
 }
 local BADGE = {}
 for _, d in ipairs(BADGES) do BADGE[d.key] = d end
@@ -529,42 +531,50 @@ function ns.UpdateCooldown(b)
   end
 end
 
+local LOCK_ATLAS = { "bags-icon-lock", "Garr_LockedBuilding" }
+
+function ns.BadgeArt(t, key)
+  if not t then return end
+  if key == "junk" then
+    if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("bags-junkcoin") then
+      t:SetAtlas("bags-junkcoin")
+    else
+      t:SetTexture("Interface\\MoneyFrame\\UI-GoldIcon")
+    end
+  elseif key == "blocked" then
+    if C_Texture and C_Texture.GetAtlasInfo then
+      for _, a in ipairs(LOCK_ATLAS) do
+        if C_Texture.GetAtlasInfo(a) then t:SetAtlas(a); return end
+      end
+    end
+    t:SetTexture("Interface\\PetBattles\\PetBattle-LockIcon")
+  end
+end
+
 function ns.MarkJunk(b, quality)
-  if not (ns.Bags.junkIcon and quality == 0) then
+  if not (ns.Badge("junk").on and quality == 0) then
     if b.junk then b.junk:Hide() end
     return
   end
   if not b.junk then
     if not b.borderFrame then return end
     b.junk = b.borderFrame:CreateTexture(nil, "OVERLAY", nil, 5)
-    if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("bags-junkcoin") then
-      b.junk:SetAtlas("bags-junkcoin")
-    else
-      b.junk:SetTexture("Interface\\MoneyFrame\\UI-GoldIcon")
-    end
+    ns.BadgeArt(b.junk, "junk")
   end
   ns.ApplyBadge(b, "junk")
   b.junk:Show()
 end
 
-local LOCK_ATLAS = { "bags-icon-lock", "Garr_LockedBuilding" }
-
 function ns.MarkBlocked(b, itemID)
   local on = (itemID and ns.Vendor and ns.Vendor:Blocked(itemID)) and true or false
-  if not on then
+  if not (on and ns.Badge("blocked").on) then
     if b.blocked then b.blocked:Hide() end
     return
   end
   if not b.blocked then
     if not b.borderFrame then return end
     b.blocked = b.borderFrame:CreateTexture(nil, "OVERLAY", nil, 6)
-    local set = false
-    if C_Texture and C_Texture.GetAtlasInfo then
-      for _, a in ipairs(LOCK_ATLAS) do
-        if C_Texture.GetAtlasInfo(a) then b.blocked:SetAtlas(a); set = true; break end
-      end
-    end
-    if not set then b.blocked:SetTexture("Interface\\PetBattles\\PetBattle-LockIcon") end
+    ns.BadgeArt(b.blocked, "blocked")
   end
   ns.ApplyBadge(b, "blocked")
   b.blocked:Show()

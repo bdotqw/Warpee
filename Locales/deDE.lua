@@ -59,6 +59,15 @@ local STRINGS = {
   ["Bank and Warband grid"] = "Raster für Bank und Kriegsmeute",
   ["Item level number"] = "Gegenstandsstufe auf dem Symbol",
   ["Stack count number"] = "Stapelanzahl auf dem Symbol",
+  ["Badges"] = "Abzeichen",
+  ["Item level"] = "Gegenstandsstufe",
+  ["Stack count"] = "Stapelanzahl",
+  ["Vendor lock"] = "Verkaufsschutz",
+  ["Icon scale"] = "Symbolgröße",
+  ["Which corner of the slot the badge is pinned to."] =
+    "An welcher Ecke des Platzes das Abzeichen hängt.",
+  ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge."] =
+    "Zieh ein Abzeichen in der Zelle an seinen Platz, zieh es aus der Zelle heraus, um es auszublenden. Rechtsklick auf einen Namen blendet das Abzeichen ein oder aus.",
   ["Locked items"] = "Geschützte Gegenstände",
   ["Item tooltips"] = "Gegenstands-Tooltips",
   ["Open bags with"] = "Taschen öffnen mit",
