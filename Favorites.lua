@@ -157,6 +157,11 @@ local function makeCatcher(parent, index)
       Fav:PinFromCursor(s.favIndex)
       return
     end
+    if button == "LeftButton" and IsAltKeyDown()
+       and not (IsShiftKeyDown() or IsControlKeyDown()) then
+      Fav:Lock(s.favIndex)
+      return
+    end
     if button == "RightButton" and IsControlKeyDown() then
       Fav:Set(s.favIndex, nil)
       tipFor(s, s.favIndex)
@@ -184,6 +189,15 @@ function Fav:Set(index, id)
   end
   list[index] = id or nil
   later()
+end
+
+function Fav:Lock(index)
+  local id = self:List()[index]
+  local V = ns.Vendor
+  if not (id and V and V.Toggle) then return end
+  V:Toggle(id, (C_Item.GetItemInfo(id)) or tostring(id))
+  local c = self.catchers[index]
+  if c and c:IsShown() and c:IsMouseOver() then tipFor(c, index) end
 end
 
 function Fav:Lift(index)
@@ -362,6 +376,7 @@ function Fav:Apply(bags, x, top, size, gap)
     ns.SnapPoint(c, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
     c:SetFrameLevel(frame:GetFrameLevel() + 30)
     c.favLive = live
+    c.wpeLockable = live or nil
     catchHold(c, catch or not live)
     c:Show()
   end

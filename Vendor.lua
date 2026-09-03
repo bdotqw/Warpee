@@ -74,11 +74,9 @@ function Vendor:Unblock(id)
 end
 
 local function blackRepaint()
+  ns.ClearItemPaint()
   local B = ns.Bags
-  if B then
-    if B.pool then for _, b in ipairs(B.pool) do b.link = nil end end
-    if B.frame and B.frame:IsShown() then B:Layout() end
-  end
+  if B and B.frame and B.frame:IsShown() then B:Layout() end
   if ns.Bank then ns.Bank:Repaint() end
   local O = ns.Options
   if O and O.ReflowPages and O.frame and O.frame:IsShown() then O:ReflowPages() end
