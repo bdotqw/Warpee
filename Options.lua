@@ -151,10 +151,28 @@ bg.soloSet = function(v)
 end
 bg.getter = function(f) return function() return bg.cur()[f] end end
 bg.setter = function(f) return function(v) bg.cur()[f] = v; bg.bump() end end
-bg.cGet, bg.cSet = bg.getter("c"), bg.setter("c")
-bg.xGet, bg.xSet = bg.getter("x"), bg.setter("x")
-bg.yGet, bg.ySet = bg.getter("y"), bg.setter("y")
-bg.sGet, bg.sSet = bg.getter("s"), bg.setter("s")
+bg.pin = function(f, v) return bg.fit and bg.fit(f, v) or bg.clamp(v) end
+bg.reseat = function(g)
+  g.x, g.y = bg.pin("x", g.x), bg.pin("y", g.y)
+end
+bg.cGet = bg.getter("c")
+bg.cSet = function(v)
+  local g = bg.cur()
+  g.c = v
+  bg.reseat(g)
+  bg.bump()
+end
+bg.xGet, bg.yGet = bg.getter("x"), bg.getter("y")
+bg.xSet = function(v) bg.cur().x = bg.pin("x", v); bg.bump() end
+bg.ySet = function(v) bg.cur().y = bg.pin("y", v); bg.bump() end
+bg.sGet = bg.getter("s")
+bg.sSet = function(v)
+  local g = bg.cur()
+  g.s = v
+  bg.bump()
+  local x, y = bg.pin("x", g.x), bg.pin("y", g.y)
+  if x ~= g.x or y ~= g.y then g.x, g.y = x, y; bg.bump() end
+end
 bg.kGet = function() return bg.cur().k or 4 end
 bg.kSet = bg.setter("k")
 bg.isTex   = function() return bg.def().tex and true or false end
@@ -552,7 +570,16 @@ function factories.range(parent, spec)
     v = snap(v)
     paint(v)
     if sl.quiet then return end
-    if math.abs((spec.get() or 0) - v) > 1e-4 then spec.set(v) end
+    if math.abs((spec.get() or 0) - v) > 1e-4 then
+      spec.set(v)
+      local now = spec.get()
+      if now and math.abs(now - v) > 1e-4 then
+        sl.quiet = true
+        sl:SetValue(now)
+        sl.quiet = nil
+        paint(now)
+      end
+    end
   end)
   s:SetScript("OnSizeChanged", function() paint(snap(s:GetValue())) end)
   s:SetScript("OnEnter", function(sl)
@@ -1014,6 +1041,30 @@ function factories.badges(parent, spec)
 
   local function factor() return PREV / (Bags.iconSize or 40) end
 
+  local function span(key)
+    local o, f = art[key or bg.sel], factor()
+    if f <= 0 then f = 1 end
+    return (o:GetWidth() or 0) / f, (o:GetHeight() or 0) / f,
+           (cell:GetWidth() or 0) / f, (cell:GetHeight() or 0) / f
+  end
+
+  bg.fit = function(field, v, key)
+    local w, h, W, H = span(key)
+    local c = (key and ns.Badge(key) or bg.cur()).c or ""
+    local lo, hi
+    if field == "x" then
+      if c:find("LEFT") then lo, hi = -w / 2, W - w / 2
+      else lo, hi = w / 2 - W, w / 2 end
+    else
+      if c:find("BOTTOM") then lo, hi = -h / 2, H - h / 2
+      else lo, hi = h / 2 - H, h / 2 end
+    end
+    if hi < lo then return math.floor((lo + hi) / 2 + 0.5) end
+    v = math.floor((tonumber(v) or 0) + 0.5)
+    if v < lo then return math.ceil(lo) elseif v > hi then return math.floor(hi) end
+    return v
+  end
+
   local function paintChip(c)
     local sel, on = c.wpeKey == bg.sel, ns.Badge(c.wpeKey).on
     local hover = c:IsMouseOver()
@@ -1112,12 +1163,14 @@ function factories.badges(parent, spec)
     local o, g, f = art[bg.sel], bg.cur(), factor()
     local w, h = o:GetWidth() or 0, o:GetHeight() or 0
     local W, H = cell:GetWidth(), cell:GetHeight()
+    px = math.min(W, math.max(0, px))
+    py = math.min(H, math.max(0, py))
     local l, d = px - w / 2, py - h / 2
     local horiz = (px < W / 2) and "LEFT" or "RIGHT"
     local vert  = (py < H / 2) and "BOTTOM" or "TOP"
     g.c = vert .. horiz
-    g.x = bg.clamp(((horiz == "LEFT") and l or (l + w - W)) / f)
-    g.y = bg.clamp(((vert == "BOTTOM") and d or (d + h - H)) / f)
+    g.x = bg.pin("x", ((horiz == "LEFT") and l or (l + w - W)) / f)
+    g.y = bg.pin("y", ((vert == "BOTTOM") and d or (d + h - H)) / f)
   end
 
   local grab
@@ -1172,9 +1225,16 @@ function factories.badges(parent, spec)
     local h = layoutChips()
     cell:ClearAllPoints()
     ns.SnapPoint(cell, "TOPLEFT", row, "TOPLEFT",
-      math.floor((CONTENT_W - PREV) / 2), -(h + 6))
+      math.floor((CONTENT_W - PREV) / 2), -(h + 16))
     paint()
-    row:SetHeight(h + PREV + 32)
+    local moved = false
+    for _, d in ipairs(ns.BADGES) do
+      local g = ns.Badge(d.key)
+      local x, y = bg.fit("x", g.x, d.key), bg.fit("y", g.y, d.key)
+      if x ~= g.x or y ~= g.y then g.x, g.y = x, y; moved = true end
+    end
+    if moved then bg.bump() end
+    row:SetHeight(h + PREV + 42)
   end
   row.Rebuild = row.Refresh
   bg.repaint = paint
