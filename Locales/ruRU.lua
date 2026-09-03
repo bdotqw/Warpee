@@ -77,23 +77,21 @@ local STRINGS = {
   ["How many letters of the set name to show."] =
     "Сколько букв из названия набора показывать.",
   ["Vendor lock"] = "Защита от продажи",
-  ["Icon scale"] = "Размер значка",
+  ["Badge scale"] = "Размер значка",
   ["Which corner of the slot the badge is pinned to."] =
     "К какому углу ячейки прижат значок.",
-  ["Drag a badge around the cell, or click where you want it. Click a name to show and pick that badge, right-click a name to hide it."] =
-    "Значок можно перетащить по квадрату или щёлкнуть там, где он должен стоять. ЛКМ по названию значка показывает и выбирает его, ПКМ по названию скрывает значок.",
+  ["Drag a badge, or click where you want it. Left-click a name to show that badge, right-click the name to hide it."] =
+    "Значок можно перетащить или щёлкнуть там, где он должен стоять. ЛКМ по названию показывает значок, ПКМ по названию скрывает.",
   ["Show only the selected badge"] = "Показывать только выбранный значок",
-  ["The item level of gear, and the level of a keystone."] =
-    "Уровень предмета у снаряжения и уровень ключа подземелья.",
+  ["Item level on gear, and a keystone's level."] =
+    "Уровень предмета у снаряжения и уровень ключа.",
   ["How many items the stack holds."] = "Сколько предметов в стопке.",
-  ["BoE while the item is still unbound, WuE for warbound until equipped, BoA for account bound."] =
-    "BoE, пока предмет ещё не привязан, WuE для привязки к отряду до надевания, BoA для привязки к учётной записи.",
-  ["The name of the equipment set the item belongs to, cut to a few letters."] =
-    "Название набора экипировки, к которому относится предмет, укороченное до нескольких букв.",
-  ["A coin on poor quality items, the gray junk a merchant buys."] =
-    "Монета на предметах плохого качества, серый хлам, который скупает торговец.",
-  ["A padlock on the items you locked with Alt-click, which the vendor never sells."] =
-    "Замок на предметах, защищённых через Alt + ЛКМ, торговец их не продаст.",
+  ["BoE while unbound, WuE for warbound until equipped, BoA for account bound."] =
+    "BoE, пока предмет не привязан, WuE — привязка к отряду до надевания, BoA — к учётной записи.",
+  ["The equipment set the item belongs to, cut to a few letters."] =
+    "Набор экипировки, к которому относится предмет, укороченный до нескольких букв.",
+  ["A coin on gray junk items."] = "Монета на сером хламе.",
+  ["A padlock on the items you locked."] = "Замок на защищённых предметах.",
   ["In the cell above, hide every badge except the selected one."] =
     "В квадрате выше скрывать все значки, кроме выбранного.",
   ["Locked items"] = "Защищённые предметы",
@@ -148,7 +146,7 @@ local STRINGS = {
   ["Trade"] = "Обмен",
   ["Guild bank"] = "Банк гильдии",
   ["Professions"] = "Профессии",
-  ["Icon size"] = "Размер иконки",
+  ["Slot size"] = "Размер ячейки",
   ["Slots per row"] = "Ячеек в ряду",
   ["Spacing"] = "Отступ",
   ["Icon zoom"] = "Масштаб иконки",
@@ -196,19 +194,19 @@ local STRINGS = {
   ["Border thickness"] = "Толщина рамки",
   ["Item level by quality"] = "Уровень предмета по качеству",
   ["Corner"] = "Угол",
-  ["Size"] = "Размер",
+  ["Text size"] = "Размер текста",
   ["X offset"] = "Сдвиг по X",
   ["Y offset"] = "Сдвиг по Y",
-  ["Draw a rarity-colored border around every item, white for common and gray for junk."] =
-    "Рамка цвета качества вокруг каждого предмета: белая у обычных, серая у хлама.",
+  ["A border around every item in its quality color."] =
+    "Рамка цвета качества вокруг каждого предмета.",
   ["Blizzard quest art: a mark for unaccepted quests, a border for quest items."] =
     "Штатная графика заданий: восклицательный знак для непринятых заданий, рамка для предметов заданий.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Свечение цвета качества на предметах, которые игра ещё считает новыми.",
-  ["Tint slots in the reagent bag. Turn it off and reagents take the quality border instead."] =
-    "Подсвечивать ячейки сумки реагентов. Если выключить, у реагентов будет рамка качества.",
-  ["Thickness of the quality border."] = "Толщина рамки качества.",
-  ["Tint the item level number with the item's rarity color."] =
+  ["Tint the slots of the reagent bag and the reagent bank."] =
+    "Подсвечивать ячейки сумки реагентов и банка реагентов.",
+  ["Thickness of the slot border."] = "Толщина рамки ячейки.",
+  ["Tint the item level number with the item's quality color."] =
     "Окрашивать уровень предмета в цвет его качества.",
   ["Alt-click an item in the bags or the bank to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Alt-click again, or the cross here, to unlock."] =
     "Alt + ЛКМ по предмету в сумках или банке защищает его: появляется замок, и предмет больше не продать, ни автоматически, ни через ПКМ у торговца. Повторный Alt + ЛКМ или крестик в этом списке снимает защиту.",
@@ -251,7 +249,7 @@ local STRINGS = {
   ["Sell all of this automatically"] = "Продавать это автоматически",
   ["Keep BoE"] = "Оставлять непривязанное",
   ["Keep warbound"] = "Оставлять привязанное к отряду",
-  ["Keep gems and enchants"] = "Оставлять с камнями и чарами",
+  ["Keep socketed or enchanted"] = "Оставлять с камнями и чарами",
   ["Your gold"] = "Своё золото",
   ["Guild / yours"] = "Гильдия / свои",
   ["These start when a merchant window opens, with no click from you."] =
@@ -293,8 +291,8 @@ local STRINGS = {
   ["1 item"] = "1 предмет",
   ["%d items"] = "предметов: %d",
   ["%d and %d wide"] = "%d и %d в ряду",
-  ["Sort / clean up bags"] = "Разобрать сумки",
-  ["Sort / clean up"] = "Разобрать",
+  ["Clean up bags"] = "Разобрать сумки",
+  ["Clean up"] = "Разобрать",
   ["Settings"] = "Настройки",
   ["Bags"] = "Сумки",
   ["Bank / Warband"] = "Банк и банк отряда",

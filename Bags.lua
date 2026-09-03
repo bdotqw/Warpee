@@ -111,7 +111,7 @@ function Bags:Build()
 
   local sort = ns.CreateGlyphButton(f, "", HB)
   sort:SetScript("OnClick", function() Bags:SortBags() end)
-  addTip(sort, "Sort / clean up bags")
+  addTip(sort, "Clean up bags")
   local sortIcon = sort:CreateTexture(nil, "ARTWORK")
   sortIcon:SetAtlas("auctionhouse-ui-sortarrow")
   sortIcon:SetSize(13, 15)

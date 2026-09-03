@@ -74,23 +74,21 @@ local STRINGS = {
   ["How many letters of the set name to show."] =
     "Cuántas letras del nombre del conjunto se muestran.",
   ["Vendor lock"] = "Protección de venta",
-  ["Icon scale"] = "Tamaño del distintivo",
+  ["Badge scale"] = "Tamaño del distintivo",
   ["Which corner of the slot the badge is pinned to."] =
     "En qué esquina del espacio se ancla el distintivo.",
-  ["Drag a badge around the cell, or click where you want it. Click a name to show and pick that badge, right-click a name to hide it."] =
-    "Arrastra un distintivo por la casilla o haz clic donde lo quieras. Un clic en un nombre muestra y elige ese distintivo, un clic derecho en el nombre lo oculta.",
+  ["Drag a badge, or click where you want it. Left-click a name to show that badge, right-click the name to hide it."] =
+    "Arrastra un distintivo o haz clic donde lo quieras. Clic izquierdo en un nombre muestra el distintivo, clic derecho en el nombre lo oculta.",
   ["Show only the selected badge"] = "Mostrar solo el distintivo elegido",
-  ["The item level of gear, and the level of a keystone."] =
-    "El nivel de objeto del equipo y el nivel de una piedra angular.",
+  ["Item level on gear, and a keystone's level."] =
+    "El nivel de objeto del equipo y el de una piedra angular.",
   ["How many items the stack holds."] = "Cuántos objetos hay en el montón.",
-  ["BoE while the item is still unbound, WuE for warbound until equipped, BoA for account bound."] =
-    "BoE mientras el objeto sigue sin vincular, WuE para vinculado a la banda guerrera hasta equipar, BoA para vinculado a la cuenta.",
-  ["The name of the equipment set the item belongs to, cut to a few letters."] =
-    "El nombre del conjunto de equipo al que pertenece el objeto, recortado a unas pocas letras.",
-  ["A coin on poor quality items, the gray junk a merchant buys."] =
-    "Una moneda en los objetos de calidad pobre, la basura gris que un mercader compra.",
-  ["A padlock on the items you locked with Alt-click, which the vendor never sells."] =
-    "Un candado en los objetos que has protegido con Alt + clic izquierdo, el mercader nunca los vende.",
+  ["BoE while unbound, WuE for warbound until equipped, BoA for account bound."] =
+    "BoE mientras no está vinculado, WuE vinculado a la banda guerrera hasta equipar, BoA a la cuenta.",
+  ["The equipment set the item belongs to, cut to a few letters."] =
+    "El conjunto de equipo al que pertenece el objeto, recortado a unas pocas letras.",
+  ["A coin on gray junk items."] = "Una moneda en la basura gris.",
+  ["A padlock on the items you locked."] = "Un candado en los objetos protegidos.",
   ["In the cell above, hide every badge except the selected one."] =
     "En la casilla de arriba, ocultar todos los distintivos menos el elegido.",
   ["Locked items"] = "Objetos protegidos",
@@ -145,7 +143,7 @@ local STRINGS = {
   ["Trade"] = "Comercio",
   ["Guild bank"] = "Banco de hermandad",
   ["Professions"] = "Profesiones",
-  ["Icon size"] = "Tamaño de los iconos",
+  ["Slot size"] = "Tamaño de los espacios",
   ["Slots per row"] = "Espacios por fila",
   ["Spacing"] = "Espaciado",
   ["Icon zoom"] = "Zoom de los iconos",
@@ -193,20 +191,20 @@ local STRINGS = {
   ["Border thickness"] = "Grosor del borde",
   ["Item level by quality"] = "Nivel de objeto según la calidad",
   ["Corner"] = "Esquina",
-  ["Size"] = "Tamaño",
+  ["Text size"] = "Tamaño del texto",
   ["X offset"] = "Desplazamiento X",
   ["Y offset"] = "Desplazamiento Y",
-  ["Draw a rarity-colored border around every item, white for common and gray for junk."] =
-    "Dibuja un borde del color de la rareza alrededor de cada objeto: blanco en los comunes y gris en la basura.",
+  ["A border around every item in its quality color."] =
+    "Un borde alrededor de cada objeto con el color de su calidad.",
   ["Blizzard quest art: a mark for unaccepted quests, a border for quest items."] =
     "Gráficos de misión de Blizzard: un signo de exclamación para las misiones sin aceptar y un borde para los objetos de misión.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Brillo del color de la calidad en los objetos que el juego todavía cuenta como nuevos.",
-  ["Tint slots in the reagent bag. Turn it off and reagents take the quality border instead."] =
-    "Colorea los espacios de la bolsa de componentes. Desactivado, los componentes reciben el borde de calidad.",
-  ["Thickness of the quality border."] = "Grosor del borde de calidad.",
-  ["Tint the item level number with the item's rarity color."] =
-    "Colorea el nivel de objeto con la rareza del objeto.",
+  ["Tint the slots of the reagent bag and the reagent bank."] =
+    "Colorea los espacios de la bolsa de componentes y del banco de componentes.",
+  ["Thickness of the slot border."] = "Grosor del borde de los espacios.",
+  ["Tint the item level number with the item's quality color."] =
+    "Colorea el nivel de objeto con el color de su calidad.",
   ["Alt-click an item in the bags or the bank to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Alt-click again, or the cross here, to unlock."] =
     "Alt + clic izquierdo en un objeto de las bolsas o del banco lo protege: aparece un candado y el objeto ya no se puede vender, ni automáticamente ni con un clic derecho ante el mercader. Otro Alt + clic izquierdo, o la cruz de esta lista, quita la protección.",
   ["Alt-click to lock it from the vendor"] = "Alt + clic izquierdo para protegerlo de la venta",
@@ -248,7 +246,7 @@ local STRINGS = {
   ["Sell all of this automatically"] = "Vender todo esto automáticamente",
   ["Keep BoE"] = "Guardar los no ligados",
   ["Keep warbound"] = "Guardar los ligados a la banda guerrera",
-  ["Keep gems and enchants"] = "Guardar con gemas y encantamientos",
+  ["Keep socketed or enchanted"] = "Guardar los engarzados o encantados",
   ["Your gold"] = "Tu oro",
   ["Guild / yours"] = "Hermandad / tuyo",
   ["These start when a merchant window opens, with no click from you."] =
@@ -290,8 +288,8 @@ local STRINGS = {
   ["1 item"] = "1 objeto",
   ["%d items"] = "%d objetos",
   ["%d and %d wide"] = "%d y %d por fila",
-  ["Sort / clean up bags"] = "Ordenar las bolsas",
-  ["Sort / clean up"] = "Ordenar",
+  ["Clean up bags"] = "Ordenar las bolsas",
+  ["Clean up"] = "Ordenar",
   ["Settings"] = "Ajustes",
   ["Bags"] = "Bolsas",
   ["Bank / Warband"] = "Banco / Banda guerrera",
