@@ -48,7 +48,7 @@ local WORDS = {
   ["снаряжение"] = "gear", ["экип"] = "equip",
   ["ключ"] = "keystone", ["мифик"] = "mythic",
   ["токен"] = "token", ["тир"] = "tier",
-  ["заблокировано"] = "locked", ["заперто"] = "blocked",
+  ["защищено"] = "locked", ["защита"] = "locked", ["заблокировано"] = "locked",
   ["отряд"] = "warband", ["персональное"] = "soulbound",
   ["неперсональное"] = "boe",
   ["текущее"] = "current", ["старое"] = "legacy",
@@ -68,8 +68,6 @@ local STRINGS = {
   ["Slot look"] = "Вид ячейки",
   ["Bags grid"] = "Сетка сумок",
   ["Bank and Warband grid"] = "Сетка банка и банка отряда",
-  ["Item level number"] = "Уровень предмета на иконке",
-  ["Stack count number"] = "Количество в стопке",
   ["Badges"] = "Значки",
   ["Item level"] = "Уровень предмета",
   ["Stack count"] = "Количество в стопке",
@@ -83,7 +81,7 @@ local STRINGS = {
   ["Which corner of the slot the badge is pinned to."] =
     "К какому углу ячейки прижат значок.",
   ["Drag a badge around the cell, or click where you want it. Click a name to show and pick that badge, right-click a name to hide it."] =
-    "Тащи значок по квадрату или щёлкни там, где он должен стоять. Щелчок по названию значка показывает и выбирает его, правый щелчок по названию скрывает значок.",
+    "Значок можно перетащить по квадрату или щёлкнуть там, где он должен стоять. ЛКМ по названию значка показывает и выбирает его, ПКМ по названию скрывает значок.",
   ["Show only the selected badge"] = "Показывать только выбранный значок",
   ["The item level of gear, and the level of a keystone."] =
     "Уровень предмета у снаряжения и уровень ключа подземелья.",
@@ -95,7 +93,7 @@ local STRINGS = {
   ["A coin on poor quality items, the gray junk a merchant buys."] =
     "Монета на предметах плохого качества, серый хлам, который скупает торговец.",
   ["A padlock on the items you locked with Alt-click, which the vendor never sells."] =
-    "Замок на предметах, которые ты защитил через Alt + щелчок, торговец их не продаст.",
+    "Замок на предметах, защищённых через Alt + ЛКМ, торговец их не продаст.",
   ["In the cell above, hide every badge except the selected one."] =
     "В квадрате выше скрывать все значки, кроме выбранного.",
   ["Locked items"] = "Защищённые предметы",
@@ -208,15 +206,15 @@ local STRINGS = {
   ["Quality-colored glow on items the game still counts as new."] =
     "Свечение цвета качества на предметах, которые игра ещё считает новыми.",
   ["Tint slots in the reagent bag. Turn it off and reagents take the quality border instead."] =
-    "Подсвечивать ячейки реагентной сумки. Выключите — и у реагентов будет рамка качества.",
+    "Подсвечивать ячейки сумки реагентов. Если выключить, у реагентов будет рамка качества.",
   ["Thickness of the quality border."] = "Толщина рамки качества.",
   ["Tint the item level number with the item's rarity color."] =
     "Окрашивать уровень предмета в цвет его качества.",
   ["Alt-click an item in the bags or the bank to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Alt-click again, or the cross here, to unlock."] =
-    "Alt + щелчок по предмету в сумках или банке защищает его: появляется замок, и предмет больше не продать, ни автоматически, ни правым щелчком у торговца. Повторный Alt + щелчок или крестик в этом списке снимает защиту.",
-  ["Alt-click to lock it from the vendor"] = "Alt + щелчок, чтобы защитить от продажи",
+    "Alt + ЛКМ по предмету в сумках или банке защищает его: появляется замок, и предмет больше не продать, ни автоматически, ни через ПКМ у торговца. Повторный Alt + ЛКМ или крестик в этом списке снимает защиту.",
+  ["Alt-click to lock it from the vendor"] = "Alt + ЛКМ, чтобы защитить от продажи",
   ["Locked from the vendor. Alt-click to unlock"] =
-    "Защищено от продажи. Alt + щелчок снимает защиту",
+    "Защищено от продажи. Alt + ЛКМ снимает защиту",
   ["Count across characters"] = "Считать по всем персонажам",
   ["Include bank"] = "Учитывать банк",
   ["Include Warband"] = "Учитывать банк отряда",
@@ -322,7 +320,7 @@ local STRINGS = {
   ["Right-click: hide"] = "ПКМ — скрыть",
   ["Right-click: unhide"] = "ПКМ — вернуть в список",
   ["Warpee"] = "Warpee",
-  ["Click opens the settings"] = "Щелчок открывает настройки",
+  ["Click opens the settings"] = "ЛКМ открывает настройки",
   ["Drag to move around the minimap"] = "Перетаскивание перемещает иконку вокруг миникарты",
   ["Nothing to sell"] = "Продавать нечего",
   ["Selling now"] = "Идёт продажа",
@@ -343,17 +341,17 @@ local STRINGS = {
   ["Favorite slots"] = "Ячейки избранного",
   ["How many slots"] = "Сколько ячеек",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + right click clears a slot."] =
-    "Ряд ячеек над сеткой, всегда на виду. Перетащите предмет в ячейку, чтобы держать его под рукой; Ctrl + правый щелчок освобождает ячейку.",
+    "Ряд ячеек над сеткой, всегда на виду. Перетащите предмет в ячейку, чтобы держать его под рукой; Ctrl + ПКМ освобождает ячейку.",
   ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =
     "Не больше, чем ширина сетки. Ноль — во всю ширину сетки.",
   ["As the grid"] = "Как сетка",
   ["Drag an item here to keep it one click away"] =
-    "Перетащите сюда предмет, чтобы использовать его одним щелчком",
-  ["Ctrl + right click clears the slot"] = "Ctrl + правый щелчок освобождает ячейку",
+    "Перетащите сюда предмет, чтобы использовать его в один клик",
+  ["Ctrl + right click clears the slot"] = "Ctrl + ПКМ освобождает ячейку",
   ["No gold recorded yet"] = "Данных о золоте пока нет",
   ["Delete mode"] = "Режим удаления",
   ["Alt-click an item in your bags while this tab is open."] =
-    "Alt + щелчок по предмету в сумках, пока открыта эта вкладка.",
+    "Alt + ЛКМ по предмету в сумках, пока открыта эта вкладка.",
 }
 
 ns.AddLocale("ruRU", "Russian", {

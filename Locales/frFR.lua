@@ -68,8 +68,6 @@ local STRINGS = {
   ["Slot look"] = "Aspect des emplacements",
   ["Bags grid"] = "Grille des sacs",
   ["Bank and Warband grid"] = "Grille de la banque et du bataillon",
-  ["Item level number"] = "Niveau d'objet sur l'icône",
-  ["Stack count number"] = "Taille de pile sur l'icône",
   ["Badges"] = "Badges",
   ["Item level"] = "Niveau d'objet",
   ["Stack count"] = "Taille de pile",
@@ -79,14 +77,14 @@ local STRINGS = {
   ["How many letters of the set name to show."] =
     "Combien de lettres du nom de l'ensemble sont affichées.",
   ["Vendor lock"] = "Protection de vente",
-  ["Icon scale"] = "Taille de l'icône",
+  ["Icon scale"] = "Taille du badge",
   ["Which corner of the slot the badge is pinned to."] =
     "À quel coin de l'emplacement le badge est fixé.",
   ["Drag a badge around the cell, or click where you want it. Click a name to show and pick that badge, right-click a name to hide it."] =
-    "Déplace un badge dans la case ou clique là où tu le veux. Un clic sur un nom affiche et sélectionne ce badge, un clic droit sur le nom le masque.",
+    "Déplacez un badge dans la case ou cliquez là où vous le voulez. Un clic gauche sur un nom affiche et sélectionne ce badge, un clic droit sur le nom le masque.",
   ["Show only the selected badge"] = "Afficher seulement le badge choisi",
   ["The item level of gear, and the level of a keystone."] =
-    "Le niveau d'objet de l'équipement et le niveau d'une clé.",
+    "Le niveau d'objet de l'équipement et le niveau d'une clé de voûte.",
   ["How many items the stack holds."] = "Combien d'objets contient la pile.",
   ["BoE while the item is still unbound, WuE for warbound until equipped, BoA for account bound."] =
     "BoE tant que l'objet n'est pas encore lié, WuE pour lié au bataillon jusqu'à l'équipement, BoA pour lié au compte.",
@@ -95,7 +93,7 @@ local STRINGS = {
   ["A coin on poor quality items, the gray junk a merchant buys."] =
     "Une pièce sur les objets de qualité médiocre, la camelote grise qu'un marchand achète.",
   ["A padlock on the items you locked with Alt-click, which the vendor never sells."] =
-    "Un cadenas sur les objets que tu as protégés avec Alt + clic, le marchand ne les vend jamais.",
+    "Un cadenas sur les objets que vous avez protégés avec Alt + clic gauche, le marchand ne les vend jamais.",
   ["In the cell above, hide every badge except the selected one."] =
     "Dans la case ci-dessus, masquer tous les badges sauf celui choisi.",
   ["Locked items"] = "Objets protégés",
@@ -168,9 +166,9 @@ local STRINGS = {
   ["1.00 fills the slot. Less shrinks the icon, more crops it."] =
     "1.00 remplit l'emplacement. Moins réduit l'icône, plus la rogne.",
   ["Lay the reagent bag out with the main bags, without its caption."] =
-    "Affiche le sac à composants avec les sacs principaux, sans titre séparé.",
+    "Affiche le sac de composants avec les sacs principaux, sans titre séparé.",
   ["Draw the reagent bag above the main bags instead of below them."] =
-    "Affiche le sac à composants au-dessus des sacs principaux au lieu d'en dessous.",
+    "Affiche le sac de composants au-dessus des sacs principaux au lieu d'en dessous.",
   ["The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in."] =
     "Les emplacements des sacs sont parcourus à l'envers : le dernier emplacement du dernier sac occupe la première case. Rien ne bouge dans les sacs, seul l'ordre d'affichage change.",
   ["The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top."] =
@@ -208,15 +206,15 @@ local STRINGS = {
   ["Quality-colored glow on items the game still counts as new."] =
     "Lueur de la couleur de qualité sur les objets que le jeu considère encore comme nouveaux.",
   ["Tint slots in the reagent bag. Turn it off and reagents take the quality border instead."] =
-    "Colore les emplacements du sac à composants. Désactivé, les composants reçoivent la bordure de qualité à la place.",
+    "Colore les emplacements du sac de composants. Désactivé, les composants reçoivent la bordure de qualité à la place.",
   ["Thickness of the quality border."] = "Épaisseur de la bordure de qualité.",
   ["Tint the item level number with the item's rarity color."] =
     "Colore le niveau d'objet selon la rareté de l'objet.",
   ["Alt-click an item in the bags or the bank to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Alt-click again, or the cross here, to unlock."] =
-    "Alt + clic sur un objet dans les sacs ou la banque le protège : un cadenas apparaît et l'objet ne peut plus être vendu, ni automatiquement ni par un clic droit chez le marchand. Un nouvel Alt + clic, ou la croix dans cette liste, retire la protection.",
-  ["Alt-click to lock it from the vendor"] = "Alt + clic pour le protéger de la vente",
+    "Alt + clic gauche sur un objet dans les sacs ou la banque le protège : un cadenas apparaît et l'objet ne peut plus être vendu, ni automatiquement ni par un clic droit chez le marchand. Un nouvel Alt + clic gauche, ou la croix dans cette liste, retire la protection.",
+  ["Alt-click to lock it from the vendor"] = "Alt + clic gauche pour le protéger de la vente",
   ["Locked from the vendor. Alt-click to unlock"] =
-    "Protégé de la vente. Alt + clic retire la protection",
+    "Protégé de la vente. Alt + clic gauche retire la protection",
   ["Count across characters"] = "Compter sur tous les personnages",
   ["Include bank"] = "Inclure la banque",
   ["Include Warband"] = "Inclure le bataillon",
@@ -355,7 +353,7 @@ local STRINGS = {
   ["No gold recorded yet"] = "Aucun or enregistré pour l'instant",
   ["Delete mode"] = "Mode suppression",
   ["Alt-click an item in your bags while this tab is open."] =
-    "Alt + clic sur un objet de vos sacs pendant que cette page est ouverte.",
+    "Alt + clic gauche sur un objet de vos sacs pendant que cette page est ouverte.",
 }
 
 ns.AddLocale("frFR", "French", {
