@@ -1026,6 +1026,7 @@ function factories.badges(parent, spec)
   mark:Hide()
 
   local readout = track(Theme:Label(row, BASE_FONT - 1, "accentInk"), -1)
+  readout:SetJustifyH("RIGHT")
 
   local art, chips = {}, {}
   for _, d in ipairs(ns.BADGES) do
@@ -1072,21 +1073,6 @@ function factories.badges(parent, spec)
     c.Text:SetTextColor(Theme:C((not on) and "faint" or (sel and "accentInk" or "text")))
   end
 
-  local function band()
-    return math.floor(9 * factor() + 5.5)
-  end
-
-  local function dropFor()
-    local d, cap = 7, band()
-    for _, def in ipairs(ns.BADGES) do
-      if ns.Badge(def.key).on then
-        d = math.max(d, (art[def.key]:GetHeight() or 0) / 2 + 5)
-      end
-    end
-    if d > cap then d = cap end
-    return math.floor(d + 0.5)
-  end
-
   local function paint()
     local f, solo = factor(), bg.soloGet()
     cell:SetBackdropColor(Theme:C("panel"))
@@ -1126,9 +1112,7 @@ function factories.badges(parent, spec)
       end
     end
     local g = bg.cur()
-    readout:ClearAllPoints()
-    readout:SetPoint("TOP", cell, "BOTTOM", 0, -dropFor())
-    readout:SetText(("%s     x %d     y %d")
+    readout:SetText(("%s\nx %d\ny %d")
       :format(T(ANCHOR_LABELS[g.c] or g.c), g.x or 0, g.y or 0))
     readout:SetTextColor(Theme:C("accentInk"))
     for _, c in ipairs(chips) do paintChip(c) end
@@ -1242,6 +1226,8 @@ function factories.badges(parent, spec)
     cell:ClearAllPoints()
     ns.SnapPoint(cell, "TOPLEFT", row, "TOPLEFT",
       math.floor((CONTENT_W - PREV) / 2), -(h + 16))
+    readout:ClearAllPoints()
+    readout:SetPoint("RIGHT", row, "TOPRIGHT", -2, -(h + 16 + PREV / 2))
     paint()
     local moved = false
     for _, d in ipairs(ns.BADGES) do
@@ -1250,7 +1236,7 @@ function factories.badges(parent, spec)
       if x ~= g.x or y ~= g.y then g.x, g.y = x, y; moved = true end
     end
     if moved then bg.bump() end
-    row:SetHeight(h + PREV + 34 + band())
+    row:SetHeight(h + PREV + 26)
   end
   row.Rebuild = row.Refresh
   bg.repaint = paint
