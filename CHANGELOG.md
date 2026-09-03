@@ -10,5 +10,6 @@
 - Hovering a slot in the bags or the bank tells you whether the item is locked, and how to lock or unlock it
 - The quality border covers common and poor items too, white for common and gray for junk
 - Right-click use works again in slots the addon has to build while you are in combat
+- Some settings now say what they change: Slot size instead of Icon size, Badge scale instead of Icon scale, Text size for a badge's letters, Keep socketed or enchanted instead of Keep gems and enchants, and Clean up bags on the bag header button
 - Fixed: turning the item level or the stack count off left the number on the item, and a reload brought it back
 - Fixed: the scrollbar of a settings tab you were not looking at stayed on screen and looked like a second bar
