@@ -223,14 +223,16 @@ local function readable(mode)
 end
 
 local scanLoc
-local function gearLevel(bag, slot)
+local function gearFacts(bag, slot)
   if not scanLoc then
     scanLoc = ItemLocation:CreateFromBagAndSlot(bag, slot)
   else
     scanLoc:SetBagAndSlot(bag, slot)
   end
   if not C_Item.DoesItemExist(scanLoc) then return nil end
-  return C_Item.GetCurrentItemLevel(scanLoc)
+  local wue = C_Item.IsBoundToAccountUntilEquip
+              and C_Item.IsBoundToAccountUntilEquip(scanLoc) or nil
+  return C_Item.GetCurrentItemLevel(scanLoc), wue
 end
 
 local gearByLink = {}
@@ -246,7 +248,7 @@ end
 local function packSlot(bag, slot, info)
   local d = { c = info.stackCount, q = info.quality, l = info.hyperlink }
   if info.isBound then d.b = true end
-  if d.l and isGear(d.l) then d.v = gearLevel(bag, slot) end
+  if d.l and isGear(d.l) then d.v, d.w = gearFacts(bag, slot) end
   return d
 end
 
