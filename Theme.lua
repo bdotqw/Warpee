@@ -752,9 +752,7 @@ ns.Fonts.DEFAULT = "Friz Quadrata"
 local MEDIA = [[Interface\AddOns\Warpee\Media\Fonts\]]
 local GAME_FONT = [[Fonts\FRIZQT__.TTF]]
 
-local gameFont
 local function clientFont()
-  if gameFont then return gameFont() end
   local fo = _G.GameFontNormal
   local p = fo and fo.GetFont and fo:GetFont()
   if type(p) == "string" and p ~= "" then return p end
@@ -961,23 +959,6 @@ local function scriptFont(script)
   return own
 end
 
-gameFont = function()
-  local need = ns.Fonts:Need()
-  local set = need and SCRIPTS[need]
-  if set then
-    for _, path in ipairs(set.fonts) do
-      if pathUsable(path) and hasScript(need, path) then return path end
-    end
-  end
-  if pathUsable(GAME_FONT) and (not need or hasScript(need, GAME_FONT)) then
-    return GAME_FONT
-  end
-  local fo = _G.GameFontNormal
-  local p = fo and fo.GetFont and fo:GetFont()
-  if type(p) == "string" and p ~= "" then return p end
-  return GAME_FONT
-end
-
 function ns.Fonts:Need()
   return NEEDS[(ns.LocalePick and ns.LocalePick()) or "enUS"]
 end
@@ -1056,23 +1037,9 @@ function ns.Fonts:Current()
 end
 
 local objects = {}
-local dressing
 
 local function dressObject(o, path, size, flags)
-  dressing = true
   o:SetFont(path, size, flags)
-  dressing = nil
-end
-
-local function lockObject(o)
-  hooksecurefunc(o, "SetFont", function(x)
-    if dressing then return end
-    local want = ns.Fonts:Current()
-    local path, size, flags = x:GetFont()
-    if path == want and math.abs((size or 0) - x.wpeSize) < 0.5
-       and (flags or "") == x.wpeFlags then return end
-    dressObject(x, want, x.wpeSize, x.wpeFlags)
-  end)
 end
 
 function ns.Fonts:Object(size, flags)
@@ -1086,7 +1053,6 @@ function ns.Fonts:Object(size, flags)
     o:SetTextColor(1, 1, 1)
     objects[key] = o
     dressObject(o, self:Current(), size, flags)
-    lockObject(o)
   end
   return o
 end
