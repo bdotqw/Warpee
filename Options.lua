@@ -1047,9 +1047,16 @@ function factories.badges(parent, spec)
       o:SetPoint(g.c, cell, g.c, (g.x or 0) * f, (g.y or 0) * f)
       o:SetShown(vis)
       if sel then
+        local cl, ct = cell:GetLeft(), cell:GetTop()
+        local ol, ot = o:GetLeft(), o:GetTop()
         mark:ClearAllPoints()
-        mark:SetPoint("TOPLEFT", o, "TOPLEFT", -3, 3)
-        mark:SetPoint("BOTTOMRIGHT", o, "BOTTOMRIGHT", 3, -3)
+        if cl and ct and ol and ot then
+          ns.SnapSize(mark, (o:GetWidth() or 0) + 6, (o:GetHeight() or 0) + 6)
+          ns.SnapPoint(mark, "TOPLEFT", cell, "TOPLEFT", ol - cl - 3, ot - ct + 3)
+        else
+          mark:SetPoint("TOPLEFT", o, "TOPLEFT", -3, 3)
+          mark:SetPoint("BOTTOMRIGHT", o, "BOTTOMRIGHT", 3, -3)
+        end
         mark:SetShown(vis)
       end
     end
