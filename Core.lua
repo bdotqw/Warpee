@@ -365,14 +365,7 @@ local function countLine(e, withBank)
   return (TT("%d  (bags)")):format(e.bags)
 end
 
-local function itemTooltip(tt, data)
-  if not (tt and data) then return end
-  if tt.IsForbidden and tt:IsForbidden() then return end
-  if WarpeeDB and WarpeeDB.tipCounts == false then return end
-  local id = data.id
-  if not id then return end
-  markCleared(tt)
-  if tt.wpeCounted then return end
+local function countRows(tt, id)
   local withBank = not (WarpeeDB and WarpeeDB.tipBank == false)
   local withWb = not (WarpeeDB and WarpeeDB.tipWarband == false)
   local list, wb = ns.Vault:ItemCounts(id)
@@ -386,8 +379,7 @@ local function itemTooltip(tt, data)
   end
   if not withWb then wb = 0 end
   total = total + wb
-  if total <= 0 then return end
-  tt.wpeCounted = true
+  if total <= 0 then return false end
   tt:AddLine(" ")
   tt:AddLine(TT("Inventory"), 1, 0.82, 0)
   for _, e in ipairs(rows) do
@@ -400,6 +392,34 @@ local function itemTooltip(tt, data)
     tt:AddDoubleLine(TT("Warband bank"), tostring(wb), W[1], W[2], W[3], 1, 1, 1)
   end
   tt:AddDoubleLine(TT("Total"), tostring(total), 1, 0.82, 0, 1, 1, 1)
+  return true
+end
+
+local function ownSlot(tt)
+  local o = tt.GetOwner and tt:GetOwner()
+  return (o and o.wpeLockable) and true or false
+end
+
+local function itemTooltip(tt, data)
+  if not (tt and data) then return end
+  if tt.IsForbidden and tt:IsForbidden() then return end
+  local id = data.id
+  if not id then return end
+  markCleared(tt)
+  if tt.wpeCounted then return end
+  local drew = false
+  if not (WarpeeDB and WarpeeDB.tipCounts == false) then drew = countRows(tt, id) end
+  if ownSlot(tt) then
+    local V = ns.Vendor
+    local locked = (V and V.Blocked and V:Blocked(id)) and true or false
+    local r, g, b = 0.5, 0.5, 0.5
+    if locked and V and V.IsOpen and V:IsOpen() then r, g, b = 1, 0.4, 0.4 end
+    if not drew then tt:AddLine(" ") end
+    tt:AddLine(TT(locked and "Locked from the vendor. Alt-click to unlock"
+                          or "Alt-click to lock it from the vendor"), r, g, b)
+    drew = true
+  end
+  tt.wpeCounted = drew or nil
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall

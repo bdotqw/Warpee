@@ -691,6 +691,9 @@ function Bags:SelectChar(key)
 end
 
 function Bags:VendorState()
+  if self.pool then
+    for _, x in ipairs(self.pool) do ns.LockClicks(x) end
+  end
   local b = self.sellBtn
   if not b then return end
   b:SetShown(not self.snap)

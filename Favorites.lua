@@ -228,7 +228,8 @@ function Fav:Apply(bags, x, top, size, gap)
         waiting = true
       else
         b = ns.CreateItemButton(frame, bag, slot)
-        b:RegisterForClicks("RightButtonUp")
+        b:RegisterForClicks(unpack(ns.CLICKS_USE))
+        b.wpeClicks, b.wpeLockable = ns.CLICKS_USE, nil
         b:RegisterForDrag()
         self.slots[i] = b
       end
