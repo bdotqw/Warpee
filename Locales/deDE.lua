@@ -176,8 +176,8 @@ local STRINGS = {
   ["Size"] = "Größe",
   ["X offset"] = "X-Versatz",
   ["Y offset"] = "Y-Versatz",
-  ["Draw a rarity-colored border around uncommon+ items."] =
-    "Zeichnet einen Rahmen in der Qualitätsfarbe um Gegenstände ab »Ungewöhnlich«.",
+  ["Draw a rarity-colored border around every item, white for common and gray for junk."] =
+    "Zeichnet einen Rahmen in der Qualitätsfarbe um jeden Gegenstand: weiß bei gewöhnlichen, grau bei Schund.",
   ["Blizzard quest art: a mark for unaccepted quests, a border for quest items."] =
     "Blizzards Questgrafik: ein Ausrufezeichen für nicht angenommene Quests, ein Rahmen für Questgegenstände.",
   ["Quality-colored glow on items the game still counts as new."] =

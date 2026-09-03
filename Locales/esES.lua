@@ -184,8 +184,8 @@ local STRINGS = {
   ["Size"] = "Tamaño",
   ["X offset"] = "Desplazamiento X",
   ["Y offset"] = "Desplazamiento Y",
-  ["Draw a rarity-colored border around uncommon+ items."] =
-    "Dibuja un borde del color de la rareza alrededor de los objetos poco comunes y superiores.",
+  ["Draw a rarity-colored border around every item, white for common and gray for junk."] =
+    "Dibuja un borde del color de la rareza alrededor de cada objeto: blanco en los comunes y gris en la basura.",
   ["Blizzard quest art: a mark for unaccepted quests, a border for quest items."] =
     "Gráficos de misión de Blizzard: un signo de exclamación para las misiones sin aceptar y un borde para los objetos de misión.",
   ["Quality-colored glow on items the game still counts as new."] =
