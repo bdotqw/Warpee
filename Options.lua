@@ -1276,7 +1276,7 @@ local function makeScrollArea(parent, list)
 
   local function paintBar()
     local span, view = range(), sf:GetHeight()
-    if span <= 0 then bar:Hide(); return end
+    if span <= 0 or not sf:IsShown() then bar:Hide(); return end
     bar:Show()
     local h = math.max(20, view * view / page:GetHeight())
     thumb:SetHeight(h)
