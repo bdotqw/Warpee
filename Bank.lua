@@ -67,14 +67,6 @@ local function moneyTransfer(bankType)
   return bankType == (Enum and Enum.BankType and Enum.BankType.Account)
 end
 
-local function routeDeposits(mode)
-  local panel = BankFrame and BankFrame.BankPanel
-  local bt = bankTypeFor(mode)
-  if not (panel and bt) then return end
-  panel.bankType = bt
-  if not panel:IsShown() then pcall(panel.Show, panel) end
-end
-
 function ns.DepositBlocked(b)
   local bt = ns.Bank.depositType
   local m = bt and b and b.meta
@@ -488,7 +480,6 @@ function View:Activate(mode)
   end
   self.cur = st
   self.depositType = self.bankerOpen and bankTypeFor(mode) or nil
-  if self.bankerOpen then routeDeposits(mode) end
   ns.RefreshBagDim()
   st.content:Show()
   self.gridBg:ClearAllPoints()
