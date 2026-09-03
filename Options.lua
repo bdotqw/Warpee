@@ -1026,7 +1026,7 @@ function factories.badges(parent, spec)
   mark:Hide()
 
   local readout = track(Theme:Label(row, BASE_FONT - 1, "accentInk"), -1)
-  readout:SetJustifyH("RIGHT")
+  readout:SetJustifyH("LEFT")
 
   local art, chips = {}, {}
   for _, d in ipairs(ns.BADGES) do
@@ -1119,17 +1119,16 @@ function factories.badges(parent, spec)
   end
 
   local function layoutChips()
-    local path, x, y = ns.Fonts:Current(), 0, 0
-    for _, c in ipairs(chips) do
+    local path, gap, cols = ns.Fonts:Current(), 6, 3
+    local w = math.floor((CONTENT_W - gap * (cols - 1)) / cols)
+    for i, c in ipairs(chips) do
       c.Text:SetFont(path, BASE_FONT - 2, "")
-      local w = math.max(62, math.ceil(c.Text:GetStringWidth()) + 20)
-      if x > 0 and x + w > CONTENT_W then x = 0; y = y + 26 end
       c:SetWidth(w)
       c:ClearAllPoints()
-      c:SetPoint("TOPLEFT", row, "TOPLEFT", x, -y)
-      x = x + w + 6
+      c:SetPoint("TOPLEFT", row, "TOPLEFT",
+        ((i - 1) % cols) * (w + gap), -math.floor((i - 1) / cols) * 26)
     end
-    return y + 26
+    return math.ceil(#chips / cols) * 26
   end
 
   for _, d in ipairs(ns.BADGES) do
@@ -1227,7 +1226,7 @@ function factories.badges(parent, spec)
     ns.SnapPoint(cell, "TOPLEFT", row, "TOPLEFT",
       math.floor((CONTENT_W - PREV) / 2), -(h + 16))
     readout:ClearAllPoints()
-    readout:SetPoint("RIGHT", row, "TOPRIGHT", -2, -(h + 16 + PREV / 2))
+    readout:SetPoint("LEFT", row, "TOPLEFT", 2, -(h + 16 + PREV / 2))
     paint()
     local moved = false
     for _, d in ipairs(ns.BADGES) do
