@@ -499,6 +499,7 @@ function ns.FitCount(b, count)
   local c = b.Count or _G[(b:GetName() or "") .. "Count"]
   if not c then return end
   ns.SetOutlined(c, ns.Badge("count").s)
+  if not ns.Badge("count").on then c:SetText("") end
 end
 
 function ns.FitIlvl(b, lvl)
