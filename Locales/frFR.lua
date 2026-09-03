@@ -187,8 +187,8 @@ local STRINGS = {
   ["Size"] = "Taille",
   ["X offset"] = "Décalage X",
   ["Y offset"] = "Décalage Y",
-  ["Draw a rarity-colored border around uncommon+ items."] =
-    "Trace une bordure de la couleur de rareté autour des objets peu communs et au-delà.",
+  ["Draw a rarity-colored border around every item, white for common and gray for junk."] =
+    "Trace une bordure de la couleur de rareté autour de chaque objet : blanche pour les objets communs, grise pour la camelote.",
   ["Blizzard quest art: a mark for unaccepted quests, a border for quest items."] =
     "Graphismes de quête de Blizzard : un point d'exclamation pour les quêtes non acceptées, une bordure pour les objets de quête.",
   ["Quality-colored glow on items the game still counts as new."] =

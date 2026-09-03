@@ -1402,7 +1402,7 @@ local ITEMS_PAGE = {
     end,
     desc = "Tint slots in the reagent bag. Turn it off and reagents take the quality border instead." },
   { type = "toggle", name = "Quality border", col = 2, get = qBorderGet, set = qBorderSet,
-    desc = "Draw a rarity-colored border around uncommon+ items." },
+    desc = "Draw a rarity-colored border around every item, white for common and gray for junk." },
   { type = "toggle", name = "Quest marker", col = 1, get = questGet, set = questSet,
     desc = "Blizzard quest art: a mark for unaccepted quests, a border for quest items." },
   { type = "toggle", name = "New item glow", col = 2, get = newGet, set = newSet,

@@ -187,8 +187,8 @@ local STRINGS = {
   ["Size"] = "Размер",
   ["X offset"] = "Сдвиг по X",
   ["Y offset"] = "Сдвиг по Y",
-  ["Draw a rarity-colored border around uncommon+ items."] =
-    "Рамка цвета качества вокруг предметов необычного качества и выше.",
+  ["Draw a rarity-colored border around every item, white for common and gray for junk."] =
+    "Рамка цвета качества вокруг каждого предмета: белая у обычных, серая у хлама.",
   ["Blizzard quest art: a mark for unaccepted quests, a border for quest items."] =
     "Штатная графика заданий: восклицательный знак для непринятых заданий, рамка для предметов заданий.",
   ["Quality-colored glow on items the game still counts as new."] =

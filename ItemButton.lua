@@ -826,7 +826,7 @@ function ns.UpdateItemButton(b)
   elseif hl and ns.IsItemUnusable(bagID, slot, hl) then
     local R = RED_FONT_COLOR
     ns.SetRarityRing(b, R.r, R.g, R.b, 1)
-  elseif ns.Bags.qualityBorder and q and q >= 2 and ITEM_QUALITY_COLORS[q] then
+  elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q] then
     local c = ITEM_QUALITY_COLORS[q]
     ns.SetRarityRing(b, c.r, c.g, c.b, 1)
   else
@@ -930,7 +930,7 @@ function ns.PaintVaultButton(b, d, bagID)
   elseif link and ns.IsLinkUnusable(link) then
     local R = RED_FONT_COLOR
     ns.SetRarityRing(b, R.r, R.g, R.b, 1)
-  elseif ns.Bags.qualityBorder and q and q >= 2 and ITEM_QUALITY_COLORS[q] then
+  elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q] then
     local c = ITEM_QUALITY_COLORS[q]
     ns.SetRarityRing(b, c.r, c.g, c.b, 1)
   else
