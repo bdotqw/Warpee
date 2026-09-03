@@ -990,7 +990,6 @@ function factories.badges(parent, spec)
 
   local cell = CreateFrame("Frame", nil, row, "BackdropTemplate")
   ns.SnapBox(cell, PREV, PREV)
-  cell:SetPoint("TOPRIGHT", -1, -1)
   ns.PixelBackdrop(cell)
   cell:EnableMouse(true)
 
@@ -1000,7 +999,7 @@ function factories.badges(parent, spec)
   mark:Hide()
 
   local readout = track(Theme:Label(row, BASE_FONT - 1, "accentInk"), -1)
-  readout:SetPoint("TOPRIGHT", cell, "BOTTOMRIGHT", -1, -7)
+  readout:SetPoint("TOP", cell, "BOTTOM", 0, -7)
 
   local art, chips = {}, {}
   for _, d in ipairs(ns.BADGES) do
@@ -1023,12 +1022,12 @@ function factories.badges(parent, spec)
     c.Text:SetTextColor(Theme:C((not on) and "faint" or (sel and "accentInk" or "text")))
   end
 
-  local function paint()
+  local function paint(warn)
     local f, solo = factor(), bg.soloGet()
     cell:SetBackdropColor(Theme:C("panel"))
     cell:SetBackdropBorderColor(Theme:C("stroke"))
     mark:SetBackdropColor(0, 0, 0, 0)
-    mark:SetBackdropBorderColor(Theme:C("accent"))
+    mark:SetBackdropBorderColor(Theme:C(warn and "gaugeHi" or "accent"))
     for _, d in ipairs(ns.BADGES) do
       local g, o, sel = ns.Badge(d.key), art[d.key], d.key == bg.sel
       local vis = (g.on and (sel or not solo)) and true or false
@@ -1055,18 +1054,23 @@ function factories.badges(parent, spec)
       end
     end
     local g = bg.cur()
-    readout:SetText(("%s     x %d     y %d")
-      :format(T(ANCHOR_LABELS[g.c] or g.c), g.x or 0, g.y or 0))
+    if warn then
+      readout:SetText(T("Release to hide"))
+      readout:SetTextColor(Theme:C("gaugeHi"))
+    else
+      readout:SetText(("%s     x %d     y %d")
+        :format(T(ANCHOR_LABELS[g.c] or g.c), g.x or 0, g.y or 0))
+      readout:SetTextColor(Theme:C("accentInk"))
+    end
     for _, c in ipairs(chips) do paintChip(c) end
   end
 
   local function layoutChips()
     local path, x, y = ns.Fonts:Current(), 0, 0
-    local maxW = CONTENT_W - PREV - 18
     for _, c in ipairs(chips) do
       c.Text:SetFont(path, BASE_FONT - 2, "")
       local w = math.max(62, math.ceil(c.Text:GetStringWidth()) + 20)
-      if x > 0 and x + w > maxW then x = 0; y = y + 26 end
+      if x > 0 and x + w > CONTENT_W then x = 0; y = y + 26 end
       c:SetWidth(w)
       c:ClearAllPoints()
       c:SetPoint("TOPLEFT", row, "TOPLEFT", x, -y)
@@ -1112,14 +1116,15 @@ function factories.badges(parent, spec)
     g.y = bg.clamp(((vert == "BOTTOM") and d or (d + h - H)) / f)
   end
 
+  local function outside(px, py)
+    return px < 0 or py < 0 or px > cell:GetWidth() or py > cell:GetHeight()
+  end
+
   local grab
   local function stop()
     grab = nil
     cell:SetScript("OnUpdate", nil)
-    local px, py = cursorXY()
-    if px < 0 or py < 0 or px > cell:GetWidth() or py > cell:GetHeight() then
-      bg.cur().on = false
-    end
+    if outside(cursorXY()) then bg.cur().on = false end
     bg.bump()
     Options:ReflowPages()
   end
@@ -1137,15 +1142,18 @@ function factories.badges(parent, spec)
     s:SetScript("OnUpdate", function()
       if not (grab and IsMouseButtonDown("LeftButton")) then stop(); return end
       local x, y = cursorXY()
-      place(x + grab.dx, y + grab.dy)
-      paint()
+      local out = outside(x, y)
+      if not out then place(x + grab.dx, y + grab.dy) end
+      paint(out)
     end)
   end)
 
   row.Refresh = function()
     local h = layoutChips()
+    cell:ClearAllPoints()
+    cell:SetPoint("TOP", row, "TOP", 0, -(h + 6))
     paint()
-    row:SetHeight(math.max(PREV + 28, h + 4))
+    row:SetHeight(h + PREV + 32)
   end
   row.Rebuild = row.Refresh
   bg.repaint = paint
@@ -1457,7 +1465,7 @@ local ITEMS_PAGE = {
     get = bg.sGet, set = bg.sSet, hidden = bg.isText },
   { type = "range", name = "Letters", min = 2, max = 8, step = 1, section = "badges",
     get = bg.kGet, set = bg.kSet, hidden = bg.notFit,
-    desc = "How many letters of the outfit name to show." },
+    desc = "How many letters of the set name to show." },
   { type = "header", name = "Locked items", key = "locked",
     state = function()
       local n = 0

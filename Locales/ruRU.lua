@@ -74,9 +74,9 @@ local STRINGS = {
   ["Item level"] = "Уровень предмета",
   ["Stack count"] = "Количество в стопке",
   ["Binding"] = "Привязка",
-  ["Outfit"] = "Набор",
+  ["Gear set"] = "Набор экипировки",
   ["Letters"] = "Буквы",
-  ["How many letters of the outfit name to show."] =
+  ["How many letters of the set name to show."] =
     "Сколько букв из названия набора показывать.",
   ["Vendor lock"] = "Защита от продажи",
   ["Icon scale"] = "Размер значка",
@@ -85,6 +85,7 @@ local STRINGS = {
   ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge."] =
     "Перетаскивай значок внутри ячейки, чтобы поставить его на место, и вытащи за пределы ячейки, чтобы убрать. Правый клик по названию показывает или скрывает значок.",
   ["Show only the selected badge"] = "Показывать только выбранный значок",
+  ["Release to hide"] = "Отпусти, чтобы скрыть",
   ["In the cell above, draw only the badge you are moving."] =
     "В ячейке выше рисовать только тот значок, который двигаешь.",
   ["Locked items"] = "Защищённые предметы",

@@ -63,9 +63,9 @@ local STRINGS = {
   ["Item level"] = "Gegenstandsstufe",
   ["Stack count"] = "Stapelanzahl",
   ["Binding"] = "Bindung",
-  ["Outfit"] = "Set",
+  ["Gear set"] = "Ausrüstungsset",
   ["Letters"] = "Buchstaben",
-  ["How many letters of the outfit name to show."] =
+  ["How many letters of the set name to show."] =
     "Wie viele Buchstaben des Setnamens gezeigt werden.",
   ["Vendor lock"] = "Verkaufsschutz",
   ["Icon scale"] = "Symbolgröße",
@@ -74,6 +74,7 @@ local STRINGS = {
   ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge."] =
     "Zieh ein Abzeichen in der Zelle an seinen Platz, zieh es aus der Zelle heraus, um es auszublenden. Rechtsklick auf einen Namen blendet das Abzeichen ein oder aus.",
   ["Show only the selected badge"] = "Nur das gewählte Abzeichen zeigen",
+  ["Release to hide"] = "Loslassen, um auszublenden",
   ["In the cell above, draw only the badge you are moving."] =
     "In der Zelle oben nur das Abzeichen zeichnen, das du bewegst.",
   ["Locked items"] = "Geschützte Gegenstände",
