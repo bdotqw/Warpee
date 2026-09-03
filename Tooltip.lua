@@ -30,6 +30,22 @@ function ns.HideTip()
   if tipFrame then tipFrame:Hide() end
 end
 
+local function fitWidth(fs, cap)
+  local full = math.ceil(fs:GetStringWidth())
+  if full <= cap then return full end
+  fs:SetWidth(cap)
+  local tall = fs:GetStringHeight() or 0
+  local rows = math.max(2, math.ceil(full / cap))
+  local lo, hi = math.floor(full / rows), cap
+  while hi - lo > 3 do
+    local mid = math.floor((lo + hi) / 2)
+    fs:SetWidth(mid)
+    if (fs:GetStringHeight() or 0) <= tall + 0.5 then hi = mid else lo = mid end
+  end
+  fs:SetWidth(hi)
+  return hi
+end
+
 function ns.ShowTip(owner, entries, side)
   if not owner or not entries or #entries == 0 then ns.HideTip(); return end
   local t = tipBox()
@@ -44,7 +60,7 @@ function ns.ShowTip(owner, entries, side)
       fs:SetWidth(cap)
       fs:SetText(ns.L[e.text])
       fs:SetTextColor(Theme:C(e.color or "text"))
-      widest = math.max(widest, math.ceil(fs:GetStringWidth()))
+      widest = math.max(widest, fitWidth(fs, cap))
     end
   end
   if n == 0 then t:Hide(); return end
