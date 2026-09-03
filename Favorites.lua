@@ -97,6 +97,7 @@ local function tipFor(f, id)
   if id then
     GameTooltip:SetItemByID(id)
     GameTooltip:AddLine(ns.L["Ctrl + right click clears the slot"], 0.6, 0.6, 0.6)
+    GameTooltip:AddLine(ns.L["Ctrl + drag moves it to another slot"], 0.6, 0.6, 0.6)
   else
     GameTooltip:SetText(ns.L["Favorites"])
     GameTooltip:AddLine(ns.L["Drag an item here to keep it one click away"], 0.6, 0.6, 0.6, true)
@@ -108,6 +109,9 @@ local function makeCatcher(parent, index)
   local c = CreateFrame("Button", nil, parent)
   c.favIndex = index
   c:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  c:RegisterForDrag("LeftButton")
+  c:SetScript("OnDragStart", function(s) Fav:Lift(s.favIndex) end)
+  c:SetScript("OnDragStop", function() Fav:Drop() end)
   c:SetScript("OnReceiveDrag", function(s) Fav:PinFromCursor(s.favIndex) end)
   c:SetScript("OnClick", function(s, button)
     if GetCursorInfo() then
@@ -133,6 +137,31 @@ function Fav:Set(index, id)
   end
   list[index] = id or nil
   later()
+end
+
+function Fav:Lift(index)
+  if InCombatLockdown() or not self:List()[index] then return end
+  self.moving = index
+  local b = self.slots[index]
+  if b then ns.SetSlotHighlight(b, true) end
+end
+
+function Fav:Drop()
+  local from = self.moving
+  self.moving = nil
+  if not from then return end
+  local b = self.slots[from]
+  if b then ns.SetSlotHighlight(b, false) end
+  if InCombatLockdown() then return end
+  local list = self:List()
+  for i = 1, (self.max or 0) do
+    local c = self.catchers[i]
+    if i ~= from and c and c:IsShown() and c:IsMouseOver() then
+      list[from], list[i] = list[i], list[from]
+      later()
+      return
+    end
+  end
 end
 
 function Fav:PinFromCursor(index)
