@@ -40,12 +40,12 @@ local function HookBagToggles()
   local toggle = function() ns.Toggle() end
   ToggleAllBags = toggle
   OpenAllBags   = open
-  CloseAllBags  = close
   ToggleBackpack = toggle
   OpenBackpack  = open
-  CloseBackpack = close
   ToggleBag     = function() ns.Toggle() end
   OpenBag       = open
+  if type(CloseAllBags) == "function" then hooksecurefunc("CloseAllBags", close) end
+  if type(CloseBackpack) == "function" then hooksecurefunc("CloseBackpack", close) end
 end
 
 local function autoOpenBags(key)
