@@ -1072,13 +1072,18 @@ function factories.badges(parent, spec)
     c.Text:SetTextColor(Theme:C((not on) and "faint" or (sel and "accentInk" or "text")))
   end
 
+  local function band()
+    return math.floor(9 * factor() + 5.5)
+  end
+
   local function dropFor()
-    local d = 7
+    local d, cap = 7, band()
     for _, def in ipairs(ns.BADGES) do
       if ns.Badge(def.key).on then
         d = math.max(d, (art[def.key]:GetHeight() or 0) / 2 + 5)
       end
     end
+    if d > cap then d = cap end
     return math.floor(d + 0.5)
   end
 
@@ -1245,7 +1250,7 @@ function factories.badges(parent, spec)
       if x ~= g.x or y ~= g.y then g.x, g.y = x, y; moved = true end
     end
     if moved then bg.bump() end
-    row:SetHeight(h + PREV + 34 + dropFor())
+    row:SetHeight(h + PREV + 34 + band())
   end
   row.Rebuild = row.Refresh
   bg.repaint = paint
