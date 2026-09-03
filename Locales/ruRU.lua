@@ -74,6 +74,10 @@ local STRINGS = {
   ["Item level"] = "Уровень предмета",
   ["Stack count"] = "Количество в стопке",
   ["Binding"] = "Привязка",
+  ["Outfit"] = "Набор",
+  ["Letters"] = "Буквы",
+  ["How many letters of the outfit name to show."] =
+    "Сколько букв из названия набора показывать.",
   ["Vendor lock"] = "Защита от продажи",
   ["Icon scale"] = "Размер значка",
   ["Which corner of the slot the badge is pinned to."] =
