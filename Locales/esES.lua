@@ -81,6 +81,9 @@ local STRINGS = {
     "En qué esquina del espacio se ancla el distintivo.",
   ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge."] =
     "Arrastra un distintivo dentro de la casilla para colocarlo y fuera de la casilla para ocultarlo. Clic derecho en un nombre para mostrarlo u ocultarlo.",
+  ["Show only the selected badge"] = "Mostrar solo el distintivo elegido",
+  ["In the cell above, draw only the badge you are moving."] =
+    "En la casilla de arriba, dibujar solo el distintivo que mueves.",
   ["Locked items"] = "Objetos protegidos",
   ["Item tooltips"] = "Información de los objetos",
   ["Open bags with"] = "Abrir las bolsas con",
@@ -179,7 +182,7 @@ local STRINGS = {
   ["Junk coin"] = "Moneda en la basura",
   ["Reagent border"] = "Borde de los componentes",
   ["Border thickness"] = "Grosor del borde",
-  ["Color by quality"] = "Color según la calidad",
+  ["Item level by quality"] = "Nivel de objeto según la calidad",
   ["Corner"] = "Esquina",
   ["Size"] = "Tamaño",
   ["X offset"] = "Desplazamiento X",
@@ -190,15 +193,11 @@ local STRINGS = {
     "Gráficos de misión de Blizzard: un signo de exclamación para las misiones sin aceptar y un borde para los objetos de misión.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Brillo del color de la calidad en los objetos que el juego todavía cuenta como nuevos.",
-  ["Gold coin marker on poor-quality (gray) items."] =
-    "Moneda de oro en los objetos de calidad pobre (grises).",
   ["Tint slots in the reagent bag. Turn it off and reagents take the quality border instead."] =
     "Colorea los espacios de la bolsa de componentes. Desactivado, los componentes reciben el borde de calidad.",
   ["Thickness of the quality border."] = "Grosor del borde de calidad.",
-  ["Tint the number with the item's rarity color."] = "Colorea el número con la rareza del objeto.",
-  ["Which corner of the slot the number sits in."] = "En qué esquina del espacio va el número.",
-  ["Which corner of the slot the stack size sits in."] =
-    "En qué esquina del espacio va el tamaño del montón.",
+  ["Tint the item level number with the item's rarity color."] =
+    "Colorea el nivel de objeto con la rareza del objeto.",
   ["Alt-click an item in the bags or the bank to lock it: a padlock appears and the vendor never sells it. Alt-click again, or the cross here, to unlock."] =
     "Alt + clic en un objeto de las bolsas o del banco lo protege: aparece un candado y el mercader no lo venderá nunca. Otro Alt + clic, o la cruz de esta lista, quita la protección.",
   ["Count across characters"] = "Contar en todos los personajes",

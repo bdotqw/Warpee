@@ -141,7 +141,13 @@ bg.cur = function() return ns.Badge(bg.sel) end
 bg.def = function() return ns.BADGE[bg.sel] or ns.BADGES[1] end
 bg.bump = function()
   Bags.styleGen = (Bags.styleGen or 0) + 1
+  if bg.repaint then bg.repaint() end
   relayout()
+end
+bg.soloGet = function() return WarpeeDB.badgeSolo and true or false end
+bg.soloSet = function(v)
+  WarpeeDB.badgeSolo = v and true or false
+  if bg.repaint then bg.repaint() end
 end
 bg.getter = function(f) return function() return bg.cur()[f] end end
 bg.setter = function(f) return function(v) bg.cur()[f] = v; bg.bump() end end
@@ -153,7 +159,6 @@ bg.kGet = function() return bg.cur().k or 4 end
 bg.kSet = bg.setter("k")
 bg.isTex   = function() return bg.def().tex and true or false end
 bg.isText  = function() return not bg.def().tex end
-bg.notIlvl = function() return bg.sel ~= "ilvl" end
 bg.notFit  = function() return bg.sel ~= "outfit" end
 bg.label   = function(key) return (ns.BADGE[key] or {}).n or key end
 bg.prev    = 132
@@ -985,12 +990,17 @@ function factories.badges(parent, spec)
 
   local cell = CreateFrame("Frame", nil, row, "BackdropTemplate")
   ns.SnapBox(cell, PREV, PREV)
-  cell:SetPoint("TOPLEFT", 1, -1)
+  cell:SetPoint("TOPRIGHT", -1, -1)
   ns.PixelBackdrop(cell)
   cell:EnableMouse(true)
 
+  local mark = CreateFrame("Frame", nil, cell, "BackdropTemplate")
+  ns.PixelBackdrop(mark)
+  mark:SetFrameLevel(cell:GetFrameLevel() + 1)
+  mark:Hide()
+
   local readout = track(Theme:Label(row, BASE_FONT - 1, "accentInk"), -1)
-  readout:SetPoint("TOPLEFT", cell, "BOTTOMLEFT", 1, -7)
+  readout:SetPoint("TOPRIGHT", cell, "BOTTOMRIGHT", -1, -7)
 
   local art, chips = {}, {}
   for _, d in ipairs(ns.BADGES) do
@@ -1014,24 +1024,35 @@ function factories.badges(parent, spec)
   end
 
   local function paint()
-    local f = factor()
+    local f, solo = factor(), bg.soloGet()
     cell:SetBackdropColor(Theme:C("panel"))
     cell:SetBackdropBorderColor(Theme:C("stroke"))
+    mark:SetBackdropColor(0, 0, 0, 0)
+    mark:SetBackdropBorderColor(Theme:C("accent"))
     for _, d in ipairs(ns.BADGES) do
       local g, o, sel = ns.Badge(d.key), art[d.key], d.key == bg.sel
+      local vis = (g.on and (sel or not solo)) and true or false
+      local dim = sel and 1 or 0.35
       if d.tex then
         local sz = math.max(6, PREV * (g.s or d.s))
         o:SetSize(sz, sz)
-        o:SetVertexColor(1, 1, 1, sel and 1 or 0.65)
+        o:SetVertexColor(1, 1, 1, dim)
       else
+        local cr, cg, cb = Theme:C("overlay")
         ns.SetOutlined(o, math.max(6, math.floor((g.s or d.s) * f + 0.5)))
         o:SetText(d.p or d.key)
-        o:SetTextColor(Theme:C(sel and "accentInk" or "overlay"))
+        o:SetTextColor(cr, cg, cb, dim)
       end
       o:SetDrawLayer("OVERLAY", sel and 7 or 5)
       o:ClearAllPoints()
       o:SetPoint(g.c, cell, g.c, (g.x or 0) * f, (g.y or 0) * f)
-      o:SetShown(g.on and true or false)
+      o:SetShown(vis)
+      if sel then
+        mark:ClearAllPoints()
+        mark:SetPoint("TOPLEFT", o, "TOPLEFT", -3, 3)
+        mark:SetPoint("BOTTOMRIGHT", o, "BOTTOMRIGHT", 3, -3)
+        mark:SetShown(vis)
+      end
     end
     local g = bg.cur()
     readout:SetText(("%s     x %d     y %d")
@@ -1048,7 +1069,7 @@ function factories.badges(parent, spec)
       if x > 0 and x + w > maxW then x = 0; y = y + 26 end
       c:SetWidth(w)
       c:ClearAllPoints()
-      c:SetPoint("TOPLEFT", cell, "TOPRIGHT", 14 + x, -y)
+      c:SetPoint("TOPLEFT", row, "TOPLEFT", x, -y)
       x = x + w + 6
     end
     return y + 26
@@ -1127,6 +1148,7 @@ function factories.badges(parent, spec)
     row:SetHeight(math.max(PREV + 28, h + 4))
   end
   row.Rebuild = row.Refresh
+  bg.repaint = paint
   row.Refresh()
   tip(cell, spec.desc)
   return row
@@ -1407,6 +1429,9 @@ local ITEMS_PAGE = {
     desc = "Blizzard quest art: a mark for unaccepted quests, a border for quest items." },
   { type = "toggle", name = "New item glow", col = 2, get = newGet, set = newSet,
     desc = "Quality-colored glow on items the game still counts as new." },
+  { type = "toggle", name = "Item level by quality", col = 1, get = qColorGet, set = qColorSet,
+    disabled = function() return not ns.Badge("ilvl").on end,
+    desc = "Tint the item level number with the item's rarity color." },
   { type = "range", name = "Border thickness", min = 1, max = 6, step = 1,
     get = edgeGet, set = edgeSet, disabled = function() return not qBorderGet() end,
     desc = "Thickness of the quality border." },
@@ -1416,6 +1441,9 @@ local ITEMS_PAGE = {
     end },
   { type = "badges", section = "badges",
     desc = "Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge." },
+  { type = "toggle", name = "Show only the selected badge", col = 1, section = "badges",
+    get = bg.soloGet, set = bg.soloSet,
+    desc = "In the cell above, draw only the badge you are moving." },
   { type = "select", name = "Corner", get = bg.cGet, set = bg.cSet, section = "badges",
     keys = anchorKeys, label = anchorLabel,
     desc = "Which corner of the slot the badge is pinned to." },
@@ -1430,9 +1458,6 @@ local ITEMS_PAGE = {
   { type = "range", name = "Letters", min = 2, max = 8, step = 1, section = "badges",
     get = bg.kGet, set = bg.kSet, hidden = bg.notFit,
     desc = "How many letters of the outfit name to show." },
-  { type = "toggle", name = "Color by quality", col = 1, section = "badges",
-    get = qColorGet, set = qColorSet, hidden = bg.notIlvl,
-    desc = "Tint the number with the item's rarity color." },
   { type = "header", name = "Locked items", key = "locked",
     state = function()
       local n = 0

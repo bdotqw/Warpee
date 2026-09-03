@@ -84,6 +84,9 @@ local STRINGS = {
     "À quel coin de l'emplacement le badge est fixé.",
   ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge."] =
     "Fais glisser un badge dans la case pour le placer, hors de la case pour le masquer. Clic droit sur un nom pour l'afficher ou le masquer.",
+  ["Show only the selected badge"] = "Afficher seulement le badge choisi",
+  ["In the cell above, draw only the badge you are moving."] =
+    "Dans la case ci-dessus, n'afficher que le badge que tu déplaces.",
   ["Locked items"] = "Objets protégés",
   ["Item tooltips"] = "Infobulles des objets",
   ["Open bags with"] = "Ouvrir les sacs avec",
@@ -182,7 +185,7 @@ local STRINGS = {
   ["Junk coin"] = "Pièce sur la camelote",
   ["Reagent border"] = "Bordure des composants",
   ["Border thickness"] = "Épaisseur de la bordure",
-  ["Color by quality"] = "Couleur selon la qualité",
+  ["Item level by quality"] = "Niveau d'objet selon la qualité",
   ["Corner"] = "Coin",
   ["Size"] = "Taille",
   ["X offset"] = "Décalage X",
@@ -193,16 +196,11 @@ local STRINGS = {
     "Graphismes de quête de Blizzard : un point d'exclamation pour les quêtes non acceptées, une bordure pour les objets de quête.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Lueur de la couleur de qualité sur les objets que le jeu considère encore comme nouveaux.",
-  ["Gold coin marker on poor-quality (gray) items."] =
-    "Petite pièce d'or sur les objets de qualité médiocre (gris).",
   ["Tint slots in the reagent bag. Turn it off and reagents take the quality border instead."] =
     "Colore les emplacements du sac à composants. Désactivé, les composants reçoivent la bordure de qualité à la place.",
   ["Thickness of the quality border."] = "Épaisseur de la bordure de qualité.",
-  ["Tint the number with the item's rarity color."] = "Colore le nombre selon la rareté de l'objet.",
-  ["Which corner of the slot the number sits in."] =
-    "Le coin de l'emplacement où se place le nombre.",
-  ["Which corner of the slot the stack size sits in."] =
-    "Le coin de l'emplacement où se place la taille de pile.",
+  ["Tint the item level number with the item's rarity color."] =
+    "Colore le niveau d'objet selon la rareté de l'objet.",
   ["Alt-click an item in the bags or the bank to lock it: a padlock appears and the vendor never sells it. Alt-click again, or the cross here, to unlock."] =
     "Alt + clic sur un objet dans les sacs ou la banque le protège : un cadenas apparaît et le marchand ne le vendra jamais. Un nouvel Alt + clic, ou la croix dans cette liste, retire la protection.",
   ["Count across characters"] = "Compter sur tous les personnages",
