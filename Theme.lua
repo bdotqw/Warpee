@@ -527,6 +527,13 @@ end
 
 local escFrames = {}
 
+local function escArm(f)
+  if not f.wpeEscArm or InCombatLockdown() then return end
+  f.wpeEscArm = nil
+  f:EnableKeyboard(true)
+  f:SetPropagateKeyboardInput(true)
+end
+
 local function escFree(f)
   if not f.wpeEscEat or InCombatLockdown() then return end
   f.wpeEscEat = nil
@@ -534,16 +541,19 @@ local function escFree(f)
 end
 
 function ns.EscRestore()
-  for i = 1, #escFrames do escFree(escFrames[i]) end
+  for i = 1, #escFrames do
+    escArm(escFrames[i])
+    escFree(escFrames[i])
+  end
 end
 
 function ns.EscClose(frame)
   if not (frame and frame.EnableKeyboard) or frame.wpeEsc then return frame end
   frame.wpeEsc = true
+  frame.wpeEscArm = true
   escFrames[#escFrames + 1] = frame
-  frame:EnableKeyboard(true)
-  frame:SetPropagateKeyboardInput(true)
-  frame:HookScript("OnShow", escFree)
+  escArm(frame)
+  frame:HookScript("OnShow", function(s) escArm(s); escFree(s) end)
   frame:HookScript("OnKeyDown", function(s, key)
     if InCombatLockdown() then
       if key == "ESCAPE" then s:Hide() end
