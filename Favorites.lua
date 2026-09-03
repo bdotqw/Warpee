@@ -125,7 +125,7 @@ local function tipFor(c, index)
     else
       GameTooltip:SetItemByID(id)
     end
-    GameTooltip:AddLine(ns.L["Ctrl + right click clears the slot"], 0.6, 0.6, 0.6)
+    GameTooltip:AddLine(ns.L["Ctrl + left click clears the slot"], 0.6, 0.6, 0.6)
     GameTooltip:AddLine(ns.L["Drag moves it to another slot"], 0.6, 0.6, 0.6)
   else
     GameTooltip:SetText(ns.L["Favorites"])
@@ -134,35 +134,28 @@ local function tipFor(c, index)
   GameTooltip:Show()
 end
 
-local function catchHold(c, hold)
-  if c.SetPassThroughButtons then
-    if hold then c:SetPassThroughButtons() else c:SetPassThroughButtons("RightButton") end
-    return
-  end
-  c:EnableMouse(hold and true or false)
-end
-
 local function makeCatcher(parent, index)
   local c = CreateFrame("Button", nil, parent)
   c.favIndex = index
   c:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   c:RegisterForDrag("LeftButton")
+  c:SetFrameLevel(parent:GetFrameLevel() + 30)
   c:EnableMouse(true)
-  catchHold(c, true)
+  if c.SetPassThroughButtons then c:SetPassThroughButtons("RightButton") end
   c:SetScript("OnDragStart", function(s) Fav:Lift(s.favIndex) end)
   c:SetScript("OnDragStop", function() Fav:Drop() end)
   c:SetScript("OnReceiveDrag", function(s) Fav:PinFromCursor(s.favIndex) end)
   c:SetScript("OnClick", function(s, button)
+    if button ~= "LeftButton" then return end
     if GetCursorInfo() then
       Fav:PinFromCursor(s.favIndex)
       return
     end
-    if button == "LeftButton" and IsAltKeyDown()
-       and not (IsShiftKeyDown() or IsControlKeyDown()) then
+    if IsAltKeyDown() and not (IsShiftKeyDown() or IsControlKeyDown()) then
       Fav:Lock(s.favIndex)
       return
     end
-    if button == "RightButton" and IsControlKeyDown() then
+    if IsControlKeyDown() and not (IsShiftKeyDown() or IsAltKeyDown()) then
       Fav:Set(s.favIndex, nil)
       tipFor(s, s.favIndex)
     end
@@ -241,14 +234,6 @@ function Fav:PinFromCursor(index)
   self:Set(index, id)
 end
 
-function Fav:SetCatch()
-  local hold = IsControlKeyDown() and true or false
-  for i = 1, (self.max or 0) do
-    local c = self.catchers[i]
-    if c and c:IsShown() then catchHold(c, hold or not c.favLive) end
-  end
-end
-
 function Fav:Cooldowns()
   for i = 1, (self.max or 0) do
     local b = self.slots[i]
@@ -286,6 +271,16 @@ function Fav:Warm()
       b.holder:Hide()
       self.slots[i] = b
     end
+    if not self.ghosts[i] then
+      local g = makeGhost(frame)
+      g:Hide()
+      self.ghosts[i] = g
+    end
+    if not self.catchers[i] then
+      local c = makeCatcher(frame, i)
+      c:Hide()
+      self.catchers[i] = c
+    end
   end
   self.cold, self.warmed = nil, true
 end
@@ -322,7 +317,6 @@ function Fav:Apply(bags, x, top, size, gap)
   if not self.warmed then self:Warm() end
   local rowY = top + LABEL_H + LABEL_GAP
   local list = self:List()
-  local catch = IsControlKeyDown() and true or false
   local last = math.max(self.max or 0, n)
   self.max = last
   local plusSize = math.max(14, math.floor(size * 0.5))
@@ -355,30 +349,29 @@ function Fav:Apply(bags, x, top, size, gap)
       ns.UpdateItemButton(b)
       if g then g:Hide() end
     else
-      if not g then g = makeGhost(frame); self.ghosts[i] = g end
-      ns.SnapBox(g, size, size)
-      g:ClearAllPoints()
-      ns.SnapPoint(g, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
-      if id then
-        g.icon:SetTexture(itemIcon(id)); g.icon:Show(); g.plus:Hide()
-      else
-        g.icon:Hide()
-        g.plus:SetFont(bags.fontPath or ns.Fonts:Current(), plusSize, "")
-        g.plus:Show()
+      if g then
+        ns.SnapBox(g, size, size)
+        g:ClearAllPoints()
+        ns.SnapPoint(g, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
+        if id then
+          g.icon:SetTexture(itemIcon(id)); g.icon:Show(); g.plus:Hide()
+        else
+          g.icon:Hide()
+          g.plus:SetFont(bags.fontPath or ns.Fonts:Current(), plusSize, "")
+          g.plus:Show()
+        end
+        g:Show()
       end
-      g:Show()
       if b then b.holder:Hide(); b.favBag = nil end
     end
     local c = self.catchers[i]
-    if not c then c = makeCatcher(frame, i); self.catchers[i] = c end
-    ns.SnapBox(c, size, size)
-    c:ClearAllPoints()
-    ns.SnapPoint(c, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
-    c:SetFrameLevel(frame:GetFrameLevel() + 30)
-    c.favLive = live
-    c.wpeLockable = live or nil
-    catchHold(c, catch or not live)
-    c:Show()
+    if c then
+      ns.SnapBox(c, size, size)
+      c:ClearAllPoints()
+      ns.SnapPoint(c, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
+      c.wpeLockable = live or nil
+      c:Show()
+    end
   end
   for i = n + 1, last do
     local b, g, c = self.slots[i], self.ghosts[i], self.catchers[i]
@@ -393,15 +386,10 @@ local ev = CreateFrame("Frame")
 ev:RegisterEvent("BAG_UPDATE_DELAYED")
 ev:RegisterEvent("BAG_UPDATE_COOLDOWN")
 ev:RegisterEvent("SPELL_UPDATE_COOLDOWN")
-ev:RegisterEvent("MODIFIER_STATE_CHANGED")
 ev:RegisterEvent("PLAYER_REGEN_ENABLED")
-ev:SetScript("OnEvent", function(_, event, arg1)
+ev:SetScript("OnEvent", function(_, event)
   if event == "PLAYER_REGEN_ENABLED" then
     Fav:Flush()
-    return
-  end
-  if event == "MODIFIER_STATE_CHANGED" then
-    if arg1 and arg1:find("CTRL", 1, true) then Fav:SetCatch() end
     return
   end
   if event == "BAG_UPDATE_DELAYED" then

@@ -335,14 +335,14 @@ local STRINGS = {
   ["Favorites"] = "Favoritos",
   ["Favorite slots"] = "Espacios favoritos",
   ["How many slots"] = "Cuántos espacios",
-  ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + right click clears a slot."] =
-    "Una fila de espacios sobre la cuadrícula, siempre a la vista. Arrastra un objeto a uno de ellos para tenerlo a un clic; Ctrl + clic derecho vacía un espacio.",
+  ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
+    "Una fila de espacios sobre la cuadrícula, siempre a la vista. Arrastra un objeto a uno de ellos para tenerlo a un clic; Ctrl + clic izquierdo vacía un espacio.",
   ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =
     "Nunca más ancha que la cuadrícula. Con cero, la fila ocupa todo el ancho de la cuadrícula.",
   ["As the grid"] = "Como la cuadrícula",
   ["Drag an item here to keep it one click away"] =
     "Arrastra un objeto aquí para tenerlo a un clic",
-  ["Ctrl + right click clears the slot"] = "Ctrl + clic derecho vacía el espacio",
+  ["Ctrl + left click clears the slot"] = "Ctrl + clic izquierdo vacía el espacio",
   ["Drag moves it to another slot"] = "Arrastrar lo mueve a otro espacio",
   ["No gold recorded yet"] = "Todavía no hay datos de oro",
   ["Delete mode"] = "Modo de borrado",
