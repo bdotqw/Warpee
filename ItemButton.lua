@@ -454,9 +454,8 @@ function ns.ApplyBadge(b, key)
   else
     ns.SetOutlined(o, g.s or d.s)
   end
-  local ref = iconOf(b) or b
   o:ClearAllPoints()
-  o:SetPoint(g.c, ref, g.c, g.x, g.y)
+  o:SetPoint(g.c, b, g.c, g.x, g.y)
   o:SetAlpha(g.on and 1 or 0)
 end
 
