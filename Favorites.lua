@@ -115,12 +115,18 @@ local function dragArt()
   return f
 end
 
-local function tipFor(f, id)
-  GameTooltip:SetOwner(f, "ANCHOR_RIGHT")
+local function tipFor(c, index)
+  local id = Fav:List()[index]
+  GameTooltip:SetOwner(c, "ANCHOR_RIGHT")
   if id then
-    GameTooltip:SetItemByID(id)
+    local b = Fav.slots[index]
+    if b and b.favBag and b.holder:IsShown() then
+      GameTooltip:SetBagItem(b.favBag, b.favSlot)
+    else
+      GameTooltip:SetItemByID(id)
+    end
     GameTooltip:AddLine(ns.L["Ctrl + right click clears the slot"], 0.6, 0.6, 0.6)
-    GameTooltip:AddLine(ns.L["Ctrl + drag moves it to another slot"], 0.6, 0.6, 0.6)
+    GameTooltip:AddLine(ns.L["Drag moves it to another slot"], 0.6, 0.6, 0.6)
   else
     GameTooltip:SetText(ns.L["Favorites"])
     GameTooltip:AddLine(ns.L["Drag an item here to keep it one click away"], 0.6, 0.6, 0.6, true)
@@ -128,11 +134,21 @@ local function tipFor(f, id)
   GameTooltip:Show()
 end
 
+local function catchHold(c, hold)
+  if c.SetPassThroughButtons then
+    if hold then c:SetPassThroughButtons() else c:SetPassThroughButtons("RightButton") end
+    return
+  end
+  c:EnableMouse(hold and true or false)
+end
+
 local function makeCatcher(parent, index)
   local c = CreateFrame("Button", nil, parent)
   c.favIndex = index
   c:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   c:RegisterForDrag("LeftButton")
+  c:EnableMouse(true)
+  catchHold(c, true)
   c:SetScript("OnDragStart", function(s) Fav:Lift(s.favIndex) end)
   c:SetScript("OnDragStop", function() Fav:Drop() end)
   c:SetScript("OnReceiveDrag", function(s) Fav:PinFromCursor(s.favIndex) end)
@@ -143,11 +159,19 @@ local function makeCatcher(parent, index)
     end
     if button == "RightButton" and IsControlKeyDown() then
       Fav:Set(s.favIndex, nil)
-      tipFor(s, nil)
+      tipFor(s, s.favIndex)
     end
   end)
-  c:SetScript("OnEnter", function(s) tipFor(s, Fav:List()[s.favIndex]) end)
-  c:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  c:SetScript("OnEnter", function(s)
+    local b = Fav.slots[s.favIndex]
+    if b and b.holder:IsShown() then ns.SetSlotHighlight(b, true) end
+    tipFor(s, s.favIndex)
+  end)
+  c:SetScript("OnLeave", function(s)
+    local b = Fav.slots[s.favIndex]
+    if b then ns.SetSlotHighlight(b, false) end
+    GameTooltip:Hide()
+  end)
   return c
 end
 
@@ -164,7 +188,7 @@ end
 
 function Fav:Lift(index)
   local id = self:List()[index]
-  if InCombatLockdown() or not id then return end
+  if not id then return end
   self.moving = index
   local b = self.slots[index]
   if b then ns.SetSlotHighlight(b, true) end
@@ -182,7 +206,6 @@ function Fav:Drop()
   if not from then return end
   local b = self.slots[from]
   if b then ns.SetSlotHighlight(b, false) end
-  if InCombatLockdown() then return end
   local list = self:List()
   for i = 1, (self.max or 0) do
     local c = self.catchers[i]
@@ -205,11 +228,10 @@ function Fav:PinFromCursor(index)
 end
 
 function Fav:SetCatch()
-  local on = (GetCursorInfo() and true) or IsControlKeyDown()
-  local list = self:List()
+  local hold = IsControlKeyDown() and true or false
   for i = 1, (self.max or 0) do
     local c = self.catchers[i]
-    if c and c:IsShown() then c:EnableMouse(on or not locate(list[i])) end
+    if c and c:IsShown() then catchHold(c, hold or not c.favLive) end
   end
 end
 
@@ -286,7 +308,7 @@ function Fav:Apply(bags, x, top, size, gap)
   if not self.warmed then self:Warm() end
   local rowY = top + LABEL_H + LABEL_GAP
   local list = self:List()
-  local catch = (GetCursorInfo() and true) or IsControlKeyDown()
+  local catch = IsControlKeyDown() and true or false
   local last = math.max(self.max or 0, n)
   self.max = last
   local plusSize = math.max(14, math.floor(size * 0.5))
@@ -339,7 +361,8 @@ function Fav:Apply(bags, x, top, size, gap)
     c:ClearAllPoints()
     ns.SnapPoint(c, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
     c:SetFrameLevel(frame:GetFrameLevel() + 30)
-    c:EnableMouse(catch or not live)
+    c.favLive = live
+    catchHold(c, catch or not live)
     c:Show()
   end
   for i = n + 1, last do
@@ -355,7 +378,6 @@ local ev = CreateFrame("Frame")
 ev:RegisterEvent("BAG_UPDATE_DELAYED")
 ev:RegisterEvent("BAG_UPDATE_COOLDOWN")
 ev:RegisterEvent("SPELL_UPDATE_COOLDOWN")
-ev:RegisterEvent("CURSOR_CHANGED")
 ev:RegisterEvent("MODIFIER_STATE_CHANGED")
 ev:RegisterEvent("PLAYER_REGEN_ENABLED")
 ev:SetScript("OnEvent", function(_, event, arg1)
@@ -365,10 +387,6 @@ ev:SetScript("OnEvent", function(_, event, arg1)
   end
   if event == "MODIFIER_STATE_CHANGED" then
     if arg1 and arg1:find("CTRL", 1, true) then Fav:SetCatch() end
-    return
-  end
-  if event == "CURSOR_CHANGED" then
-    Fav:SetCatch()
     return
   end
   if event == "BAG_UPDATE_DELAYED" then
