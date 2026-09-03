@@ -122,7 +122,7 @@ local STRINGS = {
     "Se usa en todos los textos que dibuja Warpee. Otros addons pueden añadir fuentes a esta lista.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Idioma de los textos del addon. Los nombres de los objetos siempre vienen del juego.",
-  ["Freeze the windows in place. Unlocked, each shows X/Y fields along its bottom edge — type a value or nudge with the arrows (Shift = 10)."] =
+  ["Freeze the windows in place. Unlocked, each shows X/Y fields along its bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
     "Fija las ventanas en su sitio. Sin fijar, cada una muestra campos X e Y en su borde inferior: escribe un valor o ajústalo con las flechas (Mayús = 10).",
   ["The windows stay movable by dragging, but the X/Y fields are not drawn."] =
     "Las ventanas se siguen moviendo con el ratón, pero los campos X e Y no se dibujan.",
@@ -278,7 +278,7 @@ local STRINGS = {
     "De qué expansiones se pueden vender las fichas. Las cuatro más recientes se conservan por defecto. Las expansiones que nunca tuvieron fichas no aparecen en la lista.",
   ["Skip gear that is not bound yet, so it can go to the auction house."] =
     "Omite el equipo que aún no está ligado, para poder venderlo en la casa de subastas.",
-  ["Skip warbound gear — an alt can still use it."] =
+  ["Skip warbound gear, since an alt can still use it."] =
     "Omite el equipo ligado a la banda guerrera: otro personaje todavía puede usarlo.",
   ["Skip any piece with a gem socketed or an enchant applied."] =
     "Omite cualquier pieza con una gema engarzada o un encantamiento aplicado.",

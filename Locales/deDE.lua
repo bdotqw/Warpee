@@ -114,7 +114,7 @@ local STRINGS = {
     "Wird für jeden Text verwendet, den Warpee zeichnet. Andere Addons können diese Liste erweitern.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Sprache für die Texte des Addons. Gegenstandsnamen kommen immer aus dem Spiel.",
-  ["Freeze the windows in place. Unlocked, each shows X/Y fields along its bottom edge — type a value or nudge with the arrows (Shift = 10)."] =
+  ["Freeze the windows in place. Unlocked, each shows X/Y fields along its bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
     "Hält die Fenster an ihrem Platz. Ohne Fixierung zeigt jedes Fenster am unteren Rand Felder für X und Y: Wert eintippen oder mit den Pfeilen ändern (Shift = 10er-Schritte).",
   ["The windows stay movable by dragging, but the X/Y fields are not drawn."] =
     "Die Fenster lassen sich weiter mit der Maus verschieben, die Felder für X und Y werden aber nicht angezeigt.",
@@ -270,7 +270,7 @@ local STRINGS = {
     "Aus welchen Erweiterungen Token verkauft werden dürfen. Die vier neuesten sind standardmäßig ausgenommen. Erweiterungen ohne Token stehen nicht in der Liste.",
   ["Skip gear that is not bound yet, so it can go to the auction house."] =
     "Überspringt noch nicht gebundene Ausrüstung, damit sie ins Auktionshaus kann.",
-  ["Skip warbound gear — an alt can still use it."] =
+  ["Skip warbound gear, since an alt can still use it."] =
     "Überspringt kriegsmeutengebundene Ausrüstung: ein anderer Charakter kann sie noch tragen.",
   ["Skip any piece with a gem socketed or an enchant applied."] =
     "Überspringt jedes Teil mit eingesetztem Edelstein oder aufgetragener Verzauberung.",

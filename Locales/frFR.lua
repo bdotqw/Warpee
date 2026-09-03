@@ -125,7 +125,7 @@ local STRINGS = {
     "Utilisée pour tous les textes affichés par Warpee. D'autres addons peuvent enrichir cette liste.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Langue des textes de l'addon. Les noms d'objets viennent toujours du jeu.",
-  ["Freeze the windows in place. Unlocked, each shows X/Y fields along its bottom edge — type a value or nudge with the arrows (Shift = 10)."] =
+  ["Freeze the windows in place. Unlocked, each shows X/Y fields along its bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
     "Fige les fenêtres à leur place. Déverrouillées, chacune affiche des champs X et Y sur son bord inférieur : saisissez une valeur ou ajustez avec les flèches (Maj = 10).",
   ["The windows stay movable by dragging, but the X/Y fields are not drawn."] =
     "Les fenêtres restent déplaçables à la souris, mais les champs X et Y ne sont plus affichés.",
@@ -281,7 +281,7 @@ local STRINGS = {
     "Les extensions dont les jetons peuvent être vendus. Les quatre plus récentes sont conservées par défaut. Les extensions sans jetons ne figurent pas dans la liste.",
   ["Skip gear that is not bound yet, so it can go to the auction house."] =
     "Ignore l'équipement pas encore lié, pour pouvoir le vendre à l'hôtel des ventes.",
-  ["Skip warbound gear — an alt can still use it."] =
+  ["Skip warbound gear, since an alt can still use it."] =
     "Ignore l'équipement lié au bataillon : un autre personnage peut encore le porter.",
   ["Skip any piece with a gem socketed or an enchant applied."] =
     "Ignore toute pièce avec une gemme sertie ou un enchantement appliqué.",
