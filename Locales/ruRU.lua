@@ -82,10 +82,9 @@ local STRINGS = {
   ["Icon scale"] = "Размер значка",
   ["Which corner of the slot the badge is pinned to."] =
     "К какому углу ячейки прижат значок.",
-  ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Clicking a name selects that badge and brings it back if it was hidden. Right-click a name to show or hide it."] =
-    "Перетаскивай значок внутри ячейки, чтобы поставить его на место, и вытащи за пределы ячейки, чтобы убрать. Щелчок по названию выбирает значок и возвращает его, если он был скрыт. Правый щелчок показывает или скрывает значок.",
+  ["Drag a badge around the cell, or click where you want it. Click a name to show and pick that badge, right-click a name to hide it."] =
+    "Тащи значок по клетке или щёлкни там, где он должен стоять. Щелчок по названию показывает и выбирает значок, правый щелчок скрывает его.",
   ["Show only the selected badge"] = "Показывать только выбранный значок",
-  ["Release to hide"] = "Отпусти, чтобы скрыть",
   ["The item level of gear, and the level of a keystone."] =
     "Уровень предмета у снаряжения и уровень ключа подземелья.",
   ["How many items the stack holds."] = "Сколько предметов в стопке.",

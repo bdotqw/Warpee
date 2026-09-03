@@ -119,10 +119,10 @@ local function fontKeys()
   return ns.Fonts:List()
 end
 
-local function tip(frame, text)
+local function tip(frame, text, side)
   if not text then return end
   if frame.EnableMouse then frame:EnableMouse(true) end
-  ns.AddTip(frame, function() return T(text) end, "right")
+  ns.AddTip(frame, function() return T(text) end, side or "right")
 end
 
 local fonts = {}
@@ -1022,12 +1022,12 @@ function factories.badges(parent, spec)
     c.Text:SetTextColor(Theme:C((not on) and "faint" or (sel and "accentInk" or "text")))
   end
 
-  local function paint(warn)
+  local function paint()
     local f, solo = factor(), bg.soloGet()
     cell:SetBackdropColor(Theme:C("panel"))
     cell:SetBackdropBorderColor(Theme:C("stroke"))
     mark:SetBackdropColor(0, 0, 0, 0)
-    mark:SetBackdropBorderColor(Theme:C(warn and "gaugeHi" or "accent"))
+    mark:SetBackdropBorderColor(Theme:C("accent"))
     for _, d in ipairs(ns.BADGES) do
       local g, o, sel = ns.Badge(d.key), art[d.key], d.key == bg.sel
       local vis = (g.on and (sel or not solo)) and true or false
@@ -1061,14 +1061,9 @@ function factories.badges(parent, spec)
       end
     end
     local g = bg.cur()
-    if warn then
-      readout:SetText(T("Release to hide"))
-      readout:SetTextColor(Theme:C("gaugeHi"))
-    else
-      readout:SetText(("%s     x %d     y %d")
-        :format(T(ANCHOR_LABELS[g.c] or g.c), g.x or 0, g.y or 0))
-      readout:SetTextColor(Theme:C("accentInk"))
-    end
+    readout:SetText(("%s     x %d     y %d")
+      :format(T(ANCHOR_LABELS[g.c] or g.c), g.x or 0, g.y or 0))
+    readout:SetTextColor(Theme:C("accentInk"))
     for _, c in ipairs(chips) do paintChip(c) end
   end
 
@@ -1096,16 +1091,14 @@ function factories.badges(parent, spec)
     c:SetScript("OnClick", function(s, button)
       local g = ns.Badge(s.wpeKey)
       if button == "RightButton" then
-        g.on = not g.on
-        bg.bump()
-      elseif not g.on then
-        g.on = true
-        bg.bump()
+        if g.on then g.on = false; bg.bump() end
+      else
+        if not g.on then g.on = true; bg.bump() end
+        bg.sel = s.wpeKey
       end
-      bg.sel = s.wpeKey
       Options:ReflowPages()
     end)
-    tip(c, d.t)
+    tip(c, d.t, "top")
     chips[#chips + 1] = c
   end
 
@@ -1127,15 +1120,10 @@ function factories.badges(parent, spec)
     g.y = bg.clamp(((vert == "BOTTOM") and d or (d + h - H)) / f)
   end
 
-  local function outside(px, py)
-    return px < 0 or py < 0 or px > cell:GetWidth() or py > cell:GetHeight()
-  end
-
   local grab
   local function stop()
     grab = nil
     cell:SetScript("OnUpdate", nil)
-    if outside(cursorXY()) then bg.cur().on = false end
     bg.bump()
     Options:ReflowPages()
   end
@@ -1175,9 +1163,8 @@ function factories.badges(parent, spec)
     s:SetScript("OnUpdate", function()
       if not (grab and IsMouseButtonDown("LeftButton")) then stop(); return end
       local x, y = cursorXY()
-      local out = outside(x, y)
-      if not out then place(x + grab.dx, y + grab.dy) end
-      paint(out)
+      place(x + grab.dx, y + grab.dy)
+      paint()
     end)
   end)
 
@@ -1482,7 +1469,7 @@ local ITEMS_PAGE = {
       return ("%s, %d/%d"):format(T(bg.label(bg.sel)), bg.shown(), #ns.BADGES)
     end },
   { type = "badges", section = "badges",
-    desc = "Drag a badge inside the cell to place it, drag it out of the cell to hide it. Clicking a name selects that badge and brings it back if it was hidden. Right-click a name to show or hide it." },
+    desc = "Drag a badge around the cell, or click where you want it. Click a name to show and pick that badge, right-click a name to hide it." },
   { type = "toggle", name = "Show only the selected badge", col = 1, section = "badges",
     get = bg.soloGet, set = bg.soloSet,
     desc = "In the cell above, draw only the badge you are moving." },

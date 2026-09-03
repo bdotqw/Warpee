@@ -79,10 +79,9 @@ local STRINGS = {
   ["Icon scale"] = "Tamaño del icono",
   ["Which corner of the slot the badge is pinned to."] =
     "En qué esquina del espacio se ancla el distintivo.",
-  ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Clicking a name selects that badge and brings it back if it was hidden. Right-click a name to show or hide it."] =
-    "Arrastra un distintivo dentro de la casilla para colocarlo y fuera de la casilla para ocultarlo. Un clic en un nombre selecciona ese distintivo y lo devuelve si estaba oculto. Clic derecho para mostrarlo u ocultarlo.",
+  ["Drag a badge around the cell, or click where you want it. Click a name to show and pick that badge, right-click a name to hide it."] =
+    "Arrastra un distintivo por la casilla o haz clic donde lo quieras. Un clic en un nombre muestra y elige ese distintivo, un clic derecho lo oculta.",
   ["Show only the selected badge"] = "Mostrar solo el distintivo elegido",
-  ["Release to hide"] = "Suelta para ocultar",
   ["The item level of gear, and the level of a keystone."] =
     "El nivel de objeto del equipo y el nivel de una piedra angular.",
   ["How many items the stack holds."] = "Cuántos objetos hay en el montón.",
