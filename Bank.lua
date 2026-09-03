@@ -67,6 +67,10 @@ local function moneyTransfer(bankType)
   return bankType == (Enum and Enum.BankType and Enum.BankType.Account)
 end
 
+-- Never touch BankFrame.BankPanel from here or anywhere else. The game reads
+-- BankFrame on every right click of a bag slot, so writing the panel's fields or
+-- showing it from addon code kills using items everywhere for the rest of the
+-- session. Deposits follow whatever bank type the game itself has active.
 function ns.DepositBlocked(b)
   local bt = ns.Bank.depositType
   local m = bt and b and b.meta
@@ -179,6 +183,9 @@ function View:Build()
     ns.RefreshBagDim()
     if self.bankerOpen and not self.closing then
       self.closing = true
+      -- An OnHide can run inside the game's own protected close chain, and closing
+      -- the bank from there leaves taint that blocks using items from every
+      -- container. The timer puts the call back in plain addon context.
       C_Timer.After(0, function()
         if C_Bank and C_Bank.CloseBankFrame then
           pcall(C_Bank.CloseBankFrame)

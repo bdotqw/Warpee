@@ -277,6 +277,19 @@ function ns.SetSlotHighlight(b, on)
   b.hl:SetColorTexture(a[1], a[2], a[3], 0.30); b.hl:Show()
 end
 
+-- The right click that uses an item runs in the game's own secure handler on
+-- ContainerFrameItemButtonTemplate. That handler reads state off the button and
+-- calls a protected function at the end, so one tainted read anywhere on its path
+-- turns every later use into ADDON_ACTION_FORBIDDEN until the ui is reloaded, for
+-- every container, not just the slot that was clicked. Never do any of this to a
+-- button made from that template:
+--   create it while InCombatLockdown() is true. Warm a pool out of combat instead.
+--   SetScript any handler on it, or on its Cooldown child. HookScript only.
+--   write a field the game's own item button owns: bagID, slotID, count, icon,
+--     IconOverlay, IconOverlay2, SplitStack, or a mixin method. Use wpe* names.
+--   call SetBagID. The holder's SetID carries the bag id, GetBagID falls back to it.
+-- Safe in and out of combat: SetID on the button and on the holder, RegisterForClicks,
+-- RegisterForDrag, hooksecurefunc on child regions and animations, new wpe* fields.
 local btnCount = 0
 function ns.CreateItemButton(parent, bagID, slotIndex)
   btnCount = btnCount + 1
@@ -522,6 +535,8 @@ local function cdFont(b)
   ns.SetOutlined(b.cdText, ns.Badge("count").s)
 end
 
+-- One ticker for every slot, because a script on the game's Cooldown frame would
+-- put addon code on an object the secure click path also touches.
 local ticking = setmetatable({}, { __mode = "k" })
 local ticker = CreateFrame("Frame")
 ticker:Hide()
