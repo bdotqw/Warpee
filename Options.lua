@@ -1465,7 +1465,7 @@ local GENERAL_PAGE = {
     desc = "Language for the addon's own text. Item names always come from the game." },
   { type = "header", name = "Windows" },
   { type = "toggle", name = "Lock windows", col = 1, get = lockGet, set = lockSet,
-    desc = "Freeze the windows in place. Unlocked, each shows X/Y fields along its bottom edge — type a value or nudge with the arrows (Shift = 10)." },
+    desc = "Freeze the windows in place. Unlocked, each shows X/Y fields along its bottom edge. Type a value, or nudge with the arrows (Shift = 10)." },
   { type = "toggle", name = "Hide X/Y fields", col = 2, get = hideFieldsGet, set = hideFieldsSet,
     disabled = function() return lockGet() end,
     desc = "The windows stay movable by dragging, but the X/Y fields are not drawn." },
@@ -1759,7 +1759,7 @@ local VENDOR_PAGE = {
   { type = "toggle", name = "Keep BoE", col = 1, get = V.boeGet, set = V.boeSet,
     desc = "Skip gear that is not bound yet, so it can go to the auction house." },
   { type = "toggle", name = "Keep warbound", col = 2, get = V.wbGet, set = V.wbSet,
-    desc = "Skip warbound gear — an alt can still use it." },
+    desc = "Skip warbound gear, since an alt can still use it." },
   { type = "toggle", name = "Keep gems and enchants", col = 1, get = V.gemGet, set = V.gemSet,
     desc = "Skip any piece with a gem socketed or an enchant applied." },
 }

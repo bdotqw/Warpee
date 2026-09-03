@@ -125,7 +125,7 @@ local STRINGS = {
     "Используется для всех надписей Warpee. Другие аддоны могут добавлять шрифты в этот список.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Язык текста самого аддона. Названия предметов всегда берутся из игры.",
-  ["Freeze the windows in place. Unlocked, each shows X/Y fields along its bottom edge — type a value or nudge with the arrows (Shift = 10)."] =
+  ["Freeze the windows in place. Unlocked, each shows X/Y fields along its bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
     "Закрепляет окна на месте. Если отметку снять, у каждого окна снизу появятся поля X и Y: значение можно ввести вручную или менять стрелками (Shift — шаг 10).",
   ["The windows stay movable by dragging, but the X/Y fields are not drawn."] =
     "Окна по-прежнему можно перетаскивать мышью, но поля X и Y не показываются.",
@@ -281,7 +281,7 @@ local STRINGS = {
     "Из каких дополнений можно продавать токены. Четыре последних по умолчанию не продаются. Дополнения, где токенов не было, в списке не показаны.",
   ["Skip gear that is not bound yet, so it can go to the auction house."] =
     "Пропускать ещё не привязанное снаряжение, чтобы его можно было продать на аукционе.",
-  ["Skip warbound gear — an alt can still use it."] =
+  ["Skip warbound gear, since an alt can still use it."] =
     "Пропускать снаряжение, привязанное к отряду: его ещё может надеть другой персонаж.",
   ["Skip any piece with a gem socketed or an enchant applied."] =
     "Пропускать вещи со вставленным камнем или наложенными чарами.",
