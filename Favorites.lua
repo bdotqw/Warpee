@@ -134,6 +134,11 @@ local function tipFor(c, index)
   GameTooltip:Show()
 end
 
+-- The overlay owns the left button for good and passes the right button down to the
+-- slot, so a right click reaches the game's handler with no addon code in the path.
+-- SetPassThroughButtons is refused during combat lockdown, so it is set here, once,
+-- and never touched again. That is why clearing a slot lives on Ctrl + left click:
+-- taking the right button back would mean calling it again mid fight.
 local function makeCatcher(parent, index)
   local c = CreateFrame("Button", nil, parent)
   c.favIndex = index
@@ -257,6 +262,9 @@ function Fav:Hide()
   end
 end
 
+-- Everything the row needs is built here, out of combat, and a redraw only moves
+-- frames after that. A slot button made during a fight is tainted for good, and the
+-- overlay cannot be configured then either.
 function Fav:Warm()
   local bags = ns.Bags
   local frame = bags and bags.frame

@@ -68,6 +68,9 @@ local BAG_FN = {
   sync  = { "ToggleBackpack", "ToggleBag", "ToggleAllBags" },
 }
 
+-- Hook the game's bag functions, never assign over them. A replaced global is a
+-- tainted closure the game then calls itself, and the addon must not own any global
+-- but its own saved variable and its slash commands.
 local function hookList(names, fn)
   for _, n in ipairs(names) do
     if type(_G[n]) == "function" then hooksecurefunc(n, fn) end
@@ -291,6 +294,9 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if ns.Bank then ns.Bank:HideBlizzard() end
     if ns.ApplyMinimapIcon then ns.ApplyMinimapIcon() end
     if C_CVar and C_CVar.SetCVarBitfield then
+      -- The mount equipment tutorial hooks the container slot template, and the taint
+      -- it leaves is reported against whichever bag addon is loaded. Closing both
+      -- tutorials keeps that off us, and the reagent bag one points at a ui we replace.
       if LE_FRAME_TUTORIAL_MOUNT_EQUIPMENT_SLOT_FRAME then
         pcall(C_CVar.SetCVarBitfield, "closedInfoFrames", LE_FRAME_TUTORIAL_MOUNT_EQUIPMENT_SLOT_FRAME, true)
       end
