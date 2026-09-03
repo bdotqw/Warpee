@@ -179,12 +179,14 @@ function View:Build()
     ns.RefreshBagDim()
     if self.bankerOpen and not self.closing then
       self.closing = true
-      if C_Bank and C_Bank.CloseBankFrame then
-        pcall(C_Bank.CloseBankFrame)
-      elseif CloseBankFrame then
-        pcall(CloseBankFrame)
-      end
-      self.closing = nil
+      C_Timer.After(0, function()
+        if C_Bank and C_Bank.CloseBankFrame then
+          pcall(C_Bank.CloseBankFrame)
+        elseif CloseBankFrame then
+          pcall(CloseBankFrame)
+        end
+        self.closing = nil
+      end)
     end
   end)
   self.frame = f
