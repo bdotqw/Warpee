@@ -1,6 +1,9 @@
 local addonName, ns = ...
 local Theme = ns.Theme
 
+ns.CLICKS_SLOT = { "LeftButtonUp", "RightButtonUp" }
+ns.CLICKS_USE = { "RightButtonUp" }
+
 local SLOT_STYLES = {
   flat  = function() return 0, 0, 0, 0 end,
   plate = function() return Theme:C("panelHi") end,
@@ -190,6 +193,7 @@ local function clearOverlays(b)
   if b.outfit then b.outfit:SetText("") end
   if b.junk then b.junk:Hide() end
   if b.blocked then b.blocked:Hide() end
+  b.wpeLocked = nil
 end
 local muted = setmetatable({}, { __mode = "k" })
 
@@ -311,7 +315,9 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
     b.cdText:SetPoint("CENTER")
     b.cdText:SetTextColor(Theme:C("text"))
   end
-  b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  b:RegisterForClicks(unpack(ns.CLICKS_SLOT))
+  b.wpeClicks = ns.CLICKS_SLOT
+  b.wpeLockable = true
   b:RegisterForDrag("LeftButton")
   return b
 end
@@ -373,10 +379,10 @@ local BADGES = {
     t = "The name of the equipment set the item belongs to, cut to a few letters." },
   { key = "junk",    n = "Junk coin",   tex = true,
     c = "TOPLEFT",  x =  1, y = -1, s = 0.42, m = 8,
-    t = "A coin on poor quality items, the ones the vendor takes." },
+    t = "A coin on poor quality items, the gray junk a merchant buys." },
   { key = "blocked", n = "Vendor lock", tex = true,
     c = "TOPRIGHT", x = -1, y = -1, s = 0.60, m = 12,
-    t = "A padlock on the items you locked, which the vendor never sells." },
+    t = "A padlock on the items you locked with Alt-click, which the vendor never sells." },
 }
 local BADGE = {}
 for _, d in ipairs(BADGES) do BADGE[d.key] = d end
@@ -696,8 +702,29 @@ function ns.MarkJunk(b, quality)
   b.junk:Show()
 end
 
+local function lockClicks(b, locked)
+  if not ns.IsPlayerBag(b.wpeBagID) then return end
+  local V = ns.Vendor
+  local block = (locked and V and V:IsOpen()) and true or false
+  if b.wpeNoSell == block then return end
+  b.wpeNoSell = block
+  local list = b.wpeClicks or ns.CLICKS_SLOT
+  if not block then b:RegisterForClicks(unpack(list)); return end
+  local keep, n = {}, 0
+  for _, c in ipairs(list) do
+    if c:find("Left", 1, true) then n = n + 1; keep[n] = c end
+  end
+  b:RegisterForClicks(unpack(keep, 1, n))
+end
+
+function ns.LockClicks(b)
+  if b then lockClicks(b, b.wpeLocked) end
+end
+
 function ns.MarkBlocked(b, itemID)
   local on = (itemID and ns.Vendor and ns.Vendor:Blocked(itemID)) and true or false
+  b.wpeLocked = on or nil
+  lockClicks(b, on)
   if not (on and ns.Badge("blocked").on) then
     if b.blocked then b.blocked:Hide() end
     return
