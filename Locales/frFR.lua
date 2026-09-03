@@ -348,6 +348,7 @@ local STRINGS = {
   ["Drag an item here to keep it one click away"] =
     "Glissez un objet ici pour l'avoir à portée de clic",
   ["Ctrl + right click clears the slot"] = "Ctrl + clic droit libère l'emplacement",
+  ["Ctrl + drag moves it to another slot"] = "Ctrl + glisser le déplace vers un autre emplacement",
   ["No gold recorded yet"] = "Aucun or enregistré pour l'instant",
   ["Delete mode"] = "Mode suppression",
   ["Alt-click an item in your bags while this tab is open."] =

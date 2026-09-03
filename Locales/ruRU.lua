@@ -346,6 +346,7 @@ local STRINGS = {
   ["Drag an item here to keep it one click away"] =
     "Перетащите сюда предмет, чтобы использовать его в один клик",
   ["Ctrl + right click clears the slot"] = "Ctrl + ПКМ освобождает ячейку",
+  ["Ctrl + drag moves it to another slot"] = "Ctrl + перетаскивание переносит в другую ячейку",
   ["No gold recorded yet"] = "Данных о золоте пока нет",
   ["Delete mode"] = "Режим удаления",
   ["Alt-click an item in your bags while this tab is open."] =
