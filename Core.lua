@@ -258,7 +258,6 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if ns.IsPlayerBag(a1) then Bags.dirty[a1] = true end
     if ns.Bank and ns.IsBankContainer and ns.IsBankContainer(a1) then ns.Bank:QueueRefresh(a1) end
   elseif event == "BAG_UPDATE_DELAYED" then
-    ns.Sets:Dirty()
     if Bags.sorting then Bags:SortSettle() else Bags:UpdateDirty() end
   elseif event == "BAG_UPDATE_COOLDOWN" then
     Bags:RefreshCooldowns()

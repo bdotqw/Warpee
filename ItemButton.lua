@@ -365,7 +365,7 @@ local BADGES = {
   { key = "ilvl",   n = "Item level",  p = "447",  c = "BOTTOMRIGHT", x = 0, y = 2, s = 14 },
   { key = "count",  n = "Stack count", p = "20",   c = "BOTTOMRIGHT", x = 0, y = 2, s = 14 },
   { key = "bind",   n = "Binding",     p = "BoE",  c = "TOPLEFT",    x = 2, y = -2, s = 12 },
-  { key = "outfit", n = "Outfit",      p = "Myth", c = "BOTTOMLEFT", x = 2, y =  2, s = 11,
+  { key = "outfit", n = "Gear set",    p = "Myth", c = "BOTTOMLEFT", x = 2, y =  2, s = 11,
     k = 4 },
   { key = "junk",    n = "Junk coin",   tex = true,
     c = "TOPLEFT",  x =  1, y = -1, s = 0.42, m = 8 },
@@ -650,30 +650,23 @@ function Sets:Map()
   local m = self.map
   for k in pairs(m) do m[k] = nil end
   local E = C_EquipmentSet
-  if not (E and E.GetEquipmentSetIDs and E.GetItemLocations
-          and EquipmentManager_UnpackLocation) then return m end
+  if not (E and E.GetEquipmentSetIDs and E.GetItemIDs) then return m end
   for _, id in ipairs(E.GetEquipmentSetIDs()) do
     local name = E.GetEquipmentSetInfo(id)
-    local locs = name and E.GetItemLocations(id)
-    if locs then
-      for _, packed in pairs(locs) do
-        if type(packed) == "number" and packed > 1 then
-          local _, _, bags, _, slot, bag = EquipmentManager_UnpackLocation(packed)
-          if bags and bag and slot then
-            local key = bag .. ":" .. slot
-            if not m[key] then m[key] = name end
-          end
-        end
+    local ids = name and E.GetItemIDs(id)
+    if ids then
+      for _, itemID in pairs(ids) do
+        if type(itemID) == "number" and itemID > 1 and not m[itemID] then m[itemID] = name end
       end
     end
   end
   return m
 end
 
-function ns.OutfitLabel(bagID, slot)
+function ns.OutfitLabel(itemID)
   local g = ns.Badge("outfit")
-  if not (g.on and bagID and slot) then return nil end
-  local name = Sets:Map()[bagID .. ":" .. slot]
+  if not (g.on and itemID) then return nil end
+  local name = Sets:Map()[itemID]
   if not name then return nil end
   return abbrev(name, g.k or 4)
 end
@@ -841,7 +834,7 @@ function ns.UpdateItemButton(b)
                 and C_Item.DoesItemExist(loc)
                 and C_Item.IsBoundToAccountUntilEquip(loc) or false
     ns.MarkBind(b, ns.BindLabel(hl, iItemID, info.isBound, wue), info.quality)
-    ns.MarkOutfit(b, ns.OutfitLabel(bagID, slot))
+    ns.MarkOutfit(b, ns.OutfitLabel(iItemID))
     local il = isGear and gearIlvl or nil
     if isGear and not il then
       il = C_Item.DoesItemExist(loc) and C_Item.GetCurrentItemLevel(loc) or nil
