@@ -1015,12 +1015,15 @@ function factories.badges(parent, spec)
   local row = CreateFrame("Frame", nil, parent)
   row.dynamic = true
 
-  local cell = CreateFrame("Frame", nil, row, "BackdropTemplate")
-  ns.SnapBox(cell, PREV, PREV)
-  ns.PixelBackdrop(cell)
+  local stage = CreateFrame("Frame", nil, row, "BackdropTemplate")
+  ns.SnapBox(stage, PREV, PREV)
+  ns.PixelBackdrop(stage)
+
+  local cell = CreateFrame("Frame", nil, stage)
+  cell:SetPoint("TOPLEFT")
   cell:EnableMouse(true)
 
-  local mark = CreateFrame("Frame", nil, cell, "BackdropTemplate")
+  local mark = CreateFrame("Frame", nil, stage, "BackdropTemplate")
   ns.PixelBackdrop(mark)
   mark:SetFrameLevel(cell:GetFrameLevel() + 1)
   mark:Hide()
@@ -1033,30 +1036,42 @@ function factories.badges(parent, spec)
     if d.tex then
       local t = cell:CreateTexture(nil, "OVERLAY")
       ns.BadgeArt(t, d.key)
-      art[d.key] = t
+      art[d.key], cell[d.key] = t, t
     else
-      art[d.key] = Theme:Label(cell, BASE_FONT, "overlay")
+      local fs = Theme:Label(cell, BASE_FONT, "overlay")
+      fs:SetText(d.p or d.key)
+      art[d.key] = fs
+      if d.key == "count" then cell.Count = fs else cell[d.key] = fs end
     end
   end
 
-  local function factor() return PREV / (Bags.iconSize or 40) end
+  local cellSide
+  local function fitCell()
+    local s = math.max(8, Bags.iconSize or 37)
+    if cellSide == s then return s end
+    cellSide = s
+    cell:SetScale(PREV / s)
+    ns.SnapBox(cell, s, s)
+    return s
+  end
+  fitCell()
+
+  local function slack(n) return n * (cellSide or 40) / PREV end
 
   local function measure(key)
-    local d = ns.BADGE[key] or ns.BADGES[1]
-    if d.tex then
-      local sz = math.max(6, PREV * (ns.Badge(key).s or d.s))
-      return sz, sz
-    end
     local o = art[key]
+    if not o then return 0, 0 end
+    if (ns.BADGE[key] or ns.BADGES[1]).tex then
+      local w = o:GetWidth() or 0
+      return w, w
+    end
     return o:GetStringWidth() or 0, o:GetStringHeight() or 0
   end
 
   local function span(key)
-    local f = factor()
-    if f <= 0 then f = 1 end
+    fitCell()
     local w, h = measure(key or bg.sel)
-    return w / f, h / f,
-           (cell:GetWidth() or 0) / f, (cell:GetHeight() or 0) / f
+    return w, h, cell:GetWidth() or 0, cell:GetHeight() or 0
   end
 
   bg.fit = function(field, v, key)
@@ -1084,36 +1099,34 @@ function factories.badges(parent, spec)
   end
 
   local function paint()
-    local f, solo = factor(), bg.soloGet()
-    cell:SetBackdropColor(Theme:C("panel"))
-    cell:SetBackdropBorderColor(Theme:C("stroke"))
+    local solo = bg.soloGet()
+    local z = PREV / fitCell()
+    stage:SetBackdropColor(Theme:C("panel"))
+    stage:SetBackdropBorderColor(Theme:C("stroke"))
     mark:SetBackdropColor(0, 0, 0, 0)
     mark:SetBackdropBorderColor(Theme:C("accent"))
     for _, d in ipairs(ns.BADGES) do
       local g, o, sel = ns.Badge(d.key), art[d.key], d.key == bg.sel
       local vis = (g.on and (sel or not solo)) and true or false
       local dim = sel and 1 or 0.35
+      ns.ApplyBadge(cell, d.key)
       if d.tex then
-        local sz = measure(d.key)
-        o:SetSize(sz, sz)
         o:SetVertexColor(1, 1, 1, dim)
       else
         local cr, cg, cb = Theme:C("overlay")
-        ns.SetOutlined(o, math.max(6, math.floor((g.s or d.s) * f + 0.5)))
         o:SetText(d.p or d.key)
         o:SetTextColor(cr, cg, cb, dim)
       end
       o:SetDrawLayer("OVERLAY", sel and 7 or 5)
-      o:ClearAllPoints()
-      o:SetPoint(g.c, cell, g.c, (g.x or 0) * f, (g.y or 0) * f)
       o:SetShown(vis)
       if sel then
         local cl, ct = cell:GetLeft(), cell:GetTop()
         local ol, ot = o:GetLeft(), o:GetTop()
         mark:ClearAllPoints()
         if cl and ct and ol and ot then
-          ns.SnapSize(mark, (o:GetWidth() or 0) + 6, (o:GetHeight() or 0) + 6)
-          ns.SnapPoint(mark, "TOPLEFT", cell, "TOPLEFT", ol - cl - 3, ot - ct + 3)
+          ns.SnapSize(mark, (o:GetWidth() or 0) * z + 6, (o:GetHeight() or 0) * z + 6)
+          ns.SnapPoint(mark, "TOPLEFT", stage, "TOPLEFT",
+            (ol - cl) * z - 3, (ot - ct) * z + 3)
         else
           mark:SetPoint("TOPLEFT", o, "TOPLEFT", -3, 3)
           mark:SetPoint("BOTTOMRIGHT", o, "BOTTOMRIGHT", 3, -3)
@@ -1169,7 +1182,7 @@ function factories.badges(parent, spec)
   end
 
   local function place(px, py)
-    local g, f = bg.cur(), factor()
+    local g = bg.cur()
     local w, h = measure(bg.sel)
     local W, H = cell:GetWidth(), cell:GetHeight()
     px = math.min(W, math.max(0, px))
@@ -1178,8 +1191,8 @@ function factories.badges(parent, spec)
     local horiz = (px < W / 2) and "LEFT" or "RIGHT"
     local vert  = (py < H / 2) and "BOTTOM" or "TOP"
     g.c = vert .. horiz
-    g.x = bg.pin("x", ((horiz == "LEFT") and l or (l + w - W)) / f)
-    g.y = bg.pin("y", ((vert == "BOTTOM") and d or (d + h - H)) / f)
+    g.x = bg.pin("x", (horiz == "LEFT") and l or (l + w - W))
+    g.y = bg.pin("y", (vert == "BOTTOM") and d or (d + h - H))
   end
 
   local grab
@@ -1191,14 +1204,14 @@ function factories.badges(parent, spec)
   end
 
   local function hit(px, py)
-    local first
+    local first, pad = nil, slack(3)
     for _, d in ipairs(ns.BADGES) do
       local o = art[d.key]
       if ns.Badge(d.key).on and o:IsShown() then
         local l = (o:GetLeft() or 0) - (cell:GetLeft() or 0)
         local b = (o:GetBottom() or 0) - (cell:GetBottom() or 0)
-        if px >= l - 3 and px <= l + (o:GetWidth() or 0) + 3
-           and py >= b - 3 and py <= b + (o:GetHeight() or 0) + 3 then
+        if px >= l - pad and px <= l + (o:GetWidth() or 0) + pad
+           and py >= b - pad and py <= b + (o:GetHeight() or 0) + pad then
           if d.key == bg.sel then return d.key end
           first = first or d.key
         end
@@ -1220,7 +1233,8 @@ function factories.badges(parent, spec)
     local w, h = o:GetWidth() or 0, o:GetHeight() or 0
     local ox = (o:GetLeft() or 0) + w / 2 - (cell:GetLeft() or 0)
     local oy = (o:GetBottom() or 0) + h / 2 - (cell:GetBottom() or 0)
-    local held = math.abs(px - ox) <= w / 2 + 4 and math.abs(py - oy) <= h / 2 + 4
+    local edge = slack(4)
+    local held = math.abs(px - ox) <= w / 2 + edge and math.abs(py - oy) <= h / 2 + edge
     grab = { dx = held and (ox - px) or 0, dy = held and (oy - py) or 0 }
     s:SetScript("OnUpdate", function()
       if not (grab and IsMouseButtonDown("LeftButton")) then stop(); return end
@@ -1232,8 +1246,8 @@ function factories.badges(parent, spec)
 
   row.Refresh = function()
     local h = layoutChips()
-    cell:ClearAllPoints()
-    ns.SnapPoint(cell, "TOPLEFT", row, "TOPLEFT",
+    stage:ClearAllPoints()
+    ns.SnapPoint(stage, "TOPLEFT", row, "TOPLEFT",
       math.floor((CONTENT_W - PREV) / 2), -(h + 16))
     readout:ClearAllPoints()
     readout:SetPoint("LEFT", row, "TOPLEFT", 2, -(h + 16 + PREV / 2))
