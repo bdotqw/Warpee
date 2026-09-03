@@ -1180,7 +1180,8 @@ function factories.badges(parent, spec)
   row.Refresh = function()
     local h = layoutChips()
     cell:ClearAllPoints()
-    cell:SetPoint("TOP", row, "TOP", 0, -(h + 6))
+    ns.SnapPoint(cell, "TOPLEFT", row, "TOPLEFT",
+      math.floor((CONTENT_W - PREV) / 2), -(h + 6))
     paint()
     row:SetHeight(h + PREV + 32)
   end
