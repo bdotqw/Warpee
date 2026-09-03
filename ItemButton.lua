@@ -317,6 +317,7 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
   end
   b:RegisterForClicks(unpack(ns.CLICKS_SLOT))
   b.wpeClicks = ns.CLICKS_SLOT
+  b.wpeNoSell = false
   b.wpeLockable = true
   b:RegisterForDrag("LeftButton")
   return b
@@ -706,7 +707,7 @@ local function lockClicks(b, locked)
   if not ns.IsPlayerBag(b.wpeBagID) then return end
   local V = ns.Vendor
   local block = (locked and V and V:IsOpen()) and true or false
-  if b.wpeNoSell == block then return end
+  if b.wpeNoSell == block or InCombatLockdown() then return end
   b.wpeNoSell = block
   local list = b.wpeClicks or ns.CLICKS_SLOT
   if not block then b:RegisterForClicks(unpack(list)); return end
