@@ -74,9 +74,9 @@ local STRINGS = {
   ["Item level"] = "Niveau d'objet",
   ["Stack count"] = "Taille de pile",
   ["Binding"] = "Liaison",
-  ["Outfit"] = "Ensemble",
+  ["Gear set"] = "Ensemble d'équipement",
   ["Letters"] = "Lettres",
-  ["How many letters of the outfit name to show."] =
+  ["How many letters of the set name to show."] =
     "Combien de lettres du nom de l'ensemble sont affichées.",
   ["Vendor lock"] = "Protection de vente",
   ["Icon scale"] = "Taille de l'icône",
@@ -85,6 +85,7 @@ local STRINGS = {
   ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge."] =
     "Fais glisser un badge dans la case pour le placer, hors de la case pour le masquer. Clic droit sur un nom pour l'afficher ou le masquer.",
   ["Show only the selected badge"] = "Afficher seulement le badge choisi",
+  ["Release to hide"] = "Relâche pour masquer",
   ["In the cell above, draw only the badge you are moving."] =
     "Dans la case ci-dessus, n'afficher que le badge que tu déplaces.",
   ["Locked items"] = "Objets protégés",
