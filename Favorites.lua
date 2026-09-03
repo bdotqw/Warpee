@@ -6,6 +6,7 @@ ns.Fav = Fav
 Fav.slots, Fav.ghosts, Fav.catchers = {}, {}, {}
 
 local LABEL_H, LABEL_GAP = 13, 4
+local MAX_SLOTS = 24
 
 local function charKey()
   local n = UnitName("player") or "?"
@@ -58,7 +59,6 @@ local function itemIcon(id)
   return (GetItemIcon and GetItemIcon(id)) or 134400
 end
 
-local waiting = false
 local deferred = false
 
 local function later()
@@ -221,8 +221,8 @@ function Fav:Cooldowns()
 end
 
 function Fav:Flush()
-  if not waiting or InCombatLockdown() then return end
-  waiting = false
+  if not self.cold or InCombatLockdown() then return end
+  self:Warm()
   self:Refresh()
 end
 
@@ -234,6 +234,24 @@ function Fav:Hide()
     if g then g:Hide() end
     if c then c:Hide() end
   end
+end
+
+function Fav:Warm()
+  local bags = ns.Bags
+  local frame = bags and bags.frame
+  if not frame then return end
+  if InCombatLockdown() then self.cold = true; return end
+  for i = 1, MAX_SLOTS do
+    if not self.slots[i] then
+      local b = ns.CreateItemButton(frame, 0, 1)
+      b:RegisterForClicks(unpack(ns.CLICKS_USE))
+      b:RegisterForDrag()
+      b.wpeClicks, b.wpeLockable = ns.CLICKS_USE, nil
+      b.holder:Hide()
+      self.slots[i] = b
+    end
+  end
+  self.cold, self.warmed = nil, true
 end
 
 function Fav:Refresh()
@@ -264,7 +282,8 @@ function Fav:Apply(bags, x, top, size, gap)
 
   local cols = bags.cols or 14
   local want = self:Count()
-  local n = (want <= 0) and cols or math.min(want, cols)
+  local n = math.min((want <= 0) and cols or math.min(want, cols), MAX_SLOTS)
+  if not self.warmed then self:Warm() end
   local rowY = top + LABEL_H + LABEL_GAP
   local list = self:List()
   local catch = (GetCursorInfo() and true) or IsControlKeyDown()
@@ -282,28 +301,13 @@ function Fav:Apply(bags, x, top, size, gap)
     local bag, slot = locate(id)
     local px = x + (i - 1) * (size + gap)
     local b, g = self.slots[i], self.ghosts[i]
-    if bag and not b then
-      if InCombatLockdown() then
-        waiting = true
-      else
-        b = ns.CreateItemButton(frame, bag, slot)
-        b:RegisterForClicks(unpack(ns.CLICKS_USE))
-        b.wpeClicks, b.wpeLockable = ns.CLICKS_USE, nil
-        b:RegisterForDrag()
-        self.slots[i] = b
-      end
-    end
+    if bag and not b then self.cold = true end
     local live = (bag and b) and true or false
     if live and (b.favBag ~= bag or b.favSlot ~= slot) then
-      if InCombatLockdown() then
-        waiting = true
-        live = false
-      else
-        b.favBag, b.favSlot, b.wpeBagID = bag, slot, bag
-        b.holder:SetID(bag)
-        b:SetID(slot)
-        b.link = nil
-      end
+      b.favBag, b.favSlot, b.wpeBagID = bag, slot, bag
+      b.holder:SetID(bag)
+      b:SetID(slot)
+      b.link = nil
     end
     if live then
       local h = b.holder

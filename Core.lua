@@ -59,7 +59,7 @@ end
 local BAG_FN = {
   open  = { "OpenAllBags", "OpenBackpack", "OpenBag" },
   close = { "CloseAllBags", "CloseBackpack" },
-  sync  = { "ToggleBackpack", "ToggleBag" },
+  sync  = { "ToggleBackpack", "ToggleBag", "ToggleAllBags" },
 }
 
 local function hookList(names, fn)
@@ -69,7 +69,6 @@ local function hookList(names, fn)
 end
 
 local function HookBagToggles()
-  ToggleAllBags = function() ns.Toggle() end
   hideBlizzBags()
   hookList(BAG_FN.open, function() ns.Toggle(true); hideBlizzBags() end)
   hookList(BAG_FN.close, function() ns.Toggle(false) end)
@@ -272,6 +271,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     Bags:Build()
     Bags:RestorePos()
     Bags:Warm()
+    if ns.Fav then ns.Fav:Warm() end
     ns.Theme:ApplyGridAlpha()
     HookBagToggles()
     WarpeeDB.bankCols = WarpeeDB.bankCols or 28
