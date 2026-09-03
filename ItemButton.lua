@@ -305,7 +305,6 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
   local cd = b.Cooldown or _G[nm .. "Cooldown"]
   if cd then
     b.cd = cd
-    cd.wpeOwner = b
     cd:SetHideCountdownNumbers(true)
     cd:SetDrawEdge(true)
     cd:Clear()
@@ -481,8 +480,6 @@ function ns.FitOverlays(b)
   local ic = iconOf(b)
   if not ic then return end
   local nm = b:GetName() or ""
-  b.IconOverlay = b.IconOverlay or _G[nm .. "IconOverlay"]
-  b.IconOverlay2 = b.IconOverlay2 or _G[nm .. "IconOverlay2"]
   fitToIcon(b.IconOverlay or _G[nm .. "IconOverlay"], ic)
   fitToIcon(b.IconOverlay2 or _G[nm .. "IconOverlay2"], ic)
   fitToIcon(questTex(b), ic)
@@ -525,21 +522,33 @@ local function cdFont(b)
   ns.SetOutlined(b.cdText, ns.Badge("count").s)
 end
 
-local function cdOnUpdate(self, elapsed)
-  local b = self.wpeOwner
-  if not (b and b.cdEnd) then self:SetScript("OnUpdate", nil); return end
-  b.cdAcc = (b.cdAcc or 0) + elapsed
-  if b.cdAcc < 0.1 then return end
-  b.cdAcc = 0
-  local remain = b.cdEnd - GetTime()
-  if remain <= 0 then
-    if b.cdText then b.cdText:SetText("") end
-    b.cdEnd = nil
-    self:SetScript("OnUpdate", nil)
-    return
+local ticking = setmetatable({}, { __mode = "k" })
+local ticker = CreateFrame("Frame")
+ticker:Hide()
+ticker:SetScript("OnUpdate", function(self, elapsed)
+  self.acc = (self.acc or 0) + elapsed
+  if self.acc < 0.1 then return end
+  self.acc = 0
+  local live = false
+  for b in pairs(ticking) do
+    local left = (b.cdEnd or 0) - GetTime()
+    if left > 0 then
+      cdFont(b)
+      if b.cdText then b.cdText:SetText(fmtCooldown(left)) end
+      live = true
+    else
+      ticking[b] = nil
+      b.cdEnd = nil
+      if b.cdText then b.cdText:SetText("") end
+    end
   end
-  cdFont(b)
-  if b.cdText then b.cdText:SetText(fmtCooldown(remain)) end
+  if not live then self:Hide() end
+end)
+
+local function tick(b, on)
+  if not on then ticking[b] = nil; return end
+  ticking[b] = true
+  ticker:Show()
 end
 
 function ns.UpdateCooldown(b)
@@ -549,16 +558,23 @@ function ns.UpdateCooldown(b)
   if start and start > 0 and duration and duration > 2 and enable and enable ~= 0 then
     cd:SetCooldown(start, duration)
     b.cdEnd = start + duration
-    b.cdAcc = 0.1
     cdFont(b)
     if b.cdText then b.cdText:SetText(fmtCooldown(b.cdEnd - GetTime())) end
-    cd:SetScript("OnUpdate", cdOnUpdate)
+    tick(b, true)
   else
     cd:Clear()
     b.cdEnd = nil
     if b.cdText then b.cdText:SetText("") end
-    cd:SetScript("OnUpdate", nil)
+    tick(b, false)
   end
+end
+
+function ns.StopCooldown(b)
+  if not b.cd then return end
+  b.cd:Clear()
+  b.cdEnd = nil
+  if b.cdText then b.cdText:SetText("") end
+  tick(b, false)
 end
 
 local LOCK_ATLAS = { "bags-icon-lock", "Garr_LockedBuilding" }
@@ -752,8 +768,8 @@ function ns.UpdateItemButton(b)
   local info = C_Container.GetContainerItemInfo(bagID, slot)
   local link = info and (info.hyperlink or info.iconFileID) or false
   local count = info and info.stackCount or 0
-  if b.link == link and b.count == count then return b.itemName end
-  b.link, b.count = link, count
+  if b.link == link and b.wpeCount == count then return b.itemName end
+  b.link, b.wpeCount = link, count
   if not info then
     SetItemButtonTexture(b, nil)
     SetItemButtonCount(b, 0)
@@ -761,7 +777,7 @@ function ns.UpdateItemButton(b)
     if b.ilvl then b.ilvl:SetText("") end
     clearOverlays(b)
     SetItemButtonQuality(b, nil)
-    if b.cd then b.cd:Clear(); b.cdEnd = nil; if b.cdText then b.cdText:SetText("") end; b.cd:SetScript("OnUpdate", nil) end
+    if b.cd then ns.StopCooldown(b) end
     ns.MarkQuestItem(b)
     ns.MarkNewItem(b, bagID, slot)
     local nt = b:GetNormalTexture()
@@ -903,8 +919,8 @@ end
 function ns.PaintVaultButton(b, d, bagID)
   local link = (d and d.l) or false
   local count = (d and d.c) or 0
-  if b.link == link and b.count == count then return b.itemName end
-  b.link, b.count = link, count
+  if b.link == link and b.wpeCount == count then return b.itemName end
+  b.link, b.wpeCount = link, count
   b.vaultLink = d and d.l or nil
   local q = d and d.q
   local iconID, classID, gear, subID, itemID, equipLoc, iType, iSub

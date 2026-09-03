@@ -275,6 +275,7 @@ local function finish()
 end
 
 local function sendOne(it)
+  if not (open and MerchantFrame and MerchantFrame:IsShown()) then return false end
   local key = ("%d:%d:%d"):format(it.id or 0, it.bag, it.slot)
   local n = run.tries[key] or 0
   if n >= MAX_TRIES then
