@@ -81,6 +81,11 @@ local function attachBorder(b)
   b.ilvl:SetFontObject(ns.Fonts:Object(12, "OUTLINE"))
   b.ilvl:SetPoint("TOPLEFT", 3, -3)
   b.ilvl:SetTextColor(Theme:C("overlay"))
+  b.bind = bf:CreateFontString(nil, "OVERLAY")
+  b.bind:SetDrawLayer("OVERLAY", 6)
+  b.bind:SetFontObject(ns.Fonts:Object(12, "OUTLINE"))
+  b.bind:SetPoint("BOTTOMLEFT", 2, 2)
+  b.bind:SetTextColor(ns.WARBOUND[1], ns.WARBOUND[2], ns.WARBOUND[3])
 end
 
 local function iconOf(b)
@@ -176,6 +181,7 @@ local function clearOverlays(b)
   if b.IconOverlay then b.IconOverlay:Hide() end
   if b.IconOverlay2 then b.IconOverlay2:Hide() end
   if b.ProfessionQualityOverlay then b.ProfessionQualityOverlay:Hide() end
+  if b.bind then b.bind:SetText("") end
   if b.junk then b.junk:Hide() end
   if b.blocked then b.blocked:Hide() end
 end
@@ -352,6 +358,7 @@ end
 local BADGES = {
   { key = "ilvl",  n = "Item level",  p = "447", c = "BOTTOMRIGHT", x = 0, y = 2, s = 14 },
   { key = "count", n = "Stack count", p = "20",  c = "BOTTOMRIGHT", x = 0, y = 2, s = 14 },
+  { key = "bind",  n = "Binding",     p = "BoE", c = "BOTTOMLEFT",  x = 2, y = 2, s = 12 },
   { key = "junk",    n = "Junk coin",   tex = true,
     c = "TOPLEFT",  x =  1, y = -1, s = 0.42, m = 8 },
   { key = "blocked", n = "Vendor lock", tex = true,
@@ -551,6 +558,57 @@ function ns.BadgeArt(t, key)
   end
 end
 
+local BIND_CACHE = {}
+local ACCOUNT_BIND
+
+local function accountBind(bt)
+  if not ACCOUNT_BIND then
+    ACCOUNT_BIND = {}
+    local E = Enum and Enum.ItemBind
+    if E then
+      if E.ToWoWAccount then ACCOUNT_BIND[E.ToWoWAccount] = true end
+      if E.ToBnetAccount then ACCOUNT_BIND[E.ToBnetAccount] = true end
+    end
+  end
+  return bt ~= nil and ACCOUNT_BIND[bt] == true
+end
+
+local function bindType(link, itemID)
+  if not link then return nil end
+  local id = itemID or C_Item.GetItemInfoInstant(link)
+  if not id then return nil end
+  local v = BIND_CACHE[id]
+  if v ~= nil then return v end
+  local bt = select(14, C_Item.GetItemInfo(link))
+  if bt == nil then return nil end
+  BIND_CACHE[id] = bt
+  return bt
+end
+
+function ns.BindLabel(link, itemID, bound, wue)
+  if not ns.Badge("bind").on then return nil end
+  if wue then return "WuE" end
+  local bt = bindType(link, itemID)
+  if accountBind(bt) then return "BoA" end
+  local E = Enum and Enum.ItemBind
+  if not bound and E and E.OnEquip and bt == E.OnEquip then return "BoE" end
+  return nil
+end
+
+function ns.MarkBind(b, label, quality)
+  local fs = b.bind
+  if not fs then return end
+  if not label then fs:SetText(""); return end
+  fs:SetText(label)
+  if label == "BoE" and quality and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality] then
+    local c = ITEM_QUALITY_COLORS[quality]
+    fs:SetTextColor(c.r, c.g, c.b)
+  else
+    local W = ns.WARBOUND
+    fs:SetTextColor(W[1], W[2], W[3])
+  end
+end
+
 function ns.MarkJunk(b, quality)
   if not (ns.Badge("junk").on and quality == 0) then
     if b.junk then b.junk:Hide() end
@@ -706,6 +764,10 @@ function ns.UpdateItemButton(b)
   b.itemName = nm
   if nm then
     local loc = slotLoc(b, bagID, slot)
+    local wue = ns.Badge("bind").on and C_Item.IsBoundToAccountUntilEquip
+                and C_Item.DoesItemExist(loc)
+                and C_Item.IsBoundToAccountUntilEquip(loc) or false
+    ns.MarkBind(b, ns.BindLabel(hl, iItemID, info.isBound, wue), info.quality)
     local il = isGear and gearIlvl or nil
     if isGear and not il then
       il = C_Item.DoesItemExist(loc) and C_Item.GetCurrentItemLevel(loc) or nil
@@ -730,6 +792,7 @@ function ns.UpdateItemButton(b)
     b.meta = m
   else
     b.meta = nil
+    if b.bind then b.bind:SetText("") end
   end
   ns.UpdateCooldown(b)
   return b.itemName, true
@@ -758,6 +821,7 @@ function ns.PaintVaultButton(b, d, bagID)
     ns.MarkQuestItem(b, classID == Enum.ItemClass.Questitem)
     ns.MarkJunk(b, q)
     ns.MarkBlocked(b, (C_Item.GetItemInfoInstant(link)))
+    ns.MarkBind(b, ns.BindLabel(link, itemID, d.b, false), q)
   else
     clearOverlays(b)
     SetItemButtonQuality(b, nil)

@@ -73,6 +73,7 @@ local STRINGS = {
   ["Badges"] = "Значки",
   ["Item level"] = "Уровень предмета",
   ["Stack count"] = "Количество в стопке",
+  ["Binding"] = "Привязка",
   ["Vendor lock"] = "Защита от продажи",
   ["Icon scale"] = "Размер значка",
   ["Which corner of the slot the badge is pinned to."] =
