@@ -389,7 +389,8 @@ local function itemTooltip(tt, data)
       col and col.r or 1, col and col.g or 1, col and col.b or 1, 1, 1, 1)
   end
   if wb > 0 then
-    tt:AddDoubleLine(TT("Warband bank"), tostring(wb), 0.44, 0.71, 0.83, 1, 1, 1)
+    local W = ns.WARBOUND
+    tt:AddDoubleLine(TT("Warband bank"), tostring(wb), W[1], W[2], W[3], 1, 1, 1)
   end
   tt:AddDoubleLine(TT("Total"), tostring(total), 1, 0.82, 0, 1, 1, 1)
 end

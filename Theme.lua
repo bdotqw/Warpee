@@ -17,6 +17,8 @@ local SHARED = {
   gaugeHi    = { 0.878, 0.451, 0.420, 1.00 },
 }
 
+ns.WARBOUND = { 0.435, 0.706, 0.831 }
+
 Theme.THEMES = {
   midnight = { label = "Midnight",
     bg = { 0.055, 0.067, 0.082, 0.96 }, panel = { 0.094, 0.114, 0.149, 1 },

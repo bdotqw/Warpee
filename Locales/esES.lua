@@ -70,6 +70,7 @@ local STRINGS = {
   ["Badges"] = "Distintivos",
   ["Item level"] = "Nivel de objeto",
   ["Stack count"] = "Tamaño del montón",
+  ["Binding"] = "Vinculación",
   ["Vendor lock"] = "Protección de venta",
   ["Icon scale"] = "Tamaño del icono",
   ["Which corner of the slot the badge is pinned to."] =
