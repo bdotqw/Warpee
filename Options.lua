@@ -1041,27 +1041,37 @@ function factories.badges(parent, spec)
 
   local function factor() return PREV / (Bags.iconSize or 40) end
 
+  local function measure(key)
+    local d = ns.BADGE[key] or ns.BADGES[1]
+    if d.tex then
+      local sz = math.max(6, PREV * (ns.Badge(key).s or d.s))
+      return sz, sz
+    end
+    local o = art[key]
+    return o:GetStringWidth() or 0, o:GetStringHeight() or 0
+  end
+
   local function span(key)
-    local o, f = art[key or bg.sel], factor()
+    local f = factor()
     if f <= 0 then f = 1 end
-    return (o:GetWidth() or 0) / f, (o:GetHeight() or 0) / f,
+    local w, h = measure(key or bg.sel)
+    return w / f, h / f,
            (cell:GetWidth() or 0) / f, (cell:GetHeight() or 0) / f
   end
 
   bg.fit = function(field, v, key)
     local w, h, W, H = span(key)
     local c = (key and ns.Badge(key) or bg.cur()).c or ""
-    local lo, hi
-    if field == "x" then
-      if c:find("LEFT") then lo, hi = -w / 2, W - w / 2
-      else lo, hi = w / 2 - W, w / 2 end
-    else
-      if c:find("BOTTOM") then lo, hi = -h / 2, H - h / 2
-      else lo, hi = h / 2 - H, h / 2 end
-    end
-    if hi < lo then return math.floor((lo + hi) / 2 + 0.5) end
+    local horiz = field == "x"
+    local size, box = horiz and w or h, horiz and W or H
+    local near = horiz and c:find("LEFT") or (not horiz) and c:find("BOTTOM")
     v = math.floor((tonumber(v) or 0) + 0.5)
-    if v < lo then return math.ceil(lo) elseif v > hi then return math.floor(hi) end
+    if size <= 0 or box <= 0 then return v end
+    local lo, hi
+    if near then lo, hi = -size / 2, box - size / 2
+    else lo, hi = size / 2 - box, size / 2 end
+    if v < lo then return math.ceil(lo) end
+    if v > hi then return math.floor(hi) end
     return v
   end
 
@@ -1084,7 +1094,7 @@ function factories.badges(parent, spec)
       local vis = (g.on and (sel or not solo)) and true or false
       local dim = sel and 1 or 0.35
       if d.tex then
-        local sz = math.max(6, PREV * (g.s or d.s))
+        local sz = measure(d.key)
         o:SetSize(sz, sz)
         o:SetVertexColor(1, 1, 1, dim)
       else
@@ -1159,8 +1169,8 @@ function factories.badges(parent, spec)
   end
 
   local function place(px, py)
-    local o, g, f = art[bg.sel], bg.cur(), factor()
-    local w, h = o:GetWidth() or 0, o:GetHeight() or 0
+    local g, f = bg.cur(), factor()
+    local w, h = measure(bg.sel)
     local W, H = cell:GetWidth(), cell:GetHeight()
     px = math.min(W, math.max(0, px))
     py = math.min(H, math.max(0, py))
