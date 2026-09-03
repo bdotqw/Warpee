@@ -79,10 +79,21 @@ local STRINGS = {
   ["Icon scale"] = "Tamaño del icono",
   ["Which corner of the slot the badge is pinned to."] =
     "En qué esquina del espacio se ancla el distintivo.",
-  ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge."] =
-    "Arrastra un distintivo dentro de la casilla para colocarlo y fuera de la casilla para ocultarlo. Clic derecho en un nombre para mostrarlo u ocultarlo.",
+  ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Clicking a name selects that badge and brings it back if it was hidden. Right-click a name to show or hide it."] =
+    "Arrastra un distintivo dentro de la casilla para colocarlo y fuera de la casilla para ocultarlo. Un clic en un nombre selecciona ese distintivo y lo devuelve si estaba oculto. Clic derecho para mostrarlo u ocultarlo.",
   ["Show only the selected badge"] = "Mostrar solo el distintivo elegido",
   ["Release to hide"] = "Suelta para ocultar",
+  ["The item level of gear, and the level of a keystone."] =
+    "El nivel de objeto del equipo y el nivel de una piedra angular.",
+  ["How many items the stack holds."] = "Cuántos objetos hay en el montón.",
+  ["BoE while the item is still unbound, WuE for warbound until equipped, BoA for account bound."] =
+    "BoE mientras el objeto sigue sin vincular, WuE para vinculado a la banda guerrera hasta equipar, BoA para vinculado a la cuenta.",
+  ["The name of the equipment set the item belongs to, cut to a few letters."] =
+    "El nombre del conjunto de equipo al que pertenece el objeto, recortado a unas pocas letras.",
+  ["A coin on poor quality items, the ones the vendor takes."] =
+    "Una moneda en los objetos de calidad pobre, los que se venden al mercader.",
+  ["A padlock on the items you locked, which the vendor never sells."] =
+    "Un candado en los objetos que has protegido, el mercader nunca los vende.",
   ["In the cell above, draw only the badge you are moving."] =
     "En la casilla de arriba, dibujar solo el distintivo que mueves.",
   ["Locked items"] = "Objetos protegidos",
