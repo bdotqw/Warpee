@@ -1,5 +1,7 @@
 # Warpee
 
-## 1.4.1
+## 1.4.2
 
-- Fixed: right-click use could stop working on an item after a fight, with the game reporting that an interface action failed because of an addon. The addon no longer changes how a slot handles clicks while you are in combat
+- Hold Ctrl and drag a pinned item to move it to another slot in the favorites row. It follows the cursor while you move it
+- Fixed: the game could refuse an action and name the addon, for example the read emote when you opened your mail during a fight. Warpee no longer replaces the game's own bag functions, and its windows now handle Esc themselves
+- Fixed: an item you locked could keep its right click disabled on the favorites row after a visit to a merchant
