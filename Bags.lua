@@ -694,6 +694,10 @@ function Bags:VendorState()
   if self.pool then
     for _, x in ipairs(self.pool) do ns.LockClicks(x) end
   end
+  local F = ns.Fav
+  if F then
+    for i = 1, (F.max or 0) do ns.LockClicks(F.slots[i]) end
+  end
   local b = self.sellBtn
   if not b then return end
   b:SetShown(not self.snap)
