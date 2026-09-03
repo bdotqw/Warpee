@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
 local WORDS = {
-  ["schlecht"] = "poor", ["schrott"] = "junk", ["grau"] = "gray",
+  ["schlecht"] = "poor", ["schund"] = "junk", ["schrott"] = "junk", ["grau"] = "gray",
   ["gewöhnlich"] = "common", ["weiß"] = "white", ["weiss"] = "white",
   ["ungewöhnlich"] = "uncommon", ["grün"] = "green", ["gruen"] = "green",
   ["selten"] = "rare", ["blau"] = "blue",
@@ -37,8 +37,8 @@ local WORDS = {
   ["verbesserung"] = "enhancement",
   ["reagenz"] = "reagent", ["reagenzien"] = "reagents",
   ["verbrauchbar"] = "consumable", ["ausrüstung"] = "gear",
-  ["schlüsselstein"] = "keystone", ["marke"] = "token",
-  ["gesperrt"] = "locked", ["kriegsmeute"] = "warband",
+  ["schlüsselstein"] = "keystone", ["mythisch"] = "mythic", ["marke"] = "token",
+  ["geschützt"] = "locked", ["gesperrt"] = "locked", ["kriegsmeute"] = "warband",
   ["seelengebunden"] = "soulbound", ["anlegen"] = "boe",
   ["aktuell"] = "current", ["alt"] = "legacy",
 }
@@ -57,8 +57,6 @@ local STRINGS = {
   ["Slot look"] = "Aussehen der Plätze",
   ["Bags grid"] = "Taschenraster",
   ["Bank and Warband grid"] = "Raster für Bank und Kriegsmeute",
-  ["Item level number"] = "Gegenstandsstufe auf dem Symbol",
-  ["Stack count number"] = "Stapelanzahl auf dem Symbol",
   ["Badges"] = "Abzeichen",
   ["Item level"] = "Gegenstandsstufe",
   ["Stack count"] = "Stapelanzahl",
@@ -68,11 +66,11 @@ local STRINGS = {
   ["How many letters of the set name to show."] =
     "Wie viele Buchstaben des Setnamens gezeigt werden.",
   ["Vendor lock"] = "Verkaufsschutz",
-  ["Icon scale"] = "Symbolgröße",
+  ["Icon scale"] = "Abzeichengröße",
   ["Which corner of the slot the badge is pinned to."] =
     "An welcher Ecke des Platzes das Abzeichen hängt.",
   ["Drag a badge around the cell, or click where you want it. Click a name to show and pick that badge, right-click a name to hide it."] =
-    "Zieh ein Abzeichen in der Zelle umher oder klick dorthin, wo es stehen soll. Ein Klick auf einen Namen zeigt und wählt das Abzeichen, ein Rechtsklick auf den Namen blendet es aus.",
+    "Zieht ein Abzeichen in der Zelle umher oder klickt dorthin, wo es stehen soll. Ein Linksklick auf einen Namen zeigt und wählt das Abzeichen, ein Rechtsklick auf den Namen blendet es aus.",
   ["Show only the selected badge"] = "Nur das gewählte Abzeichen zeigen",
   ["The item level of gear, and the level of a keystone."] =
     "Die Gegenstandsstufe von Ausrüstung und die Stufe eines Schlüsselsteins.",
@@ -84,7 +82,7 @@ local STRINGS = {
   ["A coin on poor quality items, the gray junk a merchant buys."] =
     "Eine Münze auf Gegenständen schlechter Qualität, dem grauen Schund, den ein Händler kauft.",
   ["A padlock on the items you locked with Alt-click, which the vendor never sells."] =
-    "Ein Schloss auf den Gegenständen, die du mit Alt + Klick geschützt hast, der Händler verkauft sie nie.",
+    "Ein Schloss auf den Gegenständen, die Ihr mit Alt + Linksklick geschützt habt, der Händler verkauft sie nie.",
   ["In the cell above, hide every badge except the selected one."] =
     "In der Zelle oben alle Abzeichen außer dem gewählten ausblenden.",
   ["Locked items"] = "Geschützte Gegenstände",
@@ -202,10 +200,10 @@ local STRINGS = {
   ["Tint the item level number with the item's rarity color."] =
     "Färbt die Gegenstandsstufe in der Qualitätsfarbe des Gegenstands.",
   ["Alt-click an item in the bags or the bank to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Alt-click again, or the cross here, to unlock."] =
-    "Alt + Klick auf einen Gegenstand in den Taschen oder der Bank schützt ihn: ein Schloss erscheint, und der Gegenstand lässt sich nicht mehr verkaufen, weder automatisch noch mit einem Rechtsklick beim Händler. Erneutes Alt + Klick oder das Kreuz in dieser Liste hebt den Schutz auf.",
-  ["Alt-click to lock it from the vendor"] = "Alt + Klick, um ihn vor dem Verkauf zu schützen",
+    "Alt + Linksklick auf einen Gegenstand in den Taschen oder der Bank schützt ihn: ein Schloss erscheint, und der Gegenstand lässt sich nicht mehr verkaufen, weder automatisch noch mit einem Rechtsklick beim Händler. Ein erneuter Alt + Linksklick oder das Kreuz in dieser Liste hebt den Schutz auf.",
+  ["Alt-click to lock it from the vendor"] = "Alt + Linksklick, um ihn vor dem Verkauf zu schützen",
   ["Locked from the vendor. Alt-click to unlock"] =
-    "Vor dem Verkauf geschützt. Alt + Klick hebt den Schutz auf",
+    "Vor dem Verkauf geschützt. Alt + Linksklick hebt den Schutz auf",
   ["Count across characters"] = "Über alle Charaktere zählen",
   ["Include bank"] = "Bank einbeziehen",
   ["Include Warband"] = "Kriegsmeutenbank einbeziehen",
@@ -219,16 +217,16 @@ local STRINGS = {
     "Charaktere ohne Häkchen bleiben gespeichert, erscheinen aber nicht in der Charakterliste.",
   ["Snapshots"] = "Gespeicherte Daten",
   ["Copies of what you carry, so another character's bags and bank open from your own window."] =
-    "Kopien eures Inventars, damit Taschen und Bank eines anderen Charakters in eurem eigenen Fenster aufgehen.",
+    "Kopien Eures Inventars, damit Taschen und Bank eines anderen Charakters in Eurem eigenen Fenster aufgehen.",
   ["Remember bags"] = "Taschen speichern",
   ["Save this character's bags and gold whenever the bag window opens. Off = other characters stop seeing them."] =
     "Speichert Taschen und Gold dieses Charakters, sobald das Taschenfenster geöffnet wird. Aus: andere Charaktere sehen sie nicht mehr.",
   ["Remember bank"] = "Bank speichern",
   ["Save the character bank while you stand at a banker."] =
-    "Speichert die Charakterbank, während ihr beim Bankier steht.",
+    "Speichert die Charakterbank, während Ihr beim Bankier steht.",
   ["Remember Warband bank"] = "Kriegsmeutenbank speichern",
   ["Save the shared Warband bank while you stand at a banker."] =
-    "Speichert die gemeinsame Kriegsmeutenbank, während ihr beim Bankier steht.",
+    "Speichert die gemeinsame Kriegsmeutenbank, während Ihr beim Bankier steht.",
   ["Delete the saved Warband bank?"] = "Gespeicherte Kriegsmeutenbank löschen?",
   ["Account"] = "Konto",
   ["Nothing saved for other characters yet"] = "Für andere Charaktere ist noch nichts gespeichert",
@@ -342,7 +340,7 @@ local STRINGS = {
   ["No gold recorded yet"] = "Noch kein Gold erfasst",
   ["Delete mode"] = "Löschmodus",
   ["Alt-click an item in your bags while this tab is open."] =
-    "Alt + Klick auf einen Gegenstand in den Taschen, während diese Seite offen ist.",
+    "Alt + Linksklick auf einen Gegenstand in den Taschen, während diese Seite offen ist.",
 }
 
 ns.AddLocale("deDE", "German", {

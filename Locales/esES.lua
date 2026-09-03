@@ -3,7 +3,7 @@ local addonName, ns = ...
 local WORDS = {
   ["pobre"] = "poor", ["basura"] = "junk", ["gris"] = "gray",
   ["común"] = "common", ["comun"] = "common", ["blanco"] = "white",
-  ["verde"] = "green", ["azul"] = "blue",
+  ["verde"] = "green", ["raro"] = "rare", ["azul"] = "blue",
   ["épico"] = "epic", ["epico"] = "epic",
   ["morado"] = "purple", ["púrpura"] = "purple", ["purpura"] = "purple",
   ["legendario"] = "legendary", ["naranja"] = "orange",
@@ -65,8 +65,6 @@ local STRINGS = {
   ["Slot look"] = "Aspecto de los espacios",
   ["Bags grid"] = "Cuadrícula de las bolsas",
   ["Bank and Warband grid"] = "Cuadrícula del banco y la banda guerrera",
-  ["Item level number"] = "Nivel de objeto en el icono",
-  ["Stack count number"] = "Tamaño del montón en el icono",
   ["Badges"] = "Distintivos",
   ["Item level"] = "Nivel de objeto",
   ["Stack count"] = "Tamaño del montón",
@@ -76,7 +74,7 @@ local STRINGS = {
   ["How many letters of the set name to show."] =
     "Cuántas letras del nombre del conjunto se muestran.",
   ["Vendor lock"] = "Protección de venta",
-  ["Icon scale"] = "Tamaño del icono",
+  ["Icon scale"] = "Tamaño del distintivo",
   ["Which corner of the slot the badge is pinned to."] =
     "En qué esquina del espacio se ancla el distintivo.",
   ["Drag a badge around the cell, or click where you want it. Click a name to show and pick that badge, right-click a name to hide it."] =
@@ -92,7 +90,7 @@ local STRINGS = {
   ["A coin on poor quality items, the gray junk a merchant buys."] =
     "Una moneda en los objetos de calidad pobre, la basura gris que un mercader compra.",
   ["A padlock on the items you locked with Alt-click, which the vendor never sells."] =
-    "Un candado en los objetos que has protegido con Alt + clic, el mercader nunca los vende.",
+    "Un candado en los objetos que has protegido con Alt + clic izquierdo, el mercader nunca los vende.",
   ["In the cell above, hide every badge except the selected one."] =
     "En la casilla de arriba, ocultar todos los distintivos menos el elegido.",
   ["Locked items"] = "Objetos protegidos",
@@ -210,10 +208,10 @@ local STRINGS = {
   ["Tint the item level number with the item's rarity color."] =
     "Colorea el nivel de objeto con la rareza del objeto.",
   ["Alt-click an item in the bags or the bank to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Alt-click again, or the cross here, to unlock."] =
-    "Alt + clic en un objeto de las bolsas o del banco lo protege: aparece un candado y el objeto ya no se puede vender, ni automáticamente ni con un clic derecho ante el mercader. Otro Alt + clic, o la cruz de esta lista, quita la protección.",
-  ["Alt-click to lock it from the vendor"] = "Alt + clic para protegerlo de la venta",
+    "Alt + clic izquierdo en un objeto de las bolsas o del banco lo protege: aparece un candado y el objeto ya no se puede vender, ni automáticamente ni con un clic derecho ante el mercader. Otro Alt + clic izquierdo, o la cruz de esta lista, quita la protección.",
+  ["Alt-click to lock it from the vendor"] = "Alt + clic izquierdo para protegerlo de la venta",
   ["Locked from the vendor. Alt-click to unlock"] =
-    "Protegido de la venta. Alt + clic quita la protección",
+    "Protegido de la venta. Alt + clic izquierdo quita la protección",
   ["Count across characters"] = "Contar en todos los personajes",
   ["Include bank"] = "Incluir el banco",
   ["Include Warband"] = "Incluir la banda guerrera",
@@ -236,8 +234,8 @@ local STRINGS = {
     "Guarda el banco del personaje mientras estás con un banquero.",
   ["Remember Warband bank"] = "Guardar el banco de banda guerrera",
   ["Save the shared Warband bank while you stand at a banker."] =
-    "Guarda el banco compartido de banda guerrera mientras estás con un banquero.",
-  ["Delete the saved Warband bank?"] = "¿Borrar el banco de banda guerrera guardado?",
+    "Guarda el banco compartido de la banda guerrera mientras estás con un banquero.",
+  ["Delete the saved Warband bank?"] = "¿Borrar el banco de la banda guerrera guardado?",
   ["Account"] = "Cuenta",
   ["Nothing saved for other characters yet"] = "Todavía no hay nada guardado de otros personajes",
   ["Sell junk"] = "Vender la basura",
@@ -249,7 +247,7 @@ local STRINGS = {
   ["Tier tokens"] = "Fichas de tier",
   ["Sell all of this automatically"] = "Vender todo esto automáticamente",
   ["Keep BoE"] = "Guardar los no ligados",
-  ["Keep warbound"] = "Guardar los ligados a la banda",
+  ["Keep warbound"] = "Guardar los ligados a la banda guerrera",
   ["Keep gems and enchants"] = "Guardar con gemas y encantamientos",
   ["Your gold"] = "Tu oro",
   ["Guild / yours"] = "Hermandad / tuyo",
@@ -309,10 +307,10 @@ local STRINGS = {
   ["Hidden"] = "Ocultos",
   ["Visit a banker to record this bank"] = "Visita a un banquero para registrar este banco",
   ["Browse another character's bank"] = "Ver el banco de otro personaje",
-  ["Put your gold into the Warband bank"] = "Depositar tu oro en el banco de banda guerrera",
-  ["Take gold out of the Warband bank"] = "Sacar oro del banco de banda guerrera",
+  ["Put your gold into the Warband bank"] = "Depositar tu oro en el banco de la banda guerrera",
+  ["Take gold out of the Warband bank"] = "Sacar oro del banco de la banda guerrera",
   ["Buy another bank tab"] = "Comprar otra pestaña de banco",
-  ["Buy another Warband bank tab"] = "Comprar otra pestaña del banco de banda guerrera",
+  ["Buy another Warband bank tab"] = "Comprar otra pestaña del banco de la banda guerrera",
   ["Show characters you hid"] = "Mostrar los personajes ocultos",
   ["Close"] = "Cerrar",
   ["Left-click: show this character"] = "Clic izquierdo: mostrar este personaje",
@@ -350,7 +348,7 @@ local STRINGS = {
   ["No gold recorded yet"] = "Todavía no hay datos de oro",
   ["Delete mode"] = "Modo de borrado",
   ["Alt-click an item in your bags while this tab is open."] =
-    "Alt + clic en un objeto de tus bolsas mientras esta página está abierta.",
+    "Alt + clic izquierdo en un objeto de tus bolsas mientras esta página está abierta.",
 }
 
 ns.AddLocale("esES", "Spanish", {
