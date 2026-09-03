@@ -362,10 +362,10 @@ local function cellOf(b)
 end
 
 local BADGES = {
-  { key = "ilvl",   n = "Item level",  p = "447",  c = "BOTTOMRIGHT", x = 0, y = 2, s = 14 },
-  { key = "count",  n = "Stack count", p = "20",   c = "BOTTOMRIGHT", x = 0, y = 2, s = 14 },
+  { key = "ilvl",   n = "Item level",  p = "447",  c = "BOTTOMRIGHT", x = 1, y = 5, s = 14 },
+  { key = "count",  n = "Stack count", p = "20",   c = "BOTTOMRIGHT", x = 1, y = 5, s = 14 },
   { key = "bind",   n = "Binding",     p = "BoE",  c = "TOPLEFT",    x = 2, y = -2, s = 12 },
-  { key = "outfit", n = "Gear set",    p = "Myth", c = "BOTTOMLEFT", x = 2, y =  2, s = 11,
+  { key = "outfit", n = "Gear set",    p = "Myth", c = "BOTTOMLEFT", x = 10, y = -4, s = 10,
     k = 4 },
   { key = "junk",    n = "Junk coin",   tex = true,
     c = "TOPLEFT",  x =  1, y = -1, s = 0.42, m = 8 },
