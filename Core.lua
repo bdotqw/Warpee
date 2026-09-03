@@ -283,6 +283,14 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.bankPool = nil
     if ns.Bank then ns.Bank:HideBlizzard() end
     if ns.ApplyMinimapIcon then ns.ApplyMinimapIcon() end
+    if C_CVar and C_CVar.SetCVarBitfield then
+      if LE_FRAME_TUTORIAL_MOUNT_EQUIPMENT_SLOT_FRAME then
+        pcall(C_CVar.SetCVarBitfield, "closedInfoFrames", LE_FRAME_TUTORIAL_MOUNT_EQUIPMENT_SLOT_FRAME, true)
+      end
+      if LE_FRAME_TUTORIAL_EQUIP_REAGENT_BAG then
+        pcall(C_CVar.SetCVarBitfield, "closedInfoFrames", LE_FRAME_TUTORIAL_EQUIP_REAGENT_BAG, true)
+      end
+    end
   elseif event == "BAG_UPDATE" then
     if not Bags.warmed then Bags:Warm() end
     if ns.IsPlayerBag(a1) then Bags.dirty[a1] = true end
