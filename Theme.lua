@@ -525,15 +525,36 @@ function Theme:ApplyGridAlpha()
   if ns.Bank and ns.Bank.gridBg then ns.Bank.gridBg:SetAlpha(a) end
 end
 
+local escFrames = {}
+
+local function escFree(f)
+  if not f.wpeEscEat or InCombatLockdown() then return end
+  f.wpeEscEat = nil
+  f:SetPropagateKeyboardInput(true)
+end
+
+function ns.EscRestore()
+  for i = 1, #escFrames do escFree(escFrames[i]) end
+end
+
 function ns.EscClose(frame)
-  if not frame or frame.wpeEsc then return frame end
-  local name = frame.GetName and frame:GetName()
-  if not (name and _G[name] == frame and type(UISpecialFrames) == "table") then return frame end
+  if not (frame and frame.EnableKeyboard) or frame.wpeEsc then return frame end
   frame.wpeEsc = true
-  for _, n in ipairs(UISpecialFrames) do
-    if n == name then return frame end
-  end
-  UISpecialFrames[#UISpecialFrames + 1] = name
+  escFrames[#escFrames + 1] = frame
+  frame:EnableKeyboard(true)
+  frame:SetPropagateKeyboardInput(true)
+  frame:HookScript("OnShow", escFree)
+  frame:HookScript("OnKeyDown", function(s, key)
+    if InCombatLockdown() then
+      if key == "ESCAPE" then s:Hide() end
+      return
+    end
+    if key ~= "ESCAPE" then escFree(s); return end
+    s.wpeEscEat = true
+    s:SetPropagateKeyboardInput(false)
+    s:Hide()
+    C_Timer.After(0, function() escFree(s) end)
+  end)
   return frame
 end
 

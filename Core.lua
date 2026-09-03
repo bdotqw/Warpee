@@ -120,6 +120,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     local B = ns.Bank
     if B and B.cold then B.cold = nil; B:Refresh() end
     Bags:VendorState()
+    ns.EscRestore()
     return
   end
   if event == "PLAYER_LOGIN" then
