@@ -66,23 +66,21 @@ local STRINGS = {
   ["How many letters of the set name to show."] =
     "Wie viele Buchstaben des Setnamens gezeigt werden.",
   ["Vendor lock"] = "Verkaufsschutz",
-  ["Icon scale"] = "Abzeichengröße",
+  ["Badge scale"] = "Abzeichengröße",
   ["Which corner of the slot the badge is pinned to."] =
     "An welcher Ecke des Platzes das Abzeichen hängt.",
-  ["Drag a badge around the cell, or click where you want it. Click a name to show and pick that badge, right-click a name to hide it."] =
-    "Zieht ein Abzeichen in der Zelle umher oder klickt dorthin, wo es stehen soll. Ein Linksklick auf einen Namen zeigt und wählt das Abzeichen, ein Rechtsklick auf den Namen blendet es aus.",
+  ["Drag a badge, or click where you want it. Left-click a name to show that badge, right-click the name to hide it."] =
+    "Zieht ein Abzeichen, oder klickt dorthin, wo es stehen soll. Linksklick auf einen Namen zeigt das Abzeichen, Rechtsklick auf den Namen blendet es aus.",
   ["Show only the selected badge"] = "Nur das gewählte Abzeichen zeigen",
-  ["The item level of gear, and the level of a keystone."] =
-    "Die Gegenstandsstufe von Ausrüstung und die Stufe eines Schlüsselsteins.",
+  ["Item level on gear, and a keystone's level."] =
+    "Die Stufe von Ausrüstung und von Schlüsselsteinen.",
   ["How many items the stack holds."] = "Wie viele Gegenstände im Stapel liegen.",
-  ["BoE while the item is still unbound, WuE for warbound until equipped, BoA for account bound."] =
-    "BoE solange der Gegenstand noch nicht gebunden ist, WuE für kriegsmeutengebunden bis angelegt, BoA für accountgebunden.",
-  ["The name of the equipment set the item belongs to, cut to a few letters."] =
-    "Der Name des Ausrüstungssets, zu dem der Gegenstand gehört, auf wenige Buchstaben gekürzt.",
-  ["A coin on poor quality items, the gray junk a merchant buys."] =
-    "Eine Münze auf Gegenständen schlechter Qualität, dem grauen Schund, den ein Händler kauft.",
-  ["A padlock on the items you locked with Alt-click, which the vendor never sells."] =
-    "Ein Schloss auf den Gegenständen, die Ihr mit Alt + Linksklick geschützt habt, der Händler verkauft sie nie.",
+  ["BoE while unbound, WuE for warbound until equipped, BoA for account bound."] =
+    "BoE solange nicht gebunden, WuE für kriegsmeutengebunden bis angelegt, BoA für accountgebunden.",
+  ["The equipment set the item belongs to, cut to a few letters."] =
+    "Das Ausrüstungsset, zu dem der Gegenstand gehört, auf wenige Buchstaben gekürzt.",
+  ["A coin on gray junk items."] = "Eine Münze auf grauem Schund.",
+  ["A padlock on the items you locked."] = "Ein Schloss auf den geschützten Gegenständen.",
   ["In the cell above, hide every badge except the selected one."] =
     "In der Zelle oben alle Abzeichen außer dem gewählten ausblenden.",
   ["Locked items"] = "Geschützte Gegenstände",
@@ -137,7 +135,7 @@ local STRINGS = {
   ["Trade"] = "Handel",
   ["Guild bank"] = "Gildenbank",
   ["Professions"] = "Berufe",
-  ["Icon size"] = "Symbolgröße",
+  ["Slot size"] = "Platzgröße",
   ["Slots per row"] = "Plätze pro Reihe",
   ["Spacing"] = "Abstand",
   ["Icon zoom"] = "Symbolzoom",
@@ -185,19 +183,19 @@ local STRINGS = {
   ["Border thickness"] = "Rahmenstärke",
   ["Item level by quality"] = "Gegenstandsstufe nach Qualität",
   ["Corner"] = "Ecke",
-  ["Size"] = "Größe",
+  ["Text size"] = "Textgröße",
   ["X offset"] = "X-Versatz",
   ["Y offset"] = "Y-Versatz",
-  ["Draw a rarity-colored border around every item, white for common and gray for junk."] =
-    "Zeichnet einen Rahmen in der Qualitätsfarbe um jeden Gegenstand: weiß bei gewöhnlichen, grau bei Schund.",
+  ["A border around every item in its quality color."] =
+    "Ein Rahmen um jeden Gegenstand in seiner Qualitätsfarbe.",
   ["Blizzard quest art: a mark for unaccepted quests, a border for quest items."] =
     "Blizzards Questgrafik: ein Ausrufezeichen für nicht angenommene Quests, ein Rahmen für Questgegenstände.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Leuchten in der Qualitätsfarbe auf Gegenständen, die das Spiel noch als neu zählt.",
-  ["Tint slots in the reagent bag. Turn it off and reagents take the quality border instead."] =
-    "Plätze der Reagenzientasche einfärben. Aus, und Reagenzien bekommen stattdessen den Qualitätsrahmen.",
-  ["Thickness of the quality border."] = "Stärke des Qualitätsrahmens.",
-  ["Tint the item level number with the item's rarity color."] =
+  ["Tint the slots of the reagent bag and the reagent bank."] =
+    "Färbt die Plätze der Reagenzientasche und der Reagenzienbank.",
+  ["Thickness of the slot border."] = "Stärke des Platzrahmens.",
+  ["Tint the item level number with the item's quality color."] =
     "Färbt die Gegenstandsstufe in der Qualitätsfarbe des Gegenstands.",
   ["Alt-click an item in the bags or the bank to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Alt-click again, or the cross here, to unlock."] =
     "Alt + Linksklick auf einen Gegenstand in den Taschen oder der Bank schützt ihn: ein Schloss erscheint, und der Gegenstand lässt sich nicht mehr verkaufen, weder automatisch noch mit einem Rechtsklick beim Händler. Ein erneuter Alt + Linksklick oder das Kreuz in dieser Liste hebt den Schutz auf.",
@@ -240,7 +238,7 @@ local STRINGS = {
   ["Sell all of this automatically"] = "Alles davon automatisch verkaufen",
   ["Keep BoE"] = "BoE behalten",
   ["Keep warbound"] = "Kriegsmeutengebundenes behalten",
-  ["Keep gems and enchants"] = "Mit Sockel/Verzauberung behalten",
+  ["Keep socketed or enchanted"] = "Mit Sockel/Verzauberung behalten",
   ["Your gold"] = "Eigenes Gold",
   ["Guild / yours"] = "Gilde / eigenes",
   ["These start when a merchant window opens, with no click from you."] =
@@ -282,8 +280,8 @@ local STRINGS = {
   ["1 item"] = "1 Gegenstand",
   ["%d items"] = "%d Gegenstände",
   ["%d and %d wide"] = "%d und %d pro Reihe",
-  ["Sort / clean up bags"] = "Taschen sortieren",
-  ["Sort / clean up"] = "Sortieren",
+  ["Clean up bags"] = "Taschen sortieren",
+  ["Clean up"] = "Sortieren",
   ["Settings"] = "Einstellungen",
   ["Bags"] = "Taschen",
   ["Bank / Warband"] = "Bank / Kriegsmeute",

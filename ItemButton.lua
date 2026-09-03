@@ -369,20 +369,20 @@ end
 
 local BADGES = {
   { key = "ilvl",   n = "Item level",  p = "447",  c = "BOTTOMRIGHT", x = 1, y = 5, s = 14,
-    t = "The item level of gear, and the level of a keystone." },
+    t = "Item level on gear, and a keystone's level." },
   { key = "count",  n = "Stack count", p = "20",   c = "BOTTOMRIGHT", x = 1, y = 5, s = 14,
     t = "How many items the stack holds." },
   { key = "bind",   n = "Binding",     p = "BoE",  c = "TOPLEFT",    x = 2, y = -2, s = 12,
-    t = "BoE while the item is still unbound, WuE for warbound until equipped, BoA for account bound." },
+    t = "BoE while unbound, WuE for warbound until equipped, BoA for account bound." },
   { key = "outfit", n = "Gear set",    p = "Myth", c = "BOTTOMLEFT", x = 10, y = -4, s = 10,
     k = 4,
-    t = "The name of the equipment set the item belongs to, cut to a few letters." },
+    t = "The equipment set the item belongs to, cut to a few letters." },
   { key = "junk",    n = "Junk coin",   tex = true,
     c = "TOPLEFT",  x =  1, y = -1, s = 0.42, m = 8,
-    t = "A coin on poor quality items, the gray junk a merchant buys." },
+    t = "A coin on gray junk items." },
   { key = "blocked", n = "Vendor lock", tex = true,
     c = "TOPRIGHT", x = -1, y = -1, s = 0.60, m = 12,
-    t = "A padlock on the items you locked with Alt-click, which the vendor never sells." },
+    t = "A padlock on the items you locked." },
 }
 local BADGE = {}
 for _, d in ipairs(BADGES) do BADGE[d.key] = d end
