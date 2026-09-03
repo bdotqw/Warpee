@@ -34,18 +34,46 @@ function ns.ToggleBank()
   end
 end
 
+local blizzHidden
+
+local function hideBlizzBags()
+  if InCombatLockdown() then return end
+  if not blizzHidden then
+    blizzHidden = CreateFrame("Frame")
+    blizzHidden:Hide()
+  end
+  for i = 1, 13 do
+    local f = _G["ContainerFrame" .. i]
+    if f and f:GetParent() ~= blizzHidden then f:SetParent(blizzHidden) end
+  end
+  local c = ContainerFrameCombinedBags
+  if c and c:GetParent() ~= blizzHidden then c:SetParent(blizzHidden) end
+end
+
+local function blizzBagsOpen()
+  local c = ContainerFrameCombinedBags
+  if c and c:IsShown() then return true end
+  return (ContainerFrame1 and ContainerFrame1:IsShown()) and true or false
+end
+
+local BAG_FN = {
+  open  = { "OpenAllBags", "OpenBackpack", "OpenBag" },
+  close = { "CloseAllBags", "CloseBackpack" },
+  sync  = { "ToggleBackpack", "ToggleBag" },
+}
+
+local function hookList(names, fn)
+  for _, n in ipairs(names) do
+    if type(_G[n]) == "function" then hooksecurefunc(n, fn) end
+  end
+end
+
 local function HookBagToggles()
-  local open  = function() ns.Toggle(true) end
-  local close = function() ns.Toggle(false) end
-  local toggle = function() ns.Toggle() end
-  ToggleAllBags = toggle
-  OpenAllBags   = open
-  ToggleBackpack = toggle
-  OpenBackpack  = open
-  ToggleBag     = function() ns.Toggle() end
-  OpenBag       = open
-  if type(CloseAllBags) == "function" then hooksecurefunc("CloseAllBags", close) end
-  if type(CloseBackpack) == "function" then hooksecurefunc("CloseBackpack", close) end
+  ToggleAllBags = function() ns.Toggle() end
+  hideBlizzBags()
+  hookList(BAG_FN.open, function() ns.Toggle(true); hideBlizzBags() end)
+  hookList(BAG_FN.close, function() ns.Toggle(false) end)
+  hookList(BAG_FN.sync, function() ns.Toggle(blizzBagsOpen()) end)
 end
 
 local function autoOpenBags(key)
