@@ -92,6 +92,29 @@ local function makeGhost(parent)
   return g
 end
 
+local dragIcon
+
+local function dragArt()
+  if dragIcon then return dragIcon end
+  local f = CreateFrame("Frame", nil, UIParent)
+  f:SetFrameStrata("TOOLTIP")
+  f:SetSize(32, 32)
+  f:SetAlpha(0.85)
+  f:Hide()
+  local t = f:CreateTexture(nil, "OVERLAY")
+  t:SetAllPoints()
+  t:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+  f.icon = t
+  f:SetScript("OnUpdate", function(s)
+    if not IsMouseButtonDown("LeftButton") then Fav:Drop(); return end
+    local x, y = GetCursorPosition()
+    local k = UIParent:GetEffectiveScale()
+    s:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x / k, y / k)
+  end)
+  dragIcon = f
+  return f
+end
+
 local function tipFor(f, id)
   GameTooltip:SetOwner(f, "ANCHOR_RIGHT")
   if id then
@@ -140,15 +163,22 @@ function Fav:Set(index, id)
 end
 
 function Fav:Lift(index)
-  if InCombatLockdown() or not self:List()[index] then return end
+  local id = self:List()[index]
+  if InCombatLockdown() or not id then return end
   self.moving = index
   local b = self.slots[index]
   if b then ns.SetSlotHighlight(b, true) end
+  local f = dragArt()
+  local sz = math.max(16, (b and b:GetWidth()) or 0)
+  f:SetSize(sz, sz)
+  f.icon:SetTexture(itemIcon(id))
+  f:Show()
 end
 
 function Fav:Drop()
   local from = self.moving
   self.moving = nil
+  if dragIcon then dragIcon:Hide() end
   if not from then return end
   local b = self.slots[from]
   if b then ns.SetSlotHighlight(b, false) end
