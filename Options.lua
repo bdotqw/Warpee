@@ -1129,10 +1129,32 @@ function factories.badges(parent, spec)
     Options:ReflowPages()
   end
 
+  local function hit(px, py)
+    local first
+    for _, d in ipairs(ns.BADGES) do
+      local o = art[d.key]
+      if ns.Badge(d.key).on and o:IsShown() then
+        local l = (o:GetLeft() or 0) - (cell:GetLeft() or 0)
+        local b = (o:GetBottom() or 0) - (cell:GetBottom() or 0)
+        if px >= l - 3 and px <= l + (o:GetWidth() or 0) + 3
+           and py >= b - 3 and py <= b + (o:GetHeight() or 0) + 3 then
+          if d.key == bg.sel then return d.key end
+          first = first or d.key
+        end
+      end
+    end
+    return first
+  end
+
   cell:SetScript("OnMouseDown", function(s, button)
     if button ~= "LeftButton" then return end
-    local g, o = bg.cur(), art[bg.sel]
     local px, py = cursorXY()
+    local under = hit(px, py)
+    if under and under ~= bg.sel then
+      bg.sel = under
+      Options:ReflowPages()
+    end
+    local g, o = bg.cur(), art[bg.sel]
     if not g.on then g.on = true; place(px, py); paint() end
     local w, h = o:GetWidth() or 0, o:GetHeight() or 0
     local ox = (o:GetLeft() or 0) + w / 2 - (cell:GetLeft() or 0)
