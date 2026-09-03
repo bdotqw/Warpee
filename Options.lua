@@ -1094,14 +1094,18 @@ function factories.badges(parent, spec)
     c:SetScript("OnEnter", paintChip)
     c:SetScript("OnLeave", paintChip)
     c:SetScript("OnClick", function(s, button)
+      local g = ns.Badge(s.wpeKey)
       if button == "RightButton" then
-        local g = ns.Badge(s.wpeKey)
         g.on = not g.on
+        bg.bump()
+      elseif not g.on then
+        g.on = true
         bg.bump()
       end
       bg.sel = s.wpeKey
       Options:ReflowPages()
     end)
+    tip(c, d.t)
     chips[#chips + 1] = c
   end
 
@@ -1478,7 +1482,7 @@ local ITEMS_PAGE = {
       return ("%s, %d/%d"):format(T(bg.label(bg.sel)), bg.shown(), #ns.BADGES)
     end },
   { type = "badges", section = "badges",
-    desc = "Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge." },
+    desc = "Drag a badge inside the cell to place it, drag it out of the cell to hide it. Clicking a name selects that badge and brings it back if it was hidden. Right-click a name to show or hide it." },
   { type = "toggle", name = "Show only the selected badge", col = 1, section = "badges",
     get = bg.soloGet, set = bg.soloSet,
     desc = "In the cell above, draw only the badge you are moving." },

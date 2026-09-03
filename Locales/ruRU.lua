@@ -82,10 +82,21 @@ local STRINGS = {
   ["Icon scale"] = "Размер значка",
   ["Which corner of the slot the badge is pinned to."] =
     "К какому углу ячейки прижат значок.",
-  ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge."] =
-    "Перетаскивай значок внутри ячейки, чтобы поставить его на место, и вытащи за пределы ячейки, чтобы убрать. Правый клик по названию показывает или скрывает значок.",
+  ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Clicking a name selects that badge and brings it back if it was hidden. Right-click a name to show or hide it."] =
+    "Перетаскивай значок внутри ячейки, чтобы поставить его на место, и вытащи за пределы ячейки, чтобы убрать. Щелчок по названию выбирает значок и возвращает его, если он был скрыт. Правый щелчок показывает или скрывает значок.",
   ["Show only the selected badge"] = "Показывать только выбранный значок",
   ["Release to hide"] = "Отпусти, чтобы скрыть",
+  ["The item level of gear, and the level of a keystone."] =
+    "Уровень предмета у снаряжения и уровень ключа подземелья.",
+  ["How many items the stack holds."] = "Сколько предметов в стопке.",
+  ["BoE while the item is still unbound, WuE for warbound until equipped, BoA for account bound."] =
+    "BoE, пока предмет ещё не привязан, WuE для привязки к отряду до надевания, BoA для привязки к учётной записи.",
+  ["The name of the equipment set the item belongs to, cut to a few letters."] =
+    "Название набора экипировки, к которому относится предмет, укороченное до нескольких букв.",
+  ["A coin on poor quality items, the ones the vendor takes."] =
+    "Монета на предметах плохого качества, тех, что уходят торговцу.",
+  ["A padlock on the items you locked, which the vendor never sells."] =
+    "Замок на предметах, которые ты защитил, торговец их не продаст.",
   ["In the cell above, draw only the badge you are moving."] =
     "В ячейке выше рисовать только тот значок, который двигаешь.",
   ["Locked items"] = "Защищённые предметы",

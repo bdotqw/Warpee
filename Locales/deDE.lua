@@ -71,10 +71,21 @@ local STRINGS = {
   ["Icon scale"] = "Symbolgröße",
   ["Which corner of the slot the badge is pinned to."] =
     "An welcher Ecke des Platzes das Abzeichen hängt.",
-  ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge."] =
-    "Zieh ein Abzeichen in der Zelle an seinen Platz, zieh es aus der Zelle heraus, um es auszublenden. Rechtsklick auf einen Namen blendet das Abzeichen ein oder aus.",
+  ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Clicking a name selects that badge and brings it back if it was hidden. Right-click a name to show or hide it."] =
+    "Zieh ein Abzeichen in der Zelle an seinen Platz, zieh es aus der Zelle heraus, um es auszublenden. Ein Klick auf einen Namen wählt das Abzeichen und holt es zurück, falls es ausgeblendet war. Rechtsklick blendet es ein oder aus.",
   ["Show only the selected badge"] = "Nur das gewählte Abzeichen zeigen",
   ["Release to hide"] = "Loslassen, um auszublenden",
+  ["The item level of gear, and the level of a keystone."] =
+    "Die Gegenstandsstufe von Ausrüstung und die Stufe eines Schlüsselsteins.",
+  ["How many items the stack holds."] = "Wie viele Gegenstände im Stapel liegen.",
+  ["BoE while the item is still unbound, WuE for warbound until equipped, BoA for account bound."] =
+    "BoE solange der Gegenstand noch nicht gebunden ist, WuE für kriegsmeutengebunden bis angelegt, BoA für accountgebunden.",
+  ["The name of the equipment set the item belongs to, cut to a few letters."] =
+    "Der Name des Ausrüstungssets, zu dem der Gegenstand gehört, auf wenige Buchstaben gekürzt.",
+  ["A coin on poor quality items, the ones the vendor takes."] =
+    "Eine Münze auf Gegenständen schlechter Qualität, die beim Händler landen.",
+  ["A padlock on the items you locked, which the vendor never sells."] =
+    "Ein Schloss auf den Gegenständen, die du geschützt hast, der Händler verkauft sie nie.",
   ["In the cell above, draw only the badge you are moving."] =
     "In der Zelle oben nur das Abzeichen zeichnen, das du bewegst.",
   ["Locked items"] = "Geschützte Gegenstände",

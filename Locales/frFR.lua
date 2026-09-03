@@ -82,10 +82,21 @@ local STRINGS = {
   ["Icon scale"] = "Taille de l'icône",
   ["Which corner of the slot the badge is pinned to."] =
     "À quel coin de l'emplacement le badge est fixé.",
-  ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge."] =
-    "Fais glisser un badge dans la case pour le placer, hors de la case pour le masquer. Clic droit sur un nom pour l'afficher ou le masquer.",
+  ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Clicking a name selects that badge and brings it back if it was hidden. Right-click a name to show or hide it."] =
+    "Fais glisser un badge dans la case pour le placer, hors de la case pour le masquer. Un clic sur un nom sélectionne ce badge et le ramène s'il était masqué. Clic droit pour l'afficher ou le masquer.",
   ["Show only the selected badge"] = "Afficher seulement le badge choisi",
   ["Release to hide"] = "Relâche pour masquer",
+  ["The item level of gear, and the level of a keystone."] =
+    "Le niveau d'objet de l'équipement et le niveau d'une clé.",
+  ["How many items the stack holds."] = "Combien d'objets contient la pile.",
+  ["BoE while the item is still unbound, WuE for warbound until equipped, BoA for account bound."] =
+    "BoE tant que l'objet n'est pas encore lié, WuE pour lié au bataillon jusqu'à l'équipement, BoA pour lié au compte.",
+  ["The name of the equipment set the item belongs to, cut to a few letters."] =
+    "Le nom de l'ensemble d'équipement auquel appartient l'objet, coupé à quelques lettres.",
+  ["A coin on poor quality items, the ones the vendor takes."] =
+    "Une pièce sur les objets de qualité médiocre, ceux qui partent chez le marchand.",
+  ["A padlock on the items you locked, which the vendor never sells."] =
+    "Un cadenas sur les objets que tu as protégés, le marchand ne les vend jamais.",
   ["In the cell above, draw only the badge you are moving."] =
     "Dans la case ci-dessus, n'afficher que le badge que tu déplaces.",
   ["Locked items"] = "Objets protégés",
