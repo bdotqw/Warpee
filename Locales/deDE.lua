@@ -73,6 +73,9 @@ local STRINGS = {
     "An welcher Ecke des Platzes das Abzeichen hängt.",
   ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge."] =
     "Zieh ein Abzeichen in der Zelle an seinen Platz, zieh es aus der Zelle heraus, um es auszublenden. Rechtsklick auf einen Namen blendet das Abzeichen ein oder aus.",
+  ["Show only the selected badge"] = "Nur das gewählte Abzeichen zeigen",
+  ["In the cell above, draw only the badge you are moving."] =
+    "In der Zelle oben nur das Abzeichen zeichnen, das du bewegst.",
   ["Locked items"] = "Geschützte Gegenstände",
   ["Item tooltips"] = "Gegenstands-Tooltips",
   ["Open bags with"] = "Taschen öffnen mit",
@@ -171,7 +174,7 @@ local STRINGS = {
   ["Junk coin"] = "Münze auf Schund",
   ["Reagent border"] = "Reagenzien-Rahmen",
   ["Border thickness"] = "Rahmenstärke",
-  ["Color by quality"] = "Nach Qualität einfärben",
+  ["Item level by quality"] = "Gegenstandsstufe nach Qualität",
   ["Corner"] = "Ecke",
   ["Size"] = "Größe",
   ["X offset"] = "X-Versatz",
@@ -182,16 +185,11 @@ local STRINGS = {
     "Blizzards Questgrafik: ein Ausrufezeichen für nicht angenommene Quests, ein Rahmen für Questgegenstände.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Leuchten in der Qualitätsfarbe auf Gegenständen, die das Spiel noch als neu zählt.",
-  ["Gold coin marker on poor-quality (gray) items."] =
-    "Goldmünze auf Gegenständen schlechter Qualität (grau).",
   ["Tint slots in the reagent bag. Turn it off and reagents take the quality border instead."] =
     "Plätze der Reagenzientasche einfärben. Aus, und Reagenzien bekommen stattdessen den Qualitätsrahmen.",
   ["Thickness of the quality border."] = "Stärke des Qualitätsrahmens.",
-  ["Tint the number with the item's rarity color."] =
-    "Färbt die Zahl in der Qualitätsfarbe des Gegenstands.",
-  ["Which corner of the slot the number sits in."] = "In welcher Ecke des Platzes die Zahl steht.",
-  ["Which corner of the slot the stack size sits in."] =
-    "In welcher Ecke des Platzes die Stapelanzahl steht.",
+  ["Tint the item level number with the item's rarity color."] =
+    "Färbt die Gegenstandsstufe in der Qualitätsfarbe des Gegenstands.",
   ["Alt-click an item in the bags or the bank to lock it: a padlock appears and the vendor never sells it. Alt-click again, or the cross here, to unlock."] =
     "Alt + Klick auf einen Gegenstand in den Taschen oder der Bank schützt ihn: ein Schloss erscheint und beim Händler wird er nie verkauft. Erneutes Alt + Klick oder das Kreuz in dieser Liste hebt den Schutz auf.",
   ["Count across characters"] = "Über alle Charaktere zählen",

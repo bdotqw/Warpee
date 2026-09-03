@@ -84,6 +84,9 @@ local STRINGS = {
     "К какому углу ячейки прижат значок.",
   ["Drag a badge inside the cell to place it, drag it out of the cell to hide it. Right-click a name to show or hide that badge."] =
     "Перетаскивай значок внутри ячейки, чтобы поставить его на место, и вытащи за пределы ячейки, чтобы убрать. Правый клик по названию показывает или скрывает значок.",
+  ["Show only the selected badge"] = "Показывать только выбранный значок",
+  ["In the cell above, draw only the badge you are moving."] =
+    "В ячейке выше рисовать только тот значок, который двигаешь.",
   ["Locked items"] = "Защищённые предметы",
   ["Item tooltips"] = "Подсказки предметов",
   ["Open bags with"] = "Открывать сумки вместе с",
@@ -182,7 +185,7 @@ local STRINGS = {
   ["Junk coin"] = "Монета на хламе",
   ["Reagent border"] = "Рамка реагентов",
   ["Border thickness"] = "Толщина рамки",
-  ["Color by quality"] = "Цвет по качеству",
+  ["Item level by quality"] = "Уровень предмета по качеству",
   ["Corner"] = "Угол",
   ["Size"] = "Размер",
   ["X offset"] = "Сдвиг по X",
@@ -193,13 +196,11 @@ local STRINGS = {
     "Штатная графика заданий: восклицательный знак для непринятых заданий, рамка для предметов заданий.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Свечение цвета качества на предметах, которые игра ещё считает новыми.",
-  ["Gold coin marker on poor-quality (gray) items."] = "Значок монеты на предметах плохого качества (серых).",
   ["Tint slots in the reagent bag. Turn it off and reagents take the quality border instead."] =
     "Подсвечивать ячейки реагентной сумки. Выключите — и у реагентов будет рамка качества.",
   ["Thickness of the quality border."] = "Толщина рамки качества.",
-  ["Tint the number with the item's rarity color."] = "Окрашивать число в цвет качества предмета.",
-  ["Which corner of the slot the number sits in."] = "В каком углу ячейки стоит число.",
-  ["Which corner of the slot the stack size sits in."] = "В каком углу ячейки стоит количество.",
+  ["Tint the item level number with the item's rarity color."] =
+    "Окрашивать уровень предмета в цвет его качества.",
   ["Alt-click an item in the bags or the bank to lock it: a padlock appears and the vendor never sells it. Alt-click again, or the cross here, to unlock."] =
     "Alt + щелчок по предмету в сумках или банке защищает его: появляется замок, и торговец такой предмет не продаст. Повторный Alt + щелчок или крестик в этом списке снимает защиту.",
   ["Count across characters"] = "Считать по всем персонажам",
