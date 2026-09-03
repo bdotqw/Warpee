@@ -87,6 +87,14 @@ Theme.THEMES = {
     faint = { 0.545, 0.522, 0.475, 1 },
     emptyLine = { 0.078, 0.075, 0.071, 0.90 },
     azure = { 0.478, 0.729, 0.906, 1 }, reagent = { 0.353, 0.804, 0.616, 1 } },
+  blizzardflat = { label = "Blizzard Flat",
+    bg = { 0.098, 0.086, 0.075, 0.96 }, panel = { 0.137, 0.122, 0.106, 1 },
+    panelHi = { 0.196, 0.173, 0.149, 1 }, slot = { 0.078, 0.067, 0.059, 1 },
+    stroke = { 0.541, 0.451, 0.275, 1 }, strokeSoft = { 0.267, 0.235, 0.196, 1 },
+    accent = { 1.000, 0.820, 0.000, 1 }, accentInk = { 1.000, 0.910, 0.600, 1 },
+    text = { 0.941, 0.918, 0.871, 1 }, dim = { 0.690, 0.651, 0.588, 1 },
+    faint = { 0.478, 0.447, 0.400, 1 }, emptyLine = { 0.227, 0.200, 0.169, 1 },
+    azure = { 0.478, 0.729, 0.906, 1 }, reagent = { 0.353, 0.804, 0.616, 1 } },
   graphite = { label = "Graphite",
     bg = { 0.071, 0.071, 0.071, 0.96 }, panel = { 0.129, 0.129, 0.129, 1 },
     panelHi = { 0.184, 0.184, 0.184, 1 }, slot = { 0.094, 0.094, 0.094, 1 },
@@ -128,7 +136,7 @@ Theme.THEMES = {
     faint = { 0.439, 0.451, 0.384, 1 }, emptyLine = { 0.278, 0.290, 0.184, 1 },
     azure = { 0.588, 0.784, 0.706, 1 }, reagent = { 0.478, 0.847, 0.588, 1 } },
 }
-Theme.THEME_ORDER = { "midnight", "blizzard", "class", "nightbloom", "void", "nord",
+Theme.THEME_ORDER = { "midnight", "blizzard", "blizzardflat", "class", "nightbloom", "void", "nord",
                       "abyss", "blood", "obsidian", "graphite", "gunmetal",
                       "forest", "moss", "ember" }
 
