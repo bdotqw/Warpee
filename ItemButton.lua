@@ -763,13 +763,29 @@ local function slotLoc(b, bag, slot)
   return loc
 end
 
+local KEYSTONE_LINK = "item:180653"
+
+local function keystoneMark(link)
+  if type(link) ~= "string" or not link:find(KEYSTONE_LINK, 1, true) then return nil end
+  local get = C_MythicPlus and C_MythicPlus.GetOwnedKeystoneLevel
+  return get and get() or nil
+end
+
+function ns.ClearItemPaint()
+  local B = ns.Bags
+  if B and B.pool then for _, b in ipairs(B.pool) do b.link = nil end end
+  local F = ns.Fav
+  if F and F.slots then for _, b in pairs(F.slots) do b.link = nil end end
+end
+
 function ns.UpdateItemButton(b)
   local bagID, slot = b.wpeBagID, b:GetID()
   local info = C_Container.GetContainerItemInfo(bagID, slot)
   local link = info and (info.hyperlink or info.iconFileID) or false
   local count = info and info.stackCount or 0
-  if b.link == link and b.wpeCount == count then return b.itemName end
-  b.link, b.wpeCount = link, count
+  local mark = keystoneMark(link)
+  if b.link == link and b.wpeCount == count and b.wpeMark == mark then return b.itemName end
+  b.link, b.wpeCount, b.wpeMark = link, count, mark
   if not info then
     SetItemButtonTexture(b, nil)
     SetItemButtonCount(b, 0)

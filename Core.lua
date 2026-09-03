@@ -9,6 +9,12 @@ local PICKS = {
   vendorRepairBy = { def = "player", ok = { player = true, guild = true, both = true } },
 }
 
+local function repaintItems()
+  ns.ClearItemPaint()
+  if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
+  if ns.Bank then ns.Bank:Repaint() end
+end
+
 function ns.Toggle(show)
   local f = Bags:Build()
   if show == nil then show = not f:IsShown() end
@@ -129,7 +135,8 @@ for _, e in ipairs({ "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CH
                      "EQUIPMENT_SETS_CHANGED", "EQUIPMENT_SWAP_FINISHED",
                      "PLAYER_EQUIPMENT_CHANGED",
                      "PLAYER_INTERACTION_MANAGER_FRAME_SHOW",
-                     "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" }) do
+                     "PLAYER_INTERACTION_MANAGER_FRAME_HIDE",
+                     "ITEM_CHANGED" }) do
   pcall(ev.RegisterEvent, ev, e)
 end
 local SCALE_CVARS = { uiscale = true, useuiscale = true }
@@ -318,14 +325,14 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     end
   elseif event == "PLAYER_LEVEL_UP" or event == "SKILL_LINES_CHANGED" then
     ns.ClearUnusableCache()
-    if Bags.pool then for _, b in ipairs(Bags.pool) do b.link = nil end end
-    if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
-    if ns.Bank then ns.Bank:Repaint() end
+    repaintItems()
+  elseif event == "ITEM_CHANGED" then
+    repaintItems()
+    C_Timer.After(0.5, repaintItems)
   elseif event == "EQUIPMENT_SETS_CHANGED" or event == "EQUIPMENT_SWAP_FINISHED"
       or event == "PLAYER_EQUIPMENT_CHANGED" then
     ns.Sets:Dirty()
-    if Bags.pool then for _, b in ipairs(Bags.pool) do b.link = nil end end
-    if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
+    repaintItems()
   elseif event == "BANKFRAME_OPENED" then
     if ns.Bank then ns.Bank.bankerOpen = true; ns.Bank:OnBankOpened() end
     autoOpenBags("bank")
