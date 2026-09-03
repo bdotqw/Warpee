@@ -327,14 +327,14 @@ local STRINGS = {
   ["Favorites"] = "Favoriten",
   ["Favorite slots"] = "Favoritenplätze",
   ["How many slots"] = "Anzahl der Plätze",
-  ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + right click clears a slot."] =
-    "Eine Reihe Plätze über dem Raster, immer im Blick. Zieht einen Gegenstand darauf, um ihn mit einem Klick zu nutzen; Strg + Rechtsklick leert einen Platz.",
+  ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
+    "Eine Reihe Plätze über dem Raster, immer im Blick. Zieht einen Gegenstand darauf, um ihn mit einem Klick zu nutzen; Strg + Linksklick leert einen Platz.",
   ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =
     "Nie mehr, als das Raster breit ist. Bei 0 ist die Reihe so breit wie das Raster.",
   ["As the grid"] = "Wie das Raster",
   ["Drag an item here to keep it one click away"] =
     "Zieht einen Gegenstand hierher, um ihn mit einem Klick zu nutzen",
-  ["Ctrl + right click clears the slot"] = "Strg + Rechtsklick leert den Platz",
+  ["Ctrl + left click clears the slot"] = "Strg + Linksklick leert den Platz",
   ["Drag moves it to another slot"] = "Ziehen verschiebt ihn auf einen anderen Platz",
   ["No gold recorded yet"] = "Noch kein Gold erfasst",
   ["Delete mode"] = "Löschmodus",

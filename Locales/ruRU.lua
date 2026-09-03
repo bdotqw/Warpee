@@ -338,14 +338,14 @@ local STRINGS = {
   ["Favorites"] = "Избранное",
   ["Favorite slots"] = "Ячейки избранного",
   ["How many slots"] = "Сколько ячеек",
-  ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + right click clears a slot."] =
-    "Ряд ячеек над сеткой, всегда на виду. Перетащите предмет в ячейку, чтобы держать его под рукой; Ctrl + ПКМ освобождает ячейку.",
+  ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
+    "Ряд ячеек над сеткой, всегда на виду. Перетащите предмет в ячейку, чтобы держать его под рукой; Ctrl + ЛКМ освобождает ячейку.",
   ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =
     "Не больше, чем ширина сетки. Ноль — во всю ширину сетки.",
   ["As the grid"] = "Как сетка",
   ["Drag an item here to keep it one click away"] =
     "Перетащите сюда предмет, чтобы использовать его в один клик",
-  ["Ctrl + right click clears the slot"] = "Ctrl + ПКМ освобождает ячейку",
+  ["Ctrl + left click clears the slot"] = "Ctrl + ЛКМ освобождает ячейку",
   ["Drag moves it to another slot"] = "Перетаскивание переносит в другую ячейку",
   ["No gold recorded yet"] = "Данных о золоте пока нет",
   ["Delete mode"] = "Режим удаления",

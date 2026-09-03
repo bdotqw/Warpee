@@ -340,14 +340,14 @@ local STRINGS = {
   ["Favorites"] = "Favoris",
   ["Favorite slots"] = "Emplacements favoris",
   ["How many slots"] = "Nombre d'emplacements",
-  ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + right click clears a slot."] =
-    "Une rangée d'emplacements au-dessus de la grille, toujours visible. Glissez un objet dessus pour le garder à portée de clic ; Ctrl + clic droit libère un emplacement.",
+  ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
+    "Une rangée d'emplacements au-dessus de la grille, toujours visible. Glissez un objet dessus pour le garder à portée de clic ; Ctrl + clic gauche libère un emplacement.",
   ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =
     "Jamais plus large que la grille. À zéro, la rangée fait toute la largeur de la grille.",
   ["As the grid"] = "Comme la grille",
   ["Drag an item here to keep it one click away"] =
     "Glissez un objet ici pour l'avoir à portée de clic",
-  ["Ctrl + right click clears the slot"] = "Ctrl + clic droit libère l'emplacement",
+  ["Ctrl + left click clears the slot"] = "Ctrl + clic gauche libère l'emplacement",
   ["Drag moves it to another slot"] = "Glisser le déplace vers un autre emplacement",
   ["No gold recorded yet"] = "Aucun or enregistré pour l'instant",
   ["Delete mode"] = "Mode suppression",
