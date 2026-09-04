@@ -1100,7 +1100,7 @@ function factories.badges(parent, spec)
       else
         local cr, cg, cb = Theme:C("overlay")
         ns.SetOutlined(o, math.max(6, math.floor((g.s or d.s) * f + 0.5)))
-        o:SetText(d.p or d.key)
+        o:SetText(ns.BadgeSample(d.key) or d.key)
         o:SetTextColor(cr, cg, cb, dim)
       end
       o:SetDrawLayer("OVERLAY", sel and 7 or 5)

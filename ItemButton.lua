@@ -383,7 +383,7 @@ end
 local BADGES = {
   { key = "ilvl",   n = "Item level",  p = "447",  c = "BOTTOMRIGHT", x = 1, y = 5, s = 14,
     t = "Item level on gear, and a keystone's level." },
-  { key = "count",  n = "Stack count", p = "20",   c = "BOTTOMRIGHT", x = 1, y = 5, s = 14,
+  { key = "count",  n = "Stack count", p = "1000", c = "BOTTOMRIGHT", x = 1, y = 5, s = 14,
     t = "How many items the stack holds." },
   { key = "bind",   n = "Binding",     p = "BoE",  c = "TOPLEFT",    x = 2, y = -2, s = 12,
     t = "BoE while unbound, WuE for warbound until equipped, BoA for account bound." },
@@ -439,6 +439,19 @@ function ns.Badge(key)
   return (t and t[key]) or BADGE[key]
 end
 
+local CUT_SAMPLE = "Mythical"
+
+function ns.BadgeSample(key)
+  local d = BADGE[key]
+  if not (d and d.p) then return nil end
+  if d.k then
+    local k = ns.Badge(key).k or d.k
+    if k < 2 then k = 2 elseif k > #CUT_SAMPLE then k = #CUT_SAMPLE end
+    return CUT_SAMPLE:sub(1, k)
+  end
+  return d.p
+end
+
 local function badgeObj(b, key)
   if key == "count" then return b.Count or _G[(b:GetName() or "") .. "Count"] end
   return b[key]
@@ -454,7 +467,7 @@ local function badgeBox(key, size)
   local w = boxW[key]
   if w then return w end
   ruler:SetFont(ns.Fonts:Current(), size, "OUTLINE")
-  ruler:SetText(BADGE[key].p or "")
+  ruler:SetText(ns.BadgeSample(key) or "")
   w = ruler:GetStringWidth() or 0
   boxW[key] = w
   return w
