@@ -279,17 +279,19 @@ function Bags:LayoutBagWindow()
   if not w or not self.bagButtons then return end
   local BGAP, BPAD = 6, 12
   local BHEAD = 30 + Theme:TopInset()
+  local BBAND = 28
   local size = self:BagWinButtonSize()
   local cf = ns.Badge("count").s
+  local band = Theme:HeaderBand(w, BBAND)
+  local mid = (band or BHEAD) / 2
   if self.bagTitle then
     self.bagTitle:ClearAllPoints()
-    self.bagTitle:SetPoint("TOPLEFT", w, "TOPLEFT", BPAD, -(8 + Theme:TopInset()))
+    self.bagTitle:SetPoint("LEFT", w, "TOPLEFT", BPAD, -mid)
   end
   if self.bagWinClose then
     self.bagWinClose:ClearAllPoints()
-    ns.SnapPoint(self.bagWinClose, "TOPRIGHT", w, "TOPRIGHT", -6, -(6 + Theme:TopInset()))
+    ns.SnapPoint(self.bagWinClose, "RIGHT", w, "TOPRIGHT", -6, -mid)
   end
-  Theme:HeaderBand(w, BHEAD)
   local prev
   for _, b in ipairs(self.bagButtons) do
     b:SetSize(size, size)
