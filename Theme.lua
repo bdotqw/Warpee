@@ -656,7 +656,7 @@ local EDGE_HIDE = { "NineSlice", "TopLeftCorner", "TopRightCorner", "BotLeftCorn
 
 local SKINS = {
   blizzard     = { inset = 20, grain = true },
-  blizzardflat = { inset = 14, edge = FLAT_EDGE, out = 0,
+  blizzardflat = { inset = 14, edge = FLAT_EDGE, out = 0, band = 44,
                    body = "FlatPanelBackgroundTemplate", bodyGrain = 0.20 },
 }
 
@@ -793,7 +793,7 @@ function Theme:RefreshArt(frame)
       art:Show()
     end
     frame.wpeArt = art
-    if frame.wpeBandH then self:HeaderBand(frame) end
+    if frame.wpeBandH or def.band then self:HeaderBand(frame) end
     return art
   end
   local cache = frame.wpeArts
@@ -817,8 +817,41 @@ end
 
 function Theme:HeaderBand(frame, height)
   if height then frame.wpeBandH = height end
+  local def = self:SkinDef()
+  local h = frame.wpeBandH or (def and def.band)
+  local art = frame.wpeArt
+  if not (h and art) then
+    if frame.wpeBand then frame.wpeBand:Hide() end
+    if frame.wpeBandLine then frame.wpeBandLine:Hide() end
+    return
+  end
+  local a = (self.colors.bg and self.colors.bg[4]) or 1
+  local band = frame.wpeBand
+  if not band or band:GetParent() ~= art then
+    band = art:CreateTexture(nil, "BACKGROUND", nil, 3)
+    band:SetTexture(WHITE)
+    frame.wpeBand = band
+  end
+  band:ClearAllPoints()
+  band:SetPoint("TOPLEFT", frame, "TOPLEFT")
+  band:SetPoint("TOPRIGHT", frame, "TOPRIGHT")
+  band:SetHeight(h)
+  band:SetVertexColor(self:C("panelHi"))
+  band:SetAlpha(a)
+  band:Show()
   local line = frame.wpeBandLine
-  if line then line:Hide() end
+  if not line or line:GetParent() ~= art then
+    line = art:CreateTexture(nil, "BACKGROUND", nil, 4)
+    line:SetTexture(WHITE)
+    frame.wpeBandLine = line
+  end
+  line:ClearAllPoints()
+  line:SetPoint("TOPLEFT", band, "BOTTOMLEFT")
+  line:SetPoint("TOPRIGHT", band, "BOTTOMRIGHT")
+  line:SetHeight(ns.PX(frame))
+  line:SetVertexColor(self:C("stroke"))
+  line:SetAlpha(a)
+  line:Show()
 end
 
 local TITLE_STRIP = 20
