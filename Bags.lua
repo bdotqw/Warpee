@@ -289,7 +289,7 @@ function Bags:LayoutBagWindow()
     self.bagWinClose:ClearAllPoints()
     ns.SnapPoint(self.bagWinClose, "TOPRIGHT", w, "TOPRIGHT", -6, -(6 + Theme:TopInset()))
   end
-  Theme:HeaderBand(w, 30)
+  Theme:HeaderBand(w, BHEAD)
   local prev
   for _, b in ipairs(self.bagButtons) do
     b:SetSize(size, size)
