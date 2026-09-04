@@ -279,7 +279,7 @@ function Bags:LayoutBagWindow()
   if not w or not self.bagButtons then return end
   local BGAP, BPAD = 6, 12
   local BHEAD = 30 + Theme:TopInset()
-  local BBAND = 28
+  local BBAND = 26
   local size = self:BagWinButtonSize()
   local cf = ns.Badge("count").s
   local band = Theme:HeaderBand(w, BBAND)
