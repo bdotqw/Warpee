@@ -946,7 +946,7 @@ function ns.MetaWarbound(m)
     if not m.isGear then
       m.wb = false
     elseif m.bag then
-      m.wb = ns.IsWarbound(m.bag, m.slot, m.loc) and true or false
+      m.wb = ns.IsWarbound(m.bag, m.slot, m.loc, m.bound) and true or false
     else
       m.wb = ns.IsLinkWarbound(m.link) and true or false
     end

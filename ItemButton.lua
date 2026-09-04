@@ -252,8 +252,8 @@ function ns.SetRarityRing(b, r, g, bl, a)
   b.iT:Show(); b.iB:Show(); b.iL:Show(); b.iR:Show()
 end
 
-function ns.IsWarbound(bagID, slot, loc)
-  if loc and C_Item.DoesItemExist(loc) and C_Item.IsBoundToAccountUntilEquip
+function ns.IsWarbound(bagID, slot, loc, bound)
+  if not bound and loc and C_Item.DoesItemExist(loc) and C_Item.IsBoundToAccountUntilEquip
      and C_Item.IsBoundToAccountUntilEquip(loc) then
     return true
   end
@@ -640,7 +640,7 @@ end
 
 function ns.BindLabel(link, itemID, bound, wue)
   if not ns.Badge("bind").on then return nil end
-  if wue then return "WuE" end
+  if wue and not bound then return "WuE" end
   local bt = bindType(link, itemID)
   if accountBind(bt) then return "BoA" end
   local E = Enum and Enum.ItemBind
@@ -914,7 +914,9 @@ function ns.UpdateItemButton(b)
   b.itemName = nm
   if nm then
     local loc = slotLoc(b, bagID, slot)
-    local wue = ns.Badge("bind").on and C_Item.IsBoundToAccountUntilEquip
+    local wue = ns.Badge("bind").on and not info.isBound
+                and iEquipLoc and iEquipLoc ~= ""
+                and C_Item.IsBoundToAccountUntilEquip
                 and C_Item.DoesItemExist(loc)
                 and C_Item.IsBoundToAccountUntilEquip(loc) or false
     ns.MarkBind(b, ns.BindLabel(hl, iItemID, info.isBound, wue), info.quality)
