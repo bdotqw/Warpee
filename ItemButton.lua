@@ -829,11 +829,23 @@ function ns.ClearItemPaint()
   if F and F.slots then for _, b in pairs(F.slots) do b.link = nil end end
 end
 
+local function bagTotal(info, count)
+  local get = C_Item.GetItemCount or GetItemCount
+  local id = info and info.itemID
+  if not (get and id) then return count end
+  local all = get(id) or count
+  if all <= count then return count end
+  local max = select(8, C_Item.GetItemInfo(id))
+  if (tonumber(max) or 1) <= 1 then return count end
+  return all
+end
+
 function ns.UpdateItemButton(b)
   local bagID, slot = b.wpeBagID, b:GetID()
   local info = C_Container.GetContainerItemInfo(bagID, slot)
   local link = info and (info.hyperlink or info.iconFileID) or false
   local count = info and info.stackCount or 0
+  if b.wpeTotal then count = bagTotal(info, count) end
   local mark = keystoneMark(link)
   if b.link == link and b.wpeCount == count and b.wpeMark == mark then return b.itemName end
   b.link, b.wpeCount, b.wpeMark = link, count, mark
