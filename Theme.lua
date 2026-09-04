@@ -1019,7 +1019,11 @@ end
 
 function ns.Fonts:Refresh()
   local name = (ns.Bags and ns.Bags.font) or (WarpeeDB and WarpeeDB.font) or self.DEFAULT
+  local prev = self.active
   self.active = self:Path(name)
+  if prev and prev ~= self.active and ns.Bags then
+    ns.Bags.styleGen = (ns.Bags.styleGen or 0) + 1
+  end
   self:Reapply()
   return self.active
 end
