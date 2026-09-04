@@ -657,7 +657,7 @@ local EDGE_HIDE = { "NineSlice", "TopLeftCorner", "TopRightCorner", "BotLeftCorn
 local SKINS = {
   blizzard     = { inset = 20, grain = true },
   blizzardflat = { inset = 4, drop = -4, edge = FLAT_EDGE, out = 14, band = 34,
-                   body = "FlatPanelBackgroundTemplate", bodyGrain = 0.20 },
+                   plate = true, bodyGrain = 0.20 },
 }
 
 function Theme:SkinDef()
@@ -688,12 +688,6 @@ local function sinkArt(frame, art)
   local under = LOWER_STRATA[frame:GetFrameStrata() or ""] or "MEDIUM"
   art:SetFrameStrata(under)
   art:SetFrameLevel(1)
-end
-
-local function sinkBody(art, body)
-  local under = LOWER_STRATA[art:GetFrameStrata() or ""] or "BACKGROUND"
-  body:SetFrameStrata(under)
-  body:SetFrameLevel(1)
 end
 
 local function dressEdge(art, def)
@@ -743,20 +737,17 @@ local function buildArt(frame, key, def)
     if title.TitleText then title.TitleText:SetText("") end
     if title.SetAlpha then title:SetAlpha(1) end
   end
-  if def.body then
-    local made, body = pcall(CreateFrame, "Frame", nil, art, def.body)
-    if made and body then
-      body:SetAllPoints(art)
-      body:EnableMouse(false)
-      sinkBody(art, body)
-      art.wpeBody = body
-      if art.Bg then
-        if def.bodyGrain then
-          art.Bg:ClearAllPoints()
-          art.Bg:SetAllPoints(art)
-        else
-          art.Bg:Hide()
-        end
+  if def.plate then
+    local plate = art:CreateTexture(nil, "BACKGROUND", nil, -8)
+    plate:SetTexture(WHITE)
+    plate:SetAllPoints(art)
+    art.wpePlate = plate
+    if art.Bg then
+      if def.bodyGrain then
+        art.Bg:ClearAllPoints()
+        art.Bg:SetAllPoints(art)
+      else
+        art.Bg:Hide()
       end
     end
   end
@@ -778,10 +769,11 @@ function Theme:RefreshArt(frame)
     if art then
       sinkArt(frame, art)
       local a = (self.colors.bg and self.colors.bg[4]) or 1
-      if art.wpeBody then
-        sinkBody(art, art.wpeBody)
-        art.wpeBody:SetAlpha(a)
-        art.wpeBody:Show()
+      if art.wpePlate then
+        local r, g, b = self:C("bg")
+        art.wpePlate:SetVertexColor(r, g, b)
+        art.wpePlate:SetAlpha(a)
+        art.wpePlate:Show()
         if art.Bg and def.bodyGrain then
           art.Bg:SetAlpha(a * def.bodyGrain)
           art.Bg:Show()
