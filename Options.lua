@@ -139,8 +139,8 @@ local SECTION_CLOSED = {}
 local bg = { sel = "ilvl" }
 bg.aligns = { "left", "right", "center" }
 bg.alignOff = { left = 0, center = 0.5, right = 1 }
-bg.alignLabels = { left = "Left to right", right = "Right to left",
-                   center = "From the center" }
+bg.alignLabels = { left = "Grows left to right", right = "Grows right to left",
+                   center = "Grows from the center" }
 bg.alignKeys = function() return bg.aligns end
 bg.alignLabel = function(k) return bg.alignLabels[k] or bg.alignLabels.left end
 bg.alignOf = function(g)

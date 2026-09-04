@@ -77,9 +77,9 @@ local STRINGS = {
   ["Badge scale"] = "Tamaño del distintivo",
   ["Which corner of the slot the badge is pinned to."] =
     "En qué esquina del espacio se ancla el distintivo.",
-  ["Left to right"] = "De izquierda a derecha",
-  ["Right to left"] = "De derecha a izquierda",
-  ["From the center"] = "Desde el centro",
+  ["Grows left to right"] = "Crece de izquierda a derecha",
+  ["Grows right to left"] = "Crece de derecha a izquierda",
+  ["Grows from the center"] = "Crece desde el centro",
   ["Growth direction: which way the badge grows when the value gets longer."] =
     "Dirección de crecimiento: hacia dónde crece el distintivo cuando el valor se alarga.",
   ["Drag a badge, or click where you want it. Left-click a name to show that badge, right-click the name to hide it."] =
