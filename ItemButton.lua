@@ -444,6 +444,40 @@ local function badgeObj(b, key)
   return b[key]
 end
 
+local ruler = UIParent:CreateFontString(nil, "BACKGROUND")
+ruler:Hide()
+local boxW, boxGen = {}, nil
+
+local function badgeBox(key, size)
+  local gen = ns.Bags and ns.Bags.styleGen
+  if boxGen ~= gen then boxW, boxGen = {}, gen end
+  local w = boxW[key]
+  if w then return w end
+  ruler:SetFont(ns.Fonts:Current(), size, "OUTLINE")
+  ruler:SetText(BADGE[key].p or "")
+  w = ruler:GetStringWidth() or 0
+  boxW[key] = w
+  return w
+end
+
+local function badgeNudge(key, fs, g)
+  local d = BADGE[key]
+  if not (d and d.p and fs.GetStringWidth) then return 0 end
+  local box = badgeBox(key, g.s or d.s)
+  local w = fs:GetStringWidth() or 0
+  if box <= 0 or w <= 0 or w >= box then return 0 end
+  local dx = math.floor((box - w) / 2 + 0.5)
+  return (g.c or ""):find("LEFT") and dx or -dx
+end
+
+function ns.PinBadge(b, key, fs)
+  local o = fs or badgeObj(b, key)
+  if not o then return end
+  local g = ns.Badge(key)
+  o:ClearAllPoints()
+  o:SetPoint(g.c, b, g.c, (g.x or 0) + badgeNudge(key, o, g), g.y or 0)
+end
+
 function ns.ApplyBadge(b, key)
   local o = badgeObj(b, key)
   if not o then return end
@@ -455,7 +489,7 @@ function ns.ApplyBadge(b, key)
     ns.SetOutlined(o, g.s or d.s)
   end
   o:ClearAllPoints()
-  o:SetPoint(g.c, b, g.c, g.x, g.y)
+  o:SetPoint(g.c, b, g.c, g.x + badgeNudge(key, o, g), g.y)
   o:SetAlpha(g.on and 1 or 0)
 end
 
@@ -516,11 +550,13 @@ function ns.FitCount(b, count)
   if not c then return end
   ns.SetOutlined(c, ns.Badge("count").s)
   if not ns.Badge("count").on then c:SetText("") end
+  ns.PinBadge(b, "count", c)
 end
 
 function ns.FitIlvl(b, lvl)
   if not b.ilvl then return end
   ns.SetOutlined(b.ilvl, ns.Badge("ilvl").s)
+  ns.PinBadge(b, "ilvl", b.ilvl)
 end
 
 local function fmtCooldown(s)
@@ -661,6 +697,7 @@ function ns.MarkBind(b, label, quality)
     local W = ns.WARBOUND
     fs:SetTextColor(W[1], W[2], W[3])
   end
+  ns.PinBadge(b, "bind", fs)
 end
 
 local CUT, CUT_N = {}, nil
@@ -720,6 +757,7 @@ function ns.MarkOutfit(b, label)
   if not b.outfit then return end
   if label then ns.SetOutlined(b.outfit, ns.Badge("outfit").s) end
   b.outfit:SetText(label or "")
+  ns.PinBadge(b, "outfit", b.outfit)
 end
 
 function ns.MarkJunk(b, quality)
