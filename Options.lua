@@ -180,7 +180,7 @@ bg.isText  = function() return not bg.def().tex end
 bg.notFit  = function() return bg.sel ~= "outfit" end
 bg.label   = function(key) return (ns.BADGE[key] or {}).n or key end
 bg.prev    = 132
-bg.max     = 40
+bg.max     = 56
 bg.clamp   = function(v)
   v = math.floor(v + 0.5)
   if v > bg.max then return bg.max elseif v < -bg.max then return -bg.max end
@@ -1168,18 +1168,31 @@ function factories.badges(parent, spec)
     return cx / s - (cell:GetLeft() or 0), cy / s - (cell:GetBottom() or 0)
   end
 
+  local function corner(o)
+    local c = bg.cur().c or "TOPLEFT"
+    local cl, cb = cell:GetLeft() or 0, cell:GetBottom() or 0
+    local x = (c:find("LEFT") and (o:GetLeft() or 0) or (o:GetRight() or 0)) - cl
+    local y = (c:find("BOTTOM") and (o:GetBottom() or 0) or (o:GetTop() or 0)) - cb
+    return x, y
+  end
+
   local function place(px, py)
     local g, f = bg.cur(), factor()
+    local c = g.c or "TOPLEFT"
+    local W, H = cell:GetWidth() or 0, cell:GetHeight() or 0
+    g.x = bg.pin("x", (c:find("LEFT") and px or (px - W)) / f)
+    g.y = bg.pin("y", (c:find("BOTTOM") and py or (py - H)) / f)
+  end
+
+  local function center(px, py)
+    local g, f = bg.cur(), factor()
+    local c = g.c or "TOPLEFT"
     local w, h = measure(bg.sel)
-    local W, H = cell:GetWidth(), cell:GetHeight()
-    px = math.min(W, math.max(0, px))
-    py = math.min(H, math.max(0, py))
-    local l, d = px - w / 2, py - h / 2
-    local horiz = (px < W / 2) and "LEFT" or "RIGHT"
-    local vert  = (py < H / 2) and "BOTTOM" or "TOP"
-    g.c = vert .. horiz
-    g.x = bg.pin("x", ((horiz == "LEFT") and l or (l + w - W)) / f)
-    g.y = bg.pin("y", ((vert == "BOTTOM") and d or (d + h - H)) / f)
+    local W, H = cell:GetWidth() or 0, cell:GetHeight() or 0
+    local l = math.min(W, math.max(0, px)) - w / 2
+    local d = math.min(H, math.max(0, py)) - h / 2
+    g.x = bg.pin("x", (c:find("LEFT") and l or (l + w - W)) / f)
+    g.y = bg.pin("y", (c:find("BOTTOM") and d or (d + h - H)) / f)
   end
 
   local grab
@@ -1216,12 +1229,14 @@ function factories.badges(parent, spec)
       Options:ReflowPages()
     end
     local g, o = bg.cur(), art[bg.sel]
-    if not g.on then g.on = true; place(px, py); paint() end
     local w, h = o:GetWidth() or 0, o:GetHeight() or 0
     local ox = (o:GetLeft() or 0) + w / 2 - (cell:GetLeft() or 0)
     local oy = (o:GetBottom() or 0) + h / 2 - (cell:GetBottom() or 0)
-    local held = math.abs(px - ox) <= w / 2 + 4 and math.abs(py - oy) <= h / 2 + 4
-    grab = { dx = held and (ox - px) or 0, dy = held and (oy - py) or 0 }
+    local held = g.on and math.abs(px - ox) <= w / 2 + 4
+                      and math.abs(py - oy) <= h / 2 + 4
+    if not held then g.on = true; center(px, py); paint() end
+    local cx, cy = corner(o)
+    grab = { dx = cx - px, dy = cy - py }
     s:SetScript("OnUpdate", function()
       if not (grab and IsMouseButtonDown("LeftButton")) then stop(); return end
       local x, y = cursorXY()
@@ -1547,9 +1562,9 @@ local ITEMS_PAGE = {
   { type = "select", name = "Corner", get = bg.cGet, set = bg.cSet, section = "badges",
     keys = anchorKeys, label = anchorLabel,
     desc = "Which corner of the slot the badge is pinned to." },
-  { type = "range", name = "X offset", min = -40, max = 40, step = 1, section = "badges",
+  { type = "range", name = "X offset", min = -56, max = 56, step = 1, section = "badges",
     get = bg.xGet, set = bg.xSet, half = "left" },
-  { type = "range", name = "Y offset", min = -40, max = 40, step = 1, section = "badges",
+  { type = "range", name = "Y offset", min = -56, max = 56, step = 1, section = "badges",
     get = bg.yGet, set = bg.ySet, half = "right" },
   { type = "range", name = "Text size", min = 6, max = 24, step = 1, section = "badges",
     get = bg.sGet, set = bg.sSet, hidden = bg.isTex },
