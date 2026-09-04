@@ -59,6 +59,22 @@ local function itemIcon(id)
   return (GetItemIcon and GetItemIcon(id)) or 134400
 end
 
+local function favSound(kind, bag, slot)
+  local pickup = kind == "pickup"
+  local play = C_Sound and C_Sound.PlayItemSound
+  local kinds = Enum and Enum.ItemSoundType
+  if play and kinds and bag and slot and ItemLocation then
+    local loc = ItemLocation:CreateFromBagAndSlot(bag, slot)
+    if loc and C_Item.DoesItemExist(loc) then
+      play(pickup and (kinds.Pickup or 0) or (kinds.Drop or 1), loc)
+      return
+    end
+  end
+  if not (PlaySound and SOUNDKIT) then return end
+  local id = SOUNDKIT[pickup and "UI_CURSOR_PICKUP_OBJECT" or "UI_CURSOR_DROP_OBJECT"]
+  if id then PlaySound(id) end
+end
+
 local deferred = false
 
 local function later()
@@ -202,6 +218,7 @@ function Fav:Lift(index)
   self.moving = index
   local b = self.slots[index]
   if b then ns.SetSlotHighlight(b, true) end
+  favSound("pickup", b and b.favBag, b and b.favSlot)
   local f = dragArt()
   local sz = math.max(16, (b and b:GetWidth()) or 0)
   f:SetSize(sz, sz)
@@ -216,6 +233,7 @@ function Fav:Drop()
   if not from then return end
   local b = self.slots[from]
   if b then ns.SetSlotHighlight(b, false) end
+  favSound("drop", b and b.favBag, b and b.favSlot)
   local list = self:List()
   for i = 1, (self.max or 0) do
     local c = self.catchers[i]
@@ -234,6 +252,7 @@ function Fav:PinFromCursor(index)
   if not id and link then id = tonumber(link:match("item:(%d+)")) end
   if not id then return end
   ClearCursor()
+  favSound("drop", locate(id))
   self:Set(index, id)
 end
 
