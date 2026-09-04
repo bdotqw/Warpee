@@ -99,22 +99,6 @@ Theme.THEMES = {
     text = { 0.957, 0.929, 0.941, 1 }, dim = { 0.729, 0.671, 0.694, 1 },
     faint = { 0.510, 0.447, 0.475, 1 }, emptyLine = { 0.337, 0.184, 0.251, 1 },
     azure = { 0.529, 0.686, 0.902, 1 }, reagent = { 0.400, 0.827, 0.643, 1 } },
-  sunwellart = { label = "Sunwell Plateau", skin = "sunwell",
-    bg = { 0.075, 0.051, 0.024, 0.95 }, panel = { 0.145, 0.098, 0.043, 1 },
-    panelHi = { 0.235, 0.169, 0.086, 1 }, slot = { 0.098, 0.067, 0.031, 1 },
-    stroke = { 0.290, 0.212, 0.102, 1 }, strokeSoft = { 0.224, 0.157, 0.078, 1 },
-    accent = { 0.949, 0.878, 0.376, 1 }, accentInk = { 0.988, 0.949, 0.706, 1 },
-    text = { 0.925, 0.922, 0.914, 1 }, dim = { 0.694, 0.686, 0.671, 1 },
-    faint = { 0.486, 0.478, 0.463, 1 }, emptyLine = { 0.337, 0.255, 0.133, 1 },
-    azure = { 0.478, 0.706, 0.878, 1 }, reagent = { 0.400, 0.827, 0.612, 1 } },
-  silvermoonart = { label = "Silvermoon Court", skin = "silvermoon",
-    bg = { 0.067, 0.024, 0.051, 0.95 }, panel = { 0.137, 0.043, 0.094, 1 },
-    panelHi = { 0.227, 0.086, 0.149, 1 }, slot = { 0.090, 0.027, 0.063, 1 },
-    stroke = { 0.322, 0.224, 0.118, 1 }, strokeSoft = { 0.224, 0.122, 0.102, 1 },
-    accent = { 0.965, 0.706, 0.259, 1 }, accentInk = { 0.988, 0.855, 0.573, 1 },
-    text = { 0.957, 0.929, 0.941, 1 }, dim = { 0.729, 0.671, 0.694, 1 },
-    faint = { 0.510, 0.447, 0.475, 1 }, emptyLine = { 0.337, 0.184, 0.251, 1 },
-    azure = { 0.529, 0.686, 0.902, 1 }, reagent = { 0.400, 0.827, 0.643, 1 } },
   graphite = { label = "Graphite",
     bg = { 0.071, 0.071, 0.071, 0.96 }, panel = { 0.129, 0.129, 0.129, 1 },
     panelHi = { 0.196, 0.196, 0.196, 1 }, slot = { 0.094, 0.094, 0.094, 1 },
@@ -144,8 +128,7 @@ Theme.THEMES = {
 Theme.THEME_ORDER = { "midnight", "blizzard", "blizzardflat", "class",
                       "nightbloom", "void", "nord",
                       "abyss", "blood", "forest", "graphite",
-                      "sunwell", "silvermoon",
-                      "sunwellart", "silvermoonart" }
+                      "sunwell", "silvermoon" }
 
 function Theme:IsLight()
   local c = self.colors.bg
