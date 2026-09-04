@@ -974,7 +974,7 @@ function ns.PaintVaultButton(b, d, bagID)
     ns.MarkQuestItem(b, classID == Enum.ItemClass.Questitem)
     ns.MarkJunk(b, q)
     ns.MarkBlocked(b, (C_Item.GetItemInfoInstant(link)))
-    ns.MarkBind(b, ns.BindLabel(link, itemID, d.b, false), q)
+    ns.MarkBind(b, ns.BindLabel(link, itemID, d.b, d.w), q)
     ns.MarkOutfit(b, nil)
   else
     clearOverlays(b)
