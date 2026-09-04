@@ -445,8 +445,8 @@ local function countRows(tt, id)
       col and col.r or 1, col and col.g or 1, col and col.b or 1, 1, 1, 1)
   end
   if wb > 0 then
-    local W = ns.WARBOUND
-    tt:AddDoubleLine(TT("Warband bank"), tostring(wb), W[1], W[2], W[3], 1, 1, 1)
+    local r, g, b = ns.Theme:C("azure")
+    tt:AddDoubleLine(TT("Warband bank"), tostring(wb), r, g, b, 1, 1, 1)
   end
   tt:AddDoubleLine(TT("Total"), tostring(total), 1, 0.82, 0, 1, 1, 1)
   return true

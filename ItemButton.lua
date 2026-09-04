@@ -88,7 +88,7 @@ local function attachBorder(b)
   b.bind:SetDrawLayer("OVERLAY", 6)
   b.bind:SetFontObject(ns.Fonts:Object(12, "OUTLINE"))
   b.bind:SetPoint("TOPLEFT", 2, -2)
-  b.bind:SetTextColor(ns.WARBOUND[1], ns.WARBOUND[2], ns.WARBOUND[3])
+  b.bind:SetTextColor(Theme:C("azure"))
   b.outfit = bf:CreateFontString(nil, "OVERLAY")
   b.outfit:SetDrawLayer("OVERLAY", 6)
   b.outfit:SetFontObject(ns.Fonts:Object(11, "OUTLINE"))
@@ -694,8 +694,7 @@ function ns.MarkBind(b, label, quality)
     local c = ITEM_QUALITY_COLORS[quality]
     fs:SetTextColor(c.r, c.g, c.b)
   else
-    local W = ns.WARBOUND
-    fs:SetTextColor(W[1], W[2], W[3])
+    fs:SetTextColor(Theme:C("azure"))
   end
   ns.PinBadge(b, "bind", fs)
 end
