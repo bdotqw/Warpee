@@ -656,7 +656,8 @@ local EDGE_HIDE = { "NineSlice", "TopLeftCorner", "TopRightCorner", "BotLeftCorn
 
 local SKINS = {
   blizzard     = { inset = 20, grain = true },
-  blizzardflat = { inset = 0, drop = -2, edge = FLAT_EDGE, out = 14, band = 30,
+  blizzardflat = { inset = -3, drop = -2, edge = FLAT_EDGE, out = 14, band = 30,
+                   bandTop = 3,
                    bandAlpha = 0.80,
                    edgeTint = "stroke", plate = true, bodyGrain = 0.10 },
 }
@@ -838,8 +839,9 @@ function Theme:HeaderBand(frame, height)
     frame.wpeBand = band
   end
   band:ClearAllPoints()
-  band:SetPoint("TOPLEFT", frame, "TOPLEFT")
-  band:SetPoint("TOPRIGHT", frame, "TOPRIGHT")
+  local up = def.bandTop or 0
+  band:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, up)
+  band:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, up)
   band:SetHeight(h)
   band:SetVertexColor(self:C("panelHi"))
   band:SetAlpha(a * (def.bandAlpha or 1))
