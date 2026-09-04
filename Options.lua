@@ -137,6 +137,17 @@ local factories = {}
 local SECTION_CLOSED = {}
 
 local bg = { sel = "ilvl" }
+bg.aligns = { "left", "right", "center" }
+bg.alignOff = { left = 0, center = 0.5, right = 1 }
+bg.alignLabels = { left = "Left to right", right = "Right to left",
+                   center = "From the center" }
+bg.alignKeys = function() return bg.aligns end
+bg.alignLabel = function(k) return bg.alignLabels[k] or bg.alignLabels.left end
+bg.alignOf = function(g)
+  local a = g and g.a
+  if a and bg.alignOff[a] then return a end
+  return ((g and g.c) or ""):find("LEFT") and "left" or "right"
+end
 bg.cur = function() return ns.Badge(bg.sel) end
 bg.def = function() return ns.BADGE[bg.sel] or ns.BADGES[1] end
 bg.bump = function()
@@ -160,6 +171,16 @@ bg.cSet = function(v)
   local g = bg.cur()
   g.c = v
   bg.reseat(g)
+  bg.bump()
+end
+bg.aGet = function() return bg.alignOf(bg.cur()) end
+bg.aSet = function(v)
+  local g = bg.cur()
+  local old = bg.alignOf(g)
+  if old == v or not bg.alignOff[v] then return end
+  local w = bg.spanW and bg.spanW(bg.sel) or 0
+  g.a = v
+  g.x = bg.pin("x", (g.x or 0) + (bg.alignOff[v] - bg.alignOff[old]) * w)
   bg.bump()
 end
 bg.xGet, bg.yGet = bg.getter("x"), bg.getter("y")
@@ -1059,16 +1080,22 @@ function factories.badges(parent, spec)
            (cell:GetWidth() or 0) / f, (cell:GetHeight() or 0) / f
   end
 
+  bg.spanW = function(key) local w = span(key); return w end
+
   bg.fit = function(field, v, key)
     local w, h, W, H = span(key)
-    local c = (key and ns.Badge(key) or bg.cur()).c or ""
+    local g = (key and ns.Badge(key)) or bg.cur()
+    local c = g.c or ""
     local horiz = field == "x"
     local size, box = horiz and w or h, horiz and W or H
-    local near = horiz and c:find("LEFT") or (not horiz) and c:find("BOTTOM")
     v = math.floor((tonumber(v) or 0) + 0.5)
     if size <= 0 or box <= 0 then return v end
     local lo, hi
-    if near then lo, hi = -size / 2, box - size / 2
+    if horiz then
+      local base = c:find("LEFT") and 0 or box
+      local shift = (0.5 - bg.alignOff[bg.alignOf(g)]) * size
+      lo, hi = -base - shift, box - base - shift
+    elseif c:find("BOTTOM") then lo, hi = -size / 2, box - size / 2
     else lo, hi = size / 2 - box, size / 2 end
     if v < lo then return math.ceil(lo) end
     if v > hi then return math.floor(hi) end
@@ -1105,7 +1132,7 @@ function factories.badges(parent, spec)
       end
       o:SetDrawLayer("OVERLAY", sel and 7 or 5)
       o:ClearAllPoints()
-      o:SetPoint(g.c, cell, g.c, (g.x or 0) * f, (g.y or 0) * f)
+      o:SetPoint(ns.BadgePoint(g), cell, g.c, (g.x or 0) * f, (g.y or 0) * f)
       o:SetShown(vis)
       if sel then
         local cl, ct = cell:GetLeft(), cell:GetTop()
@@ -1169,9 +1196,12 @@ function factories.badges(parent, spec)
   end
 
   local function corner(o)
-    local c = bg.cur().c or "TOPLEFT"
+    local g = bg.cur()
+    local c = g.c or "TOPLEFT"
     local cl, cb = cell:GetLeft() or 0, cell:GetBottom() or 0
-    local x = (c:find("LEFT") and (o:GetLeft() or 0) or (o:GetRight() or 0)) - cl
+    local a = bg.alignOf(g)
+    local l, r = o:GetLeft() or 0, o:GetRight() or 0
+    local x = (a == "left" and l or (a == "right" and r or (l + r) / 2)) - cl
     local y = (c:find("BOTTOM") and (o:GetBottom() or 0) or (o:GetTop() or 0)) - cb
     return x, y
   end
@@ -1191,7 +1221,8 @@ function factories.badges(parent, spec)
     local W, H = cell:GetWidth() or 0, cell:GetHeight() or 0
     local l = math.min(W, math.max(0, px)) - w / 2
     local d = math.min(H, math.max(0, py)) - h / 2
-    g.x = bg.pin("x", (c:find("LEFT") and l or (l + w - W)) / f)
+    local ref = l + bg.alignOff[bg.alignOf(g)] * w
+    g.x = bg.pin("x", (ref - (c:find("LEFT") and 0 or W)) / f)
     g.y = bg.pin("y", (c:find("BOTTOM") and d or (d + h - H)) / f)
   end
 
@@ -1559,6 +1590,9 @@ local ITEMS_PAGE = {
   { type = "toggle", name = "Show only the selected badge", col = 1, section = "badges",
     get = bg.soloGet, set = bg.soloSet,
     desc = "In the cell above, hide every badge except the selected one." },
+  { type = "select", col = 2, section = "badges", get = bg.aGet, set = bg.aSet,
+    keys = bg.alignKeys, label = bg.alignLabel, hidden = bg.isTex,
+    desc = "Which way the badge grows when the value gets longer." },
   { type = "select", name = "Corner", get = bg.cGet, set = bg.cSet, section = "badges",
     keys = anchorKeys, label = anchorLabel,
     desc = "Which corner of the slot the badge is pinned to." },

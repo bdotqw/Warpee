@@ -80,6 +80,11 @@ local STRINGS = {
   ["Badge scale"] = "Размер значка",
   ["Which corner of the slot the badge is pinned to."] =
     "К какому углу ячейки прижат значок.",
+  ["Left to right"] = "Слева направо",
+  ["Right to left"] = "Справа налево",
+  ["From the center"] = "От центра",
+  ["Which way the badge grows when the value gets longer."] =
+    "В какую сторону растёт значок, когда значение становится длиннее.",
   ["Drag a badge, or click where you want it. Left-click a name to show that badge, right-click the name to hide it."] =
     "Значок можно перетащить или щёлкнуть там, где он должен стоять. ЛКМ по названию показывает значок, ПКМ по названию скрывает.",
   ["Show only the selected badge"] = "Показывать только выбранный значок",

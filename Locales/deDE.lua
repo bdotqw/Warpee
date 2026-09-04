@@ -69,6 +69,11 @@ local STRINGS = {
   ["Badge scale"] = "Abzeichengröße",
   ["Which corner of the slot the badge is pinned to."] =
     "An welcher Ecke des Platzes das Abzeichen hängt.",
+  ["Left to right"] = "Von links nach rechts",
+  ["Right to left"] = "Von rechts nach links",
+  ["From the center"] = "Aus der Mitte",
+  ["Which way the badge grows when the value gets longer."] =
+    "In welche Richtung das Abzeichen wächst, wenn der Wert länger wird.",
   ["Drag a badge, or click where you want it. Left-click a name to show that badge, right-click the name to hide it."] =
     "Zieht ein Abzeichen, oder klickt dorthin, wo es stehen soll. Linksklick auf einen Namen zeigt das Abzeichen, Rechtsklick auf den Namen blendet es aus.",
   ["Show only the selected badge"] = "Nur das gewählte Abzeichen zeigen",

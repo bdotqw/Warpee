@@ -382,13 +382,16 @@ end
 
 local BADGES = {
   { key = "ilvl",   n = "Item level",  p = "447",  c = "BOTTOMRIGHT", x = 1, y = 5, s = 14,
+    a = "right",
     t = "Item level on gear, and a keystone's level." },
   { key = "count",  n = "Stack count", p = "1000", c = "BOTTOMRIGHT", x = 1, y = 5, s = 14,
+    a = "right",
     t = "How many items the stack holds." },
   { key = "bind",   n = "Binding",     p = "BoE",  c = "TOPLEFT",    x = 2, y = -2, s = 12,
+    a = "left",
     t = "BoE while unbound, WuE for warbound until equipped, BoA for account bound." },
   { key = "outfit", n = "Gear set",    p = "Myth", c = "BOTTOMLEFT", x = 10, y = -4, s = 10,
-    k = 4,
+    k = 4, a = "left",
     t = "The equipment set the item belongs to, cut to a few letters." },
   { key = "junk",    n = "Junk coin",   tex = true,
     c = "TOPLEFT",  x =  1, y = -1, s = 0.42, m = 8,
@@ -402,6 +405,18 @@ for _, d in ipairs(BADGES) do BADGE[d.key] = d end
 ns.BADGES, ns.BADGE = BADGES, BADGE
 ns.BADGE_CORNERS = { TOPLEFT = true, TOPRIGHT = true,
                      BOTTOMLEFT = true, BOTTOMRIGHT = true }
+ns.BADGE_ALIGNS = { left = true, center = true, right = true }
+
+local ALIGN_POINT = {
+  TOP    = { left = "TOPLEFT",    center = "TOP",    right = "TOPRIGHT" },
+  BOTTOM = { left = "BOTTOMLEFT", center = "BOTTOM", right = "BOTTOMRIGHT" },
+}
+
+function ns.BadgePoint(g)
+  local c = g.c or "TOPLEFT"
+  local row = ALIGN_POINT[c:find("TOP") and "TOP" or "BOTTOM"]
+  return row[g.a or ""] or c
+end
 
 local BADGE_FIELDS = { "c", "x", "y", "s" }
 local BADGE_LEGACY = {
@@ -412,7 +427,7 @@ local BADGE_LEGACY = {
 function ns.BadgeDefaults()
   local t = {}
   for _, d in ipairs(BADGES) do
-    t[d.key] = { c = d.c, x = d.x, y = d.y, s = d.s, k = d.k, on = true }
+    t[d.key] = { c = d.c, x = d.x, y = d.y, s = d.s, k = d.k, a = d.a, on = true }
   end
   return t
 end
@@ -427,6 +442,13 @@ function ns.BadgeMigrate(db, t)
       if g[f] == nil then g[f] = d[f] end
     end
     if not ns.BADGE_CORNERS[g.c] then g.c = d.c end
+    if d.a then
+      if g.a == nil then
+        g.a = (g.c):find("LEFT") and "left" or "right"
+      elseif not ns.BADGE_ALIGNS[g.a] then
+        g.a = d.a
+      end
+    end
     g.x, g.y = tonumber(g.x) or d.x, tonumber(g.y) or d.y
     g.s = tonumber(g.s) or d.s
     if d.k then g.k = tonumber(g.k) or d.k end
@@ -457,49 +479,6 @@ local function badgeObj(b, key)
   return b[key]
 end
 
-local ruler = UIParent:CreateFontString(nil, "BACKGROUND")
-ruler:Hide()
-local boxW, boxGen = {}, nil
-
-local function badgeBox(key, size)
-  local gen = ns.Bags and ns.Bags.styleGen
-  if boxGen ~= gen then boxW, boxGen = {}, gen end
-  local w = boxW[key]
-  if w then return w end
-  ruler:SetFont(ns.Fonts:Current(), size, "OUTLINE")
-  ruler:SetText(ns.BadgeSample(key) or "")
-  w = ruler:GetStringWidth() or 0
-  boxW[key] = w
-  return w
-end
-
-local function badgeNudge(key, fs, g, cell)
-  local d = BADGE[key]
-  if not (d and d.p and fs.GetStringWidth) then return 0 end
-  local box = badgeBox(key, g.s or d.s)
-  local w = fs:GetStringWidth() or 0
-  if box <= 0 or w <= 0 or w >= box then return 0 end
-  local left = (g.c or ""):find("LEFT") ~= nil
-  local inset = left and (g.x or 0) or -(g.x or 0)
-  local span = (cell or 0) / 4
-  local t = 0
-  if span > 0 then
-    t = inset / span
-    if t < 0 then t = 0 elseif t > 1 then t = 1 end
-  end
-  if t <= 0 then return 0 end
-  local dx = math.floor((box - w) / 2 * t + 0.5)
-  return left and dx or -dx
-end
-
-function ns.PinBadge(b, key, fs)
-  local o = fs or badgeObj(b, key)
-  if not o then return end
-  local g = ns.Badge(key)
-  o:ClearAllPoints()
-  o:SetPoint(g.c, b, g.c, (g.x or 0) + badgeNudge(key, o, g, cellOf(b)), g.y or 0)
-end
-
 function ns.ApplyBadge(b, key)
   local o = badgeObj(b, key)
   if not o then return end
@@ -511,7 +490,7 @@ function ns.ApplyBadge(b, key)
     ns.SetOutlined(o, g.s or d.s)
   end
   o:ClearAllPoints()
-  o:SetPoint(g.c, b, g.c, g.x + badgeNudge(key, o, g, cellOf(b)), g.y)
+  o:SetPoint(ns.BadgePoint(g), b, g.c, g.x, g.y)
   o:SetAlpha(g.on and 1 or 0)
 end
 
@@ -572,13 +551,11 @@ function ns.FitCount(b, count)
   if not c then return end
   ns.SetOutlined(c, ns.Badge("count").s)
   if not ns.Badge("count").on then c:SetText("") end
-  ns.PinBadge(b, "count", c)
 end
 
 function ns.FitIlvl(b, lvl)
   if not b.ilvl then return end
   ns.SetOutlined(b.ilvl, ns.Badge("ilvl").s)
-  ns.PinBadge(b, "ilvl", b.ilvl)
 end
 
 local function fmtCooldown(s)
@@ -718,7 +695,6 @@ function ns.MarkBind(b, label, quality)
   else
     fs:SetTextColor(Theme:C("azure"))
   end
-  ns.PinBadge(b, "bind", fs)
 end
 
 local CUT, CUT_N = {}, nil
@@ -778,7 +754,6 @@ function ns.MarkOutfit(b, label)
   if not b.outfit then return end
   if label then ns.SetOutlined(b.outfit, ns.Badge("outfit").s) end
   b.outfit:SetText(label or "")
-  ns.PinBadge(b, "outfit", b.outfit)
 end
 
 function ns.MarkJunk(b, quality)
