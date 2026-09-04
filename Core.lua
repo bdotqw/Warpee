@@ -65,12 +65,12 @@ end
 local BAG_FN = {
   open  = { "OpenAllBags", "OpenBackpack", "OpenBag" },
   close = { "CloseAllBags", "CloseBackpack" },
-  sync  = { "ToggleBackpack", "ToggleBag", "ToggleAllBags" },
+  sync  = { "ToggleBackpack", "ToggleBag" },
 }
 
 -- Hook the game's bag functions, never assign over them. A replaced global is a
--- tainted closure the game then calls itself, and the addon must not own any global
--- but its own saved variable and its slash commands.
+-- tainted closure the game then calls itself, and if that path goes on to a protected
+-- call, the call is refused.
 local function hookList(names, fn)
   for _, n in ipairs(names) do
     if type(_G[n]) == "function" then hooksecurefunc(n, fn) end
@@ -78,6 +78,12 @@ local function hookList(names, fn)
 end
 
 local function HookBagToggles()
+  -- The one global the addon owns. ToggleAllBags runs from a keybind, from the bag
+  -- button, or from another addon, never inside a path that goes on to a protected
+  -- call. Hooking it instead let the game build and update all of its own container
+  -- frames on every open, and left its idea of whether bags are open disagreeing with
+  -- ours, so a press could close what it should have opened.
+  ToggleAllBags = function() ns.Toggle() end
   hideBlizzBags()
   hookList(BAG_FN.open, function() ns.Toggle(true); hideBlizzBags() end)
   hookList(BAG_FN.close, function() ns.Toggle(false) end)
