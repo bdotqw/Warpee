@@ -278,11 +278,11 @@ function Bags:LayoutBagWindow()
   local w = self.bagWindow
   if not w or not self.bagButtons then return end
   local BGAP, BPAD = 6, 12
-  local BHEAD = 30 + Theme:TopInset()
   local BBAND = 26
   local size = self:BagWinButtonSize()
   local cf = ns.Badge("count").s
   local band = Theme:HeaderBand(w, BBAND)
+  local BHEAD = band and (band + 6) or (30 + Theme:TopInset())
   local mid = (band or BHEAD) / 2
   if self.bagTitle then
     self.bagTitle:ClearAllPoints()
