@@ -83,6 +83,22 @@ Theme.THEMES = {
     text = { 0.949, 0.945, 0.937, 1 }, dim = { 0.741, 0.733, 0.714, 1 },
     faint = { 0.525, 0.518, 0.498, 1 }, emptyLine = { 0.278, 0.271, 0.255, 1 },
     azure = { 0.478, 0.729, 0.906, 1 }, reagent = { 0.353, 0.804, 0.616, 1 } },
+  sunwell = { label = "Sunwell",
+    bg = { 0.082, 0.055, 0.024, 0.96 }, panel = { 0.145, 0.098, 0.043, 1 },
+    panelHi = { 0.212, 0.149, 0.075, 1 }, slot = { 0.098, 0.067, 0.031, 1 },
+    stroke = { 0.278, 0.200, 0.094, 1 }, strokeSoft = { 0.212, 0.149, 0.075, 1 },
+    accent = { 0.949, 0.878, 0.376, 1 }, accentInk = { 0.988, 0.949, 0.706, 1 },
+    text = { 0.925, 0.922, 0.914, 1 }, dim = { 0.694, 0.686, 0.671, 1 },
+    faint = { 0.486, 0.478, 0.463, 1 }, emptyLine = { 0.337, 0.255, 0.133, 1 },
+    azure = { 0.478, 0.706, 0.878, 1 }, reagent = { 0.400, 0.827, 0.612, 1 } },
+  silvermoon = { label = "Silvermoon",
+    bg = { 0.075, 0.024, 0.055, 0.96 }, panel = { 0.137, 0.043, 0.094, 1 },
+    panelHi = { 0.208, 0.071, 0.137, 1 }, slot = { 0.090, 0.027, 0.063, 1 },
+    stroke = { 0.310, 0.212, 0.110, 1 }, strokeSoft = { 0.216, 0.114, 0.098, 1 },
+    accent = { 0.965, 0.706, 0.259, 1 }, accentInk = { 0.988, 0.855, 0.573, 1 },
+    text = { 0.957, 0.929, 0.941, 1 }, dim = { 0.729, 0.671, 0.694, 1 },
+    faint = { 0.510, 0.447, 0.475, 1 }, emptyLine = { 0.337, 0.184, 0.251, 1 },
+    azure = { 0.529, 0.686, 0.902, 1 }, reagent = { 0.400, 0.827, 0.643, 1 } },
   graphite = { label = "Graphite",
     bg = { 0.071, 0.071, 0.071, 0.96 }, panel = { 0.129, 0.129, 0.129, 1 },
     panelHi = { 0.196, 0.196, 0.196, 1 }, slot = { 0.094, 0.094, 0.094, 1 },
@@ -111,7 +127,8 @@ Theme.THEMES = {
 }
 Theme.THEME_ORDER = { "midnight", "blizzard", "blizzardflat", "class",
                       "nightbloom", "void", "nord",
-                      "abyss", "blood", "forest", "graphite" }
+                      "abyss", "blood", "forest", "graphite",
+                      "sunwell", "silvermoon" }
 
 function Theme:IsLight()
   local c = self.colors.bg
@@ -620,6 +637,8 @@ local function nineSlice(base)
 end
 
 local FLAT_EDGE = nineSlice("OptionsFrame-NineSlice")
+local GILT_EDGE = nineSlice("Tooltip-Azerite-NineSlice")
+local COURT_EDGE = nineSlice("UI-Frame-DiamondMetal")
 local EDGE_PIECES = { "TopLeftCorner", "TopRightCorner", "BottomLeftCorner",
                       "BottomRightCorner", "TopEdge", "BottomEdge", "LeftEdge", "RightEdge" }
 local EDGE_HIDE = { "NineSlice", "TopLeftCorner", "TopRightCorner", "BotLeftCorner",
@@ -631,6 +650,12 @@ local SKINS = {
   blizzardflat = { inset = 4, drop = -5, edge = FLAT_EDGE, out = 14, band = 32,
                    bandAlpha = 0.80,
                    edgeTint = "stroke", plate = true, bodyGrain = 0.10 },
+  sunwell      = { inset = 4, drop = -5, edge = GILT_EDGE, out = 8, band = 32,
+                   bandAlpha = 0.80, plate = true,
+                   tile = "Tooltip-Azerite-NineSlice-Center", tileAlpha = 0.20 },
+  silvermoon   = { inset = 4, drop = -5, edge = COURT_EDGE, out = 22, band = 32,
+                   bandAlpha = 0.80, plate = true, edgeTint = "stroke",
+                   tile = "ui-frame-midnight-backgroundtile", tileAlpha = 0.14 },
 }
 
 function Theme:SkinDef()
@@ -735,6 +760,15 @@ local function buildArt(frame, key, def)
       end
     end
   end
+  if def.tile then
+    local tex = art:CreateTexture(nil, "BACKGROUND", nil, -6)
+    if pcall(tex.SetAtlas, tex, def.tile) then
+      tex:SetAllPoints(art)
+      art.wpeTile = tex
+    elseif tex.Hide then
+      tex:Hide()
+    end
+  end
   if def.edge then dressEdge(art, def) end
   cache[key] = art
   return art
@@ -761,6 +795,10 @@ function Theme:RefreshArt(frame)
         if art.Bg and def.bodyGrain then
           art.Bg:SetAlpha(a * def.bodyGrain)
           art.Bg:Show()
+        end
+        if art.wpeTile then
+          art.wpeTile:SetAlpha(a * (def.tileAlpha or 0.15))
+          art.wpeTile:Show()
         end
       elseif art.Bg then
         art.Bg:SetAlpha(a)
