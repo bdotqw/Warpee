@@ -80,9 +80,9 @@ local STRINGS = {
   ["Badge scale"] = "Размер значка",
   ["Which corner of the slot the badge is pinned to."] =
     "К какому углу ячейки прижат значок.",
-  ["Left to right"] = "Слева направо",
-  ["Right to left"] = "Справа налево",
-  ["From the center"] = "От центра",
+  ["Grows left to right"] = "Растёт слева направо",
+  ["Grows right to left"] = "Растёт справа налево",
+  ["Grows from the center"] = "Растёт из центра",
   ["Growth direction: which way the badge grows when the value gets longer."] =
     "Направление роста: в какую сторону растёт значок, когда значение становится длиннее.",
   ["Drag a badge, or click where you want it. Left-click a name to show that badge, right-click the name to hide it."] =
