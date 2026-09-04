@@ -87,6 +87,14 @@ Theme.THEMES = {
     faint = { 0.545, 0.522, 0.475, 1 },
     emptyLine = { 0.078, 0.075, 0.071, 0.90 },
     azure = { 0.478, 0.729, 0.906, 1 }, reagent = { 0.353, 0.804, 0.616, 1 } },
+  blizzardflat = { label = "Blizzard Flat", skin = "blizzardflat",
+    bg = { 0.094, 0.090, 0.086, 0.95 }, panel = { 0.141, 0.137, 0.129, 1 },
+    panelHi = { 0.204, 0.200, 0.188, 1 }, slot = { 0.110, 0.106, 0.100, 1 },
+    stroke = { 0.302, 0.290, 0.263, 1 }, strokeSoft = { 0.224, 0.216, 0.200, 1 },
+    accent = { 0.929, 0.769, 0.361, 1 }, accentInk = { 0.965, 0.882, 0.667, 1 },
+    text = { 0.949, 0.945, 0.937, 1 }, dim = { 0.741, 0.733, 0.714, 1 },
+    faint = { 0.525, 0.518, 0.498, 1 }, emptyLine = { 0.278, 0.271, 0.255, 1 },
+    azure = { 0.478, 0.729, 0.906, 1 }, reagent = { 0.353, 0.804, 0.616, 1 } },
   graphite = { label = "Graphite",
     bg = { 0.071, 0.071, 0.071, 0.96 }, panel = { 0.129, 0.129, 0.129, 1 },
     panelHi = { 0.184, 0.184, 0.184, 1 }, slot = { 0.094, 0.094, 0.094, 1 },
@@ -128,7 +136,8 @@ Theme.THEMES = {
     faint = { 0.439, 0.451, 0.384, 1 }, emptyLine = { 0.278, 0.290, 0.184, 1 },
     azure = { 0.588, 0.784, 0.706, 1 }, reagent = { 0.478, 0.847, 0.588, 1 } },
 }
-Theme.THEME_ORDER = { "midnight", "blizzard", "class", "nightbloom", "void", "nord",
+Theme.THEME_ORDER = { "midnight", "blizzard", "blizzardflat", "class",
+                      "nightbloom", "void", "nord",
                       "abyss", "blood", "obsidian", "graphite", "gunmetal",
                       "forest", "moss", "ember" }
 
@@ -618,17 +627,41 @@ local ART_HIDE = { "CloseButton", "PortraitContainer", "portrait", "PortraitFram
                    "Portrait", "TopTileStreaks", "Inset" }
 local ART_FRAMES = setmetatable({}, { __mode = "k" })
 
-function Theme:Skinned()
-  return self.skin == "blizzard"
+local FLAT_EDGE = {
+  TopLeftCorner     = { layer = "OVERLAY", atlas = "OptionsFrame-NineSlice-CornerTopLeft" },
+  TopRightCorner    = { layer = "OVERLAY", atlas = "OptionsFrame-NineSlice-CornerTopRight" },
+  BottomLeftCorner  = { layer = "OVERLAY", atlas = "OptionsFrame-NineSlice-CornerBottomLeft" },
+  BottomRightCorner = { layer = "OVERLAY", atlas = "OptionsFrame-NineSlice-CornerBottomRight" },
+  TopEdge    = { layer = "OVERLAY", atlas = "_OptionsFrame-NineSlice-EdgeTop" },
+  BottomEdge = { layer = "OVERLAY", atlas = "_OptionsFrame-NineSlice-EdgeBottom" },
+  LeftEdge   = { layer = "OVERLAY", atlas = "!OptionsFrame-NineSlice-EdgeLeft" },
+  RightEdge  = { layer = "OVERLAY", atlas = "!OptionsFrame-NineSlice-EdgeRight" },
+}
+
+local SKINS = {
+  blizzard     = { inset = 20, grain = true },
+  blizzardflat = { inset = 14, edge = FLAT_EDGE, body = "FlatPanelBackgroundTemplate" },
+}
+
+function Theme:SkinDef()
+  return SKINS[self.skin or ""]
 end
 
+function Theme:Skinned()
+  return SKINS[self.skin or ""] ~= nil
+end
+
+local atlasOK = {}
+
 function Theme:SlotAtlas()
-  if not self:Skinned() then return nil end
-  if self.slotAtlasOK == nil then
-    local info = C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(SLOT_ATLAS)
-    self.slotAtlasOK = (info ~= nil)
+  local def = self:SkinDef()
+  if not def then return nil end
+  local name = def.slot or SLOT_ATLAS
+  if atlasOK[name] == nil then
+    local info = C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(name)
+    atlasOK[name] = (info ~= nil)
   end
-  return self.slotAtlasOK and SLOT_ATLAS or nil
+  return atlasOK[name] and name or nil
 end
 
 local LOWER_STRATA = { TOOLTIP = "FULLSCREEN_DIALOG", FULLSCREEN_DIALOG = "DIALOG",
@@ -640,21 +673,29 @@ local function sinkArt(frame, art)
   art:SetFrameLevel(1)
 end
 
-local function buildArt(frame)
-  if frame.wpeArt ~= nil then return frame.wpeArt end
-  local ok, art = pcall(CreateFrame, "Frame", nil, frame, ART_TEMPLATE)
+local function sinkBody(art, body)
+  local under = LOWER_STRATA[art:GetFrameStrata() or ""] or "BACKGROUND"
+  body:SetFrameStrata(under)
+  body:SetFrameLevel(1)
+end
+
+local function buildArt(frame, key, def)
+  local cache = frame.wpeArts
+  if not cache then cache = {}; frame.wpeArts = cache end
+  if cache[key] ~= nil then return cache[key] end
+  local ok, art = pcall(CreateFrame, "Frame", nil, frame, def.template or ART_TEMPLATE)
   if not ok or not art then
     ok, art = pcall(CreateFrame, "Frame", nil, frame, ART_FALLBACK)
   end
-  if not ok or not art then frame.wpeArt = false; return false end
+  if not ok or not art then cache[key] = false; return false end
   art:SetAllPoints(frame)
   art:EnableMouse(false)
   sinkArt(frame, art)
-  for _, key in ipairs(ART_HIDE) do
-    local part = art[key]
-    if part then
-      if part.EnableMouse then part:EnableMouse(false) end
-      if part.Hide then part:Hide() end
+  for _, part in ipairs(ART_HIDE) do
+    local region = art[part]
+    if region then
+      if region.EnableMouse then region:EnableMouse(false) end
+      if region.Hide then region:Hide() end
     end
   end
   local title = art.TitleContainer
@@ -662,24 +703,59 @@ local function buildArt(frame)
     if title.TitleText then title.TitleText:SetText("") end
     if title.SetAlpha then title:SetAlpha(1) end
   end
-  frame.wpeArt = art
+  if def.body then
+    local made, body = pcall(CreateFrame, "Frame", nil, art, def.body)
+    if made and body then
+      body:SetAllPoints(art)
+      body:EnableMouse(false)
+      sinkBody(art, body)
+      art.wpeBody = body
+      if art.Bg then art.Bg:Hide() end
+    end
+  end
+  if def.edge and art.NineSlice and NineSliceUtil and NineSliceUtil.ApplyLayout then
+    local kit = art.NineSlice.GetFrameLayoutTextureKit
+                and art.NineSlice:GetFrameLayoutTextureKit() or nil
+    pcall(NineSliceUtil.ApplyLayout, art.NineSlice, def.edge, kit)
+  end
+  cache[key] = art
   return art
 end
 
 function Theme:RefreshArt(frame)
-  if self:Skinned() then
-    local art = buildArt(frame)
+  local def = self:SkinDef()
+  if def then
+    local art = buildArt(frame, self.skin, def)
+    local cache = frame.wpeArts
+    if cache then
+      for key, other in pairs(cache) do
+        if other and key ~= self.skin then other:Hide() end
+      end
+    end
     if art then
       sinkArt(frame, art)
       local a = (self.colors.bg and self.colors.bg[4]) or 1
-      if art.Bg then art.Bg:SetAlpha(a) end
+      if art.wpeBody then
+        sinkBody(art, art.wpeBody)
+        art.wpeBody:SetAlpha(a)
+        art.wpeBody:Show()
+      elseif art.Bg then
+        art.Bg:SetAlpha(a)
+      end
       if art.Center then art.Center:SetAlpha(a) end
       art:Show()
     end
+    frame.wpeArt = art
     if frame.wpeBandH then self:HeaderBand(frame) end
     return art
   end
-  if frame.wpeArt then frame.wpeArt:Hide() end
+  local cache = frame.wpeArts
+  if cache then
+    for _, other in pairs(cache) do
+      if other then other:Hide() end
+    end
+  end
+  frame.wpeArt = nil
   if frame.wpeBand then frame.wpeBand:Hide() end
   if frame.wpeBandLine then frame.wpeBandLine:Hide() end
   return false
@@ -701,7 +777,9 @@ end
 local TITLE_STRIP = 20
 
 function Theme:TopInset()
-  return self:Skinned() and TITLE_STRIP or 0
+  local def = self:SkinDef()
+  if not def then return 0 end
+  return def.inset or TITLE_STRIP
 end
 
 function Theme:HeadDrop()
