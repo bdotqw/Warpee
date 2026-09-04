@@ -83,8 +83,8 @@ local STRINGS = {
   ["Left to right"] = "De gauche à droite",
   ["Right to left"] = "De droite à gauche",
   ["From the center"] = "Depuis le centre",
-  ["Which way the badge grows when the value gets longer."] =
-    "Dans quel sens le badge s'étend quand la valeur s'allonge.",
+  ["Growth direction: which way the badge grows when the value gets longer."] =
+    "Sens de croissance : dans quel sens le badge s'étend quand la valeur s'allonge.",
   ["Drag a badge, or click where you want it. Left-click a name to show that badge, right-click the name to hide it."] =
     "Déplacez un badge, ou cliquez là où vous le voulez. Clic gauche sur un nom affiche le badge, clic droit sur le nom le masque.",
   ["Show only the selected badge"] = "Afficher seulement le badge choisi",

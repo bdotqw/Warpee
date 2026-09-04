@@ -666,6 +666,7 @@ function factories.select(parent, spec)
 
   local arrowBox = ns.ArrowGlyph(btn, "down", 9)
   arrowBox:SetPoint("RIGHT", -7, 0)
+  tip(btn, spec.desc)
   local function arrowColor(key) arrowBox:SetTint(key) end
 
   row.Refresh = function()
@@ -1592,7 +1593,7 @@ local ITEMS_PAGE = {
     desc = "In the cell above, hide every badge except the selected one." },
   { type = "select", col = 2, section = "badges", get = bg.aGet, set = bg.aSet,
     keys = bg.alignKeys, label = bg.alignLabel, hidden = bg.isTex,
-    desc = "Which way the badge grows when the value gets longer." },
+    desc = "Growth direction: which way the badge grows when the value gets longer." },
   { type = "select", name = "Corner", get = bg.cGet, set = bg.cSet, section = "badges",
     keys = anchorKeys, label = anchorLabel,
     desc = "Which corner of the slot the badge is pinned to." },
