@@ -1909,7 +1909,7 @@ function Options:Build()
   end)
   f:SetScript("OnMouseDown", function(s) Theme:Raise(s) end)
   Theme:Window(f, "WarpeeOptionsFrame")
-  Theme:HeaderBand(f)
+  Theme:HeaderBand(f, HEADER_H + Theme:TopInset())
   f:SetScript("OnHide", function()
     local row = Options.charsRow
     if row and row.delMode then
@@ -1995,7 +1995,8 @@ function Options:AnchorHeader()
     area:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(HEADER_H + TAB_H + 14 + top))
     area:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(PAD + SCROLL_W + 6), PAD)
   end
-  Theme:HeaderBand(f)
+  local band = Theme:HeaderBand(f, HEADER_H + top)
+  if self.headLine then self.headLine:SetShown(not band) end
 end
 
 function Options:Open()

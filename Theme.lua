@@ -856,6 +856,7 @@ function Theme:HeaderBand(frame, height)
   line:SetVertexColor(self:C("stroke"))
   line:SetAlpha(a)
   line:Show()
+  return h
 end
 
 local TITLE_STRIP = 20
