@@ -331,7 +331,8 @@ end
 
 local function dressFrame(frame)
   local grain = grainTex(frame)
-  if not Theme:Skinned() then
+  local def = Theme.SkinDef and Theme:SkinDef()
+  if not (def and def.grain) then
     if grain then grain:Hide() end
     return
   end
