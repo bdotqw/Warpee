@@ -627,20 +627,19 @@ local ART_HIDE = { "CloseButton", "PortraitContainer", "portrait", "PortraitFram
                    "Portrait", "TopTileStreaks", "Inset" }
 local ART_FRAMES = setmetatable({}, { __mode = "k" })
 
-local function nineSlice(base, out)
-  local o = out or 0
-  local function corner(name, dx, dy)
-    return { layer = "OVERLAY", atlas = base .. "-Corner" .. name, x = dx * o, y = dy * o }
+local function nineSlice(base)
+  local function corner(name)
+    return { layer = "OVERLAY", atlas = base .. "-Corner" .. name }
   end
   local function edge(prefix, name)
     return { layer = "OVERLAY", atlas = prefix .. base .. "-Edge" .. name,
              x = 0, y = 0, x1 = 0, y1 = 0 }
   end
   return {
-    TopLeftCorner     = corner("TopLeft", -1,  1),
-    TopRightCorner    = corner("TopRight", 1,  1),
-    BottomLeftCorner  = corner("BottomLeft", -1, -1),
-    BottomRightCorner = corner("BottomRight", 1, -1),
+    TopLeftCorner     = corner("TopLeft"),
+    TopRightCorner    = corner("TopRight"),
+    BottomLeftCorner  = corner("BottomLeft"),
+    BottomRightCorner = corner("BottomRight"),
     TopEdge    = edge("_", "Top"),
     BottomEdge = edge("_", "Bottom"),
     LeftEdge   = edge("!", "Left"),
@@ -648,12 +647,17 @@ local function nineSlice(base, out)
   }
 end
 
-local FLAT_EDGE = nineSlice("OptionsFrame-NineSlice", 3)
+local FLAT_EDGE = nineSlice("OptionsFrame-NineSlice")
+local EDGE_PIECES = { "TopLeftCorner", "TopRightCorner", "BottomLeftCorner",
+                      "BottomRightCorner", "TopEdge", "BottomEdge", "LeftEdge", "RightEdge" }
+local EDGE_HIDE = { "NineSlice", "TopLeftCorner", "TopRightCorner", "BotLeftCorner",
+                    "BotRightCorner", "BottomLeftCorner", "BottomRightCorner",
+                    "TopBorder", "BottomBorder", "LeftBorder", "RightBorder", "TitleBg" }
 
 local SKINS = {
   blizzard     = { inset = 20, grain = true },
-  blizzardflat = { inset = 14, edge = FLAT_EDGE, body = "FlatPanelBackgroundTemplate",
-                   bodyGrain = 0.20 },
+  blizzardflat = { inset = 14, edge = FLAT_EDGE, out = 0,
+                   body = "FlatPanelBackgroundTemplate", bodyGrain = 0.20 },
 }
 
 function Theme:SkinDef()
@@ -690,6 +694,29 @@ local function sinkBody(art, body)
   local under = LOWER_STRATA[art:GetFrameStrata() or ""] or "BACKGROUND"
   body:SetFrameStrata(under)
   body:SetFrameLevel(1)
+end
+
+local function dressEdge(art, def)
+  for _, part in ipairs(EDGE_HIDE) do
+    local region = art[part]
+    if region and region.Hide then region:Hide() end
+  end
+  if art.wpeEdge ~= nil then return art.wpeEdge end
+  local ok, edge = pcall(CreateFrame, "Frame", nil, art, "NineSliceCodeTemplate")
+  if not ok or not edge then ok, edge = pcall(CreateFrame, "Frame", nil, art) end
+  if not ok or not edge then art.wpeEdge = false; return false end
+  local o = def.out or 0
+  edge:SetPoint("TOPLEFT", art, "TOPLEFT", -o, o)
+  edge:SetPoint("BOTTOMRIGHT", art, "BOTTOMRIGHT", o, -o)
+  edge:EnableMouse(false)
+  for _, piece in ipairs(EDGE_PIECES) do
+    if not edge[piece] then edge[piece] = edge:CreateTexture(nil, "OVERLAY") end
+  end
+  if NineSliceUtil and NineSliceUtil.ApplyLayout then
+    pcall(NineSliceUtil.ApplyLayout, edge, def.edge)
+  end
+  art.wpeEdge = edge
+  return edge
 end
 
 local function buildArt(frame, key, def)
@@ -733,11 +760,7 @@ local function buildArt(frame, key, def)
       end
     end
   end
-  if def.edge and art.NineSlice and NineSliceUtil and NineSliceUtil.ApplyLayout then
-    local kit = art.NineSlice.GetFrameLayoutTextureKit
-                and art.NineSlice:GetFrameLayoutTextureKit() or nil
-    pcall(NineSliceUtil.ApplyLayout, art.NineSlice, def.edge, kit)
-  end
+  if def.edge then dressEdge(art, def) end
   cache[key] = art
   return art
 end
