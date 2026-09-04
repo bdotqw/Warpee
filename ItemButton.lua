@@ -473,14 +473,23 @@ local function badgeBox(key, size)
   return w
 end
 
-local function badgeNudge(key, fs, g)
+local function badgeNudge(key, fs, g, cell)
   local d = BADGE[key]
   if not (d and d.p and fs.GetStringWidth) then return 0 end
   local box = badgeBox(key, g.s or d.s)
   local w = fs:GetStringWidth() or 0
   if box <= 0 or w <= 0 or w >= box then return 0 end
-  local dx = math.floor((box - w) / 2 + 0.5)
-  return (g.c or ""):find("LEFT") and dx or -dx
+  local left = (g.c or ""):find("LEFT") ~= nil
+  local inset = left and (g.x or 0) or -(g.x or 0)
+  local span = (cell or 0) / 4
+  local t = 0
+  if span > 0 then
+    t = inset / span
+    if t < 0 then t = 0 elseif t > 1 then t = 1 end
+  end
+  if t <= 0 then return 0 end
+  local dx = math.floor((box - w) / 2 * t + 0.5)
+  return left and dx or -dx
 end
 
 function ns.PinBadge(b, key, fs)
@@ -488,7 +497,7 @@ function ns.PinBadge(b, key, fs)
   if not o then return end
   local g = ns.Badge(key)
   o:ClearAllPoints()
-  o:SetPoint(g.c, b, g.c, (g.x or 0) + badgeNudge(key, o, g), g.y or 0)
+  o:SetPoint(g.c, b, g.c, (g.x or 0) + badgeNudge(key, o, g, cellOf(b)), g.y or 0)
 end
 
 function ns.ApplyBadge(b, key)
@@ -502,7 +511,7 @@ function ns.ApplyBadge(b, key)
     ns.SetOutlined(o, g.s or d.s)
   end
   o:ClearAllPoints()
-  o:SetPoint(g.c, b, g.c, g.x + badgeNudge(key, o, g), g.y)
+  o:SetPoint(g.c, b, g.c, g.x + badgeNudge(key, o, g, cellOf(b)), g.y)
   o:SetAlpha(g.on and 1 or 0)
 end
 
