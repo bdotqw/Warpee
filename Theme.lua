@@ -656,7 +656,7 @@ local EDGE_HIDE = { "NineSlice", "TopLeftCorner", "TopRightCorner", "BotLeftCorn
 
 local SKINS = {
   blizzard     = { inset = 20, grain = true },
-  blizzardflat = { inset = 4, drop = -4, edge = FLAT_EDGE, out = 14, band = 34,
+  blizzardflat = { inset = 0, drop = -2, edge = FLAT_EDGE, out = 14, band = 30,
                    bandAlpha = 0.80,
                    edgeTint = "stroke", plate = true, bodyGrain = 0.10 },
 }
