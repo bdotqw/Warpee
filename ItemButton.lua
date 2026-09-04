@@ -652,6 +652,7 @@ function ns.MarkBind(b, label, quality)
   local fs = b.bind
   if not fs then return end
   if not label then fs:SetText(""); return end
+  ns.SetOutlined(fs, ns.Badge("bind").s)
   fs:SetText(label)
   if label == "BoE" and quality and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality] then
     local c = ITEM_QUALITY_COLORS[quality]
@@ -716,7 +717,9 @@ function ns.OutfitLabel(itemID)
 end
 
 function ns.MarkOutfit(b, label)
-  if b.outfit then b.outfit:SetText(label or "") end
+  if not b.outfit then return end
+  if label then ns.SetOutlined(b.outfit, ns.Badge("outfit").s) end
+  b.outfit:SetText(label or "")
 end
 
 function ns.MarkJunk(b, quality)
