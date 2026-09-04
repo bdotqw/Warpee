@@ -652,7 +652,8 @@ local FLAT_EDGE = nineSlice("OptionsFrame-NineSlice", 3)
 
 local SKINS = {
   blizzard     = { inset = 20, grain = true },
-  blizzardflat = { inset = 14, edge = FLAT_EDGE, body = "FlatPanelBackgroundTemplate" },
+  blizzardflat = { inset = 14, edge = FLAT_EDGE, body = "FlatPanelBackgroundTemplate",
+                   bodyGrain = 0.20 },
 }
 
 function Theme:SkinDef()
@@ -722,7 +723,14 @@ local function buildArt(frame, key, def)
       body:EnableMouse(false)
       sinkBody(art, body)
       art.wpeBody = body
-      if art.Bg then art.Bg:Hide() end
+      if art.Bg then
+        if def.bodyGrain then
+          art.Bg:ClearAllPoints()
+          art.Bg:SetAllPoints(art)
+        else
+          art.Bg:Hide()
+        end
+      end
     end
   end
   if def.edge and art.NineSlice and NineSliceUtil and NineSliceUtil.ApplyLayout then
@@ -751,6 +759,10 @@ function Theme:RefreshArt(frame)
         sinkBody(art, art.wpeBody)
         art.wpeBody:SetAlpha(a)
         art.wpeBody:Show()
+        if art.Bg and def.bodyGrain then
+          art.Bg:SetAlpha(a * def.bodyGrain)
+          art.Bg:Show()
+        end
       elseif art.Bg then
         art.Bg:SetAlpha(a)
       end
