@@ -88,7 +88,7 @@ Theme.THEMES = {
     emptyLine = { 0.078, 0.075, 0.071, 0.90 },
     azure = { 0.478, 0.729, 0.906, 1 }, reagent = { 0.353, 0.804, 0.616, 1 } },
   blizzardflat = { label = "Blizzard Flat", skin = "blizzardflat",
-    bg = { 0.086, 0.082, 0.078, 0.95 }, panel = { 0.141, 0.137, 0.129, 1 },
+    bg = { 0.055, 0.053, 0.050, 0.95 }, panel = { 0.141, 0.137, 0.129, 1 },
     panelHi = { 0.243, 0.235, 0.220, 1 }, slot = { 0.110, 0.106, 0.100, 1 },
     stroke = { 0.302, 0.290, 0.263, 1 }, strokeSoft = { 0.278, 0.267, 0.243, 1 },
     accent = { 0.918, 0.741, 0.404, 1 }, accentInk = { 0.961, 0.867, 0.647, 1 },
@@ -657,7 +657,7 @@ local EDGE_HIDE = { "NineSlice", "TopLeftCorner", "TopRightCorner", "BotLeftCorn
 local SKINS = {
   blizzard     = { inset = 20, grain = true },
   blizzardflat = { inset = 4, drop = -4, edge = FLAT_EDGE, out = 14, band = 34,
-                   edgeTint = "stroke", plate = true, bodyGrain = 0.20 },
+                   edgeTint = "stroke", plate = true, bodyGrain = 0.10 },
 }
 
 function Theme:SkinDef()
