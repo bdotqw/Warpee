@@ -656,7 +656,7 @@ local EDGE_HIDE = { "NineSlice", "TopLeftCorner", "TopRightCorner", "BotLeftCorn
 
 local SKINS = {
   blizzard     = { inset = 20, grain = true },
-  blizzardflat = { inset = 0, drop = 0, edge = FLAT_EDGE, out = 14, band = 34,
+  blizzardflat = { inset = 4, drop = -4, edge = FLAT_EDGE, out = 14, band = 34,
                    body = "FlatPanelBackgroundTemplate", bodyGrain = 0.20 },
 }
 
