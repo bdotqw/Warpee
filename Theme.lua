@@ -770,7 +770,7 @@ function Theme:RefreshArt(frame)
       art:Show()
     end
     frame.wpeArt = art
-    if frame.wpeBandH or def.band then self:HeaderBand(frame) end
+    if not frame.wpeGuest and (frame.wpeBandH or def.band) then self:HeaderBand(frame) end
     return art
   end
   local cache = frame.wpeArts
@@ -850,7 +850,9 @@ function Theme:Panel(frame, bgKey, strokeKey)
   local bg, st = bgKey or "bg", strokeKey or "stroke"
   local function paint(x)
     if Theme:Skinned() then
-      local art = ART_FRAMES[x] and Theme:RefreshArt(x)
+      local def = Theme:SkinDef()
+      local host = ART_FRAMES[x] or (x.wpeGuest and def and def.edge ~= nil)
+      local art = host and Theme:RefreshArt(x)
       if art then
         if art.Bg then
           x:SetBackdrop(nil)

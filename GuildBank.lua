@@ -419,6 +419,7 @@ function Skin:Apply()
   if frame.NineSlice then try(frame.NineSlice.SetAlpha, frame.NineSlice, 0) end
   mute(frame.Emblem)
   if frame.PortraitContainer then try(frame.PortraitContainer.Hide, frame.PortraitContainer) end
+  frame.wpeGuest = true
   try(Theme.Panel, Theme, frame, "bg", "stroke")
   try(dressFrame, frame)
   if frame.SetToplevel then try(frame.SetToplevel, frame, true) end
