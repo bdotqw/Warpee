@@ -125,8 +125,6 @@ local function tipFor(c, index)
     else
       GameTooltip:SetItemByID(id)
     end
-    GameTooltip:AddLine(ns.L["Ctrl + left click clears the slot"], 0.6, 0.6, 0.6)
-    GameTooltip:AddLine(ns.L["Drag moves it to another slot"], 0.6, 0.6, 0.6)
   else
     GameTooltip:SetText(ns.L["Favorites"])
     GameTooltip:AddLine(ns.L["Drag an item here to keep it one click away"], 0.6, 0.6, 0.6, true)
