@@ -80,6 +80,11 @@ local STRINGS = {
   ["Badge scale"] = "Taille du badge",
   ["Which corner of the slot the badge is pinned to."] =
     "À quel coin de l'emplacement le badge est fixé.",
+  ["Left to right"] = "De gauche à droite",
+  ["Right to left"] = "De droite à gauche",
+  ["From the center"] = "Depuis le centre",
+  ["Which way the badge grows when the value gets longer."] =
+    "Dans quel sens le badge s'étend quand la valeur s'allonge.",
   ["Drag a badge, or click where you want it. Left-click a name to show that badge, right-click the name to hide it."] =
     "Déplacez un badge, ou cliquez là où vous le voulez. Clic gauche sur un nom affiche le badge, clic droit sur le nom le masque.",
   ["Show only the selected badge"] = "Afficher seulement le badge choisi",

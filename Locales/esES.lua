@@ -77,6 +77,11 @@ local STRINGS = {
   ["Badge scale"] = "Tamaño del distintivo",
   ["Which corner of the slot the badge is pinned to."] =
     "En qué esquina del espacio se ancla el distintivo.",
+  ["Left to right"] = "De izquierda a derecha",
+  ["Right to left"] = "De derecha a izquierda",
+  ["From the center"] = "Desde el centro",
+  ["Which way the badge grows when the value gets longer."] =
+    "Hacia dónde crece el distintivo cuando el valor se alarga.",
   ["Drag a badge, or click where you want it. Left-click a name to show that badge, right-click the name to hide it."] =
     "Arrastra un distintivo o haz clic donde lo quieras. Clic izquierdo en un nombre muestra el distintivo, clic derecho en el nombre lo oculta.",
   ["Show only the selected badge"] = "Mostrar solo el distintivo elegido",
