@@ -657,7 +657,7 @@ local EDGE_HIDE = { "NineSlice", "TopLeftCorner", "TopRightCorner", "BotLeftCorn
 local SKINS = {
   blizzard     = { inset = 20, grain = true },
   blizzardflat = { inset = 4, drop = -4, edge = FLAT_EDGE, out = 14, band = 34,
-                   plate = true, bodyGrain = 0.20 },
+                   edgeTint = "stroke", plate = true, bodyGrain = 0.20 },
 }
 
 function Theme:SkinDef()
@@ -690,6 +690,16 @@ local function sinkArt(frame, art)
   art:SetFrameLevel(1)
 end
 
+local function tintEdge(art, def)
+  local edge = art.wpeEdge
+  if not (edge and def.edgeTint) then return end
+  local r, g, b = Theme:C(def.edgeTint)
+  for _, piece in ipairs(EDGE_PIECES) do
+    local part = edge[piece]
+    if part and part.SetVertexColor then part:SetVertexColor(r, g, b) end
+  end
+end
+
 local function dressEdge(art, def)
   for _, part in ipairs(EDGE_HIDE) do
     local region = art[part]
@@ -710,6 +720,7 @@ local function dressEdge(art, def)
     pcall(NineSliceUtil.ApplyLayout, edge, def.edge)
   end
   art.wpeEdge = edge
+  tintEdge(art, def)
   return edge
 end
 
@@ -782,6 +793,7 @@ function Theme:RefreshArt(frame)
         art.Bg:SetAlpha(a)
       end
       if art.Center then art.Center:SetAlpha(a) end
+      tintEdge(art, def)
       art:Show()
     end
     frame.wpeArt = art
