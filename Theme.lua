@@ -656,7 +656,7 @@ local EDGE_HIDE = { "NineSlice", "TopLeftCorner", "TopRightCorner", "BotLeftCorn
 
 local SKINS = {
   blizzard     = { inset = 20, grain = true },
-  blizzardflat = { inset = 14, edge = FLAT_EDGE, out = 14, band = 44,
+  blizzardflat = { inset = 0, drop = 0, edge = FLAT_EDGE, out = 14, band = 34,
                    body = "FlatPanelBackgroundTemplate", bodyGrain = 0.20 },
 }
 
@@ -818,9 +818,9 @@ end
 function Theme:HeaderBand(frame, height)
   if height then frame.wpeBandH = height end
   local def = self:SkinDef()
-  local h = frame.wpeBandH or (def and def.band)
+  local h = def and def.band and (frame.wpeBandH or def.band)
   local art = frame.wpeArt
-  if not (h and art) then
+  if not (h and h > 0 and art) then
     if frame.wpeBand then frame.wpeBand:Hide() end
     if frame.wpeBandLine then frame.wpeBandLine:Hide() end
     return
@@ -863,7 +863,9 @@ function Theme:TopInset()
 end
 
 function Theme:HeadDrop()
-  return self:Skinned() and 1 or 0
+  local def = self:SkinDef()
+  if not def then return 0 end
+  return def.drop or 1
 end
 
 function Theme:Panel(frame, bgKey, strokeKey)
