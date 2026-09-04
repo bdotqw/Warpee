@@ -627,16 +627,28 @@ local ART_HIDE = { "CloseButton", "PortraitContainer", "portrait", "PortraitFram
                    "Portrait", "TopTileStreaks", "Inset" }
 local ART_FRAMES = setmetatable({}, { __mode = "k" })
 
-local FLAT_EDGE = {
-  TopLeftCorner     = { layer = "OVERLAY", atlas = "OptionsFrame-NineSlice-CornerTopLeft" },
-  TopRightCorner    = { layer = "OVERLAY", atlas = "OptionsFrame-NineSlice-CornerTopRight" },
-  BottomLeftCorner  = { layer = "OVERLAY", atlas = "OptionsFrame-NineSlice-CornerBottomLeft" },
-  BottomRightCorner = { layer = "OVERLAY", atlas = "OptionsFrame-NineSlice-CornerBottomRight" },
-  TopEdge    = { layer = "OVERLAY", atlas = "_OptionsFrame-NineSlice-EdgeTop" },
-  BottomEdge = { layer = "OVERLAY", atlas = "_OptionsFrame-NineSlice-EdgeBottom" },
-  LeftEdge   = { layer = "OVERLAY", atlas = "!OptionsFrame-NineSlice-EdgeLeft" },
-  RightEdge  = { layer = "OVERLAY", atlas = "!OptionsFrame-NineSlice-EdgeRight" },
-}
+local function nineSlice(base, out)
+  local o = out or 0
+  local function corner(name, dx, dy)
+    return { layer = "OVERLAY", atlas = base .. "-Corner" .. name, x = dx * o, y = dy * o }
+  end
+  local function edge(prefix, name)
+    return { layer = "OVERLAY", atlas = prefix .. base .. "-Edge" .. name,
+             x = 0, y = 0, x1 = 0, y1 = 0 }
+  end
+  return {
+    TopLeftCorner     = corner("TopLeft", -1,  1),
+    TopRightCorner    = corner("TopRight", 1,  1),
+    BottomLeftCorner  = corner("BottomLeft", -1, -1),
+    BottomRightCorner = corner("BottomRight", 1, -1),
+    TopEdge    = edge("_", "Top"),
+    BottomEdge = edge("_", "Bottom"),
+    LeftEdge   = edge("!", "Left"),
+    RightEdge  = edge("!", "Right"),
+  }
+end
+
+local FLAT_EDGE = nineSlice("OptionsFrame-NineSlice", 3)
 
 local SKINS = {
   blizzard     = { inset = 20, grain = true },
