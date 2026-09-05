@@ -22,6 +22,7 @@ local WARBAND   = idList({ "AccountBankTab_1", "AccountBankTab_2", "AccountBankT
 local PAD, DIV = 10, 22
 local HBTN = 26
 local ROW1_Y = 4
+local SEARCH_MIN = 80
 local function headerH(base) return math.max(34, base + 16) end
 local function footerH(base) return math.max(28, base + 10) end
 
