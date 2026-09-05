@@ -7,7 +7,7 @@ Rec.slots = {}
 
 local LABEL_H, LABEL_GAP = 13, 4
 local MAX_SLOTS = 24
-local SETTLE = 2
+local SETTLE = 5
 
 local cells, seq, known = {}, {}, {}
 local locBag, locSlot = {}, {}
