@@ -296,6 +296,7 @@ local STRINGS = {
   ["1 item"] = "1 предмет",
   ["%d items"] = "предметов: %d",
   ["%d and %d wide"] = "%d и %d в ряду",
+  ["Slots %d/%d"] = "Ячейки %d/%d",
   ["Clean up bags"] = "Сортировка сумок",
   ["Clean up"] = "Сортировка",
   ["Settings"] = "Настройки",

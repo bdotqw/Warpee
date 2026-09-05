@@ -731,14 +731,22 @@ end
 
 function View:FitHeader()
   if self.search then self.search:Show() end
-  if self.freeText then self.freeText:Show() end
+  if self.freeText then
+    local edge = self.sortBtn and self.sortBtn:IsShown() and self.sortBtn:GetLeft()
+    local from = self.freeText:GetLeft()
+    local show = true
+    if edge and from then
+      show = (edge - from - 10) >= math.ceil(self.freeText:GetStringWidth())
+    end
+    self.freeText:SetShown(show)
+  end
 end
 
 function View:UpdateMeta()
   local st = self.cur
   self:UpdateCharBtn()
   if self.freeText and st then
-    self.freeText:SetText(("%d/%d"):format(st.used or 0, st.total or 0))
+    self.freeText:SetText((ns.L["Slots %d/%d"]):format(st.used or 0, st.total or 0))
   end
   self:FitHeader()
 end

@@ -188,6 +188,11 @@ function Bags:Build()
   end)
   self.charTag = charTag
 
+  local slots = Theme:Label(f, 12, "dim")
+  slots:SetPoint("LEFT", charTag, "RIGHT", 10, 0)
+  slots:SetJustifyH("LEFT")
+  self.slotText = slots
+
   local search = ns.CreateSearchBox(f, function(text)
     self.query = (text or ""):lower()
     self.filters = ns.ParseSearch(self.query)
@@ -392,6 +397,7 @@ function Bags:Layout()
   if self.title then self.title:SetFont(self.fontPath, 15, "") end
   if self.money then self.money:SetFont(self.fontPath, 16, "") end
   if self.reagentLabel then self.reagentLabel:SetFont(self.fontPath, 11, "") end
+  if self.slotText then self.slotText:SetFont(self.fontPath, 12, "") end
   if self.search then
     self.search:SetFont(self.fontPath, 13, "")
     if self.search.Hint then self.search.Hint:SetFont(self.fontPath, 13, "") end
@@ -738,6 +744,18 @@ function Bags:FitHeader()
   if not (self.frame and self.search) then return end
   local w = self.frame:GetWidth()
   self.search:Show()
+  if self.slotText and self.charTag then
+    local edge
+    for _, b in ipairs({ self.sellBtn, self.sortBtn, self.bankBtn, self.bagsToggle }) do
+      if b and b:IsShown() and b:GetLeft() then edge = b:GetLeft(); break end
+    end
+    local from = self.charTag:GetRight()
+    local show = true
+    if edge and from then
+      show = (edge - from - 16) >= math.ceil(self.slotText:GetStringWidth())
+    end
+    self.slotText:SetShown(show)
+  end
   if self.title and self.money then
     self.title:SetText("WARPEE")
     local tw = math.ceil(self.title:GetStringWidth())
@@ -752,6 +770,9 @@ function Bags:UpdateMeta()
   local used, total = self.used or 0, self.total or 0
   self.money:SetText(self:FormatMoney())
   self:UpdateBagBar()
+  if self.slotText then
+    self.slotText:SetText((ns.L["Slots %d/%d"]):format(used, total))
+  end
 
   local frac = total > 0 and used / total or 0
   if self.showGauge then
