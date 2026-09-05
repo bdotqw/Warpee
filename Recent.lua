@@ -310,8 +310,8 @@ function Rec:Apply(bags, x, top, size, gap)
     self.clear.Text:SetFont(bags.fontPath or ns.Fonts:Current(), 10, "")
     self.clear:SetSize(math.ceil(self.clear.Text:GetStringWidth()) + 8, LABEL_H)
     self.clear:ClearAllPoints()
-    ns.SnapPoint(self.clear, "TOPRIGHT", frame, "TOPLEFT",
-                 x + n * (size + gap) - gap, -top)
+    ns.SnapPoint(self.clear, "TOPLEFT", frame, "TOPLEFT",
+                 x + math.ceil(self.label:GetStringWidth()) + 10, -top)
     self.clear:SetOn(used())
     self.clear:Show()
   end

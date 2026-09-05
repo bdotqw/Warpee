@@ -489,8 +489,8 @@ function Pocket:Layout()
     self.recWipe.Text:SetFont(path, 10, "")
     self.recWipe:SetSize(math.ceil(self.recWipe.Text:GetStringWidth()) + 8, LABEL_H)
     self.recWipe:ClearAllPoints()
-    ns.SnapPoint(self.recWipe, "TOPRIGHT", w, "TOPLEFT",
-                 PAD + cols * step - gap, -capY)
+    ns.SnapPoint(self.recWipe, "TOPLEFT", w, "TOPLEFT",
+                 PAD + math.ceil(self.recLabel:GetStringWidth()) + 10, -capY)
     self.recWipe:SetOn(feed[1] and true or false)
     self.recWipe:Show()
     for i = 1, math.max(cols, self.recMax or 0) do
