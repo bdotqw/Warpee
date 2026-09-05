@@ -342,6 +342,9 @@ local STRINGS = {
   ["Pocket"] = "Ablage",
   ["Pocket window"] = "Ablagefenster",
   ["Pocket rows"] = "Zeilen der Ablage",
+  ["Item ID"] = "Gegenstands-ID",
+  ["Equipped"] = "Angelegt",
+  ["%d outside your bags"] = "%d außerhalb der Taschen",
   ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =
     "Ein kleines Fenster mit Merkfeldern neben den Taschen, geöffnet über die Gitterschaltfläche in der Kopfzeile. Zieh einen Gegenstand in ein Feld, und das Feld behält ihn, wohin er in den Taschen auch wandert. Ein Feld auf ein anderes gezogen tauscht beide, Strg + Linksklick leert eines.",
   ["Favorite slots"] = "Favoritenplätze",

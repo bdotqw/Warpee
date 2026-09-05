@@ -350,6 +350,9 @@ local STRINGS = {
   ["Pocket"] = "Bolsillo",
   ["Pocket window"] = "Ventana del bolsillo",
   ["Pocket rows"] = "Filas del bolsillo",
+  ["Item ID"] = "ID del objeto",
+  ["Equipped"] = "Equipado",
+  ["%d outside your bags"] = "%d fuera de las bolsas",
   ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =
     "Una pequeña ventana de casillas marcadas junto a las bolsas, abierta con el botón de rejilla de la cabecera. Arrastra un objeto a una casilla y la casilla lo mantiene, dondequiera que se mueva en tus bolsas. Arrastrar una casilla sobre otra las intercambia, y Ctrl + clic izquierdo vacía una.",
   ["Favorite slots"] = "Espacios favoritos",
