@@ -351,6 +351,7 @@ local STRINGS = {
   ["Pocket window"] = "Ventana del bolsillo",
   ["Pocket rows"] = "Filas del bolsillo",
   ["Add ID"] = "Añadir ID",
+  ["Clear"] = "Vaciar",
   ["Equipped"] = "Equipado",
   ["%d outside your bags"] = "%d fuera de las bolsas",
   ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =

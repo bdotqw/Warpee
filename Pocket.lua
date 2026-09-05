@@ -374,8 +374,11 @@ function Pocket:Build()
   rec:Hide()
   self.recLabel = rec
 
-  local clr = ns.CreateButton(w, "×", 16, 16)
-  clr:SetScript("OnClick", function() if ns.Recent then ns.Recent:Wipe() end end)
+  local clr = ns.CreateTextButton(w, 10)
+  ns.LocalText(clr.Text, "Clear")
+  clr:SetScript("OnClick", function(s)
+    if s.wpeOn and ns.Recent then ns.Recent:Wipe() end
+  end)
   ns.AddTip(clr, "Empty the recent row", "top")
   clr:Hide()
   self.recWipe = clr
@@ -484,11 +487,13 @@ function Pocket:Layout()
     local capY = y
     y = y + LABEL_H + LABEL_GAP
     local feed = R:Feed(cols)
-    self.recWipe.Text:SetFont(path, 12, "")
+    self.recWipe.Text:SetFont(path, 10, "")
+    self.recWipe:SetSize(math.ceil(self.recWipe.Text:GetStringWidth()) + 8, LABEL_H)
     self.recWipe:ClearAllPoints()
     ns.SnapPoint(self.recWipe, "TOPRIGHT", w, "TOPLEFT",
-                 PAD + cols * step - gap, -(capY - 2))
-    self.recWipe:SetShown(feed[1] and true or false)
+                 PAD + cols * step - gap, -capY)
+    self.recWipe:SetOn(feed[1] and true or false)
+    self.recWipe:Show()
     for i = 1, math.max(cols, self.recMax or 0) do
       local b, g = self.recSlots[i], self.recGhosts[i]
       local id = (i <= cols) and feed[i] or nil
