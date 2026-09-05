@@ -343,8 +343,7 @@ function Pocket:Build()
   if self.frame then return self.frame end
   local w = CreateFrame("Frame", "WarpeePocket", UIParent, "BackdropTemplate")
   Theme:Panel(w, "bg", "stroke")
-  Theme:WindowArt(w)
-  w:SetFrameStrata("DIALOG")
+  Theme:Window(w, "WarpeePocket")
   w:SetClampedToScreen(true)
   w:SetMovable(true)
   w:EnableMouse(true)
@@ -357,6 +356,7 @@ function Pocket:Build()
     local pp, rp, x, y = ns.SnapFrame(s)
     if pp then WarpeeDB.pocketPos = { p = pp, rp = rp, x = x, y = y } end
   end)
+  ns.EscClose(w)
   ns.EscClose(w)
   ns.PixelJob(w, function(s) ns.AlignToScreen(s) end, "align")
 
@@ -374,7 +374,13 @@ function Pocket:Build()
   rec:Hide()
   self.recLabel = rec
 
-  local box = ns.CreateSearchBox(w, nil, "Item ID")
+  local clr = ns.CreateButton(w, "×", 16, 16)
+  clr:SetScript("OnClick", function() if ns.Recent then ns.Recent:Wipe() end end)
+  ns.AddTip(clr, "Empty the recent row", "top")
+  clr:Hide()
+  self.recWipe = clr
+
+  local box = ns.CreateSearchBox(w, nil, "Add ID")
   box:SetScript("OnEnterPressed", function(s)
     Pocket:AddByText(s:GetText())
     s:SetText("")
@@ -475,8 +481,14 @@ function Pocket:Layout()
     self.recLabel:ClearAllPoints()
     ns.SnapPoint(self.recLabel, "TOPLEFT", w, "TOPLEFT", PAD, -y)
     self.recLabel:Show()
+    local capY = y
     y = y + LABEL_H + LABEL_GAP
     local feed = R:Feed(cols)
+    self.recWipe.Text:SetFont(path, 12, "")
+    self.recWipe:ClearAllPoints()
+    ns.SnapPoint(self.recWipe, "TOPRIGHT", w, "TOPLEFT",
+                 PAD + cols * step - gap, -(capY - 2))
+    self.recWipe:SetShown(feed[1] and true or false)
     for i = 1, math.max(cols, self.recMax or 0) do
       local b, g = self.recSlots[i], self.recGhosts[i]
       local id = (i <= cols) and feed[i] or nil
@@ -515,6 +527,7 @@ function Pocket:Layout()
     y = y + size + SPLIT
   else
     self.recLabel:Hide()
+    self.recWipe:Hide()
     for i = 1, (self.recMax or 0) do
       local b, g = self.recSlots[i], self.recGhosts[i]
       if b then b.holder:Hide(); b.pkBag, b.wpeForce = nil, nil end
