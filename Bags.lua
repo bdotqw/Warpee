@@ -87,7 +87,7 @@ function Bags:Build()
     ns.ClearSearch(Bags.search)
     if ns.CharPicker then ns.CharPicker:Close() end
     if Bags.bagWindow then Bags.bagWindow:Hide() end
-    if ns.Pocket then ns.Pocket:Close(true) end
+    if ns.Pocket and not ns.Pocket.solo then ns.Pocket:Close(true) end
     if ns.Vault:SetView("bags", nil) then
       Bags.snap = nil
       Bags:UpdateCharTag()
