@@ -28,7 +28,7 @@ local function frozen()
     local IT = Enum.PlayerInteractionType
     FREEZE = {}
     for _, k in ipairs({ "Banker", "CharacterBanker", "AccountBanker", "GuildBanker",
-                         "MailInfo", "VoidStorageBanker" }) do
+                         "VoidStorageBanker" }) do
       if IT[k] then FREEZE[#FREEZE + 1] = IT[k] end
     end
   end
@@ -36,6 +36,13 @@ local function frozen()
     if M.IsInteractingWithNpcOfType(t) then return true end
   end
   return false
+end
+
+local function mailing()
+  local M = C_PlayerInteractionManager
+  local IT = Enum and Enum.PlayerInteractionType
+  if not (M and M.IsInteractingWithNpcOfType and IT and IT.MailInfo) then return false end
+  return M.IsInteractingWithNpcOfType(IT.MailInfo) and true or false
 end
 
 local function equipped(id)
@@ -131,6 +138,7 @@ local function detect()
     if not hold and c > (known[id] or 0) then add(id, n) end
     known[id] = c
   end
+  if mailing() then return end
   for id in pairs(known) do
     if not counts[id] and not equipped(id) then known[id] = nil end
   end
