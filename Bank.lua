@@ -449,58 +449,68 @@ end
 -- frame is safe; SetScript on one is not, so the hook is a HookScript on its bank panel.
 local BLIZZ_TAB = {}
 
-function View:AttachBlizzTabs()
-  if InCombatLockdown() then return false end
-  local F, host = BankFrame, self.frame
-  if not (F and F.TabSystem and F.GetTabButton and host
-          and F.characterBankTabID and F.accountBankTabID) then return false end
-  local ts = F.TabSystem
-  if ts:GetParent() ~= host then
-    ts:SetParent(host)
-    ts:SetFrameLevel(host:GetFrameLevel() + 6)
+-- The bank the game deposits into on a right click is BankFrame own tab type, and only
+-- the game may set it: writing BankPanel type from here would hand a tainted value to
+-- that protected deposit, and then every right click in every bag would be refused. So
+-- the game own tab button is parked over ours with its art switched off and takes the
+-- click, the game switches its own type, and the hook walks our view over to match. The
+-- game lays its tab strip out again on its own and that moves the button away, so both
+-- calls that do it are hooked and the button is pinned back. Reparenting and moving a
+-- foreign frame is safe; SetScript on one is not, so only HookScript appears here.
+function View:PinBlizzTabs()
+  if InCombatLockdown() then return end
+  for mode, btn in pairs(BLIZZ_TAB) do
+    local own = (mode == "bank") and self.bankTab or self.wbTab
+    if own then
+      if btn:GetParent() ~= own then btn:SetParent(own) end
+      btn:ClearAllPoints()
+      btn:SetAllPoints(own)
+      btn:SetAlpha(0)
+      btn:SetFrameLevel(own:GetFrameLevel() + 4)
+      btn:EnableMouse(own:IsShown() and true or false)
+    end
   end
-  ts:ClearAllPoints()
-  ns.SnapPoint(ts, "TOPLEFT", host, "TOPLEFT", PAD,
-               -(ROW1_Y + Theme:TopInset() + Theme:HeadDrop()))
-  ts:Show()
-  local any = false
+end
+
+function View:AttachBlizzTabs()
+  if InCombatLockdown() then return end
+  local F = BankFrame
+  if not (F and F.GetTabButton and F.characterBankTabID and F.accountBankTabID) then return end
   for _, e in ipairs({ { "bank", F.characterBankTabID }, { "warband", F.accountBankTabID } }) do
     local mode, own = e[1], (e[1] == "bank") and self.bankTab or self.wbTab
     local ok, btn = pcall(F.GetTabButton, F, e[2])
     btn = (ok and btn) or nil
-    if own and btn then
-      any = true
-      btn:SetAlpha(0)
-      own:ClearAllPoints()
-      own:SetAllPoints(btn)
-      if BLIZZ_TAB[mode] ~= btn then
-        BLIZZ_TAB[mode] = btn
-        btn:HookScript("OnEnter", function()
-          own:SetBackdropColor(Theme:C("panelHi"))
-          own:SetBackdropBorderColor(Theme:C("accent"))
-          own.Text:SetTextColor(Theme:C("accent"))
-        end)
-        btn:HookScript("OnLeave", function()
-          own:SetBackdropColor(Theme:C("panel"))
-          self:UpdateTabs()
-        end)
-      end
+    if own and btn and BLIZZ_TAB[mode] ~= btn then
+      BLIZZ_TAB[mode] = btn
+      btn:HookScript("OnEnter", function()
+        own:SetBackdropColor(Theme:C("panelHi"))
+        own:SetBackdropBorderColor(Theme:C("accent"))
+        own.Text:SetTextColor(Theme:C("accent"))
+      end)
+      btn:HookScript("OnLeave", function()
+        own:SetBackdropColor(Theme:C("panel"))
+        self:UpdateTabs()
+      end)
     end
   end
-  if not any then return false end
-  if F.BankPanel and F.BankPanel.SetBankType and not self.typeHooked then
+  if not self.typeHooked then
     self.typeHooked = true
-    hooksecurefunc(F.BankPanel, "SetBankType", function(_, bt)
-      local acct = Enum and Enum.BankType and Enum.BankType.Account
-      local want = (acct and bt == acct) and "warband" or "bank"
-      if self.frame and self.frame:IsShown() and want ~= self.mode then self:SetMode(want) end
-    end)
+    if F.SetTab then hooksecurefunc(F, "SetTab", function() self:PinBlizzTabs() end) end
+    if F.RefreshTabVisibility then
+      hooksecurefunc(F, "RefreshTabVisibility", function() self:PinBlizzTabs() end)
+    end
+    if F.BankPanel and F.BankPanel.SetBankType then
+      hooksecurefunc(F.BankPanel, "SetBankType", function(_, bt)
+        local acct = Enum and Enum.BankType and Enum.BankType.Account
+        local want = (acct and bt == acct) and "warband" or "bank"
+        if self.frame and self.frame:IsShown() and want ~= self.mode then self:SetMode(want) end
+      end)
+    end
   end
-  return true
+  self:PinBlizzTabs()
 end
 
 function View:UpdateTabs()
-  local blizz = self:AttachBlizzTabs()
   local function paint(btn, on)
     if not btn then return end
     btn.Text:SetTextColor(Theme:C(on and "accent" or "text"))
@@ -515,13 +525,11 @@ function View:UpdateTabs()
   if self.wbTab then
     local wbOn = self:ModeAvailable("warband")
     self.wbTab:SetShown(wbOn)
-    if not blizz then
-      self.wbTab:ClearAllPoints()
-      if bankOn then
-        self.wbTab:SetPoint("LEFT", self.bankTab, "RIGHT", 4, 0)
-      else
-        ns.SnapPoint(self.wbTab, "TOPLEFT", self.frame, "TOPLEFT", PAD, -row1)
-      end
+    self.wbTab:ClearAllPoints()
+    if bankOn then
+      self.wbTab:SetPoint("LEFT", self.bankTab, "RIGHT", 4, 0)
+    else
+      ns.SnapPoint(self.wbTab, "TOPLEFT", self.frame, "TOPLEFT", PAD, -row1)
     end
     if wbOn then last = self.wbTab end
   end
@@ -529,6 +537,7 @@ function View:UpdateTabs()
     self.freeText:ClearAllPoints()
     self.freeText:SetPoint("LEFT", last, "RIGHT", 12, 0)
   end
+  self:AttachBlizzTabs()
 end
 
 function View:SetMode(mode)
