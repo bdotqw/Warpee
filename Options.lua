@@ -1624,7 +1624,7 @@ local ITEMS_PAGE = {
     disabled = function() return not ns.Badge("ilvl").on end,
     desc = "Tint the item level number with the item's quality color." },
   { type = "range", name = "Border thickness", min = 1, max = 6, step = 1,
-    get = edgeGet, set = edgeSet, disabled = function() return not qBorderGet() end,
+    get = edgeGet, set = edgeSet,
     desc = "Thickness of the slot border." },
   { type = "header", name = "Badges", key = "badges",
     state = function()
