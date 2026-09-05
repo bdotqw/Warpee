@@ -328,6 +328,9 @@ end
 --   call SetBagID. The holder's SetID carries the bag id, GetBagID falls back to it.
 -- Safe in and out of combat: SetID on the button and on the holder, RegisterForClicks,
 -- RegisterForDrag, hooksecurefunc on child regions and animations, new wpe* fields.
+-- Frames the game owns are the same story one level up, and the bank tab block in Bank.lua
+-- holds those rules: no SetScript on them either, and never reparent one whose own code
+-- finds its way about with GetParent.
 local btnCount = 0
 function ns.CreateItemButton(parent, bagID, slotIndex)
   btnCount = btnCount + 1

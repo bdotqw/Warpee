@@ -441,25 +441,42 @@ function View:EnforceMode()
   end
 end
 
+-- Bank tab plumbing. Read all of this before changing any of it.
+--
+-- The bank that a right click in a bag deposits into is BankFrame own tab type and nothing
+-- else. The game reads BankFrame:GetActiveBankType() inside its own container click handler
+-- and hands the answer straight to a protected call. So that type has to be set by the game
+-- itself, off a real hardware press on the game own tab button. Set it from here and the
+-- value carries our taint, the secure handler picks the taint up the moment it reads it, and
+-- from then on every right click in every bag is refused, not only the ones aimed at a bank.
+--
+-- Never do any of these, here or anywhere else:
+--   * write the bank panel type, or call BankFrame:SetTab, SelectDefaultTab, or any other
+--     setter on that tab system. Every one of them lands in that same protected deposit.
+--   * SetScript on BankFrame or on anything inside it. It taints the frame, and the taint
+--     reaches the secure bank work: the tab purchase button stops answering, and item use
+--     goes with it, since the game reads BankFrame on every bag right click. HookScript and
+--     hooksecurefunc are fine, they add a handler and never replace one.
+--   * reparent a tab button. Its OnClick reaches its tab system through GetParent, so a
+--     button hung on one of our frames dies on a nil call inside the game own template.
+--     Move the whole tab system instead and only anchor the button, since SetPoint may
+--     cross the frame hierarchy freely while parenting may not.
+--   * call BankFrame:Hide(). That fires BANKFRAME_CLOSED and ends the banker session.
+--   * press a tab button for the user with Click(). A press we make is our own execution, so
+--     the type it sets is just as tainted as if we had written it by hand.
+--
+-- Safe on frames the game owns, and the whole of what this code uses: SetParent, points,
+-- SetAlpha, SetHitRectInsets, SetFrameStrata, SetFrameLevel, Show, EnableMouse, HookScript,
+-- hooksecurefunc, and reading anything at all. Both entry points sit out combat lockdown:
+-- frames the game owns can refuse a move in there, and none of this is worth finding that
+-- out mid fight.
+
 local BLIZZ_TAB = {}
 
--- The bank the game deposits into on a right click is BankFrame own tab type, and only the
--- game may set it: writing BankPanel type from here would hand a tainted value to that
--- protected deposit, and then every right click in every bag would be refused. So the game
--- own tab button is parked over ours with its art switched off and takes the click, the
--- game flips its own type from a real hardware press, and our view is walked over to match.
--- The button has to keep its own parent: its OnClick reaches the tab system through GetParent,
--- so hanging the button on our tab killed the click with a nil call inside the game own tab
--- template. The tab system as a whole is moved into our window instead, which is what gives
--- the button a shown chain to take mouse input from, and the button is only anchored to our
--- tab, never reparented away from that system. Everything else in the system loses its mouse,
--- since the strip is invisible in there and nothing but those two buttons may catch a click.
--- Nothing here writes a field or a script on a game frame: only SetParent, points, alpha,
--- hit rect, strata, level and EnableMouse, plus HookScript and hooksecurefunc. Our own tab
--- hands its mouse over while a game button is pinned to it, so a click can never land on
--- ours instead, and takes it back for a snapshot viewed with no banker open. The game lays
--- its own tab strip out again by itself, so both calls that do that are hooked and the
--- button is pinned back after each. Both entry points sit out combat lockdown.
+-- Reading the type is always safe, and this is the only direction that runs from the game to
+-- us. The open path needs it because the game selects its own first available tab every time
+-- the bank opens, so a tab we remembered from last time would sit there claiming a bank that
+-- a right click does not go to.
 function View:BlizzMode()
   local F = BankFrame
   if not (F and F.GetActiveBankType) then return nil end
@@ -469,6 +486,21 @@ function View:BlizzMode()
   return (acct and bt == acct) and "warband" or "bank"
 end
 
+-- Every line in here is load bearing, so keep the lot:
+--   the tab system moves into our window because a button only takes mouse input while its
+--     whole parent chain is shown, and BankFrame itself stays in the hidden holder so its
+--     slot grid can never catch a click of ours;
+--   alpha 0 is how the strip disappears without being hidden, since a hidden frame takes no
+--     clicks at all;
+--   the hit rect is zeroed because the game insets it to suit its own wide button, and those
+--     insets ate most of a 52 pixel tab;
+--   the strata is copied because frame level only orders frames within one strata, and our
+--     windows sit in a higher strata than BankFrame does;
+--   our own tab gives its mouse up while a game button is pinned over it, so a click can
+--     never land on ours by accident, and takes it back when nothing is pinned, which is what
+--     keeps the tabs working on a saved snapshot with no banker open;
+--   everything else in that strip loses its mouse, because it is invisible inside our window
+--     and must not catch anything.
 function View:PinBlizzTabs()
   if InCombatLockdown() then return end
   local TS = BankFrame and BankFrame.TabSystem
@@ -501,6 +533,15 @@ function View:PinBlizzTabs()
   end
 end
 
+-- Two independent paths walk our view over to the tab the game just picked, because a post
+-- hook is lost whenever the call it follows errors before returning: the bank panel type
+-- setter, which the game runs as the first line of its own SetTab, and the button own
+-- OnClick. Either one alone is enough. The two flags are apart on purpose, since the bank
+-- panel may not exist the first time through and one shared flag would burn that hook for
+-- the session. The game lays its tab strip out again on its own, which is what tore the
+-- button off our tab in an earlier attempt, so both calls that do it pin it back. Its OnEnter
+-- opens a tooltip whenever it reads the label as truncated, which it is once the button is
+-- squeezed onto our tab, so the hook closes it again.
 function View:AttachBlizzTabs()
   if InCombatLockdown() then return end
   local F = BankFrame
@@ -1111,6 +1152,10 @@ end
 -- a bank type through SelectDefaultTab, and the game passes that type into the deposit,
 -- so silencing OnShow sent everything to the character bank. Never call BankFrame:Hide()
 -- either: that fires BANKFRAME_CLOSED and ends the banker session.
+-- The holder stays hidden, and must never become a shown frame parked off screen: shown means
+-- every slot button in the bank panel is live and catches clicks wherever the panel ends up,
+-- and the game puts its own panels back on screen by itself anyway. The tab strip is the one
+-- piece that has to stay reachable by the mouse, and the tab code lifts it out of here.
 function View:HideBlizzard()
   if self.blizzHidden then return end
   local hidden = self.hiddenHolder
