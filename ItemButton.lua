@@ -867,6 +867,20 @@ function ns.ClearItemPaint()
   if P and P.recSlots then for _, b in pairs(P.recSlots) do b.link = nil end end
 end
 
+local gearMemo = {}
+
+function ns.GearItem(id)
+  id = tonumber(id)
+  if not id then return false end
+  local v = gearMemo[id]
+  if v == nil then
+    local loc = select(4, C_Item.GetItemInfoInstant(id))
+    v = (loc and loc ~= "") and true or false
+    gearMemo[id] = v
+  end
+  return v
+end
+
 local function bagTotal(info, count)
   local get = C_Item.GetItemCount or GetItemCount
   local id = info and info.itemID
@@ -885,10 +899,13 @@ function ns.UpdateItemButton(b)
   local info = C_Container.GetContainerItemInfo(bagID, slot)
   local link = info and (info.hyperlink or info.iconFileID) or false
   local count = info and info.stackCount or 0
-  if b.wpeForce then
-    count = b.wpeForce
-  elseif b.wpeTotal then
-    count = bagTotal(info, count)
+  if b.wpeForce or b.wpeTotal then
+    local one = info and ns.GearItem(info.itemID)
+    if b.wpeForce and not one then
+      count = b.wpeForce
+    elseif b.wpeTotal and not one then
+      count = bagTotal(info, count)
+    end
   end
   local mark = keystoneMark(link)
   if b.link == link and b.wpeCount == count and b.wpeMark == mark then return b.itemName end

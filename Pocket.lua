@@ -582,7 +582,7 @@ function Pocket:Layout()
           if pin then
             g.icon:SetTexture(itemIcon(ns.ItemStubID(pin))); g.icon:Show()
             g.dot:SetShown(worn(pin))
-            local away = elsewhere(pin)
+            local away = ns.GearItem(ns.ItemStubID(pin)) and 0 or elsewhere(pin)
             if away > 0 then
               g.cnt:SetFont(path, math.max(9, math.floor(size * 0.3)), "")
               g.cnt:SetText(away)
