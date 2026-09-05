@@ -268,8 +268,13 @@ local function makeMenuRow(parent, index, rowH)
   fs:SetJustifyH("LEFT")
   r.Text = fs
 
-  r:SetScript("OnEnter", function(s) s.bg:Show() end)
-  r:SetScript("OnLeave", function(s) s.bg:Hide() end)
+  r:SetScript("OnEnter", function(s)
+    s.bg:Show()
+    if dropdown and dropdown.desc then
+      ns.ShowTip(s, { { text = dropdown.desc } }, "right")
+    end
+  end)
+  r:SetScript("OnLeave", function(s) s.bg:Hide(); ns.HideTip() end)
   return r
 end
 
@@ -304,7 +309,7 @@ local function ensureDropdown()
   end)
 
   m.rows, m.sf, m.child, m.catcher = {}, sf, child, catcher
-  m:SetScript("OnHide", function() catcher:Hide() end)
+  m:SetScript("OnHide", function() catcher:Hide(); ns.HideTip() end)
   catcher:SetScript("OnClick", closeDropdown)
   ns.EscClose(m)
   dropdown = m
@@ -349,6 +354,8 @@ local function openDropdown(anchor, spec, onPick)
   m.sf:SetVerticalScroll(math.min(span, ns.SnapScroll(m.sf, (curIndex - 1) * rowH - rowH * 3)))
 
   m.owner = anchor
+  m.desc = spec.desc
+  ns.HideTip()
   m:ClearAllPoints()
   local below = anchor:GetBottom() or 0
   if below - m:GetHeight() < 20 then
@@ -666,7 +673,6 @@ function factories.select(parent, spec)
 
   local arrowBox = ns.ArrowGlyph(btn, "down", 9)
   arrowBox:SetPoint("RIGHT", -7, 0)
-  tip(btn, spec.desc)
   local function arrowColor(key) arrowBox:SetTint(key) end
 
   row.Refresh = function()
@@ -683,12 +689,15 @@ function factories.select(parent, spec)
   row.Refresh()
 
   btn:SetScript("OnEnter", function(s)
+    local open = dropdown and dropdown:IsShown() and dropdown.owner == s
+    if spec.desc and not open then ns.ShowTip(row, { { text = spec.desc } }, "top") end
     if row.off then return end
     s:SetBackdropColor(Theme:C("panelHi"))
     s:SetBackdropBorderColor(Theme:C("accent"))
     arrowColor("accent")
   end)
   btn:SetScript("OnLeave", function(s)
+    ns.HideTip()
     if row.off then return end
     s:SetBackdropColor(Theme:C("panel"))
     s:SetBackdropBorderColor(Theme:C("stroke"))
@@ -704,7 +713,7 @@ function factories.select(parent, spec)
     end
     openDropdown(s, spec, row.Refresh)
   end)
-  tip(row, spec.desc)
+  tip(row, spec.desc, "top")
   return row
 end
 
