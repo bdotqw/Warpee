@@ -721,7 +721,7 @@ end
 -- Bindings.xml is picked up by the client from the addon folder on its own. Listing it
 -- in the toc sends it through the frame XML parser instead, which does not know the
 -- Binding tag and drops the whole file, so it stays out of the file list.
-BINDING_NAME_WARPEE_POCKET = ns.L["Pocket"]
+ns.LocalGlobal("BINDING_NAME_WARPEE_POCKET", "Pocket")
 
 function WarpeePocketToggle()
   if ns.Pocket then ns.Pocket:Hotkey() end

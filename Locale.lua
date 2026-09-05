@@ -28,7 +28,7 @@ function ns.AddLocale(code, label, def)
   aliasMap = nil
 end
 
-local watched = {}
+local watched, globals = {}, {}
 
 local function paint(w)
   local o = w.obj
@@ -44,8 +44,14 @@ function ns.LocalText(obj, key)
   return obj
 end
 
+function ns.LocalGlobal(name, key)
+  globals[name] = key
+  _G[name] = L[key]
+end
+
 function ns.ApplyLocaleText()
   for _, w in ipairs(watched) do paint(w) end
+  for name, key in pairs(globals) do _G[name] = L[key] end
   if ns.Bags and ns.Bags.frame and ns.Bags.frame:IsShown() and ns.Bags.Layout then
     ns.Bags:Layout()
   end
