@@ -343,6 +343,10 @@ local STRINGS = {
   ["%d  (bank)"] = "%d  (banque)",
   ["%d  (bags)"] = "%d  (sacs)",
   ["Favorites"] = "Favoris",
+  ["Recent"] = "Récents",
+  ["Recent items"] = "Objets récents",
+  ["A row above the favorites holding whatever came into your bags this session. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
+    "Une rangée au-dessus des favoris contenant tout ce qui est arrivé dans vos sacs pendant cette session. Chaque arrivée prend la première case libre, le plus ancien disparaît quand la rangée est pleine, et la rangée se vide à la déconnexion ou après un rechargement.",
   ["Favorite slots"] = "Emplacements favoris",
   ["How many slots"] = "Nombre d'emplacements",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =

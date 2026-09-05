@@ -1467,6 +1467,11 @@ fav.countSet = function(v)
   WarpeeDB.favCount = tonumber(v) or 6
   relayout()
 end
+fav.recentGet = function() return ns.Recent and ns.Recent:Enabled() end
+fav.recentSet = function(v)
+  WarpeeDB.recentShow = v and true or false
+  relayout()
+end
 local lettersGet, lettersSet = field("goldLetters")
 local onlyGet, onlySet       = field("goldOnly")
 
@@ -1528,6 +1533,8 @@ local GENERAL_PAGE = {
     format = function(v) return (v or 0) <= 0 and T("As the grid") or tostring(v) end,
     disabled = function() return not fav.showGet() end,
     desc = "Never more than the grid is wide. Zero keeps the row as wide as the grid." },
+  { type = "toggle", name = "Recent items", col = 1, get = fav.recentGet, set = fav.recentSet,
+    desc = "A row above the favorites holding whatever came into your bags this session. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload." },
   { type = "header", name = "Search" },
   { type = "toggle", name = "Clear on close", col = 1, get = sClearGet, set = sClearSet,
     desc = "Empty the search box when the window closes, so it opens unfiltered next time." },

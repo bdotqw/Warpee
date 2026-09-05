@@ -341,6 +341,10 @@ local STRINGS = {
   ["%d  (bank)"] = "%d  (в банке)",
   ["%d  (bags)"] = "%d  (в сумках)",
   ["Favorites"] = "Избранное",
+  ["Recent"] = "Недавнее",
+  ["Recent items"] = "Недавние предметы",
+  ["A row above the favorites holding whatever came into your bags this session. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
+    "Ряд над избранным, в котором лежит всё, что попало в сумки за эту сессию. Каждое поступление занимает первую свободную ячейку, при переполнении уходит самое старое, а при выходе из игры или перезагрузке интерфейса ряд очищается.",
   ["Favorite slots"] = "Ячейки избранного",
   ["How many slots"] = "Сколько ячеек",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =

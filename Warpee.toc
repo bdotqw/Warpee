@@ -24,6 +24,7 @@ ItemRules.lua
 ItemButton.lua
 Bags.lua
 Favorites.lua
+Recent.lua
 Tokens.lua
 Vendor.lua
 MinimapIcon.lua

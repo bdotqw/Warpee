@@ -1,0 +1,270 @@
+local addonName, ns = ...
+local Theme = ns.Theme
+
+local Rec = {}
+ns.Recent = Rec
+Rec.slots = {}
+
+local LABEL_H, LABEL_GAP = 13, 4
+local MAX_SLOTS = 24
+local SETTLE = 5
+
+local cells, seq, known = {}, {}, {}
+local locBag, locSlot = {}, {}
+local counter = 0
+local settleAt = GetTime() + SETTLE
+
+function Rec:Enabled()
+  return not (WarpeeDB and WarpeeDB.recentShow == false)
+end
+
+local FREEZE
+local function frozen()
+  local M = C_PlayerInteractionManager
+  if not (M and M.IsInteractingWithNpcOfType and Enum and Enum.PlayerInteractionType) then
+    return false
+  end
+  if not FREEZE then
+    local IT = Enum.PlayerInteractionType
+    FREEZE = {}
+    for _, k in ipairs({ "Banker", "CharacterBanker", "AccountBanker", "GuildBanker",
+                         "MailInfo", "VoidStorageBanker" }) do
+      if IT[k] then FREEZE[#FREEZE + 1] = IT[k] end
+    end
+  end
+  for _, t in ipairs(FREEZE) do
+    if M.IsInteractingWithNpcOfType(t) then return true end
+  end
+  return false
+end
+
+local function equipped(id)
+  local f = (C_Item and C_Item.IsEquippedItem) or IsEquippedItem
+  return (f and f(id)) and true or false
+end
+
+local function capacity()
+  local c = math.floor(tonumber(ns.Bags and ns.Bags.cols) or 14)
+  return math.max(1, math.min(c, MAX_SLOTS))
+end
+local function scanBag(bag, counts)
+  for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
+    local info = C_Container.GetContainerItemInfo(bag, slot)
+    local id = info and info.itemID
+    if id then
+      counts[id] = (counts[id] or 0) + (info.stackCount or 1)
+      if not locBag[id] then locBag[id], locSlot[id] = bag, slot end
+    end
+  end
+end
+
+local function tally()
+  local counts = {}
+  wipe(locBag); wipe(locSlot)
+  for _, bag in ipairs(ns.playerBags) do scanBag(bag, counts) end
+  if ns.reagentBag then scanBag(ns.reagentBag, counts) end
+  return counts
+end
+
+local function pinned(id)
+  local F = ns.Fav
+  if not (F and F.List) then return false end
+  for _, own in pairs(F:List()) do
+    if own == id then return true end
+  end
+  return false
+end
+
+local function used()
+  for i = 1, MAX_SLOTS do
+    if cells[i] then return true end
+  end
+  return false
+end
+
+local function add(id, n)
+  if seq[id] or pinned(id) then return end
+  counter = counter + 1
+  for i = 1, n do
+    if not cells[i] then cells[i], seq[id] = id, counter; return end
+  end
+  local worn, age
+  for i = 1, n do
+    local c = cells[i]
+    if c and (not age or (seq[c] or 0) < age) then worn, age = i, seq[c] or 0 end
+  end
+  if not worn then return end
+  seq[cells[worn]] = nil
+  cells[worn], seq[id] = id, counter
+end
+local function compact(n)
+  local ids, over = {}, false
+  for i = 1, MAX_SLOTS do
+    local id = cells[i]
+    if id then
+      ids[#ids + 1] = id
+      if i > n then over = true end
+    end
+  end
+  if not over and #ids <= n then return end
+  table.sort(ids, function(a, b) return (seq[a] or 0) < (seq[b] or 0) end)
+  for i = 1, MAX_SLOTS do cells[i] = nil end
+  local cut = math.max(0, #ids - n)
+  for k = 1, #ids do
+    local id = ids[k]
+    if k <= cut then seq[id] = nil else cells[k - cut] = id end
+  end
+end
+
+local function prune(counts)
+  for i = 1, MAX_SLOTS do
+    local id = cells[i]
+    if id and (not counts[id] or pinned(id)) then
+      seq[id] = nil
+      cells[i] = nil
+    end
+  end
+end
+
+local function detect()
+  local counts = tally()
+  local hold = frozen() or not Rec:Enabled() or GetTime() < settleAt
+  local n = capacity()
+  for id, c in pairs(counts) do
+    if not hold and c > (known[id] or 0) then add(id, n) end
+    known[id] = c
+  end
+  for id in pairs(known) do
+    if not counts[id] and not equipped(id) then known[id] = nil end
+  end
+  prune(counts)
+end
+-- The cells are container slot buttons, so they are built here, out of combat, and a
+-- redraw only moves and re-ids them after that. A button made during a fight is
+-- tainted for good. The row owns no click handler and no overlay of its own: the
+-- game's own template keeps both buttons, which is why SetPassThroughButtons, the
+-- call that is refused in combat, never appears in this file.
+function Rec:Warm()
+  local bags = ns.Bags
+  local frame = bags and bags.frame
+  if not frame then return end
+  if InCombatLockdown() then self.cold = true; return end
+  for i = 1, MAX_SLOTS do
+    if not self.slots[i] then
+      local b = ns.CreateItemButton(frame, 0, 1)
+      b.wpeTotal = true
+      b.holder:Hide()
+      self.slots[i] = b
+    end
+  end
+  self.cold, self.warmed = nil, true
+end
+
+function Rec:Flush()
+  if not self.cold or InCombatLockdown() then return end
+  self:Warm()
+  self:Refresh()
+end
+
+function Rec:Hide()
+  if self.label then self.label:Hide() end
+  for i = 1, MAX_SLOTS do
+    local b = self.slots[i]
+    if b then b.holder:Hide(); b.recBag = nil end
+  end
+end
+
+function Rec:Height(size)
+  if not (self:Enabled() and used()) then return 0 end
+  return LABEL_H + LABEL_GAP + (tonumber(size) or 0) + 6
+end
+
+function Rec:Cooldowns()
+  for i = 1, MAX_SLOTS do
+    local b = self.slots[i]
+    if b and b.holder:IsShown() and b.link then ns.UpdateCooldown(b) end
+  end
+end
+function Rec:Apply(bags, x, top, size, gap)
+  if not (bags and bags.frame) then return 0 end
+  local frame = bags.frame
+  self.args = { bags = bags, x = x, top = top, size = size, gap = gap }
+  local n = capacity()
+  compact(n)
+  if not self:Enabled() then
+    self:Hide()
+    return 0
+  end
+  if not self.warmed then self:Warm() end
+  if not used() then
+    self:Hide()
+    return 0
+  end
+  if not self.label then
+    local fs = Theme:Label(frame, 11, "dim")
+    fs:SetJustifyH("LEFT")
+    ns.LocalText(fs, "Recent")
+    self.label = fs
+  end
+  self.label:SetFont(bags.fontPath or ns.Fonts:Current(), 11, "")
+  self.label:ClearAllPoints()
+  ns.SnapPoint(self.label, "TOPLEFT", frame, "TOPLEFT", x, -top)
+  self.label:Show()
+  local rowY = top + LABEL_H + LABEL_GAP
+  local gen = (bags.styleGen or 0) .. ":" .. tostring(bags.fontPath) .. ":" .. size
+  local repaint = self.paintKey ~= gen
+  self.paintKey = gen
+  for i = 1, MAX_SLOTS do
+    local id = (i <= n) and cells[i] or nil
+    local bag, slot = id and locBag[id], id and locSlot[id]
+    local b = self.slots[i]
+    if id and bag and not b then self.cold = true end
+    if id and bag and b then
+      if b.recBag ~= bag or b.recSlot ~= slot then
+        b.recBag, b.recSlot, b.wpeBagID = bag, slot, bag
+        b.holder:SetID(bag)
+        b:SetID(slot)
+        b.link = nil
+      end
+      local h = b.holder
+      ns.SnapSize(h, size, size)
+      h:ClearAllPoints()
+      ns.SnapPoint(h, "TOPLEFT", frame, "TOPLEFT", x + (i - 1) * (size + gap), -rowY)
+      h:Show(); b:Show()
+      if repaint then b.link = nil end
+      ns.UpdateItemButton(b)
+    elseif b then
+      b.holder:Hide()
+      b.recBag = nil
+    end
+  end
+  return LABEL_H + LABEL_GAP + size + 6
+end
+function Rec:Refresh()
+  local a = self.args
+  if not (a and a.bags and a.bags.frame and a.bags.frame:IsShown()) then return end
+  if self:Height(a.size) ~= (a.bags.recentH or 0) then
+    a.bags:Layout()
+    return
+  end
+  self:Apply(a.bags, a.x, a.top, a.size, a.gap)
+end
+
+local ev = CreateFrame("Frame")
+ev:RegisterEvent("BAG_UPDATE_DELAYED")
+ev:RegisterEvent("BAG_UPDATE_COOLDOWN")
+ev:RegisterEvent("SPELL_UPDATE_COOLDOWN")
+ev:RegisterEvent("PLAYER_REGEN_ENABLED")
+ev:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
+ev:SetScript("OnEvent", function(_, event)
+  if event == "PLAYER_REGEN_ENABLED" then
+    Rec:Flush()
+    return
+  end
+  if event == "BAG_UPDATE_DELAYED" or event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
+    detect()
+    Rec:Refresh()
+    return
+  end
+  Rec:Cooldowns()
+end)

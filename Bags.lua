@@ -38,7 +38,7 @@ end
 
 function Bags:BaseTop() return HEADER + 4 + Theme:TopInset() - self:HeadShift() end
 
-function Bags:TopOffset() return self:BaseTop() + (self.favH or 0) end
+function Bags:TopOffset() return self:BaseTop() + (self.recentH or 0) + (self.favH or 0) end
 
 function Bags:AnchorHeader()
   local top = Theme:TopInset()
@@ -399,7 +399,8 @@ function Bags:Layout()
   if self.charTag then self.charTag.Text:SetFont(self.fontPath, 12, ""); self:UpdateCharTag() end
   if self.frame and self.frame.wpeBar then self.frame.wpeBar:Fonts(self.fontPath, 11) end
 
-  self.favH = ns.Fav and ns.Fav:Apply(self, PAD, self:BaseTop(), size, gap) or 0
+  self.recentH = ns.Recent and ns.Recent:Apply(self, PAD, self:BaseTop(), size, gap) or 0
+  self.favH = ns.Fav and ns.Fav:Apply(self, PAD, self:BaseTop() + self.recentH, size, gap) or 0
 
   self.content:ClearAllPoints()
   ns.SnapPoint(self.content, "TOPLEFT", self.frame, "TOPLEFT", PAD, -self:TopOffset())
