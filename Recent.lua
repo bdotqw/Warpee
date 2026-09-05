@@ -14,6 +14,27 @@ local locBag, locSlot = {}, {}
 local poor = {}
 local counter = 0
 local primed = nil
+local guidNow, guidHad, guidID, everWorn = {}, {}, {}, {}
+local ILOC
+
+local function itemGuid(bag, slot)
+  local G = C_Item and C_Item.GetItemGUID
+  if not (G and ItemLocation) then return nil end
+  if not ILOC then
+    if not ItemLocation.CreateEmpty then return nil end
+    ILOC = ItemLocation:CreateEmpty()
+    if not (ILOC and ILOC.SetBagAndSlot and ILOC.SetEquipmentSlot) then ILOC = nil; return nil end
+  end
+  if bag then ILOC:SetBagAndSlot(bag, slot) else ILOC:SetEquipmentSlot(slot) end
+  if not C_Item.DoesItemExist(ILOC) then return nil end
+  local ok, g = pcall(G, ILOC)
+  return (ok and g) or nil
+end
+
+local function idOf(key)
+  if type(key) == "string" then return guidID[key] end
+  return key
+end
 
 function Rec:Enabled()
   return not (WarpeeDB and WarpeeDB.recentShow == false)
@@ -60,9 +81,16 @@ local function scanBag(bag, counts)
     local info = C_Container.GetContainerItemInfo(bag, slot)
     local id = info and info.itemID
     if id then
-      counts[id] = (counts[id] or 0) + (info.stackCount or 1)
-      if info.quality == 0 then poor[id] = true end
-      if not locBag[id] then locBag[id], locSlot[id] = bag, slot end
+      local g = ns.GearItem(id) and itemGuid(bag, slot) or nil
+      if g then
+        guidNow[g], guidID[g] = true, id
+        locBag[g], locSlot[g] = bag, slot
+        if info.quality == 0 then poor[g] = true end
+      else
+        counts[id] = (counts[id] or 0) + (info.stackCount or 1)
+        if info.quality == 0 then poor[id] = true end
+        if not locBag[id] then locBag[id], locSlot[id] = bag, slot end
+      end
     end
   end
 end
@@ -70,6 +98,7 @@ end
 local function tally()
   local counts = {}
   wipe(locBag); wipe(locSlot); wipe(poor)
+  wipe(guidNow); wipe(guidID)
   for _, bag in ipairs(ns.playerBags) do scanBag(bag, counts) end
   if ns.reagentBag then scanBag(ns.reagentBag, counts) end
   return counts
@@ -95,13 +124,13 @@ local function mark(id, delta)
   got[id] = (got[id] or 0) + delta
 end
 
-local function add(id, n, delta)
-  if seq[id] or pinned(id) then return end
+local function add(key, n, delta)
+  if seq[key] or pinned(idOf(key)) then return end
   counter = counter + 1
   for i = 1, n do
     if not cells[i] then
-      cells[i], seq[id] = id, counter
-      mark(id, delta)
+      cells[i], seq[key] = key, counter
+      if delta then mark(key, delta) end
       return
     end
   end
@@ -113,8 +142,8 @@ local function add(id, n, delta)
   if not worn then return end
   local out = cells[worn]
   seq[out], got[out] = nil, nil
-  cells[worn], seq[id] = id, counter
-  mark(id, delta)
+  cells[worn], seq[key] = key, counter
+  if delta then mark(key, delta) end
 end
 local function compact(n)
   local ids, over = {}, false
@@ -144,9 +173,10 @@ end
 
 local function prune(counts)
   for i = 1, MAX_SLOTS do
-    local id = cells[i]
-    if id and (not counts[id] or pinned(id) or poor[id]) then
-      seq[id], got[id] = nil, nil
+    local key = cells[i]
+    local here = key and (type(key) == "string" and guidNow[key] or counts[key])
+    if key and (not here or pinned(idOf(key)) or poor[key]) then
+      seq[key], got[key] = nil, nil
       cells[i] = nil
     end
   end
@@ -157,15 +187,16 @@ local SHED = 3
 
 local function bodyDiff()
   local f = GetInventoryItemID
-  if not f then return end
   for s = 1, 19 do
-    local now = f("player", s)
+    local now = f and f("player", s) or nil
     local was = body[s]
     body[s] = now
     if was and was ~= now then
       shed[was] = (shed[was] or 0) + 1
       shedAt[was] = GetTime()
     end
+    local g = itemGuid(nil, s)
+    if g then everWorn[g] = true end
   end
 end
 
@@ -190,6 +221,9 @@ local function detect()
     primed = GetTime()
   end
   local n = capacity()
+  for g in pairs(guidNow) do
+    if not (guidHad[g] or everWorn[g] or hold or poor[g]) then add(g, n, nil) end
+  end
   for id, c in pairs(counts) do
     local was = known[id] or 0
     if c > was then
@@ -206,11 +240,16 @@ local function detect()
     end
     known[id] = c
   end
-  if mailing() then return end
+  if mailing() then
+    for g in pairs(guidNow) do guidHad[g] = true end
+    return
+  end
   for id in pairs(known) do
     if not counts[id] and not equipped(id) then known[id] = nil end
   end
   prune(counts)
+  wipe(guidHad)
+  for g in pairs(guidNow) do guidHad[g] = true end
 end
 
 local function makeGhost(parent)
