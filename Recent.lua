@@ -187,6 +187,10 @@ local SHED = 3
 
 local function bodyDiff()
   local f = GetInventoryItemID
+  local cut = GetTime() - SHED
+  for id, t in pairs(shedAt) do
+    if t < cut then shed[id], shedAt[id] = nil, nil end
+  end
   for s = 1, 19 do
     local now = f and f("player", s) or nil
     local was = body[s]
