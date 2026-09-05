@@ -11,6 +11,7 @@ local SETTLE = 5
 
 local cells, seq, known, got = {}, {}, {}, {}
 local locBag, locSlot = {}, {}
+local poor = {}
 local counter = 0
 local primed = nil
 
@@ -60,6 +61,7 @@ local function scanBag(bag, counts)
     local id = info and info.itemID
     if id then
       counts[id] = (counts[id] or 0) + (info.stackCount or 1)
+      if info.quality == 0 then poor[id] = true end
       if not locBag[id] then locBag[id], locSlot[id] = bag, slot end
     end
   end
@@ -67,7 +69,7 @@ end
 
 local function tally()
   local counts = {}
-  wipe(locBag); wipe(locSlot)
+  wipe(locBag); wipe(locSlot); wipe(poor)
   for _, bag in ipairs(ns.playerBags) do scanBag(bag, counts) end
   if ns.reagentBag then scanBag(ns.reagentBag, counts) end
   return counts
@@ -143,7 +145,7 @@ end
 local function prune(counts)
   for i = 1, MAX_SLOTS do
     local id = cells[i]
-    if id and (not counts[id] or pinned(id)) then
+    if id and (not counts[id] or pinned(id) or poor[id]) then
       seq[id], got[id] = nil, nil
       cells[i] = nil
     end
@@ -161,7 +163,7 @@ local function detect()
   for id, c in pairs(counts) do
     local was = known[id] or 0
     if c > was then
-      if not hold then
+      if not hold and not poor[id] then
         if seq[id] then mark(id, c - was) else add(id, n, c - was) end
       end
     elseif c < was and got[id] then
