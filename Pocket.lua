@@ -238,6 +238,10 @@ local function makeCatcher(parent, index)
       Pocket:Link(s.pkIndex)
       return
     end
+    if IsAltKeyDown() and not (IsShiftKeyDown() or IsControlKeyDown()) then
+      Pocket:Lock(s.pkIndex)
+      return
+    end
     if IsControlKeyDown() and not (IsShiftKeyDown() or IsAltKeyDown()) then
       Pocket:Set(s.pkIndex, nil)
       tipFor(s, s.pkIndex)
@@ -279,6 +283,15 @@ function Pocket:Set(index, pin)
   list[index] = pin or nil
   keyDirty = true
   later()
+end
+
+function Pocket:Lock(index)
+  local id = ns.ItemStubID(self:List()[index])
+  local V = ns.Vendor
+  if not (id and V and V.Toggle) then return end
+  V:Toggle(id, (C_Item.GetItemInfo(id)) or tostring(id))
+  local c = self.catchers[index]
+  if c and c:IsShown() and c:IsMouseOver() then tipFor(c, index) end
 end
 
 function Pocket:Lift(index)
