@@ -30,7 +30,6 @@ local Bags = { pool = {}, vpool = {}, cols = COLS_DEFAULT, gap = GAP_DEFAULT, ic
                styleGen = 1 }
 ns.Bags = Bags
 
-local function stepFor(size, gap) return size + gap end
 local function gridWidth(size, cols, gap) return (cols - 1) * (size + gap) + size end
 function Bags:HeadShift()
   return self.showGauge and 0 or (ROW2_Y - GAUGE_Y + 2)

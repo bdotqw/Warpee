@@ -389,7 +389,6 @@ function Pocket:Build()
     if pp then WarpeeDB.pocketPos = { p = pp, rp = rp, x = x, y = y } end
   end)
   ns.EscClose(w)
-  ns.EscClose(w)
   ns.PixelJob(w, function(s) ns.AlignToScreen(s) end, "align")
 
   local title = Theme:Title(w, 14, "accent")

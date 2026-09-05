@@ -11,9 +11,6 @@ local SHARED = {
   faint      = { 0.392, 0.427, 0.482, 1.00 },
   azure      = { 0.435, 0.706, 0.831, 1.00 },
   reagent    = { 0.353, 0.804, 0.616, 1.00 },
-  silver     = { 0.663, 0.706, 0.765, 1.00 },
-  copper     = { 0.780, 0.541, 0.400, 1.00 },
-  gaugeLo    = { 0.498, 0.690, 0.639, 1.00 },
   gaugeHi    = { 0.878, 0.451, 0.420, 1.00 },
 }
 
@@ -139,8 +136,6 @@ function Theme:Apply(name)
     local a, ink = classAccent()
     if a then c.accent, c.accentInk = a, ink end
   end
-  c.brass = c.accent
-  c.gaugeMid = c.accent
   self.colors = c
   self.skin = t.skin or "flat"
   self.active = self.THEMES[name] and name or "midnight"
