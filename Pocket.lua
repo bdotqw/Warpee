@@ -4,8 +4,11 @@ local Theme = ns.Theme
 local Pocket = {}
 ns.Pocket = Pocket
 Pocket.slots, Pocket.ghosts, Pocket.catchers = {}, {}, {}
+Pocket.recSlots, Pocket.recGhosts = {}, {}
 
 local PAD, BAND = 12, 26
+local LABEL_H, LABEL_GAP, SPLIT = 13, 4, 10
+local BOX_H, BOX_GAP = 22, 8
 local MAX_COLS, MAX_ROWS = 12, 8
 
 local function charKey()
@@ -54,6 +57,36 @@ local function itemIcon(id)
   return (GetItemIcon and GetItemIcon(id)) or 134400
 end
 
+local function equipped(id)
+  local f = (C_Item and C_Item.IsEquippedItem) or IsEquippedItem
+  return (id and f and f(id)) and true or false
+end
+
+local function elsewhere(id)
+  local f = (C_Item and C_Item.GetItemCount) or GetItemCount
+  if not (id and f) then return 0 end
+  local ok, n = pcall(f, id, true, false, true, true)
+  return (ok and tonumber(n)) or 0
+end
+
+local function pocketGhost(parent)
+  local g = ns.SlotGhost(parent)
+  local dot = Theme:Rect(g, "accent", "OVERLAY")
+  dot:Hide()
+  g.dot = dot
+  ns.PixelJob(g, function(s)
+    local d = ns.PX(s, 5)
+    s.dot:SetSize(d, d)
+    s.dot:ClearAllPoints()
+    s.dot:SetPoint("TOPRIGHT", -d, -d)
+  end, "dot")
+  local cnt = Theme:Label(g, 11, "dim")
+  cnt:SetPoint("BOTTOMRIGHT", -2, 2)
+  cnt:Hide()
+  g.cnt = cnt
+  return g
+end
+
 local deferred = false
 
 local function later()
@@ -97,6 +130,13 @@ local function tipFor(c, index)
       GameTooltip:SetBagItem(b.pkBag, b.pkSlot)
     else
       GameTooltip:SetItemByID(id)
+      if equipped(id) then
+        GameTooltip:AddLine(ns.L["Equipped"], 0.6, 0.6, 0.6, true)
+      end
+      local n = elsewhere(id)
+      if n > 0 then
+        GameTooltip:AddLine((ns.L["%d outside your bags"]):format(n), 0.6, 0.6, 0.6, true)
+      end
     end
   else
     GameTooltip:SetText(ns.L["Pocket"])
@@ -199,9 +239,34 @@ function Pocket:PinFromCursor(index)
   self:Set(index, id)
 end
 
+function Pocket:AddByText(text)
+  local s = tostring(text or "")
+  local id = tonumber(s:match("item:(%d+)")) or tonumber(s:match("%d+"))
+  if not id then return end
+  local get = C_Item and C_Item.GetItemInfoInstant
+  if get and not get(id) then return end
+  local list = self:List()
+  local n = self:Count()
+  for i = 1, n do
+    if list[i] == id then return end
+  end
+  for i = 1, n do
+    if not list[i] then
+      if C_Item and C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(id) end
+      self:Set(i, id)
+      C_Timer.After(0.4, function() Pocket:Refresh() end)
+      return
+    end
+  end
+end
+
 function Pocket:Cooldowns()
   for i = 1, (self.max or 0) do
     local b = self.slots[i]
+    if b and b.holder:IsShown() and b.link then ns.UpdateCooldown(b) end
+  end
+  for i = 1, (self.recMax or 0) do
+    local b = self.recSlots[i]
     if b and b.holder:IsShown() and b.link then ns.UpdateCooldown(b) end
   end
 end
@@ -234,6 +299,20 @@ function Pocket:Build()
   close:SetScript("OnClick", function() Pocket:Close() end)
   self.closeBtn = close
 
+  local rec = Theme:Label(w, 11, "dim")
+  rec:SetJustifyH("LEFT")
+  ns.LocalText(rec, "Recent")
+  rec:Hide()
+  self.recLabel = rec
+
+  local box = ns.CreateSearchBox(w, nil, "Item ID")
+  box:SetScript("OnEnterPressed", function(s)
+    Pocket:AddByText(s:GetText())
+    s:SetText("")
+    s:ClearFocus()
+  end)
+  self.idBox = box
+
   w:Hide()
   self.frame = w
   return w
@@ -257,7 +336,7 @@ function Pocket:Warm()
       self.slots[i] = b
     end
     if not self.ghosts[i] then
-      local g = ns.SlotGhost(w)
+      local g = pocketGhost(w)
       g:Hide()
       self.ghosts[i] = g
     end
@@ -267,7 +346,27 @@ function Pocket:Warm()
       self.catchers[i] = c
     end
   end
-  self.cold, self.warmed = nil, math.max(self.warmed or 0, n)
+  local m = self:Cols()
+  for i = 1, m do
+    if not self.recSlots[i] then
+      local b = ns.CreateItemButton(w, 0, 1)
+      b:RegisterForClicks(unpack(ns.CLICKS_USE))
+      b.wpeClicks, b.wpeLockable, b.wpeTotal = ns.CLICKS_USE, nil, nil
+      b.wpeNoNew = true
+      b.holder:Hide()
+      self.recSlots[i] = b
+    end
+    if not self.recGhosts[i] then
+      local g = ns.SlotGhost(w)
+      g.plus:Hide()
+      g.icon:Hide()
+      g:Hide()
+      self.recGhosts[i] = g
+    end
+  end
+  self.cold = nil
+  self.warmed = math.max(self.warmed or 0, n)
+  self.recWarmed = math.max(self.recWarmed or 0, m)
 end
 
 function Pocket:Flush()
@@ -284,7 +383,7 @@ function Pocket:Layout()
                                          Bags and Bags.gap or 4)
   local cols, rows = self:Cols(), self:Rows()
   local n = cols * rows
-  if (self.warmed or 0) < n then self:Warm() end
+  if (self.warmed or 0) < n or (self.recWarmed or 0) < cols then self:Warm() end
   local band = Theme:HeaderBand(w, BAND)
   local head = band and (band + 6) or (30 + Theme:TopInset())
   local mid = (band or head) / 2
@@ -295,11 +394,68 @@ function Pocket:Layout()
   self.closeBtn:ClearAllPoints()
   ns.SnapPoint(self.closeBtn, "RIGHT", w, "TOPRIGHT", -6, -mid)
 
-  local list = self:List()
-  local plusSize = math.max(14, math.floor(size * 0.5))
   local gen = ((Bags and Bags.styleGen) or 0) .. ":" .. tostring(path) .. ":" .. size
   local repaint = self.paintKey ~= gen
   self.paintKey = gen
+
+  local R = ns.Recent
+  local recOn = (R and R:Enabled()) and true or false
+  local y = head
+  if recOn then
+    self.recLabel:SetFont(path, 11, "")
+    self.recLabel:ClearAllPoints()
+    ns.SnapPoint(self.recLabel, "TOPLEFT", w, "TOPLEFT", PAD, -y)
+    self.recLabel:Show()
+    y = y + LABEL_H + LABEL_GAP
+    local feed = R:Feed(cols)
+    for i = 1, math.max(cols, self.recMax or 0) do
+      local b, g = self.recSlots[i], self.recGhosts[i]
+      local id = (i <= cols) and feed[i] or nil
+      local bag, slot = R:Where(id)
+      if id and bag and not b then self.cold = true end
+      local live = (id and bag and b) and true or false
+      if live then
+        if b.pkBag ~= bag or b.pkSlot ~= slot then
+          b.pkBag, b.pkSlot, b.wpeBagID = bag, slot, bag
+          b.holder:SetID(bag)
+          b:SetID(slot)
+          b.link = nil
+        end
+        local h = b.holder
+        ns.SnapSize(h, size, size)
+        h:ClearAllPoints()
+        ns.SnapPoint(h, "TOPLEFT", w, "TOPLEFT", PAD + (i - 1) * step, -y)
+        h:Show(); b:Show()
+        b.wpeForce = R:Got(id)
+        if repaint then b.link = nil end
+        ns.UpdateItemButton(b)
+        if g then g:Hide() end
+      else
+        if b then b.holder:Hide(); b.pkBag, b.wpeForce = nil, nil end
+        if g and i <= cols then
+          ns.SnapBox(g, size, size)
+          g:ClearAllPoints()
+          ns.SnapPoint(g, "TOPLEFT", w, "TOPLEFT", PAD + (i - 1) * step, -y)
+          g:Show()
+        elseif g then
+          g:Hide()
+        end
+      end
+    end
+    self.recMax = cols
+    y = y + size + SPLIT
+  else
+    self.recLabel:Hide()
+    for i = 1, (self.recMax or 0) do
+      local b, g = self.recSlots[i], self.recGhosts[i]
+      if b then b.holder:Hide(); b.pkBag, b.wpeForce = nil, nil end
+      if g then g:Hide() end
+    end
+  end
+
+  local list = self:List()
+  local plusSize = math.max(14, math.floor(size * 0.5))
+  local gridTop = y
   local seen = {}
   for i = 1, math.max(n, self.max or 0) do
     local b, g, c = self.slots[i], self.ghosts[i], self.catchers[i]
@@ -312,7 +468,7 @@ function Pocket:Layout()
       if id and seen[id] then list[i], id = nil, nil end
       if id then seen[id] = true end
       local px = PAD + ((i - 1) % cols) * step
-      local py = head + math.floor((i - 1) / cols) * step
+      local py = gridTop + math.floor((i - 1) / cols) * step
       local bag, slot = locate(id)
       if bag and not b then self.cold = true end
       local live = (bag and b) and true or false
@@ -339,8 +495,19 @@ function Pocket:Layout()
           ns.SnapPoint(g, "TOPLEFT", w, "TOPLEFT", px, -py)
           if id then
             g.icon:SetTexture(itemIcon(id)); g.icon:Show(); g.plus:Hide()
+            g.dot:SetShown(equipped(id))
+            local away = elsewhere(id)
+            if away > 0 then
+              g.cnt:SetFont(path, math.max(9, math.floor(size * 0.3)), "")
+              g.cnt:SetText(away)
+              g.cnt:Show()
+            else
+              g.cnt:Hide()
+            end
           else
             g.icon:Hide()
+            g.dot:Hide()
+            g.cnt:Hide()
             g.plus:SetFont(path, plusSize, "")
             g.plus:Show()
           end
@@ -357,7 +524,14 @@ function Pocket:Layout()
     end
   end
   self.max = n
-  ns.SnapSize(w, PAD * 2 + cols * step - gap, head + rows * step - gap + PAD)
+  local foot = gridTop + (rows - 1) * step + size + BOX_GAP
+  self.idBox:SetFont(path, 13, "")
+  if self.idBox.Hint then self.idBox.Hint:SetFont(path, 13, "") end
+  self.idBox:ClearAllPoints()
+  ns.SnapPoint(self.idBox, "TOPLEFT", w, "TOPLEFT", PAD, -foot)
+  ns.SnapPoint(self.idBox, "TOPRIGHT", w, "TOPRIGHT", -PAD, -foot)
+  self.idBox:SetHeight(BOX_H)
+  ns.SnapSize(w, PAD * 2 + cols * step - gap, foot + BOX_H + PAD)
 end
 
 function Pocket:Refresh()
@@ -384,6 +558,7 @@ function Pocket:Open()
 end
 
 function Pocket:Close(keep)
+  if self.idBox then self.idBox:SetText(""); self.idBox:ClearFocus() end
   if self.frame then self.frame:Hide() end
   if not keep then WarpeeDB.pocketOpen = nil end
 end

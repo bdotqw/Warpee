@@ -353,6 +353,9 @@ local STRINGS = {
   ["Pocket"] = "Карман",
   ["Pocket window"] = "Окно кармана",
   ["Pocket rows"] = "Рядов в кармане",
+  ["Item ID"] = "ID предмета",
+  ["Equipped"] = "Надето",
+  ["%d outside your bags"] = "%d вне сумок",
   ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =
     "Маленькое окно с ячейками-закладками рядом с сумками, открывается кнопкой-сеткой в шапке. Перетащите предмет в ячейку, и она будет держать его, куда бы он ни переехал в сумках. Перетаскивание ячейки на ячейку меняет их местами, Ctrl + ЛКМ освобождает ячейку.",
   ["Favorite slots"] = "Ячейки избранного",

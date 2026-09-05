@@ -402,7 +402,7 @@ function ns.CreateCheckBox(parent, side)
   return box
 end
 
-function ns.CreateSearchBox(parent, onChanged)
+function ns.CreateSearchBox(parent, onChanged, hintKey)
   local box = CreateFrame("EditBox", nil, parent, "BackdropTemplate")
   ns.SnapBox(box, nil, 22)
   ns.PixelBackdrop(box)

@@ -256,6 +256,26 @@ function Rec:Height(size)
   return LABEL_H + LABEL_GAP + (tonumber(size) or 0) + 6
 end
 
+function Rec:Feed(n)
+  local out = {}
+  if not self:Enabled() then return out end
+  for i = 1, MAX_SLOTS do
+    if cells[i] then out[#out + 1] = cells[i] end
+  end
+  table.sort(out, function(a, b) return (seq[a] or 0) > (seq[b] or 0) end)
+  for i = #out, (tonumber(n) or 0) + 1, -1 do out[i] = nil end
+  return out
+end
+
+function Rec:Where(id)
+  if not id then return nil end
+  return locBag[id], locSlot[id]
+end
+
+function Rec:Got(id)
+  return id and got[id] or nil
+end
+
 function Rec:Cooldowns()
   for i = 1, MAX_SLOTS do
     local b = self.slots[i]
@@ -338,6 +358,7 @@ function Rec:Refresh()
     return
   end
   self:Apply(a.bags, a.x, a.top, a.size, a.gap)
+  if ns.Pocket then ns.Pocket:Refresh() end
 end
 
 local queued = falselocal function soon()
