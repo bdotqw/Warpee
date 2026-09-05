@@ -205,14 +205,14 @@ end
 
 function Fav:Link(index)
   local id = self:List()[index]
-  if not (id and HandleModifiedItemClick) then return end
+  if not (id and ChatEdit_InsertLink) then return end
   local b = self.slots[index]
   local link
   if b and b.favBag and b.holder:IsShown() then
     link = C_Container.GetContainerItemLink(b.favBag, b.favSlot)
   end
   if not link then link = select(2, C_Item.GetItemInfo(id)) end
-  if link then HandleModifiedItemClick(link) end
+  if link then ChatEdit_InsertLink(link) end
 end
 
 function Fav:Set(index, id)

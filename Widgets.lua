@@ -424,7 +424,6 @@ function ns.CreateTextButton(parent, size)
 end
 
 local linkBoxes = {}
-local splitPop = false
 
 local function linkInto(text)
   if type(text) ~= "string" then return false end
@@ -444,19 +443,8 @@ local function linkInto(text)
   return false
 end
 
-local function dropSplit()
-  if not splitPop then return end
-  splitPop = false
-  local f = StackSplitFrame
-  if f and f.IsShown and f:IsShown() then f:Hide() end
-end
-
 if ChatEdit_InsertLink then
-  hooksecurefunc("ChatEdit_InsertLink", function(text)
-    if not linkInto(text) then return end
-    splitPop = true
-    C_Timer.After(0, dropSplit)
-  end)
+  hooksecurefunc("ChatEdit_InsertLink", linkInto)
 end
 
 function ns.CreateSearchBox(parent, onChanged, hintKey)
