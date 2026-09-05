@@ -147,6 +147,11 @@ end
 function ns.MarkNewItem(b, bagID, slot, quality)
   local nt, bp = b.NewItemTexture, b.BattlepayItemTexture
   if not (nt or bp) then return end
+  if b.wpeNoNew then
+    if nt then nt:Hide() end
+    if bp then bp:Hide() end
+    return
+  end
   local isNew = C_NewItems and C_NewItems.IsNewItem and C_NewItems.IsNewItem(bagID, slot)
   if not isNew then
     if nt then nt:Hide() end
