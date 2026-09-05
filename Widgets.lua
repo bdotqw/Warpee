@@ -402,6 +402,27 @@ function ns.CreateCheckBox(parent, side)
   return box
 end
 
+function ns.CreateTextButton(parent, size)
+  local b = CreateFrame("Button", nil, parent)
+  local fs = b:CreateFontString(nil, "OVERLAY")
+  fs:SetFontObject(ns.Fonts:Object(size or 10, ""))
+  fs:SetPoint("CENTER")
+  b.Text = fs
+  b.Paint = function(s)
+    local key = (not s.wpeOn and "faint") or (s.wpeHot and "accent") or "azure"
+    s.Text:SetTextColor(Theme:C(key))
+  end
+  b.SetOn = function(s, on)
+    s.wpeOn = on and true or nil
+    s:Paint()
+  end
+  b:SetScript("OnEnter", function(s) s.wpeHot = true; s:Paint() end)
+  b:SetScript("OnLeave", function(s) s.wpeHot = nil; s:Paint() end)
+  Theme:Track(b, function(s) s:Paint() end)
+  b:Paint()
+  return b
+end
+
 function ns.CreateSearchBox(parent, onChanged, hintKey)
   local box = CreateFrame("EditBox", nil, parent, "BackdropTemplate")
   ns.SnapBox(box, nil, 22)

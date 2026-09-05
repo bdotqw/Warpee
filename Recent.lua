@@ -220,8 +220,9 @@ function Rec:Warm()
     end
   end
   if not self.clear then
-    local c = ns.CreateButton(frame, "×", 16, 16)
-    c:SetScript("OnClick", function() Rec:Wipe() end)
+    local c = ns.CreateTextButton(frame, 10)
+    ns.LocalText(c.Text, "Clear")
+    c:SetScript("OnClick", function(s) if s.wpeOn then Rec:Wipe() end end)
     ns.AddTip(c, "Empty the recent row", "top")
     c:Hide()
     self.clear = c
@@ -307,11 +308,13 @@ function Rec:Apply(bags, x, top, size, gap)
   self.label:Show()
   local rowY = top + LABEL_H + LABEL_GAP
   if self.clear then
-    self.clear.Text:SetFont(bags.fontPath or ns.Fonts:Current(), 12, "")
+    self.clear.Text:SetFont(bags.fontPath or ns.Fonts:Current(), 10, "")
+    self.clear:SetSize(math.ceil(self.clear.Text:GetStringWidth()) + 8, LABEL_H)
     self.clear:ClearAllPoints()
     ns.SnapPoint(self.clear, "TOPRIGHT", frame, "TOPLEFT",
-                 x + n * (size + gap) - gap, -(top - 2))
-    self.clear:SetShown(used())
+                 x + n * (size + gap) - gap, -top)
+    self.clear:SetOn(used())
+    self.clear:Show()
   end
   local gen = (bags.styleGen or 0) .. ":" .. tostring(bags.fontPath) .. ":" .. size
   local repaint = self.paintKey ~= gen

@@ -354,6 +354,7 @@ local STRINGS = {
   ["Pocket window"] = "Окно кармана",
   ["Pocket rows"] = "Рядов в кармане",
   ["Add ID"] = "Добавить ID",
+  ["Clear"] = "Очистить",
   ["Equipped"] = "Надето",
   ["%d outside your bags"] = "%d вне сумок",
   ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =

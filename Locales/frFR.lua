@@ -356,6 +356,7 @@ local STRINGS = {
   ["Pocket window"] = "Fenêtre de poche",
   ["Pocket rows"] = "Lignes de la poche",
   ["Add ID"] = "Ajouter un ID",
+  ["Clear"] = "Vider",
   ["Equipped"] = "Équipé",
   ["%d outside your bags"] = "%d hors des sacs",
   ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =
