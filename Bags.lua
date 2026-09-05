@@ -735,6 +735,11 @@ function Bags:VendorState()
   local P = ns.Pocket
   if P then
     for i = 1, (P.max or 0) do ns.LockClicks(P.slots[i]) end
+    for _, x in pairs(P.recSlots) do ns.LockClicks(x) end
+  end
+  local R = ns.Recent
+  if R then
+    for _, x in pairs(R.slots) do ns.LockClicks(x) end
   end
   local b = self.sellBtn
   if not b then return end
