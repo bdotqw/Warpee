@@ -875,7 +875,8 @@ function ns.GearItem(id)
   local v = gearMemo[id]
   if v == nil then
     local loc = select(4, C_Item.GetItemInfoInstant(id))
-    v = (loc and loc ~= "") and true or false
+    if loc == nil then return false end
+    v = (loc ~= "") and true or false
     gearMemo[id] = v
   end
   return v
