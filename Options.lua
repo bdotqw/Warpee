@@ -986,8 +986,7 @@ local function blackRow(row, i)
   local x = ns.CreateGlyphButton(c, "×", 18)
   x:SetPoint("RIGHT", -1, 0)
   x:SetScript("OnClick", function()
-    if c.id and ns.Vendor then ns.Vendor:Unblock(c.id) end
-    Options:ReflowPages()
+    if c.id and ns.Vendor and ns.Vendor:Blocked(c.id) then ns.Vendor:Toggle(c.id) end
   end)
   c.del = x
   local fs = track(Theme:Label(c, BASE_FONT - 2, "text"), -2)
