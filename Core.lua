@@ -488,9 +488,9 @@ local function ownSlot(tt)
   return (o and o.wpeLockable) and true or false
 end
 
-local function favSlot(tt)
+local function pinSlot(tt)
   local o = tt.GetOwner and tt:GetOwner()
-  return (o and o.favIndex) and true or false
+  return (o and (o.favIndex or o.pkIndex)) and true or false
 end
 
 local function itemTooltip(tt, data)
@@ -512,7 +512,7 @@ local function itemTooltip(tt, data)
                           or "Alt-click to lock it from the vendor"), r, g, b)
     drew = true
   end
-  if favSlot(tt) then
+  if pinSlot(tt) then
     if not drew then tt:AddLine(" ") end
     tt:AddLine(TT("Ctrl + left click clears the slot"), 0.6, 0.6, 0.6)
     tt:AddLine(TT("Drag moves it to another slot"), 0.6, 0.6, 0.6)
