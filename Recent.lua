@@ -223,7 +223,6 @@ function Rec:Warm()
     local c = ns.CreateTextButton(frame, 10)
     ns.LocalText(c.Text, "Clear")
     c:SetScript("OnClick", function(s) if s.wpeOn then Rec:Wipe() end end)
-    ns.AddTip(c, "Empty the recent row", "top")
     c:Hide()
     self.clear = c
   end

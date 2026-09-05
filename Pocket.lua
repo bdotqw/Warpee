@@ -379,7 +379,6 @@ function Pocket:Build()
   clr:SetScript("OnClick", function(s)
     if s.wpeOn and ns.Recent then ns.Recent:Wipe() end
   end)
-  ns.AddTip(clr, "Empty the recent row", "top")
   clr:Hide()
   self.recWipe = clr
 
