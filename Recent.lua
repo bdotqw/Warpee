@@ -82,6 +82,13 @@ local function pinned(id)
   return false
 end
 
+local function used()
+  for i = 1, MAX_SLOTS do
+    if cells[i] then return true end
+  end
+  return false
+end
+
 local function add(id, n)
   if seq[id] or pinned(id) then return end
   counter = counter + 1
@@ -181,6 +188,13 @@ function Rec:Warm()
       self.ghosts[i] = g
     end
   end
+  if not self.clear then
+    local c = ns.CreateGlyphButton(frame, "×", 16)
+    c:SetScript("OnClick", function() Rec:Wipe() end)
+    ns.AddTip(c, "Empty the recent row", "top")
+    c:Hide()
+    self.clear = c
+  end
   self.cold, self.warmed = nil, true
 end
 
@@ -190,8 +204,18 @@ function Rec:Flush()
   self:Refresh()
 end
 
+function Rec:Wipe()
+  for i = 1, MAX_SLOTS do
+    local id = cells[i]
+    if id then seq[id] = nil; cells[i] = nil end
+  end
+  self:Refresh()
+end
+
 function Rec:Hide()
   if self.label then self.label:Hide() end
+  if self.clear then self.clear:Hide() end
+  if self.rule then self.rule:Hide() end
   for i = 1, MAX_SLOTS do
     local b, g = self.slots[i], self.ghosts[i]
     if b then b.holder:Hide(); b.recBag = nil end
@@ -232,6 +256,12 @@ function Rec:Apply(bags, x, top, size, gap)
   ns.SnapPoint(self.label, "TOPLEFT", frame, "TOPLEFT", x, -top)
   self.label:Show()
   local rowY = top + LABEL_H + LABEL_GAP
+  if self.clear then
+    self.clear:ClearAllPoints()
+    ns.SnapPoint(self.clear, "TOPRIGHT", frame, "TOPLEFT",
+                 x + n * (size + gap) - gap, -(top - 2))
+    self.clear:SetShown(used())
+  end
   local gen = (bags.styleGen or 0) .. ":" .. tostring(bags.fontPath) .. ":" .. size
   local repaint = self.paintKey ~= gen
   self.paintKey = gen
