@@ -383,6 +383,7 @@ function Pocket:Build()
   self.recWipe = clr
 
   local box = ns.CreateSearchBox(w, nil, "Add ID")
+  box.wpeLinkID = true
   box:SetScript("OnEnterPressed", function(s)
     Pocket:AddByText(s:GetText())
     s:SetText("")

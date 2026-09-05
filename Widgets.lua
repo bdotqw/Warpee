@@ -423,6 +423,42 @@ function ns.CreateTextButton(parent, size)
   return b
 end
 
+local linkBoxes = {}
+local splitPop = false
+
+local function linkInto(text)
+  if type(text) ~= "string" then return false end
+  for _, box in ipairs(linkBoxes) do
+    if box:IsVisible() and box:HasFocus() then
+      local out
+      if box.wpeLinkID then
+        out = text:match("item:(%d+)")
+      else
+        out = text:match("%[(.-)%]")
+      end
+      if not out or out == "" then return false end
+      box:SetText(out)
+      return true
+    end
+  end
+  return false
+end
+
+local function dropSplit()
+  if not splitPop then return end
+  splitPop = false
+  local f = StackSplitFrame
+  if f and f.IsShown and f:IsShown() then f:Hide() end
+end
+
+if ChatEdit_InsertLink then
+  hooksecurefunc("ChatEdit_InsertLink", function(text)
+    if not linkInto(text) then return end
+    splitPop = true
+    C_Timer.After(0, dropSplit)
+  end)
+end
+
 function ns.CreateSearchBox(parent, onChanged, hintKey)
   local box = CreateFrame("EditBox", nil, parent, "BackdropTemplate")
   ns.SnapBox(box, nil, 22)
@@ -452,6 +488,7 @@ function ns.CreateSearchBox(parent, onChanged, hintKey)
   box:SetScript("OnEditFocusLost", function(s) s:SetBackdropBorderColor(Theme:C("stroke")); refreshHint(s) end)
   box:SetScript("OnEscapePressed", function(s) s:SetText(""); s:ClearFocus() end)
   box:SetScript("OnEnterPressed", function(s) s:ClearFocus() end)
+  linkBoxes[#linkBoxes + 1] = box
   return box
 end
 
