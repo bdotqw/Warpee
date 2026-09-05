@@ -441,33 +441,44 @@ function View:EnforceMode()
   end
 end
 
--- The bank the game deposits into on a right click is BankFrame own tab type, and only
--- the game may set it: writing BankPanel type from here would hand a tainted value to
--- that protected deposit, and then every right click in every bag would be refused. So
--- the game own tab strip is hosted in our header in place of our two buttons, its click
--- switches its own type, and the hook walks our view over to match. Reparenting a foreign
--- frame is safe; SetScript on one is not, so the hook is a HookScript on its bank panel.
 local BLIZZ_TAB = {}
 
--- The bank the game deposits into on a right click is BankFrame own tab type, and only
--- the game may set it: writing BankPanel type from here would hand a tainted value to
--- that protected deposit, and then every right click in every bag would be refused. So
--- the game own tab button is parked over ours with its art switched off and takes the
--- click, the game switches its own type, and the hook walks our view over to match. The
--- game lays its tab strip out again on its own and that moves the button away, so both
--- calls that do it are hooked and the button is pinned back. Reparenting and moving a
--- foreign frame is safe; SetScript on one is not, so only HookScript appears here.
+-- The bank the game deposits into on a right click is BankFrame own tab type, and only the
+-- game may set it: writing BankPanel type from here would hand a tainted value to that
+-- protected deposit, and then every right click in every bag would be refused. So the game
+-- own tab button is parked over ours with its art switched off and takes the click, the
+-- game flips its own type from a real hardware press, and our view is walked over to match.
+-- Nothing here writes a field or a script on a game frame: only SetParent, points, alpha,
+-- hit rect, strata, level and EnableMouse, plus HookScript and hooksecurefunc. Our own tab
+-- hands its mouse over while a game button is pinned to it, so a click can never land on
+-- ours instead, and takes it back for a snapshot viewed with no banker open. The game lays
+-- its own tab strip out again by itself, so both calls that do that are hooked and the
+-- button is pinned back after each. Both entry points sit out combat lockdown.
+function View:BlizzMode()
+  local F = BankFrame
+  if not (F and F.GetActiveBankType) then return nil end
+  local ok, bt = pcall(F.GetActiveBankType, F)
+  if not (ok and bt) then return nil end
+  local acct = Enum and Enum.BankType and Enum.BankType.Account
+  return (acct and bt == acct) and "warband" or "bank"
+end
+
 function View:PinBlizzTabs()
   if InCombatLockdown() then return end
+  local live = self.bankerOpen and not self.snap
   for mode, btn in pairs(BLIZZ_TAB) do
     local own = (mode == "bank") and self.bankTab or self.wbTab
     if own then
+      local on = (live and own:IsShown()) and true or false
       if btn:GetParent() ~= own then btn:SetParent(own) end
       btn:ClearAllPoints()
       btn:SetAllPoints(own)
       btn:SetAlpha(0)
-      btn:SetFrameLevel(own:GetFrameLevel() + 4)
-      btn:EnableMouse(own:IsShown() and true or false)
+      btn:SetHitRectInsets(0, 0, 0, 0)
+      btn:SetFrameStrata(own:GetFrameStrata())
+      btn:SetFrameLevel(own:GetFrameLevel() + 5)
+      btn:EnableMouse(on)
+      own:EnableMouse(not on)
     end
   end
 end
@@ -483,6 +494,7 @@ function View:AttachBlizzTabs()
     if own and btn and BLIZZ_TAB[mode] ~= btn then
       BLIZZ_TAB[mode] = btn
       btn:HookScript("OnEnter", function()
+        if not own:IsShown() then return end
         own:SetBackdropColor(Theme:C("panelHi"))
         own:SetBackdropBorderColor(Theme:C("accent"))
         own.Text:SetTextColor(Theme:C("accent"))
@@ -491,21 +503,25 @@ function View:AttachBlizzTabs()
         own:SetBackdropColor(Theme:C("panel"))
         self:UpdateTabs()
       end)
+      btn:HookScript("OnClick", function()
+        if self.frame and self.frame:IsShown() then self:SetMode(mode) end
+      end)
     end
   end
-  if not self.typeHooked then
-    self.typeHooked = true
-    if F.SetTab then hooksecurefunc(F, "SetTab", function() self:PinBlizzTabs() end) end
+  if not self.tabHooked and F.SetTab then
+    self.tabHooked = true
+    hooksecurefunc(F, "SetTab", function() self:PinBlizzTabs() end)
     if F.RefreshTabVisibility then
       hooksecurefunc(F, "RefreshTabVisibility", function() self:PinBlizzTabs() end)
     end
-    if F.BankPanel and F.BankPanel.SetBankType then
-      hooksecurefunc(F.BankPanel, "SetBankType", function(_, bt)
-        local acct = Enum and Enum.BankType and Enum.BankType.Account
-        local want = (acct and bt == acct) and "warband" or "bank"
-        if self.frame and self.frame:IsShown() and want ~= self.mode then self:SetMode(want) end
-      end)
-    end
+  end
+  if not self.typeHooked and F.BankPanel and F.BankPanel.SetBankType then
+    self.typeHooked = true
+    hooksecurefunc(F.BankPanel, "SetBankType", function(_, bt)
+      local acct = Enum and Enum.BankType and Enum.BankType.Account
+      local want = (acct and bt == acct) and "warband" or "bank"
+      if self.frame and self.frame:IsShown() then self:SetMode(want) end
+    end)
   end
   self:PinBlizzTabs()
 end
