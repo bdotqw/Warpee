@@ -293,6 +293,7 @@ local STRINGS = {
   ["1 item"] = "1 objeto",
   ["%d items"] = "%d objetos",
   ["%d and %d wide"] = "%d y %d por fila",
+  ["Slots %d/%d"] = "Espacios %d/%d",
   ["Clean up bags"] = "Ordenar bolsas",
   ["Clean up"] = "Ordenar",
   ["Settings"] = "Ajustes",

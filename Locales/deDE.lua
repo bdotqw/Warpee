@@ -285,6 +285,7 @@ local STRINGS = {
   ["1 item"] = "1 Gegenstand",
   ["%d items"] = "%d Gegenstände",
   ["%d and %d wide"] = "%d und %d pro Reihe",
+  ["Slots %d/%d"] = "Plätze %d/%d",
   ["Clean up bags"] = "Taschen sortieren",
   ["Clean up"] = "Sortieren",
   ["Settings"] = "Einstellungen",
