@@ -43,40 +43,51 @@ function Pocket:List()
   return WarpeeDB.pocket[k]
 end
 
-local keyBag, keySlot, wornKey = {}, {}, {}
+local keyBag, keySlot, wornKey, wornIlvl = {}, {}, {}, {}
 local keyDirty = true
 
 local function keyScan()
-  wipe(keyBag); wipe(keySlot); wipe(wornKey)
-  local want, any = {}, false
+  wipe(keyBag); wipe(keySlot); wipe(wornKey); wipe(wornIlvl)
+  local want, byKey, gear = {}, false, false
   local list = Pocket:List()
   for i = 1, Pocket:Count() do
     local pin = list[i]
-    if type(pin) == "string" then
-      local id = ns.ItemStubID(pin)
-      if id then want[id] = true; any = true end
-    end
+    local id = ns.ItemStubID(pin)
+    if id and type(pin) == "string" then want[id] = true; byKey = true end
+    if id and ns.GearItem(id) then gear = true end
   end
-  if not any then return end
-  local function sweep(bag)
-    for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
-      local id = C_Container.GetContainerItemID(bag, slot)
-      if id and want[id] then
-        local info = C_Container.GetContainerItemInfo(bag, slot)
-        local k = info and ns.ItemKey(info.hyperlink)
-        if k and not keyBag[k] then keyBag[k], keySlot[k] = bag, slot end
+  if not (byKey or gear) then return end
+  if byKey then
+    local function sweep(bag)
+      for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
+        local id = C_Container.GetContainerItemID(bag, slot)
+        if id and want[id] then
+          local info = C_Container.GetContainerItemInfo(bag, slot)
+          local k = info and ns.ItemKey(info.hyperlink)
+          if k and not keyBag[k] then keyBag[k], keySlot[k] = bag, slot end
+        end
       end
     end
+    for _, bag in ipairs(ns.playerBags) do sweep(bag) end
+    if ns.reagentBag then sweep(ns.reagentBag) end
   end
-  for _, bag in ipairs(ns.playerBags) do sweep(bag) end
-  if ns.reagentBag then sweep(ns.reagentBag) end
   local get = C_Item and C_Item.GetItemLink
   if not (get and ItemLocation) then return end
   for slot = 1, 19 do
     local loc = ItemLocation:CreateFromEquipmentSlot(slot)
     if loc and C_Item.DoesItemExist(loc) then
-      local k = ns.ItemKey(get(loc))
-      if k then wornKey[k] = true end
+      local link = get(loc)
+      local lvl = C_Item.GetCurrentItemLevel and C_Item.GetCurrentItemLevel(loc)
+      local k = link and ns.ItemKey(link)
+      if k then
+        wornKey[k] = true
+        if lvl then wornIlvl[k] = lvl end
+      end
+      local id = C_Item.GetItemID and C_Item.GetItemID(loc)
+      if id then
+        wornKey[tostring(id)] = true
+        if lvl then wornIlvl[tostring(id)] = lvl end
+      end
     end
   end
 end
@@ -112,12 +123,63 @@ local function itemIcon(id)
   return (GetItemIcon and GetItemIcon(id)) or 134400
 end
 
-local function elsewhere(pin)
-  local id = ns.ItemStubID(pin)
-  local f = (C_Item and C_Item.GetItemCount) or GetItemCount
-  if not (id and f) then return 0 end
-  local ok, n = pcall(f, id, true, false, true, true)
-  return (ok and tonumber(n)) or 0
+local function pinArg(pin)
+  if type(pin) == "number" then return pin end
+  return ns.ItemStub(pin)
+end
+
+local function pinIlvl(pin)
+  local k = ns.ItemKey(pin)
+  local lvl = k and wornIlvl[k]
+  if lvl then return lvl end
+  local f = (C_Item and C_Item.GetDetailedItemLevelInfo) or GetDetailedItemLevelInfo
+  local arg = pinArg(pin)
+  if not (f and arg) then return nil end
+  local ok, v = pcall(f, arg)
+  return (ok and tonumber(v)) or nil
+end
+
+local function pinQuality(pin)
+  local f = C_Item and C_Item.GetItemQualityByID
+  local arg = pinArg(pin)
+  if not (f and arg) then return nil end
+  local ok, q = pcall(f, arg)
+  return (ok and tonumber(q)) or nil
+end
+
+local TIER_ATLAS = {}
+
+local function tierArt(q)
+  local a = TIER_ATLAS[q]
+  if a ~= nil then return a or nil end
+  local info = C_Texture and C_Texture.GetAtlasInfo
+  for _, n in ipairs({ ("professions-icon-quality-tier%d-inv"):format(q),
+                       ("Professions-Icon-Quality-Tier%d-Small"):format(q),
+                       ("Professions-Icon-Quality-Tier%d"):format(q),
+                       ("Professions-ChatIcon-Quality-Tier%d"):format(q) }) do
+    if not info then TIER_ATLAS[q] = n; return n end
+    local ok, d = pcall(info, n)
+    if ok and d then TIER_ATLAS[q] = n; return n end
+  end
+  TIER_ATLAS[q] = false
+  return nil
+end
+
+local function pinTier(pin)
+  local T = C_TradeSkillUI
+  local arg = pinArg(pin)
+  if not (T and arg) then return nil end
+  local q
+  if T.GetItemReagentQualityByItemInfo then
+    local ok, v = pcall(T.GetItemReagentQualityByItemInfo, arg)
+    if ok then q = tonumber(v) end
+  end
+  if not q and T.GetItemCraftedQualityByItemInfo then
+    local ok, v = pcall(T.GetItemCraftedQualityByItemInfo, arg)
+    if ok then q = tonumber(v) end
+  end
+  if not (q and q >= 1 and q <= 5) then return nil end
+  return tierArt(q)
 end
 
 local function pinFor(id, link)
@@ -132,19 +194,20 @@ end
 local function pocketGhost(parent)
   local g = ns.SlotGhost(parent)
   g.plus:Hide()
-  local dot = Theme:Rect(g, "accent", "OVERLAY")
-  dot:Hide()
-  g.dot = dot
-  ns.PixelJob(g, function(s)
-    local d = ns.PX(s, 5)
-    s.dot:SetSize(d, d)
-    s.dot:ClearAllPoints()
-    s.dot:SetPoint("TOPRIGHT", -d, -d)
-  end, "dot")
-  local cnt = Theme:Label(g, 11, "dim")
+  local tier = g:CreateTexture(nil, "OVERLAY")
+  tier:SetPoint("TOPLEFT", g.icon, "TOPLEFT")
+  tier:SetPoint("BOTTOMRIGHT", g.icon, "BOTTOMRIGHT")
+  tier:SetDesaturated(true)
+  tier:Hide()
+  g.tier = tier
+  local cnt = Theme:Label(g, 11, "faint")
   cnt:SetPoint("BOTTOMRIGHT", -2, 2)
   cnt:Hide()
   g.cnt = cnt
+  local ilvl = g:CreateFontString(nil, "OVERLAY")
+  ilvl:SetDrawLayer("OVERLAY", 6)
+  ilvl:Hide()
+  g.ilvl = ilvl
   return g
 end
 
@@ -197,10 +260,6 @@ local function tipFor(c, index)
       end
       if worn(pin) then
         GameTooltip:AddLine(ns.L["Equipped"], 0.6, 0.6, 0.6, true)
-      end
-      local n = elsewhere(pin)
-      if n > 0 then
-        GameTooltip:AddLine((ns.L["%d outside your bags"]):format(n), 0.6, 0.6, 0.6, true)
       end
     end
   else
@@ -613,20 +672,40 @@ function Pocket:Layout()
           g:ClearAllPoints()
           ns.SnapPoint(g, "TOPLEFT", w, "TOPLEFT", px, -py)
           if pin then
-            g.icon:SetTexture(itemIcon(ns.ItemStubID(pin))); g.icon:Show()
-            g.dot:SetShown(worn(pin))
-            local away = ns.GearItem(ns.ItemStubID(pin)) and 0 or elsewhere(pin)
-            if away > 0 then
-              g.cnt:SetFont(path, math.max(9, math.floor(size * 0.3)), "")
-              g.cnt:SetText(away)
-              g.cnt:Show()
-            else
+            local pid = ns.ItemStubID(pin)
+            g.icon:SetTexture(itemIcon(pid)); g.icon:Show()
+            g:SetBackdropBorderColor(Theme:C(worn(pin) and "azure" or "faint"))
+            local art = pinTier(pin)
+            if art then g.tier:SetAtlas(art); g.tier:Show() else g.tier:Hide() end
+            if ns.GearItem(pid) then
               g.cnt:Hide()
+              local lvl = ns.Badge("ilvl").on and pinIlvl(pin) or nil
+              if lvl and lvl > 1 then
+                ns.ApplyBadge(g, "ilvl")
+                local q = (Bags and Bags.qualityColorIlvl) and pinQuality(pin)
+                local qc = q and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+                if qc then
+                  g.ilvl:SetTextColor(qc.r, qc.g, qc.b)
+                else
+                  g.ilvl:SetTextColor(Theme:C("overlay"))
+                end
+                g.ilvl:SetText(lvl)
+                g.ilvl:Show()
+              else
+                g.ilvl:Hide()
+              end
+            else
+              g.ilvl:Hide()
+              g.cnt:SetFont(path, math.max(9, math.floor(size * 0.3)), "")
+              g.cnt:SetText("0")
+              g.cnt:Show()
             end
           else
             g.icon:Hide()
-            g.dot:Hide()
+            g.tier:Hide()
             g.cnt:Hide()
+            g.ilvl:Hide()
+            g:SetBackdropBorderColor(Theme:C("emptyLine"))
           end
           g:Show()
         end

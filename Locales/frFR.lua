@@ -360,7 +360,6 @@ local STRINGS = {
   ["Add ID"] = "Ajouter un ID",
   ["Clear"] = "Vider",
   ["Equipped"] = "Équipé",
-  ["%d outside your bags"] = "%d hors des sacs",
   ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =
     "Une petite fenêtre de cases-repères à côté des sacs, ouverte par le bouton en grille de l'en-tête. Faites glisser un objet dans une case et la case le garde, où qu'il aille dans vos sacs. Une case glissée sur une autre les échange, et Ctrl + clic gauche en vide une.",
   ["Favorite slots"] = "Emplacements favoris",
