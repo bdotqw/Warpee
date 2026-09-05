@@ -136,6 +136,7 @@ local STRINGS = {
     "Die Taschen öffnen sich zusammen mit diesen Fenstern und schließen sich mit ihnen wieder.",
   ["Bank"] = "Bank",
   ["Mail"] = "Post",
+  ["Mythical"] = "Mythisch",
   ["Auction house"] = "Auktionshaus",
   ["Trade"] = "Handel",
   ["Guild bank"] = "Gildenbank",
