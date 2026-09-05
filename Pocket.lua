@@ -216,7 +216,8 @@ end
 -- and never touched again. That is why clearing a cell lives on Ctrl + left click.
 -- The overlay must never finish a pending item spell itself: C_Container.UseContainerItem
 -- from addon code is refused as ADDON_ACTION_FORBIDDEN, traceback 2026-09-05. An enchant
--- or a gem lands only on a slot whose click the game owns, the recent row or a bag.
+-- or a gem lands only in the bag grid: the game runs that from the left button of its
+-- own slot handler, and every row here keeps the right button alone.
 local function makeCatcher(parent, index)
   local c = CreateFrame("Button", nil, parent)
   c.pkIndex = index
