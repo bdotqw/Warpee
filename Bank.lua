@@ -447,10 +447,13 @@ end
 -- the game own tab strip is hosted in our header in place of our two buttons, its click
 -- switches its own type, and the hook walks our view over to match. Reparenting a foreign
 -- frame is safe; SetScript on one is not, so the hook is a HookScript on its bank panel.
+local BLIZZ_TAB = {}
+
 function View:AttachBlizzTabs()
   if InCombatLockdown() then return false end
   local F, host = BankFrame, self.frame
-  if not (F and F.TabSystem and host) then return false end
+  if not (F and F.TabSystem and F.GetTabButton and host
+          and F.characterBankTabID and F.accountBankTabID) then return false end
   local ts = F.TabSystem
   if ts:GetParent() ~= host then
     ts:SetParent(host)
@@ -460,6 +463,31 @@ function View:AttachBlizzTabs()
   ns.SnapPoint(ts, "TOPLEFT", host, "TOPLEFT", PAD,
                -(ROW1_Y + Theme:TopInset() + Theme:HeadDrop()))
   ts:Show()
+  local any = false
+  for _, e in ipairs({ { "bank", F.characterBankTabID }, { "warband", F.accountBankTabID } }) do
+    local mode, own = e[1], (e[1] == "bank") and self.bankTab or self.wbTab
+    local ok, btn = pcall(F.GetTabButton, F, e[2])
+    btn = (ok and btn) or nil
+    if own and btn then
+      any = true
+      btn:SetAlpha(0)
+      own:ClearAllPoints()
+      own:SetAllPoints(btn)
+      if BLIZZ_TAB[mode] ~= btn then
+        BLIZZ_TAB[mode] = btn
+        btn:HookScript("OnEnter", function()
+          own:SetBackdropColor(Theme:C("panelHi"))
+          own:SetBackdropBorderColor(Theme:C("accent"))
+          own.Text:SetTextColor(Theme:C("accent"))
+        end)
+        btn:HookScript("OnLeave", function()
+          own:SetBackdropColor(Theme:C("panel"))
+          self:UpdateTabs()
+        end)
+      end
+    end
+  end
+  if not any then return false end
   if F.BankPanel and F.BankPanel.SetBankType and not self.typeHooked then
     self.typeHooked = true
     hooksecurefunc(F.BankPanel, "SetBankType", function(_, bt)
@@ -482,16 +510,18 @@ function View:UpdateTabs()
   paint(self.wbTab, self.mode == "warband")
   local row1 = ROW1_Y + Theme:TopInset() + Theme:HeadDrop()
   local bankOn = self:ModeAvailable("bank")
-  if self.bankTab then self.bankTab:SetShown(bankOn and not blizz) end
+  if self.bankTab then self.bankTab:SetShown(bankOn) end
   local last = bankOn and self.bankTab or nil
   if self.wbTab then
     local wbOn = self:ModeAvailable("warband")
-    self.wbTab:SetShown(wbOn and not blizz)
-    self.wbTab:ClearAllPoints()
-    if bankOn then
-      self.wbTab:SetPoint("LEFT", self.bankTab, "RIGHT", 4, 0)
-    else
-      ns.SnapPoint(self.wbTab, "TOPLEFT", self.frame, "TOPLEFT", PAD, -row1)
+    self.wbTab:SetShown(wbOn)
+    if not blizz then
+      self.wbTab:ClearAllPoints()
+      if bankOn then
+        self.wbTab:SetPoint("LEFT", self.bankTab, "RIGHT", 4, 0)
+      else
+        ns.SnapPoint(self.wbTab, "TOPLEFT", self.frame, "TOPLEFT", PAD, -row1)
+      end
     end
     if wbOn then last = self.wbTab end
   end
