@@ -9,7 +9,7 @@ Pocket.recSlots, Pocket.recGhosts = {}, {}
 local PAD, BAND = 12, 26
 local LABEL_H, LABEL_GAP, SPLIT = 13, 4, 10
 local BOX_H, BOX_GAP = 22, 8
-local MAX_COLS, MAX_ROWS = 12, 8
+local MAX_COLS, MAX_ROWS = 8, 6
 
 local function charKey()
   local n = UnitName("player") or "?"
@@ -131,6 +131,7 @@ end
 
 local function pocketGhost(parent)
   local g = ns.SlotGhost(parent)
+  g.plus:Hide()
   local dot = Theme:Rect(g, "accent", "OVERLAY")
   dot:Hide()
   g.dot = dot
@@ -521,7 +522,6 @@ function Pocket:Layout()
   end
 
   local list = self:List()
-  local plusSize = math.max(14, math.floor(size * 0.5))
   local gridTop = y
   local seen = {}
   for i = 1, math.max(n, self.max or 0) do
@@ -562,7 +562,7 @@ function Pocket:Layout()
           g:ClearAllPoints()
           ns.SnapPoint(g, "TOPLEFT", w, "TOPLEFT", px, -py)
           if pin then
-            g.icon:SetTexture(itemIcon(ns.ItemStubID(pin))); g.icon:Show(); g.plus:Hide()
+            g.icon:SetTexture(itemIcon(ns.ItemStubID(pin))); g.icon:Show()
             g.dot:SetShown(worn(pin))
             local away = elsewhere(pin)
             if away > 0 then
@@ -576,8 +576,6 @@ function Pocket:Layout()
             g.icon:Hide()
             g.dot:Hide()
             g.cnt:Hide()
-            g.plus:SetFont(path, plusSize, "")
-            g.plus:Show()
           end
           g:Show()
         end
