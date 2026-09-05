@@ -137,6 +137,13 @@ local function compact(n)
   end
 end
 
+local function remove(id)
+  for i = 1, MAX_SLOTS do
+    if cells[i] == id then cells[i] = nil end
+  end
+  seq[id], got[id], stamp[id] = nil, nil, nil
+end
+
 local function prune(counts)
   for i = 1, MAX_SLOTS do
     local id = cells[i]
@@ -157,12 +164,16 @@ local function detect()
   local n = capacity()
   for id, c in pairs(counts) do
     local was = known[id] or 0
-    if not hold and c > was then
-      if seq[id] then
-        mark(id, c - was)
-      else
-        add(id, n, c - was)
+    if c > was then
+      if not hold then
+        if seq[id] then mark(id, c - was) else add(id, n, c - was) end
       end
+    elseif c < was and got[id] then
+      got[id] = got[id] - (was - c)
+    end
+    if got[id] then
+      if got[id] > c then got[id] = c end
+      if got[id] <= 0 then remove(id) end
     end
     known[id] = c
   end
