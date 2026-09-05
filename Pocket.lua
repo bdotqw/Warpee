@@ -664,7 +664,9 @@ function Pocket:Apply()
   self:Refresh()
 end
 
-BINDING_HEADER_WARPEE = "Warpee"
+-- Bindings.xml is picked up by the client from the addon folder on its own. Listing it
+-- in the toc sends it through the frame XML parser instead, which does not know the
+-- Binding tag and drops the whole file, so it stays out of the file list.
 BINDING_NAME_WARPEE_POCKET = ns.L["Pocket"]
 
 function WarpeePocketToggle()
@@ -672,14 +674,14 @@ function WarpeePocketToggle()
 end
 
 local function defaultKey()
-  if not WarpeeDB or WarpeeDB.pocketKeyDone then return end
-  WarpeeDB.pocketKeyDone = true
+  if not WarpeeDB or WarpeeDB.pocketBind then return end
   if InCombatLockdown() then return end
   if not (GetBindingKey and GetBindingAction and SetBinding and SaveBindings) then return end
-  if GetBindingKey("WARPEE_POCKET") then return end
-  if (GetBindingAction("F7") or "") ~= "" then return end
+  if GetBindingKey("WARPEE_POCKET") then WarpeeDB.pocketBind = true; return end
+  if (GetBindingAction("F7") or "") ~= "" then WarpeeDB.pocketBind = true; return end
   if SetBinding("F7", "WARPEE_POCKET") then
     SaveBindings((GetCurrentBindingSet and GetCurrentBindingSet()) or 1)
+    WarpeeDB.pocketBind = true
   end
 end
 

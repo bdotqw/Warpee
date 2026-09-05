@@ -1,5 +1,5 @@
 <Bindings>
-  <Binding name="WARPEE_POCKET" header="WARPEE">
+  <Binding name="WARPEE_POCKET" category="Warpee">
     WarpeePocketToggle()
   </Binding>
 </Bindings>
