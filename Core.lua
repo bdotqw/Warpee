@@ -86,7 +86,18 @@ local function HookBagToggles()
   -- ours, so a press could close what it should have opened.
   ToggleAllBags = function() ns.Toggle() end
   hideBlizzBags()
-  hookList(BAG_FN.open, function() ns.Toggle(true); hideBlizzBags() end)
+  -- An item spell waiting for a target, an enchant or a gem, makes the game open the
+  -- bags through these same calls. Only our own frame is held back here; the game's
+  -- functions still run whole, so nothing of its own is silenced and no protected call
+  -- loses its footing. Never turn this into an override of theirs.
+  hookList(BAG_FN.open, function()
+    if ns.ItemTargeting() and ns.Pocket and ns.Pocket.frame and ns.Pocket.frame:IsShown() then
+      hideBlizzBags()
+      return
+    end
+    ns.Toggle(true)
+    hideBlizzBags()
+  end)
   hookList(BAG_FN.close, function() ns.Toggle(false) end)
   hookList(BAG_FN.sync, function() ns.Toggle(blizzBagsOpen()) end)
 end
