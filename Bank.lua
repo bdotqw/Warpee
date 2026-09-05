@@ -997,16 +997,18 @@ function View:OnBankClosed()
   ns.RefreshBagDim()
 end
 
+-- Reparenting is the whole trick, and it has to stay the whole trick. A SetScript on
+-- BankFrame taints the frame, and the taint reaches the secure bank work: the tab
+-- purchase button stops answering, and the game reads BankFrame on every right click of
+-- a bag slot, so item use goes with it. Its OnShow is also what gives BankFrame.BankPanel
+-- a bank type through SelectDefaultTab, and the game passes that type into the deposit,
+-- so silencing OnShow sent everything to the character bank. Never call BankFrame:Hide()
+-- either: that fires BANKFRAME_CLOSED and ends the banker session.
 function View:HideBlizzard()
   if self.blizzHidden then return end
   local hidden = self.hiddenHolder
   if not hidden then hidden = CreateFrame("Frame"); hidden:Hide(); self.hiddenHolder = hidden end
-  if BankFrame then
-    BankFrame:SetParent(hidden)
-    BankFrame:SetScript("OnHide", nil)
-    BankFrame:SetScript("OnShow", nil)
-    BankFrame:SetScript("OnEvent", nil)
-  end
+  if BankFrame then BankFrame:SetParent(hidden) end
   for n = 7, 13 do
     local cf = _G["ContainerFrame" .. n]
     if cf then cf:SetParent(hidden) end

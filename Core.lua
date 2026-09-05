@@ -100,7 +100,14 @@ local function HookBagToggles()
   -- bags through these same calls. Only our own frame is held back here; the game's
   -- functions still run whole, so nothing of its own is silenced and no protected call
   -- loses its footing. Never turn this into an override of theirs.
-  hookList(BAG_FN.open, function()
+  -- BankFrame opens and closes the bags itself, and it hands itself in as the first
+  -- argument. Those calls are left to the bank events instead, so the banker still
+  -- honours the auto-open settings.
+  hookList(BAG_FN.open, function(frame)
+    if frame ~= nil and frame == BankFrame then
+      hideBlizzBags()
+      return
+    end
     if ns.ItemTargeting() and ns.Pocket and ns.Pocket.frame and ns.Pocket.frame:IsShown() then
       hideBlizzBags()
       return
@@ -108,7 +115,10 @@ local function HookBagToggles()
     ns.Toggle(true)
     hideBlizzBags()
   end)
-  hookList(BAG_FN.close, function() ns.Toggle(false) end)
+  hookList(BAG_FN.close, function(frame)
+    if frame ~= nil and frame == BankFrame then return end
+    ns.Toggle(false)
+  end)
   hookList(BAG_FN.sync, function() ns.Toggle(blizzBagsOpen()) end)
 end
 
