@@ -441,7 +441,38 @@ function View:EnforceMode()
   end
 end
 
+-- The bank the game deposits into on a right click is BankFrame own tab type, and only
+-- the game may set it: writing BankPanel type from here would hand a tainted value to
+-- that protected deposit, and then every right click in every bag would be refused. So
+-- the game own tab strip is hosted in our header in place of our two buttons, its click
+-- switches its own type, and the hook walks our view over to match. Reparenting a foreign
+-- frame is safe; SetScript on one is not, so the hook is a HookScript on its bank panel.
+function View:AttachBlizzTabs()
+  if InCombatLockdown() then return false end
+  local F, host = BankFrame, self.frame
+  if not (F and F.TabSystem and host) then return false end
+  local ts = F.TabSystem
+  if ts:GetParent() ~= host then
+    ts:SetParent(host)
+    ts:SetFrameLevel(host:GetFrameLevel() + 6)
+  end
+  ts:ClearAllPoints()
+  ns.SnapPoint(ts, "TOPLEFT", host, "TOPLEFT", PAD,
+               -(ROW1_Y + Theme:TopInset() + Theme:HeadDrop()))
+  ts:Show()
+  if F.BankPanel and F.BankPanel.SetBankType and not self.typeHooked then
+    self.typeHooked = true
+    hooksecurefunc(F.BankPanel, "SetBankType", function(_, bt)
+      local acct = Enum and Enum.BankType and Enum.BankType.Account
+      local want = (acct and bt == acct) and "warband" or "bank"
+      if self.frame and self.frame:IsShown() and want ~= self.mode then self:SetMode(want) end
+    end)
+  end
+  return true
+end
+
 function View:UpdateTabs()
+  local blizz = self:AttachBlizzTabs()
   local function paint(btn, on)
     if not btn then return end
     btn.Text:SetTextColor(Theme:C(on and "accent" or "text"))
@@ -451,11 +482,11 @@ function View:UpdateTabs()
   paint(self.wbTab, self.mode == "warband")
   local row1 = ROW1_Y + Theme:TopInset() + Theme:HeadDrop()
   local bankOn = self:ModeAvailable("bank")
-  if self.bankTab then self.bankTab:SetShown(bankOn) end
+  if self.bankTab then self.bankTab:SetShown(bankOn and not blizz) end
   local last = bankOn and self.bankTab or nil
   if self.wbTab then
     local wbOn = self:ModeAvailable("warband")
-    self.wbTab:SetShown(wbOn)
+    self.wbTab:SetShown(wbOn and not blizz)
     self.wbTab:ClearAllPoints()
     if bankOn then
       self.wbTab:SetPoint("LEFT", self.bankTab, "RIGHT", 4, 0)
