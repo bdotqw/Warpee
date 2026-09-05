@@ -1449,6 +1449,8 @@ local edgeGet, edgeSet       = styleField("borderWidth")
 local mergeGet, mergeSet     = field("mergeReagents")
 local flow = {}
 flow.topGet, flow.topSet = field("reagentTop")
+flow.hideGet, flow.hideSet = field("hideReagents")
+flow.offGet = function() return mergeGet() or flow.hideGet() end
 flow.revGet, flow.revSet = field("revFill")
 flow.upGet, flow.upSet   = field("fillUp")
 local questGet, questSet     = styleField("questMarks")
@@ -1640,10 +1642,14 @@ local GRID_PAGE = {
     get = zoomGet, set = zoomSet, half = "right",
     desc = "1.00 fills the slot. Less shrinks the icon, more crops it." },
   { type = "toggle", name = "Merge reagents", col = 1, of = 2, get = mergeGet, set = mergeSet,
+    disabled = flow.hideGet,
     desc = "Lay the reagent bag out with the main bags, without its caption." },
   { type = "toggle", name = "Reagents on top", col = 2, of = 2,
-    get = flow.topGet, set = flow.topSet, disabled = mergeGet,
+    get = flow.topGet, set = flow.topSet, disabled = flow.offGet,
     desc = "Draw the reagent bag above the main bags instead of below them." },
+  { type = "toggle", name = "Hide reagents", col = 1, of = 2,
+    get = flow.hideGet, set = flow.hideSet,
+    desc = "Leave the reagent bag out of the window. Its slots still count in the header, and reagents still go into it." },
   { type = "toggle", name = "Reverse slot order", col = 1, of = 2,
     get = flow.revGet, set = flow.revSet,
     desc = "The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in." },

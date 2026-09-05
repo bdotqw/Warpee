@@ -215,6 +215,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.qualityBorder == nil then WarpeeDB.qualityBorder = true end
     if WarpeeDB.mergeReagents == nil then WarpeeDB.mergeReagents = false end
     if WarpeeDB.reagentTop == nil then WarpeeDB.reagentTop = false end
+    if WarpeeDB.hideReagents == nil then WarpeeDB.hideReagents = false end
     if WarpeeDB.revFill == nil then WarpeeDB.revFill = false end
     if WarpeeDB.fillUp == nil then WarpeeDB.fillUp = false end
     if WarpeeDB.questMarks == nil then WarpeeDB.questMarks = true end
@@ -280,6 +281,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     Bags.qualityBorder    = WarpeeDB.qualityBorder
     Bags.mergeReagents    = WarpeeDB.mergeReagents
     Bags.reagentTop       = WarpeeDB.reagentTop
+    Bags.hideReagents     = WarpeeDB.hideReagents
     Bags.revFill          = WarpeeDB.revFill
     Bags.fillUp           = WarpeeDB.fillUp
     Bags.questMarks       = WarpeeDB.questMarks

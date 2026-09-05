@@ -157,6 +157,7 @@ local STRINGS = {
   ["Icon zoom"] = "Масштаб иконки",
   ["Merge reagents"] = "Объединить реагенты",
   ["Reagents on top"] = "Реагенты сверху",
+  ["Hide reagents"] = "Скрыть реагенты",
   ["Reverse slot order"] = "Обратный порядок слотов",
   ["Fill grid upwards"] = "Ряды снизу вверх",
   ["Slot background"] = "Фон ячейки",
@@ -172,6 +173,8 @@ local STRINGS = {
     "Показывать сумку реагентов вместе с основными, без отдельного заголовка.",
   ["Draw the reagent bag above the main bags instead of below them."] =
     "Показывать сумку реагентов над основными сумками, а не под ними.",
+  ["Leave the reagent bag out of the window. Its slots still count in the header, and reagents still go into it."] =
+    "Сумка реагентов не рисуется в окне. Её ячейки по-прежнему учитываются в шапке, и реагенты всё так же попадают в неё.",
   ["The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in."] =
     "Слоты сумок идут в обратном порядке: последний слот последней сумки попадает в первую ячейку. В самих сумках ничего не двигается, меняется только порядок отрисовки.",
   ["The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top."] =
