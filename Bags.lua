@@ -87,6 +87,7 @@ function Bags:Build()
     ns.ClearSearch(Bags.search)
     if ns.CharPicker then ns.CharPicker:Close() end
     if Bags.bagWindow then Bags.bagWindow:Hide() end
+    if ns.Pocket then ns.Pocket:Close(true) end
     if ns.Vault:SetView("bags", nil) then
       Bags.snap = nil
       Bags:UpdateCharTag()
@@ -178,6 +179,25 @@ function Bags:Build()
   sell.icon = sellIcon
   ns.SetButtonEnabled(sell, false)
   self.sellBtn = sell
+
+  local pocket = ns.CreateGlyphButton(f, "", HB)
+  pocket:SetPoint("TOPRIGHT", sell, "TOPLEFT", -4, 0)
+  pocket:SetScript("OnClick", function() if ns.Pocket then ns.Pocket:Toggle() end end)
+  addTip(pocket, "Pocket")
+  local dots = {}
+  for k = 1, 6 do dots[k] = Theme:Rect(pocket, "text", "ARTWORK") end
+  ns.PixelJob(pocket, function(s)
+    local d, sp = ns.PX(s, 4), ns.PX(s, 2)
+    local gw, gh = 3 * d + 2 * sp, 2 * d + sp
+    for k = 1, 6 do
+      local col, row = (k - 1) % 3, math.floor((k - 1) / 3)
+      dots[k]:SetSize(d, d)
+      dots[k]:ClearAllPoints()
+      dots[k]:SetPoint("TOPLEFT", s, "CENTER",
+                       -gw / 2 + col * (d + sp), gh / 2 - row * (d + sp))
+    end
+  end, "pocket")
+  self.pocketBtn = pocket
 
   local charTag = ns.CreateCharTag(f, HB, "left")
   charTag:SetPoint("TOPLEFT", PAD, -ROW1_Y)
@@ -493,6 +513,9 @@ function Bags:Layout()
   for j = i + 1, #active do active[j].holder:Hide() end
   for _, b in ipairs(idle) do if b.holder:IsShown() then b.holder:Hide() end end
   if self.sortBtn then self.sortBtn:SetShown(not self.snap) end
+  if self.pocketBtn then
+    self.pocketBtn:SetShown((ns.Pocket and ns.Pocket:Enabled()) and true or false)
+  end
   self:VendorState()
   if not self.snap then ns.Vault:Capture("bags") end
   self:BrowseState()
@@ -501,6 +524,7 @@ function Bags:Layout()
   if self.bagWindow and self.bagWindow:IsShown() then self:LayoutBagWindow() end
   self:UpdateMeta()
   self:ApplySearch()
+  if ns.Pocket then ns.Pocket:Refresh() end
 end
 function Bags:Resize(contentH)
   local gw = gridWidth(self.pxSize or self.iconSize, self.cols, self.pxGap or self.gap)
@@ -708,6 +732,10 @@ function Bags:VendorState()
   if F then
     for i = 1, (F.max or 0) do ns.LockClicks(F.slots[i]) end
   end
+  local P = ns.Pocket
+  if P then
+    for i = 1, (P.max or 0) do ns.LockClicks(P.slots[i]) end
+  end
   local b = self.sellBtn
   if not b then return end
   b:SetShown(not self.snap)
@@ -747,7 +775,7 @@ function Bags:FitHeader()
   self.search:Show()
   if self.slotText and self.charTag then
     local edge
-    for _, b in ipairs({ self.sellBtn, self.sortBtn, self.bankBtn, self.bagsToggle }) do
+    for _, b in ipairs({ self.pocketBtn, self.sellBtn, self.sortBtn, self.bankBtn, self.bagsToggle }) do
       if b and b:IsShown() and b:GetLeft() then edge = b:GetLeft(); break end
     end
     local from = self.charTag:GetRight()
