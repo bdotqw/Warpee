@@ -426,13 +426,13 @@ function Rec:Apply(bags, x, top, size, gap)
 end
 function Rec:Refresh()
   local a = self.args
-  if not (a and a.bags and a.bags.frame and a.bags.frame:IsShown()) then return end
-  if self:Height(a.size) ~= (a.bags.recentH or 0) then
+  local live = (a and a.bags and a.bags.frame and a.bags.frame:IsShown()) and true or false
+  if live and self:Height(a.size) ~= (a.bags.recentH or 0) then
     a.bags:Layout()
     return
   end
-  self:Apply(a.bags, a.x, a.top, a.size, a.gap)
-  if ns.Pocket then ns.Pocket:Refresh() end
+  if live then self:Apply(a.bags, a.x, a.top, a.size, a.gap) end
+  if ns.Pocket then ns.Pocket:Soon() end
 end
 
 local queued = false
