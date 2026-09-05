@@ -854,7 +854,11 @@ function ns.UpdateItemButton(b)
   local info = C_Container.GetContainerItemInfo(bagID, slot)
   local link = info and (info.hyperlink or info.iconFileID) or false
   local count = info and info.stackCount or 0
-  if b.wpeTotal then count = bagTotal(info, count) end
+  if b.wpeForce then
+    count = b.wpeForce
+  elseif b.wpeTotal then
+    count = bagTotal(info, count)
+  end
   local mark = keystoneMark(link)
   if b.link == link and b.wpeCount == count and b.wpeMark == mark then return b.itemName end
   b.link, b.wpeCount, b.wpeMark = link, count, mark
