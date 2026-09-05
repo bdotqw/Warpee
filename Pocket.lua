@@ -636,6 +636,10 @@ function Pocket:Layout()
   ns.AlignToScreen(w)
 end
 
+function Pocket:Soon()
+  later()
+end
+
 function Pocket:Refresh()
   if not (self.frame and self.frame:IsShown()) then return end
   keyDirty = true
