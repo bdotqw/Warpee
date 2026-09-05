@@ -608,6 +608,7 @@ function factories.range(parent, spec)
         sl.quiet = nil
         paint(now)
       end
+      Options:Refresh()
     end
   end)
   s:SetScript("OnSizeChanged", function() paint(snap(s:GetValue())) end)
