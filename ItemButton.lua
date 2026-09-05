@@ -827,6 +827,8 @@ function ns.ClearItemPaint()
   if B and B.pool then for _, b in ipairs(B.pool) do b.link = nil end end
   local F = ns.Fav
   if F and F.slots then for _, b in pairs(F.slots) do b.link = nil end end
+  local R = ns.Recent
+  if R and R.slots then for _, b in pairs(R.slots) do b.link = nil end end
 end
 
 local function bagTotal(info, count)

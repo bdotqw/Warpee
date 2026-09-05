@@ -188,6 +188,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.slotStyle == "tile" then WarpeeDB.slotStyle = "deep" end
     if WarpeeDB.showGauge == nil then WarpeeDB.showGauge = false end
     if WarpeeDB.favShow == nil then WarpeeDB.favShow = true end
+    if WarpeeDB.recentShow == nil then WarpeeDB.recentShow = true end
     WarpeeDB.favCount = tonumber(WarpeeDB.favCount) or 0
     WarpeeDB.favorites = WarpeeDB.favorites or {}
     if WarpeeDB.goldLetters == nil then
