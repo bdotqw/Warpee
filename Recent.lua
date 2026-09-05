@@ -152,8 +152,38 @@ local function prune(counts)
   end
 end
 
+local shed, shedAt, body = {}, {}, {}
+local SHED = 3
+
+local function bodyDiff()
+  local f = GetInventoryItemID
+  if not f then return end
+  for s = 1, 19 do
+    local now = f("player", s)
+    local was = body[s]
+    body[s] = now
+    if was and was ~= now then
+      shed[was] = (shed[was] or 0) + 1
+      shedAt[was] = GetTime()
+    end
+  end
+end
+
+local function pardon(id, delta)
+  local n = shed[id]
+  if not n then return delta end
+  if GetTime() - (shedAt[id] or 0) > SHED then
+    shed[id], shedAt[id] = nil, nil
+    return delta
+  end
+  local eat = math.min(n, delta)
+  if n > eat then shed[id] = n - eat else shed[id], shedAt[id] = nil, nil end
+  return delta - eat
+end
+
 local function detect()
   local counts = tally()
+  bodyDiff()
   local hold = not primed or frozen() or not Rec:Enabled()
      or (GetTime() - primed) < SETTLE
   if not primed and (C_Container.GetContainerNumSlots(0) or 0) > 0 then
@@ -163,8 +193,9 @@ local function detect()
   for id, c in pairs(counts) do
     local was = known[id] or 0
     if c > was then
-      if not hold and not poor[id] then
-        if seq[id] then mark(id, c - was) else add(id, n, c - was) end
+      local d = pardon(id, c - was)
+      if d > 0 and not hold and not poor[id] then
+        if seq[id] then mark(id, d) else add(id, n, d) end
       end
     elseif c < was and got[id] then
       got[id] = got[id] - (was - c)
@@ -381,8 +412,13 @@ ev:RegisterEvent("BAG_UPDATE_DELAYED")
 ev:RegisterEvent("BAG_UPDATE_COOLDOWN")
 ev:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 ev:RegisterEvent("PLAYER_REGEN_ENABLED")
+ev:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 ev:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
 ev:SetScript("OnEvent", function(_, event)
+  if event == "PLAYER_EQUIPMENT_CHANGED" then
+    bodyDiff()
+    return
+  end
   if event == "PLAYER_REGEN_ENABLED" then
     Rec:Flush()
     return
