@@ -468,53 +468,6 @@ function View:UpdateTabs()
     self.freeText:ClearAllPoints()
     self.freeText:SetPoint("LEFT", last, "RIGHT", 12, 0)
   end
-  self:AttachBlizzTabs()
-end
-
-local BLIZZ_TAB = {}
-
--- The bank the game deposits into on a right click comes from BankFrame own tab system,
--- and only the game may set it: writing BankPanel type from here would hand a tainted
--- value straight to that protected deposit, and every right click in every bag would be
--- refused. So the real tab button is parked invisibly over ours and takes the click, the
--- game switches its own type, and the hook below walks our view over to match.
--- Reparenting a foreign frame is safe; SetScript on one is not, HookScript only.
-function View:AttachBlizzTabs()
-  local F = BankFrame
-  if InCombatLockdown() then return end
-  if not (F and F.GetTabButton and F.characterBankTabID and F.accountBankTabID) then return end
-  for _, e in ipairs({ { "bank", F.characterBankTabID }, { "warband", F.accountBankTabID } }) do
-    local mode, host = e[1], (e[1] == "bank") and self.bankTab or self.wbTab
-    local ok, btn = pcall(F.GetTabButton, F, e[2])
-    btn = (ok and btn) or nil
-    if host and btn then
-      if BLIZZ_TAB[mode] ~= btn then
-        BLIZZ_TAB[mode] = btn
-        btn:HookScript("OnEnter", function()
-          host:SetBackdropColor(Theme:C("panelHi"))
-          host:SetBackdropBorderColor(Theme:C("accent"))
-          host.Text:SetTextColor(Theme:C("accent"))
-        end)
-        btn:HookScript("OnLeave", function()
-          host:SetBackdropColor(Theme:C("panel"))
-          self:UpdateTabs()
-        end)
-      end
-      if btn:GetParent() ~= host then btn:SetParent(host) end
-      btn:ClearAllPoints()
-      btn:SetAllPoints(host)
-      btn:SetAlpha(0)
-      btn:SetFrameLevel(host:GetFrameLevel() + 4)
-    end
-  end
-  if F.BankPanel and F.BankPanel.SetBankType and not self.typeHooked then
-    self.typeHooked = true
-    hooksecurefunc(F.BankPanel, "SetBankType", function(_, bt)
-      local acct = Enum and Enum.BankType and Enum.BankType.Account
-      local want = (acct and bt == acct) and "warband" or "bank"
-      if self.frame and self.frame:IsShown() then self:SetMode(want) end
-    end)
-  end
 end
 
 function View:SetMode(mode)
@@ -1010,12 +963,6 @@ function View:OnBankOpened()
   self:BuildBuyButtons()
   ns.Vault:SetView("bank", nil)
   if self.snap then self.snap = nil; self:HideSlots() end
-  local F = BankFrame
-  if F and F.GetActiveBankType then
-    local ok, bt = pcall(F.GetActiveBankType, F)
-    local acct = Enum and Enum.BankType and Enum.BankType.Account
-    if ok and bt then self.mode = (acct and bt == acct) and "warband" or "bank" end
-  end
   if self.mode == "warband" and not ns.WarbandActive() then self.mode = "bank" end
   if self.mode == "bank" and self:AccountOnly() then self.mode = "warband" end
   self:UpdateTabs()
