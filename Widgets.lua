@@ -419,7 +419,7 @@ function ns.CreateSearchBox(parent, onChanged, hintKey)
 
   local hint = Theme:Label(box, 13, "dim")
   hint:SetPoint("LEFT", 8, 0)
-  ns.LocalText(hint, "Search")
+  ns.LocalText(hint, hintKey or "Search")
   box.Hint = hint
 
   local function refreshHint(s) hint:SetShown(s:GetText() == "") end
