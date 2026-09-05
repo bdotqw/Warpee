@@ -217,6 +217,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.mergeReagents == nil then WarpeeDB.mergeReagents = false end
     if WarpeeDB.reagentTop == nil then WarpeeDB.reagentTop = false end
     if WarpeeDB.hideReagents == nil then WarpeeDB.hideReagents = false end
+    WarpeeDB.pocketKeyDone = nil
     if WarpeeDB.pocketShow == nil then WarpeeDB.pocketShow = true end
     WarpeeDB.pocketRows = tonumber(WarpeeDB.pocketRows) or 5
     WarpeeDB.pocketCols = tonumber(WarpeeDB.pocketCols) or 6
