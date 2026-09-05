@@ -171,6 +171,7 @@ function Rec:Warm()
       local b = ns.CreateItemButton(frame, 0, 1)
       b:RegisterForClicks(unpack(ns.CLICKS_USE))
       b.wpeClicks, b.wpeLockable, b.wpeTotal = ns.CLICKS_USE, nil, true
+      b.wpeNoNew = true
       b.holder:Hide()
       self.slots[i] = b
     end
