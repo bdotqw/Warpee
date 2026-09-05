@@ -298,6 +298,18 @@ function Rec:Apply(bags, x, top, size, gap)
       end
     end
   end
+  if not self.rule then
+    local t = frame:CreateTexture(nil, "ARTWORK")
+    t:SetColorTexture(Theme:C("stroke"))
+    Theme:Track(t, function(s) s:SetColorTexture(Theme:C("stroke")) end)
+    ns.PixelLine(t, 1)
+    self.rule = t
+  end
+  self.rule:ClearAllPoints()
+  ns.SnapPoint(self.rule, "TOPLEFT", frame, "TOPLEFT", x, -(rowY + size + 3))
+  self.rule:SetWidth(n * (size + gap) - gap)
+  self.rule:SetAlpha(0.45)
+  self.rule:Show()
   return LABEL_H + LABEL_GAP + size + 6
 end
 function Rec:Refresh()
