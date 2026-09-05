@@ -837,7 +837,9 @@ local function bagTotal(info, count)
   if not (get and id) then return count end
   local all = get(id) or count
   if all <= count then return count end
-  local max = select(8, C_Item.GetItemInfo(id))
+  if count > 1 then return all end
+  local max = (C_Item.GetItemMaxStackSizeByID and C_Item.GetItemMaxStackSizeByID(id))
+              or select(8, C_Item.GetItemInfo(id))
   if (tonumber(max) or 1) <= 1 then return count end
   return all
 end
