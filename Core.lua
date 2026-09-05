@@ -23,6 +23,7 @@ function ns.Toggle(show)
     f:Show()
     ns.Theme:Raise(f)
     Bags:Layout()
+    if ns.Pocket then ns.Pocket:Restore() end
   else
     f:Hide()
   end
@@ -216,6 +217,9 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.mergeReagents == nil then WarpeeDB.mergeReagents = false end
     if WarpeeDB.reagentTop == nil then WarpeeDB.reagentTop = false end
     if WarpeeDB.hideReagents == nil then WarpeeDB.hideReagents = false end
+    if WarpeeDB.pocketShow == nil then WarpeeDB.pocketShow = true end
+    WarpeeDB.pocketRows = tonumber(WarpeeDB.pocketRows) or 5
+    WarpeeDB.pocketCols = tonumber(WarpeeDB.pocketCols) or 6
     if WarpeeDB.revFill == nil then WarpeeDB.revFill = false end
     if WarpeeDB.fillUp == nil then WarpeeDB.fillUp = false end
     if WarpeeDB.questMarks == nil then WarpeeDB.questMarks = true end
@@ -291,6 +295,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     Bags:RestorePos()
     Bags:Warm()
     if ns.Fav then ns.Fav:Warm() end
+    if ns.Pocket then ns.Pocket:Warm() end
     ns.Theme:ApplyGridAlpha()
     HookBagToggles()
     WarpeeDB.bankCols = WarpeeDB.bankCols or 28

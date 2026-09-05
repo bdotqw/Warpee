@@ -349,6 +349,12 @@ local STRINGS = {
   ["Recent items"] = "Недавние предметы",
   ["A row above the favorites holding whatever came into your bags this session. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
     "Ряд над избранным, в котором лежит всё, что попало в сумки за эту сессию. Каждое поступление занимает первую свободную ячейку, при переполнении уходит самое старое, а при выходе из игры или перезагрузке интерфейса ряд очищается.",
+  ["POCKET"] = "КАРМАН",
+  ["Pocket"] = "Карман",
+  ["Pocket window"] = "Окно кармана",
+  ["Pocket rows"] = "Рядов в кармане",
+  ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =
+    "Маленькое окно с ячейками-закладками рядом с сумками, открывается кнопкой-сеткой в шапке. Перетащите предмет в ячейку, и она будет держать его, куда бы он ни переехал в сумках. Перетаскивание ячейки на ячейку меняет их местами, Ctrl + ЛКМ освобождает ячейку.",
   ["Favorite slots"] = "Ячейки избранного",
   ["How many slots"] = "Сколько ячеек",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =

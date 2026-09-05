@@ -51,6 +51,8 @@ local function locate(id)
   return locBag[id], locSlot[id]
 end
 
+function Fav:Locate(id) return locate(id) end
+
 local function itemIcon(id)
   if C_Item and C_Item.GetItemIconByID then
     local ok, tex = pcall(C_Item.GetItemIconByID, id)
@@ -74,6 +76,7 @@ local function favSound(kind, bag, slot)
   local id = SOUNDKIT[pickup and "UI_CURSOR_PICKUP_OBJECT" or "UI_CURSOR_DROP_OBJECT"]
   if id then PlaySound(id) end
 end
+ns.ItemSound = favSound
 
 local deferred = false
 
@@ -107,6 +110,7 @@ local function makeGhost(parent)
   g.plus = plus
   return g
 end
+ns.SlotGhost = makeGhost
 
 local dragIcon
 

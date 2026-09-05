@@ -834,6 +834,8 @@ function ns.ClearItemPaint()
   if F and F.slots then for _, b in pairs(F.slots) do b.link = nil end end
   local R = ns.Recent
   if R and R.slots then for _, b in pairs(R.slots) do b.link = nil end end
+  local P = ns.Pocket
+  if P and P.slots then for _, b in pairs(P.slots) do b.link = nil end end
 end
 
 local function bagTotal(info, count)

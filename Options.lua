@@ -1483,6 +1483,22 @@ fav.recentSet = function(v)
   WarpeeDB.recentShow = v and true or false
   relayout()
 end
+fav.pkGet = function() return ns.Pocket and ns.Pocket:Enabled() end
+fav.pkSet = function(v)
+  WarpeeDB.pocketShow = v and true or false
+  if ns.Pocket then ns.Pocket:Apply() end
+  relayout()
+end
+fav.pkRowsGet = function() return ns.Pocket and ns.Pocket:Rows() or 5 end
+fav.pkRowsSet = function(v)
+  WarpeeDB.pocketRows = tonumber(v) or 5
+  if ns.Pocket then ns.Pocket:Refresh() end
+end
+fav.pkColsGet = function() return ns.Pocket and ns.Pocket:Cols() or 6 end
+fav.pkColsSet = function(v)
+  WarpeeDB.pocketCols = tonumber(v) or 6
+  if ns.Pocket then ns.Pocket:Refresh() end
+end
 local lettersGet, lettersSet = field("goldLetters")
 local onlyGet, onlySet       = field("goldOnly")
 
@@ -1546,6 +1562,15 @@ local GENERAL_PAGE = {
     desc = "Never more than the grid is wide. Zero keeps the row as wide as the grid." },
   { type = "toggle", name = "Recent items", col = 1, get = fav.recentGet, set = fav.recentSet,
     desc = "A row above the favorites holding whatever came into your bags this session. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload." },
+  { type = "header", name = "Pocket" },
+  { type = "toggle", name = "Pocket window", col = 1, get = fav.pkGet, set = fav.pkSet,
+    desc = "A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one." },
+  { type = "range", name = "Pocket rows", min = 1, max = 8, step = 1, half = "left",
+    get = fav.pkRowsGet, set = fav.pkRowsSet,
+    disabled = function() return not fav.pkGet() end },
+  { type = "range", name = "Slots per row", min = 4, max = 12, step = 1, half = "right",
+    get = fav.pkColsGet, set = fav.pkColsSet,
+    disabled = function() return not fav.pkGet() end },
   { type = "header", name = "Search" },
   { type = "toggle", name = "Clear on close", col = 1, get = sClearGet, set = sClearSet,
     desc = "Empty the search box when the window closes, so it opens unfiltered next time." },

@@ -338,6 +338,12 @@ local STRINGS = {
   ["Recent items"] = "Kürzlich erhalten",
   ["A row above the favorites holding whatever came into your bags this session. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
     "Eine Reihe über den Favoriten mit allem, was in dieser Sitzung in die Taschen kam. Jeder Neuzugang belegt die erste freie Zelle, bei voller Reihe fällt der älteste Eintrag heraus, und beim Abmelden oder Neuladen wird die Reihe geleert.",
+  ["POCKET"] = "ABLAGE",
+  ["Pocket"] = "Ablage",
+  ["Pocket window"] = "Ablagefenster",
+  ["Pocket rows"] = "Zeilen der Ablage",
+  ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =
+    "Ein kleines Fenster mit Merkfeldern neben den Taschen, geöffnet über die Gitterschaltfläche in der Kopfzeile. Zieh einen Gegenstand in ein Feld, und das Feld behält ihn, wohin er in den Taschen auch wandert. Ein Feld auf ein anderes gezogen tauscht beide, Strg + Linksklick leert eines.",
   ["Favorite slots"] = "Favoritenplätze",
   ["How many slots"] = "Anzahl der Plätze",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
