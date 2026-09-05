@@ -152,6 +152,7 @@ local STRINGS = {
   ["Trade"] = "Échange",
   ["Guild bank"] = "Banque de guilde",
   ["Professions"] = "Métiers",
+  ["Bank slot size"] = "Taille des emplacements de la banque",
   ["Slot size"] = "Taille des emplacements",
   ["Slots per row"] = "Emplacements par ligne",
   ["Spacing"] = "Espacement",

@@ -1703,7 +1703,7 @@ local GRID_PAGE = {
     state = function() return (L["%d and %d wide"]):format(bankColsGet(), wbColsGet()) end },
   { type = "description", section = "bankgrid",
     name = "The bank keeps its own width and icon size, apart from the bags." },
-  { type = "range", name = "Slot size", min = 24, max = 56, step = 1, section = "bankgrid",
+  { type = "range", name = "Bank slot size", min = 24, max = 56, step = 1, section = "bankgrid",
     get = bankSizeGet, set = bankSizeSet,
     desc = "One icon size for both bank tabs." },
   { type = "range", name = "Bank slots per row", min = 8, max = 40, step = 1, section = "bankgrid",

@@ -152,6 +152,7 @@ local STRINGS = {
   ["Trade"] = "Обмен",
   ["Guild bank"] = "Банк гильдии",
   ["Professions"] = "Профессии",
+  ["Bank slot size"] = "Размер ячейки банка",
   ["Slot size"] = "Размер ячейки",
   ["Slots per row"] = "Ячеек в ряду",
   ["Spacing"] = "Отступ",

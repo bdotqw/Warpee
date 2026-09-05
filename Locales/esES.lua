@@ -149,6 +149,7 @@ local STRINGS = {
   ["Trade"] = "Comercio",
   ["Guild bank"] = "Banco de hermandad",
   ["Professions"] = "Profesiones",
+  ["Bank slot size"] = "Tamaño de los espacios del banco",
   ["Slot size"] = "Tamaño de los espacios",
   ["Slots per row"] = "Espacios por fila",
   ["Spacing"] = "Espaciado",
