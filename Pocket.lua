@@ -43,10 +43,65 @@ function Pocket:List()
   return WarpeeDB.pocket[k]
 end
 
-local function locate(id)
-  local F = ns.Fav
-  if not (id and F and F.Locate) then return nil end
-  return F:Locate(id)
+local keyBag, keySlot, wornKey = {}, {}, {}
+local keyDirty = true
+
+local function keyScan()
+  wipe(keyBag); wipe(keySlot); wipe(wornKey)
+  local want, any = {}, false
+  local list = Pocket:List()
+  for i = 1, Pocket:Count() do
+    local pin = list[i]
+    if type(pin) == "string" then
+      local id = ns.ItemStubID(pin)
+      if id then want[id] = true; any = true end
+    end
+  end
+  if not any then return end
+  local function sweep(bag)
+    for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
+      local id = C_Container.GetContainerItemID(bag, slot)
+      if id and want[id] then
+        local info = C_Container.GetContainerItemInfo(bag, slot)
+        local k = info and ns.ItemKey(info.hyperlink)
+        if k and not keyBag[k] then keyBag[k], keySlot[k] = bag, slot end
+      end
+    end
+  end
+  for _, bag in ipairs(ns.playerBags) do sweep(bag) end
+  if ns.reagentBag then sweep(ns.reagentBag) end
+  local get = C_Item and C_Item.GetItemLink
+  if not (get and ItemLocation) then return end
+  for slot = 1, 19 do
+    local loc = ItemLocation:CreateFromEquipmentSlot(slot)
+    if loc and C_Item.DoesItemExist(loc) then
+      local k = ns.ItemKey(get(loc))
+      if k then wornKey[k] = true end
+    end
+  end
+end
+
+local function locate(pin)
+  if type(pin) == "number" then
+    local F = ns.Fav
+    if not (F and F.Locate) then return nil end
+    return F:Locate(pin)
+  end
+  if type(pin) ~= "string" then return nil end
+  if keyDirty then keyScan(); keyDirty = false end
+  local k = ns.ItemKey(pin)
+  if not k then return nil end
+  return keyBag[k], keySlot[k]
+end
+
+local function worn(pin)
+  if type(pin) == "string" then
+    if keyDirty then keyScan(); keyDirty = false end
+    local k = ns.ItemKey(pin)
+    return (k and wornKey[k]) and true or false
+  end
+  local f = (C_Item and C_Item.IsEquippedItem) or IsEquippedItem
+  return (pin and f and f(pin)) and true or false
 end
 
 local function itemIcon(id)
@@ -57,16 +112,21 @@ local function itemIcon(id)
   return (GetItemIcon and GetItemIcon(id)) or 134400
 end
 
-local function equipped(id)
-  local f = (C_Item and C_Item.IsEquippedItem) or IsEquippedItem
-  return (id and f and f(id)) and true or false
-end
-
-local function elsewhere(id)
+local function elsewhere(pin)
+  local id = ns.ItemStubID(pin)
   local f = (C_Item and C_Item.GetItemCount) or GetItemCount
   if not (id and f) then return 0 end
   local ok, n = pcall(f, id, true, false, true, true)
   return (ok and tonumber(n)) or 0
+end
+
+local function pinFor(id, link)
+  local stub = ns.ItemStub(link)
+  if not (id and stub) then return id end
+  local loc = select(4, C_Item.GetItemInfoInstant(id))
+  local max = C_Item.GetItemMaxStackSizeByID and C_Item.GetItemMaxStackSizeByID(id)
+  if loc and loc ~= "" and (tonumber(max) or 1) <= 1 then return stub end
+  return id
 end
 
 local function pocketGhost(parent)
@@ -122,18 +182,22 @@ local function dragArt()
 end
 
 local function tipFor(c, index)
-  local id = Pocket:List()[index]
+  local pin = Pocket:List()[index]
   GameTooltip:SetOwner(c, "ANCHOR_RIGHT")
-  if id then
+  if pin then
     local b = Pocket.slots[index]
     if b and b.pkBag and b.holder:IsShown() then
       GameTooltip:SetBagItem(b.pkBag, b.pkSlot)
     else
-      GameTooltip:SetItemByID(id)
-      if equipped(id) then
+      if type(pin) == "string" then
+        GameTooltip:SetHyperlink(pin)
+      else
+        GameTooltip:SetItemByID(pin)
+      end
+      if worn(pin) then
         GameTooltip:AddLine(ns.L["Equipped"], 0.6, 0.6, 0.6, true)
       end
-      local n = elsewhere(id)
+      local n = elsewhere(pin)
       if n > 0 then
         GameTooltip:AddLine((ns.L["%d outside your bags"]):format(n), 0.6, 0.6, 0.6, true)
       end
@@ -184,20 +248,22 @@ local function makeCatcher(parent, index)
   return c
 end
 
-function Pocket:Set(index, id)
+function Pocket:Set(index, pin)
   local list = self:List()
-  if id then
+  if pin then
+    local k = ns.ItemKey(pin)
     for i, own in pairs(list) do
-      if own == id and i ~= index then list[i] = nil end
+      if i ~= index and k and ns.ItemKey(own) == k then list[i] = nil end
     end
   end
-  list[index] = id or nil
+  list[index] = pin or nil
+  keyDirty = true
   later()
 end
 
 function Pocket:Lift(index)
-  local id = self:List()[index]
-  if not id then return end
+  local pin = self:List()[index]
+  if not pin then return end
   self.moving = index
   local b = self.slots[index]
   if b then ns.SetSlotHighlight(b, true) end
@@ -205,7 +271,7 @@ function Pocket:Lift(index)
   local f = dragArt()
   local sz = math.max(16, (b and b:GetWidth()) or 0)
   f:SetSize(sz, sz)
-  f.icon:SetTexture(itemIcon(id))
+  f.icon:SetTexture(itemIcon(ns.ItemStubID(pin)))
   f:Show()
 end
 
@@ -235,8 +301,9 @@ function Pocket:PinFromCursor(index)
   if not id and link then id = tonumber(link:match("item:(%d+)")) end
   if not id then return end
   ClearCursor()
-  if ns.ItemSound then ns.ItemSound("drop", locate(id)) end
-  self:Set(index, id)
+  local pin = pinFor(id, link)
+  if ns.ItemSound then ns.ItemSound("drop", locate(pin)) end
+  self:Set(index, pin)
 end
 
 function Pocket:AddByText(text)
@@ -248,7 +315,7 @@ function Pocket:AddByText(text)
   local list = self:List()
   local n = self:Count()
   for i = 1, n do
-    if list[i] == id then return end
+    if ns.ItemStubID(list[i]) == id then return end
   end
   for i = 1, n do
     if not list[i] then
@@ -464,12 +531,13 @@ function Pocket:Layout()
       if g then g:Hide() end
       if c then c:Hide() end
     else
-      local id = list[i]
-      if id and seen[id] then list[i], id = nil, nil end
-      if id then seen[id] = true end
+      local pin = list[i]
+      local key = pin and ns.ItemKey(pin)
+      if key and seen[key] then list[i], pin, key = nil, nil, nil end
+      if key then seen[key] = true end
       local px = PAD + ((i - 1) % cols) * step
       local py = gridTop + math.floor((i - 1) / cols) * step
-      local bag, slot = locate(id)
+      local bag, slot = locate(pin)
       if bag and not b then self.cold = true end
       local live = (bag and b) and true or false
       if live and (b.pkBag ~= bag or b.pkSlot ~= slot) then
@@ -493,10 +561,10 @@ function Pocket:Layout()
           ns.SnapBox(g, size, size)
           g:ClearAllPoints()
           ns.SnapPoint(g, "TOPLEFT", w, "TOPLEFT", px, -py)
-          if id then
-            g.icon:SetTexture(itemIcon(id)); g.icon:Show(); g.plus:Hide()
-            g.dot:SetShown(equipped(id))
-            local away = elsewhere(id)
+          if pin then
+            g.icon:SetTexture(itemIcon(ns.ItemStubID(pin))); g.icon:Show(); g.plus:Hide()
+            g.dot:SetShown(worn(pin))
+            local away = elsewhere(pin)
             if away > 0 then
               g.cnt:SetFont(path, math.max(9, math.floor(size * 0.3)), "")
               g.cnt:SetText(away)
@@ -535,7 +603,9 @@ function Pocket:Layout()
 end
 
 function Pocket:Refresh()
-  if self.frame and self.frame:IsShown() then self:Layout() end
+  if not (self.frame and self.frame:IsShown()) then return end
+  keyDirty = true
+  self:Layout()
 end
 
 function Pocket:Open()
@@ -581,13 +651,14 @@ local ev = CreateFrame("Frame")
 ev:RegisterEvent("BAG_UPDATE_DELAYED")
 ev:RegisterEvent("BAG_UPDATE_COOLDOWN")
 ev:RegisterEvent("SPELL_UPDATE_COOLDOWN")
+ev:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 ev:RegisterEvent("PLAYER_REGEN_ENABLED")
 ev:SetScript("OnEvent", function(_, event)
   if event == "PLAYER_REGEN_ENABLED" then
     Pocket:Flush()
     return
   end
-  if event == "BAG_UPDATE_DELAYED" then
+  if event == "BAG_UPDATE_DELAYED" or event == "PLAYER_EQUIPMENT_CHANGED" then
     later()
     return
   end
