@@ -279,7 +279,19 @@ function Rec:Refresh()
   self:Apply(a.bags, a.x, a.top, a.size, a.gap)
 end
 
+local queued = false
+local function soon()
+  if queued then return end
+  queued = true
+  C_Timer.After(0.05, function()
+    queued = false
+    detect()
+    Rec:Refresh()
+  end)
+end
+
 local ev = CreateFrame("Frame")
+ev:RegisterEvent("BAG_UPDATE")
 ev:RegisterEvent("BAG_UPDATE_DELAYED")
 ev:RegisterEvent("BAG_UPDATE_COOLDOWN")
 ev:RegisterEvent("SPELL_UPDATE_COOLDOWN")
@@ -288,6 +300,10 @@ ev:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
 ev:SetScript("OnEvent", function(_, event)
   if event == "PLAYER_REGEN_ENABLED" then
     Rec:Flush()
+    return
+  end
+  if event == "BAG_UPDATE" then
+    soon()
     return
   end
   if event == "BAG_UPDATE_DELAYED" or event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
