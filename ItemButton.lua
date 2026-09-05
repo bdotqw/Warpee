@@ -4,6 +4,34 @@ local Theme = ns.Theme
 ns.CLICKS_SLOT = { "LeftButtonUp", "RightButtonUp" }
 ns.CLICKS_USE = { "RightButtonUp" }
 
+function ns.ItemStub(link)
+  if type(link) ~= "string" then return nil end
+  return link:match("|H(item:[^|]+)|h") or link:match("^(item:[^|]+)")
+end
+
+function ns.ItemStubID(pin)
+  if type(pin) == "number" then return pin end
+  if type(pin) ~= "string" then return nil end
+  return tonumber(pin:match("item:(%d+)"))
+end
+
+-- Two copies of one item share an itemID, so a cell that keys on the id alone binds to
+-- the wrong ring, the unenchanted one or the lower track. The durable part of the item
+-- string is the id, the enchant, the gems, the suffix and the bonus ids; the level, the
+-- spec and the unique field drift on their own and are left out.
+function ns.ItemKey(pin)
+  if type(pin) == "number" then return tostring(pin) end
+  local s = ns.ItemStub(pin)
+  if not s then return nil end
+  local f = {}
+  for v in (s .. ":"):gmatch("([^:]*):") do f[#f + 1] = v end
+  local bon = {}
+  for i = 1, (tonumber(f[14]) or 0) do bon[i] = f[14 + i] or "" end
+  table.sort(bon)
+  return table.concat({ f[2] or "", f[3] or "", f[4] or "", f[5] or "", f[6] or "",
+                        f[7] or "", f[8] or "", table.concat(bon, ",") }, ":")
+end
+
 local SLOT_STYLES = {
   flat  = function() return 0, 0, 0, 0 end,
   plate = function() return Theme:C("panelHi") end,
