@@ -328,6 +328,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.warbandCustomSize, WarpeeDB.warbandIconSize = nil, nil
     WarpeeDB.bankPool = nil
     if ns.Bank then ns.Bank:HideBlizzard() end
+    if ns.ApplyLocaleText then ns.ApplyLocaleText() end
     if ns.ApplyMinimapIcon then ns.ApplyMinimapIcon() end
     if C_CVar and C_CVar.SetCVarBitfield then
       -- The mount equipment tutorial hooks the container slot template, and the taint
