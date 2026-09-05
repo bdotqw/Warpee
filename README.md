@@ -26,8 +26,8 @@ Copy the `Warpee` folder into `Interface\AddOns\`. Fonts ship in `Media\Fonts\`.
 
 - `/warpee` or `/wpe` opens the options
 
-Bags open on the game's own bag key or the minimap button; the bank and the
-Warband bank open from the header of the bag window, or at a banker.
+Bags open on the game's own bag key; the minimap button opens the settings. The
+bank and the Warband bank open from the header of the bag window, or at a banker.
 
 ## Libraries
 
