@@ -9,7 +9,7 @@ local LABEL_H, LABEL_GAP = 13, 4
 local MAX_SLOTS = 24
 local SETTLE = 5
 
-local cells, seq, known = {}, {}, {}
+local cells, seq, known, got = {}, {}, {}, {}
 local locBag, locSlot = {}, {}
 local counter = 0
 local primed = nil
@@ -89,11 +89,14 @@ local function used()
   return false
 end
 
-local function add(id, n)
+local function add(id, n, delta)
   if seq[id] or pinned(id) then return end
   counter = counter + 1
   for i = 1, n do
-    if not cells[i] then cells[i], seq[id] = id, counter; return end
+    if not cells[i] then
+      cells[i], seq[id], got[id] = id, counter, delta
+      return
+    end
   end
   local worn, age
   for i = 1, n do
@@ -101,8 +104,9 @@ local function add(id, n)
     if c and (not age or (seq[c] or 0) < age) then worn, age = i, seq[c] or 0 end
   end
   if not worn then return end
-  seq[cells[worn]] = nil
-  cells[worn], seq[id] = id, counter
+  local out = cells[worn]
+  seq[out], got[out] = nil, nil
+  cells[worn], seq[id], got[id] = id, counter, delta
 end
 local function compact(n)
   local ids, over = {}, false
@@ -119,7 +123,7 @@ local function compact(n)
   local cut = math.max(0, #ids - n)
   for k = 1, #ids do
     local id = ids[k]
-    if k <= cut then seq[id] = nil else cells[k - cut] = id end
+    if k <= cut then seq[id], got[id] = nil, nil else cells[k - cut] = id end
   end
 end
 
@@ -127,7 +131,7 @@ local function prune(counts)
   for i = 1, MAX_SLOTS do
     local id = cells[i]
     if id and (not counts[id] or pinned(id)) then
-      seq[id] = nil
+      seq[id], got[id] = nil, nil
       cells[i] = nil
     end
   end
@@ -142,7 +146,14 @@ local function detect()
   end
   local n = capacity()
   for id, c in pairs(counts) do
-    if not hold and c > (known[id] or 0) then add(id, n) end
+    local was = known[id] or 0
+    if not hold and c > was then
+      if seq[id] then
+        got[id] = (got[id] or 0) + (c - was)
+      else
+        add(id, n, c - was)
+      end
+    end
     known[id] = c
   end
   if mailing() then return end
@@ -177,7 +188,7 @@ function Rec:Warm()
     if not self.slots[i] then
       local b = ns.CreateItemButton(frame, 0, 1)
       b:RegisterForClicks(unpack(ns.CLICKS_USE))
-      b.wpeClicks, b.wpeLockable, b.wpeTotal = ns.CLICKS_USE, nil, true
+      b.wpeClicks, b.wpeLockable, b.wpeTotal = ns.CLICKS_USE, nil, nil
       b.wpeNoNew = true
       b.holder:Hide()
       self.slots[i] = b
@@ -207,7 +218,7 @@ end
 function Rec:Wipe()
   for i = 1, MAX_SLOTS do
     local id = cells[i]
-    if id then seq[id] = nil; cells[i] = nil end
+    if id then seq[id], got[id] = nil, nil; cells[i] = nil end
   end
   self:Refresh()
 end
@@ -282,11 +293,12 @@ function Rec:Apply(bags, x, top, size, gap)
       h:ClearAllPoints()
       ns.SnapPoint(h, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
       h:Show(); b:Show()
+      b.wpeForce = got[id]
       if repaint then b.link = nil end
       ns.UpdateItemButton(b)
       if g then g:Hide() end
     else
-      if b then b.holder:Hide(); b.recBag = nil end
+      if b then b.holder:Hide(); b.recBag, b.wpeForce = nil, nil end
       if g and i <= n then
         ns.SnapBox(g, size, size)
         g:ClearAllPoints()
