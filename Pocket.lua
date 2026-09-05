@@ -214,6 +214,8 @@ end
 -- slot, so a right click reaches the game's handler with no addon code in the path.
 -- SetPassThroughButtons is refused during combat lockdown, so it is set here, once,
 -- and never touched again. That is why clearing a cell lives on Ctrl + left click.
+-- The one left click it hands on is the one that finishes a pending item spell: the
+-- same UseContainerItem line the game runs in its own slot, callable from ours.
 local function makeCatcher(parent, index)
   local c = CreateFrame("Button", nil, parent)
   c.pkIndex = index
@@ -227,6 +229,13 @@ local function makeCatcher(parent, index)
   c:SetScript("OnReceiveDrag", function(s) Pocket:PinFromCursor(s.pkIndex) end)
   c:SetScript("OnClick", function(s, button)
     if button ~= "LeftButton" then return end
+    if ns.ItemTargeting() then
+      local b = Pocket.slots[s.pkIndex]
+      if b and b.pkBag and b.holder:IsShown() then
+        C_Container.UseContainerItem(b.pkBag, b.pkSlot)
+      end
+      return
+    end
     if GetCursorInfo() then
       Pocket:PinFromCursor(s.pkIndex)
       return
