@@ -33,15 +33,6 @@ local function muteStates(b)
   if d then d:SetAlpha(0) end
 end
 
-local function accentHighlight(b)
-  local hl = b.GetHighlightTexture and b:GetHighlightTexture()
-  if not hl then return nil end
-  hl:SetColorTexture(Theme:C("accent"))
-  hl:SetAlpha(0.22)
-  hl:SetAllPoints(b)
-  return hl
-end
-
 local function label(fs, size, key, flags)
   if not (fs and fs.SetFont) then return end
   local k = key or "text"
