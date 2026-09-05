@@ -26,7 +26,7 @@ local Bags = { pool = {}, vpool = {}, cols = COLS_DEFAULT, gap = GAP_DEFAULT, ic
                font = ns.Fonts.DEFAULT, query = "", dirty = {},
                badge = ns.BadgeDefaults(),
                qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, reagentTint = true,
-               revFill = false, fillUp = false, reagentTop = false,
+               revFill = false, fillUp = false, reagentTop = false, hideReagents = false,
                styleGen = 1 }
 ns.Bags = Bags
 
@@ -435,9 +435,10 @@ function Bags:Layout()
   end
 
   local n = 0
-  local merge = self.mergeReagents and true or false
+  local hide = self.hideReagents and true or false
+  local merge = (not hide) and self.mergeReagents and true or false
   local rnum = self:Slots(ns.reagentBag)
-  local split = (not merge) and rnum > 0
+  local split = (not hide) and (not merge) and rnum > 0
   local mainCount = merge and rnum or 0
   for _, bag in ipairs(ns.playerBags) do mainCount = mainCount + self:Slots(bag) end
   local mainRows = math.max(1, math.ceil(mainCount / cols))

@@ -146,6 +146,7 @@ local STRINGS = {
   ["Icon zoom"] = "Symbolzoom",
   ["Merge reagents"] = "Reagenzien zusammenlegen",
   ["Reagents on top"] = "Reagenzien oben",
+  ["Hide reagents"] = "Reagenzien ausblenden",
   ["Reverse slot order"] = "Taschenplätze umkehren",
   ["Fill grid upwards"] = "Raster von unten füllen",
   ["Slot background"] = "Platzhintergrund",
@@ -161,6 +162,8 @@ local STRINGS = {
     "Zeigt die Reagenzientasche zusammen mit den Haupttaschen an, ohne eigene Überschrift.",
   ["Draw the reagent bag above the main bags instead of below them."] =
     "Zeichnet die Reagenzientasche über den Haupttaschen statt darunter.",
+  ["Leave the reagent bag out of the window. Its slots still count in the header, and reagents still go into it."] =
+    "Die Reagenzientasche wird nicht im Fenster gezeichnet. Ihre Plätze zählen weiter mit, und Reagenzien landen weiterhin darin.",
   ["The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in."] =
     "Die Taschenplätze laufen rückwärts: der letzte Platz der letzten Tasche steht an erster Stelle im Raster. In den Taschen selbst wird nichts verschoben, nur die Zeichenreihenfolge ändert sich.",
   ["The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top."] =

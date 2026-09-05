@@ -154,6 +154,7 @@ local STRINGS = {
   ["Icon zoom"] = "Zoom de los iconos",
   ["Merge reagents"] = "Unir los componentes",
   ["Reagents on top"] = "Componentes arriba",
+  ["Hide reagents"] = "Ocultar los componentes",
   ["Reverse slot order"] = "Orden inverso de espacios",
   ["Fill grid upwards"] = "Filas de abajo arriba",
   ["Slot background"] = "Fondo de los espacios",
@@ -169,6 +170,8 @@ local STRINGS = {
     "Muestra la bolsa de componentes junto con las bolsas principales, sin título propio.",
   ["Draw the reagent bag above the main bags instead of below them."] =
     "Muestra la bolsa de componentes encima de las bolsas principales, no debajo.",
+  ["Leave the reagent bag out of the window. Its slots still count in the header, and reagents still go into it."] =
+    "La bolsa de componentes no se dibuja en la ventana. Sus espacios siguen contando en la cabecera y los componentes siguen entrando en ella.",
   ["The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in."] =
     "Los espacios de las bolsas se recorren al revés: el último espacio de la última bolsa ocupa la primera casilla. Dentro de las bolsas nada se mueve, solo cambia el orden en que se dibujan.",
   ["The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top."] =

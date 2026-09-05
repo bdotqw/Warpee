@@ -157,6 +157,7 @@ local STRINGS = {
   ["Icon zoom"] = "Zoom des icônes",
   ["Merge reagents"] = "Fusionner les composants",
   ["Reagents on top"] = "Composants au-dessus",
+  ["Hide reagents"] = "Masquer les composants",
   ["Reverse slot order"] = "Emplacements inversés",
   ["Fill grid upwards"] = "Lignes de bas en haut",
   ["Slot background"] = "Fond des emplacements",
@@ -172,6 +173,8 @@ local STRINGS = {
     "Affiche le sac de composants avec les sacs principaux, sans titre séparé.",
   ["Draw the reagent bag above the main bags instead of below them."] =
     "Affiche le sac de composants au-dessus des sacs principaux au lieu d'en dessous.",
+  ["Leave the reagent bag out of the window. Its slots still count in the header, and reagents still go into it."] =
+    "Le sac à composants n'est pas dessiné dans la fenêtre. Ses emplacements comptent toujours dans l'en-tête et les composants continuent d'y aller.",
   ["The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in."] =
     "Les emplacements des sacs sont parcourus à l'envers : le dernier emplacement du dernier sac occupe la première case. Rien ne bouge dans les sacs, seul l'ordre d'affichage change.",
   ["The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top."] =
