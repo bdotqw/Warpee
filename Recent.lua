@@ -7,12 +7,12 @@ Rec.slots = {}
 
 local LABEL_H, LABEL_GAP = 13, 4
 local MAX_SLOTS = 24
-local SETTLE = 5
+local SETTLE = 2
 
 local cells, seq, known = {}, {}, {}
 local locBag, locSlot = {}, {}
 local counter = 0
-local settled, firstAt = false, nil
+local primed = nil
 
 function Rec:Enabled()
   return not (WarpeeDB and WarpeeDB.recentShow == false)
@@ -126,22 +126,12 @@ local function prune(counts)
   end
 end
 
-local function same(counts)
-  for id, c in pairs(counts) do
-    if known[id] ~= c then return false end
-  end
-  for id in pairs(known) do
-    if counts[id] == nil then return false end
-  end
-  return true
-end
-
 local function detect()
   local counts = tally()
-  local hold = not settled or frozen() or not Rec:Enabled()
-  if not settled and (C_Container.GetContainerNumSlots(0) or 0) > 0 then
-    firstAt = firstAt or GetTime()
-    if same(counts) or (GetTime() - firstAt) > SETTLE then settled = true end
+  local hold = not primed or frozen() or not Rec:Enabled()
+     or (GetTime() - primed) < SETTLE
+  if not primed and (C_Container.GetContainerNumSlots(0) or 0) > 0 then
+    primed = GetTime()
   end
   local n = capacity()
   for id, c in pairs(counts) do
@@ -155,9 +145,9 @@ local function detect()
 end
 -- The cells are container slot buttons, so they are built here, out of combat, and a
 -- redraw only moves and re-ids them after that. A button made during a fight is
--- tainted for good. The row owns no click handler and no overlay of its own: the
--- game's own template keeps both buttons, which is why SetPassThroughButtons, the
--- call that is refused in combat, never appears in this file.
+-- tainted for good. The row keeps the right button for using the item and leaves the
+-- template's own drag alone, and it owns no click handler and no overlay, which is why
+-- SetPassThroughButtons, the call that is refused in combat, never appears in this file.
 function Rec:Warm()
   local bags = ns.Bags
   local frame = bags and bags.frame
@@ -166,7 +156,8 @@ function Rec:Warm()
   for i = 1, MAX_SLOTS do
     if not self.slots[i] then
       local b = ns.CreateItemButton(frame, 0, 1)
-      b.wpeTotal = true
+      b:RegisterForClicks(unpack(ns.CLICKS_USE))
+      b.wpeClicks, b.wpeLockable, b.wpeTotal = ns.CLICKS_USE, nil, true
       b.holder:Hide()
       self.slots[i] = b
     end
