@@ -1049,6 +1049,8 @@ function View:OnBankOpened()
   self:BuildBuyButtons()
   ns.Vault:SetView("bank", nil)
   if self.snap then self.snap = nil; self:HideSlots() end
+  local bm = self:BlizzMode()
+  if bm then self.mode = bm end
   if self.mode == "warband" and not ns.WarbandActive() then self.mode = "bank" end
   if self.mode == "bank" and self:AccountOnly() then self.mode = "warband" end
   self:UpdateTabs()
