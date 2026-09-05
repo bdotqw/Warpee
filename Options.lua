@@ -23,6 +23,7 @@ local function relayout()
   Bags:Refont()
   if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
   if ns.Bank and ns.Bank.Refresh then ns.Bank:Refresh() end
+  if ns.Pocket and ns.Pocket.Apply then ns.Pocket:Apply() end
   if ns.GuildBankSkin and ns.GuildBankSkin.Restyle then ns.GuildBankSkin:Restyle() end
   local P = ns.CharPicker
   if P and P.frame and P.frame:IsShown() and P.Paint then P:Paint(true) end
