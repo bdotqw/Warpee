@@ -448,6 +448,12 @@ local BLIZZ_TAB = {}
 -- protected deposit, and then every right click in every bag would be refused. So the game
 -- own tab button is parked over ours with its art switched off and takes the click, the
 -- game flips its own type from a real hardware press, and our view is walked over to match.
+-- The button has to keep its own parent: its OnClick reaches the tab system through GetParent,
+-- so hanging the button on our tab killed the click with a nil call inside the game own tab
+-- template. The tab system as a whole is moved into our window instead, which is what gives
+-- the button a shown chain to take mouse input from, and the button is only anchored to our
+-- tab, never reparented away from that system. Everything else in the system loses its mouse,
+-- since the strip is invisible in there and nothing but those two buttons may catch a click.
 -- Nothing here writes a field or a script on a game frame: only SetParent, points, alpha,
 -- hit rect, strata, level and EnableMouse, plus HookScript and hooksecurefunc. Our own tab
 -- hands its mouse over while a game button is pinned to it, so a click can never land on
@@ -465,12 +471,24 @@ end
 
 function View:PinBlizzTabs()
   if InCombatLockdown() then return end
+  local TS = BankFrame and BankFrame.TabSystem
+  local host = self.frame
+  if not (TS and host) then return end
   local live = self.bankerOpen and not self.snap
+  if TS:GetParent() ~= host then TS:SetParent(host) end
+  TS:Show()
+  TS:SetAlpha(0)
+  TS:EnableMouse(false)
+  TS:SetFrameStrata(host:GetFrameStrata())
+  TS:SetFrameLevel(host:GetFrameLevel() + 20)
+  for _, c in ipairs({ TS:GetChildren() }) do
+    if c.EnableMouse then c:EnableMouse(false) end
+  end
   for mode, btn in pairs(BLIZZ_TAB) do
     local own = (mode == "bank") and self.bankTab or self.wbTab
     if own then
       local on = (live and own:IsShown()) and true or false
-      if btn:GetParent() ~= own then btn:SetParent(own) end
+      if btn:GetParent() ~= TS then btn:SetParent(TS) end
       btn:ClearAllPoints()
       btn:SetAllPoints(own)
       btn:SetAlpha(0)
@@ -498,6 +516,7 @@ function View:AttachBlizzTabs()
         own:SetBackdropColor(Theme:C("panelHi"))
         own:SetBackdropBorderColor(Theme:C("accent"))
         own.Text:SetTextColor(Theme:C("accent"))
+        if GameTooltip then GameTooltip:Hide() end
       end)
       btn:HookScript("OnLeave", function()
         own:SetBackdropColor(Theme:C("panel"))
