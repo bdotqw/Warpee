@@ -128,8 +128,8 @@ local STRINGS = {
     "Используется для всех надписей Warpee. Другие аддоны могут добавлять шрифты в этот список.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Язык текста самого аддона. Названия предметов всегда берутся из игры.",
-  ["Freeze the windows in place. Unlocked, each shows X/Y fields along its bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
-    "Закрепляет окна на месте. Если отметку снять, у каждого окна снизу появятся поля X и Y: значение можно ввести вручную или менять стрелками (Shift — шаг 10).",
+  ["Freeze every window in place. Unlocked, the bags and the bank show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
+    "Закрепляет все окна на месте. Если отметку снять, у сумок и банка снизу появятся поля X и Y: значение можно ввести вручную или менять стрелками (Shift — шаг 10).",
   ["The windows stay movable by dragging, but the X/Y fields are not drawn."] =
     "Окна по-прежнему можно перетаскивать мышью, но поля X и Y не показываются.",
   ["Fill bar in the bags header showing how full they are."] =
@@ -182,8 +182,8 @@ local STRINGS = {
     "Ряды ячеек выстраиваются от нижнего края сетки вверх. Неполный последний ряд оказывается сверху.",
   ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
     "Что находится за иконкой. «Прозрачный» — сквозь ячейку видна подложка, «Подсветка» — ячейка чуть светлее фона, «Заливка» — фон полностью закрыт.",
-  ["The plate behind the slots, seen in the gaps. At Spacing 0 there are none."] =
-    "Подложка за ячейками, видимая в промежутках. При отступе 0 промежутков нет.",
+  ["The plate behind the slots. Transparent slots show it through every cell, and the gaps show it at any Spacing above 0."] =
+    "Подложка за ячейками. Через прозрачные ячейки она видна целиком, а в промежутках — при любом отступе больше 0.",
   ["The bank keeps its own width and icon size, apart from the bags."] =
     "У банка своя ширина и свой размер иконок, отдельно от сумок.",
   ["One icon size for both bank tabs."] = "Один размер иконок для обеих вкладок банка.",
@@ -217,8 +217,8 @@ local STRINGS = {
   ["Thickness of the slot border."] = "Толщина рамки ячейки.",
   ["Tint the item level number with the item's quality color."] =
     "Окрашивать уровень предмета в цвет его качества.",
-  ["Alt-click an item in the bags or the bank to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Alt-click again, or the cross here, to unlock."] =
-    "Alt + ЛКМ по предмету в сумках или банке защищает его: появляется замок, и предмет больше не продать, ни автоматически, ни через ПКМ у торговца. Повторный Alt + ЛКМ или крестик в этом списке снимает защиту.",
+  ["Alt-click an item to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Works in the bags, the bank, the favorites row and the pocket. Alt-click again, or the cross here, to unlock."] =
+    "Alt + ЛКМ по предмету защищает его: появляется замок, и предмет больше не продать, ни автоматически, ни через ПКМ у торговца. Работает в сумках, банке, ряду избранного и в кармане. Повторный Alt + ЛКМ или крестик в этом списке снимает защиту.",
   ["Alt-click to lock it from the vendor"] = "Alt + ЛКМ, чтобы защитить от продажи",
   ["Locked from the vendor. Alt-click to unlock"] =
     "Защищено от продажи. Alt + ЛКМ снимает защиту",
@@ -237,8 +237,8 @@ local STRINGS = {
   ["Copies of what you carry, so another character's bags and bank open from your own window."] =
     "Копии того, что лежит у персонажей, чтобы открывать чужие сумки и банк в своём окне.",
   ["Remember bags"] = "Запоминать сумки",
-  ["Save this character's bags and gold whenever the bag window opens. Off = other characters stop seeing them."] =
-    "Сохранять сумки и золото этого персонажа при открытии окна сумок. Выкл. — другие персонажи их больше не увидят.",
+  ["Save this character's bags and gold whenever the bag window opens. Off = the saved copy stops updating, and stays visible until you delete the character below."] =
+    "Сохранять сумки и золото этого персонажа при открытии окна сумок. Выкл. — сохранённая копия перестаёт обновляться и остаётся видимой, пока не удалить персонажа ниже.",
   ["Remember bank"] = "Запоминать банк",
   ["Save the character bank while you stand at a banker."] =
     "Сохранять банк персонажа, пока вы стоите у банкира.",
@@ -263,8 +263,8 @@ local STRINGS = {
   ["Guild / yours"] = "Гильдия / свои",
   ["These start when a merchant window opens, with no click from you."] =
     "Запускается само при открытии окна торговца, без нажатия кнопок.",
-  ["Everything below is sold by the coin in the bags header, only when you press it."] =
-    "Всё, что ниже, продаётся кнопкой-монетой в шапке сумок и только по нажатию.",
+  ["Everything below is sold by the coin in the bags header, unless you switch on automatic selling."] =
+    "Всё, что ниже, продаётся кнопкой-монетой в шапке сумок, если не включить автопродажу.",
   ["Sell every gray item, whatever its item level."] =
     "Продавать любой серый предмет независимо от уровня.",
   ["Repair at merchants who offer it. Others are left alone, with no message."] =
@@ -348,8 +348,8 @@ local STRINGS = {
   ["Favorites"] = "Избранное",
   ["Recent"] = "Недавнее",
   ["Recent items"] = "Недавние предметы",
-  ["A row above the favorites holding whatever came into your bags this session. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
-    "Ряд над избранным, в котором лежит всё, что попало в сумки за эту сессию. Каждое поступление занимает первую свободную ячейку, при переполнении уходит самое старое, а при выходе из игры или перезагрузке интерфейса ряд очищается.",
+  ["A row above the favorites holding what came into your bags this session, apart from gray items and anything already pinned to the favorites. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
+    "Ряд над избранным, в котором лежит то, что попало в сумки за эту сессию, кроме серых предметов и того, что уже приколото в избранном. Каждое поступление занимает первую свободную ячейку, при переполнении уходит самое старое, а при выходе из игры или перезагрузке интерфейса ряд очищается.",
   ["POCKET"] = "КАРМАН",
   ["Pocket"] = "Карман",
   ["Pocket window"] = "Окно кармана",

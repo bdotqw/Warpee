@@ -128,8 +128,8 @@ local STRINGS = {
     "Utilisée pour tous les textes affichés par Warpee. D'autres addons peuvent enrichir cette liste.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Langue des textes de l'addon. Les noms d'objets viennent toujours du jeu.",
-  ["Freeze the windows in place. Unlocked, each shows X/Y fields along its bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
-    "Fige les fenêtres à leur place. Déverrouillées, chacune affiche des champs X et Y sur son bord inférieur : saisissez une valeur ou ajustez avec les flèches (Maj = 10).",
+  ["Freeze every window in place. Unlocked, the bags and the bank show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
+    "Fige toutes les fenêtres à leur place. Déverrouillées, les sacs et la banque affichent des champs X et Y sur leur bord inférieur : saisissez une valeur ou ajustez avec les flèches (Maj = 10).",
   ["The windows stay movable by dragging, but the X/Y fields are not drawn."] =
     "Les fenêtres restent déplaçables à la souris, mais les champs X et Y ne sont plus affichés.",
   ["Fill bar in the bags header showing how full they are."] =
@@ -182,8 +182,8 @@ local STRINGS = {
     "Les lignes de cases s'empilent du bas de la grille vers le haut. La dernière ligne incomplète se retrouve en haut.",
   ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
     "Ce qui se trouve derrière chaque icône. « Transparent » laisse voir le fond, « Éclairci » détache légèrement l'emplacement, « Opaque » le referme complètement.",
-  ["The plate behind the slots, seen in the gaps. At Spacing 0 there are none."] =
-    "Le fond derrière les emplacements, visible dans les espaces. Avec un espacement de 0, il n'y en a plus.",
+  ["The plate behind the slots. Transparent slots show it through every cell, and the gaps show it at any Spacing above 0."] =
+    "Le fond derrière les emplacements. Avec des emplacements transparents il apparaît dans chaque case, et dans les espaces dès un espacement supérieur à 0.",
   ["The bank keeps its own width and icon size, apart from the bags."] =
     "La banque garde sa propre largeur et sa propre taille d'icônes, indépendamment des sacs.",
   ["One icon size for both bank tabs."] = "Une seule taille d'icônes pour les deux onglets de banque.",
@@ -217,8 +217,8 @@ local STRINGS = {
   ["Thickness of the slot border."] = "Épaisseur de la bordure des emplacements.",
   ["Tint the item level number with the item's quality color."] =
     "Colore le niveau d'objet selon la qualité de l'objet.",
-  ["Alt-click an item in the bags or the bank to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Alt-click again, or the cross here, to unlock."] =
-    "Alt + clic gauche sur un objet dans les sacs ou la banque le protège : un cadenas apparaît et l'objet ne peut plus être vendu, ni automatiquement ni par un clic droit chez le marchand. Un nouvel Alt + clic gauche, ou la croix dans cette liste, retire la protection.",
+  ["Alt-click an item to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Works in the bags, the bank, the favorites row and the pocket. Alt-click again, or the cross here, to unlock."] =
+    "Alt + clic gauche sur un objet le protège : un cadenas apparaît et l'objet ne peut plus être vendu, ni automatiquement ni par un clic droit chez le marchand. Fonctionne dans les sacs, la banque, la rangée des favoris et la poche. Un nouvel Alt + clic gauche, ou la croix dans cette liste, retire la protection.",
   ["Alt-click to lock it from the vendor"] = "Alt + clic gauche pour le protéger de la vente",
   ["Locked from the vendor. Alt-click to unlock"] =
     "Protégé de la vente. Alt + clic gauche retire la protection",
@@ -237,8 +237,8 @@ local STRINGS = {
   ["Copies of what you carry, so another character's bags and bank open from your own window."] =
     "Des copies de ce que vous transportez, pour ouvrir les sacs et la banque d'un autre personnage dans votre propre fenêtre.",
   ["Remember bags"] = "Enregistrer les sacs",
-  ["Save this character's bags and gold whenever the bag window opens. Off = other characters stop seeing them."] =
-    "Enregistre les sacs et l'or de ce personnage à chaque ouverture de la fenêtre des sacs. Désactivé : les autres personnages ne les voient plus.",
+  ["Save this character's bags and gold whenever the bag window opens. Off = the saved copy stops updating, and stays visible until you delete the character below."] =
+    "Enregistre les sacs et l'or de ce personnage à chaque ouverture de la fenêtre des sacs. Désactivé : la copie enregistrée cesse d'être mise à jour et reste visible jusqu'à la suppression du personnage ci-dessous.",
   ["Remember bank"] = "Enregistrer la banque",
   ["Save the character bank while you stand at a banker."] =
     "Enregistre la banque du personnage quand vous êtes chez le banquier.",
@@ -263,8 +263,8 @@ local STRINGS = {
   ["Guild / yours"] = "Guilde / le vôtre",
   ["These start when a merchant window opens, with no click from you."] =
     "Se déclenche tout seul à l'ouverture de la fenêtre du marchand, sans aucun clic de votre part.",
-  ["Everything below is sold by the coin in the bags header, only when you press it."] =
-    "Tout ce qui suit est vendu par la pièce dans l'en-tête des sacs, et seulement quand vous l'actionnez.",
+  ["Everything below is sold by the coin in the bags header, unless you switch on automatic selling."] =
+    "Tout ce qui suit est vendu par la pièce dans l'en-tête des sacs, sauf si vous activez la vente automatique.",
   ["Sell every gray item, whatever its item level."] =
     "Vend tous les objets gris, quel que soit leur niveau d'objet.",
   ["Repair at merchants who offer it. Others are left alone, with no message."] =
@@ -350,8 +350,8 @@ local STRINGS = {
   ["Favorites"] = "Favoris",
   ["Recent"] = "Récents",
   ["Recent items"] = "Objets récents",
-  ["A row above the favorites holding whatever came into your bags this session. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
-    "Une rangée au-dessus des favoris contenant tout ce qui est arrivé dans vos sacs pendant cette session. Chaque arrivée prend la première case libre, le plus ancien disparaît quand la rangée est pleine, et la rangée se vide à la déconnexion ou après un rechargement.",
+  ["A row above the favorites holding what came into your bags this session, apart from gray items and anything already pinned to the favorites. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
+    "Une rangée au-dessus des favoris contenant ce qui est arrivé dans vos sacs pendant cette session, hors objets gris et hors ce qui est déjà épinglé dans les favoris. Chaque arrivée prend la première case libre, le plus ancien disparaît quand la rangée est pleine, et la rangée se vide à la déconnexion ou après un rechargement.",
   ["POCKET"] = "POCHE",
   ["Pocket"] = "Poche",
   ["Pocket window"] = "Fenêtre de poche",

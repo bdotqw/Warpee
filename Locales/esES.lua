@@ -125,8 +125,8 @@ local STRINGS = {
     "Se usa en todos los textos que dibuja Warpee. Otros addons pueden añadir fuentes a esta lista.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Idioma de los textos del addon. Los nombres de los objetos siempre vienen del juego.",
-  ["Freeze the windows in place. Unlocked, each shows X/Y fields along its bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
-    "Fija las ventanas en su sitio. Sin fijar, cada una muestra campos X e Y en su borde inferior: escribe un valor o ajústalo con las flechas (Mayús = 10).",
+  ["Freeze every window in place. Unlocked, the bags and the bank show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
+    "Fija todas las ventanas en su sitio. Sin fijar, las bolsas y el banco muestran campos X e Y en su borde inferior: escribe un valor o ajústalo con las flechas (Mayús = 10).",
   ["The windows stay movable by dragging, but the X/Y fields are not drawn."] =
     "Las ventanas se siguen moviendo con el ratón, pero los campos X e Y no se dibujan.",
   ["Fill bar in the bags header showing how full they are."] =
@@ -179,8 +179,8 @@ local STRINGS = {
     "Las filas de casillas se apilan desde el borde inferior hacia arriba. La última fila incompleta queda arriba.",
   ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
     "Lo que hay detrás de cada icono. «Transparente» deja ver el fondo, «Aclarado» resalta un poco el espacio, «Opaco» lo cierra del todo.",
-  ["The plate behind the slots, seen in the gaps. At Spacing 0 there are none."] =
-    "El fondo que hay detrás de los espacios y se ve en los huecos. Con espaciado 0 no hay huecos.",
+  ["The plate behind the slots. Transparent slots show it through every cell, and the gaps show it at any Spacing above 0."] =
+    "El fondo que hay detrás de los espacios. Con espacios transparentes se ve en cada casilla, y en los huecos con cualquier espaciado mayor que 0.",
   ["The bank keeps its own width and icon size, apart from the bags."] =
     "El banco mantiene su propio ancho y su propio tamaño de iconos, aparte de las bolsas.",
   ["One icon size for both bank tabs."] = "Un solo tamaño de iconos para las dos pestañas del banco.",
@@ -214,8 +214,8 @@ local STRINGS = {
   ["Thickness of the slot border."] = "Grosor del borde de los espacios.",
   ["Tint the item level number with the item's quality color."] =
     "Colorea el nivel de objeto con el color de su calidad.",
-  ["Alt-click an item in the bags or the bank to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Alt-click again, or the cross here, to unlock."] =
-    "Alt + clic izquierdo en un objeto de las bolsas o del banco lo protege: aparece un candado y el objeto ya no se puede vender, ni automáticamente ni con un clic derecho ante el mercader. Otro Alt + clic izquierdo, o la cruz de esta lista, quita la protección.",
+  ["Alt-click an item to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Works in the bags, the bank, the favorites row and the pocket. Alt-click again, or the cross here, to unlock."] =
+    "Alt + clic izquierdo en un objeto lo protege: aparece un candado y el objeto ya no se puede vender, ni automáticamente ni con un clic derecho ante el mercader. Funciona en las bolsas, el banco, la fila de favoritos y el bolsillo. Otro Alt + clic izquierdo, o la cruz de esta lista, quita la protección.",
   ["Alt-click to lock it from the vendor"] = "Alt + clic izquierdo para protegerlo de la venta",
   ["Locked from the vendor. Alt-click to unlock"] =
     "Protegido de la venta. Alt + clic izquierdo quita la protección",
@@ -234,8 +234,8 @@ local STRINGS = {
   ["Copies of what you carry, so another character's bags and bank open from your own window."] =
     "Copias de lo que llevas, para abrir las bolsas y el banco de otro personaje en tu propia ventana.",
   ["Remember bags"] = "Guardar las bolsas",
-  ["Save this character's bags and gold whenever the bag window opens. Off = other characters stop seeing them."] =
-    "Guarda las bolsas y el oro de este personaje cada vez que se abre la ventana de bolsas. Desactivado: los demás personajes dejan de verlas.",
+  ["Save this character's bags and gold whenever the bag window opens. Off = the saved copy stops updating, and stays visible until you delete the character below."] =
+    "Guarda las bolsas y el oro de este personaje cada vez que se abre la ventana de bolsas. Desactivado: la copia guardada deja de actualizarse y sigue visible hasta que borres el personaje de la lista de abajo.",
   ["Remember bank"] = "Guardar el banco",
   ["Save the character bank while you stand at a banker."] =
     "Guarda el banco del personaje mientras estás con un banquero.",
@@ -254,14 +254,14 @@ local STRINGS = {
   ["Tier tokens"] = "Fichas de tier",
   ["Sell all of this automatically"] = "Vender todo esto automáticamente",
   ["Keep BoE"] = "Guardar los no ligados",
-  ["Keep warbound"] = "Guardar los ligados a la banda guerrera",
+  ["Keep warbound"] = "Guardar ligados a la banda",
   ["Keep socketed or enchanted"] = "Guardar los engarzados o encantados",
   ["Your gold"] = "Tu oro",
   ["Guild / yours"] = "Hermandad / tuyo",
   ["These start when a merchant window opens, with no click from you."] =
     "Se pone en marcha solo al abrirse la ventana del mercader, sin que pulses nada.",
-  ["Everything below is sold by the coin in the bags header, only when you press it."] =
-    "Todo lo de abajo se vende con la moneda de la cabecera de las bolsas, y solo cuando la pulsas.",
+  ["Everything below is sold by the coin in the bags header, unless you switch on automatic selling."] =
+    "Todo lo de abajo se vende con la moneda de la cabecera de las bolsas, salvo que actives la venta automática.",
   ["Sell every gray item, whatever its item level."] =
     "Vende todos los objetos grises, sea cual sea su nivel de objeto.",
   ["Repair at merchants who offer it. Others are left alone, with no message."] =
@@ -345,8 +345,8 @@ local STRINGS = {
   ["Favorites"] = "Favoritos",
   ["Recent"] = "Recientes",
   ["Recent items"] = "Objetos recientes",
-  ["A row above the favorites holding whatever came into your bags this session. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
-    "Una fila sobre los favoritos con todo lo que ha entrado en tus bolsas en esta sesión. Cada objeto nuevo ocupa la primera casilla libre, el más antiguo sale cuando la fila se llena, y la fila se vacía al salir o al recargar la interfaz.",
+  ["A row above the favorites holding what came into your bags this session, apart from gray items and anything already pinned to the favorites. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
+    "Una fila sobre los favoritos con lo que ha entrado en tus bolsas en esta sesión, salvo los objetos grises y lo que ya esté fijado en los favoritos. Cada objeto nuevo ocupa la primera casilla libre, el más antiguo sale cuando la fila se llena, y la fila se vacía al salir o al recargar la interfaz.",
   ["POCKET"] = "BOLSILLO",
   ["Pocket"] = "Bolsillo",
   ["Pocket window"] = "Ventana del bolsillo",
