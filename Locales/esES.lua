@@ -144,6 +144,7 @@ local STRINGS = {
     "Las bolsas se abren con estas ventanas y se cierran con ellas.",
   ["Bank"] = "Banco",
   ["Mail"] = "Correo",
+  ["Mythical"] = "Mítico",
   ["Auction house"] = "Casa de subastas",
   ["Trade"] = "Comercio",
   ["Guild bank"] = "Banco de hermandad",

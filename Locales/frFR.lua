@@ -147,6 +147,7 @@ local STRINGS = {
     "Les sacs s'ouvrent avec ces fenêtres et se referment avec elles.",
   ["Bank"] = "Banque",
   ["Mail"] = "Courrier",
+  ["Mythical"] = "Mythique",
   ["Auction house"] = "Hôtel des ventes",
   ["Trade"] = "Échange",
   ["Guild bank"] = "Banque de guilde",

@@ -499,15 +499,24 @@ function ns.Badge(key)
   return (t and t[key]) or BADGE[key]
 end
 
-local CUT_SAMPLE = "Mythical"
+local function utf8cut(s, n)
+  local i, out, len = 1, 0, #s
+  while i <= len and out < n do
+    local c = s:byte(i)
+    local step = 1
+    if c >= 240 then step = 4 elseif c >= 224 then step = 3 elseif c >= 192 then step = 2 end
+    i = i + step
+    out = out + 1
+  end
+  return s:sub(1, i - 1)
+end
 
 function ns.BadgeSample(key)
   local d = BADGE[key]
   if not (d and d.p) then return nil end
   if d.k then
     local k = ns.Badge(key).k or d.k
-    if k < 2 then k = 2 elseif k > #CUT_SAMPLE then k = #CUT_SAMPLE end
-    return CUT_SAMPLE:sub(1, k)
+    return utf8cut(ns.L["Mythical"], math.max(2, k))
   end
   return d.p
 end
@@ -736,18 +745,6 @@ function ns.MarkBind(b, label, quality)
 end
 
 local CUT, CUT_N = {}, nil
-
-local function utf8cut(s, n)
-  local i, out, len = 1, 0, #s
-  while i <= len and out < n do
-    local c = s:byte(i)
-    local step = 1
-    if c >= 240 then step = 4 elseif c >= 224 then step = 3 elseif c >= 192 then step = 2 end
-    i = i + step
-    out = out + 1
-  end
-  return s:sub(1, i - 1)
-end
 
 local function abbrev(name, n)
   if CUT_N ~= n then CUT, CUT_N = {}, n end
