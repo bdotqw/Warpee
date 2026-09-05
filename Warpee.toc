@@ -35,3 +35,4 @@ Bank.lua
 GuildBank.lua
 Options.lua
 Core.lua
+Bindings.xml

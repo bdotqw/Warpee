@@ -630,14 +630,31 @@ end
 function Pocket:Close(keep)
   if self.idBox then self.idBox:SetText(""); self.idBox:ClearFocus() end
   if self.frame then self.frame:Hide() end
-  if not keep then WarpeeDB.pocketOpen = nil end
+  if not keep then WarpeeDB.pocketOpen, self.solo = nil, nil end
 end
 
 function Pocket:Toggle()
-  if self.frame and self.frame:IsShown() then self:Close() else self:Open() end
+  if self.frame and self.frame:IsShown() then
+    self:Close()
+  else
+    self.solo = nil
+    self:Open()
+  end
+end
+
+function Pocket:Hotkey()
+  if not self:Enabled() then return end
+  if self.frame and self.frame:IsShown() then
+    self:Close()
+    return
+  end
+  local f = ns.Bags and ns.Bags.frame
+  self.solo = not (f and f:IsShown()) or nil
+  self:Open()
 end
 
 function Pocket:Restore()
+  if self.frame and self.frame:IsShown() then return end
   if not (self:Enabled() and WarpeeDB and WarpeeDB.pocketOpen) then return end
   self:Open()
 end
@@ -647,13 +664,37 @@ function Pocket:Apply()
   self:Refresh()
 end
 
+BINDING_HEADER_WARPEE = "Warpee"
+BINDING_NAME_WARPEE_POCKET = ns.L["Pocket"]
+
+function WarpeePocketToggle()
+  if ns.Pocket then ns.Pocket:Hotkey() end
+end
+
+local function defaultKey()
+  if not WarpeeDB or WarpeeDB.pocketKeyDone then return end
+  WarpeeDB.pocketKeyDone = true
+  if InCombatLockdown() then return end
+  if not (GetBindingKey and GetBindingAction and SetBinding and SaveBindings) then return end
+  if GetBindingKey("WARPEE_POCKET") then return end
+  if (GetBindingAction("F7") or "") ~= "" then return end
+  if SetBinding("F7", "WARPEE_POCKET") then
+    SaveBindings((GetCurrentBindingSet and GetCurrentBindingSet()) or 1)
+  end
+end
+
 local ev = CreateFrame("Frame")
 ev:RegisterEvent("BAG_UPDATE_DELAYED")
 ev:RegisterEvent("BAG_UPDATE_COOLDOWN")
 ev:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 ev:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 ev:RegisterEvent("PLAYER_REGEN_ENABLED")
+ev:RegisterEvent("PLAYER_LOGIN")
 ev:SetScript("OnEvent", function(_, event)
+  if event == "PLAYER_LOGIN" then
+    C_Timer.After(1, defaultKey)
+    return
+  end
   if event == "PLAYER_REGEN_ENABLED" then
     Pocket:Flush()
     return
