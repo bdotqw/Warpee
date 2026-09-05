@@ -751,6 +751,30 @@ local function abbrev(name, n)
   return v
 end
 
+local function setLoc(packed)
+  if type(packed) ~= "number" or packed <= 1 or not ItemLocation then return nil end
+  local player, bank, bags, void, slot, bag
+  if EquipmentManager_GetLocationData then
+    local d = EquipmentManager_GetLocationData(packed)
+    if not d then return nil end
+    player, bank, bags, void = d.isPlayer, d.isBank, d.isBags, d.isVoidStorage
+    slot, bag = d.slot, d.bag
+  elseif EquipmentManager_UnpackLocation then
+    player, bank, bags, void, slot, bag = EquipmentManager_UnpackLocation(packed)
+  else
+    return nil
+  end
+  if void or not slot then return nil end
+  if bags and bag then return ItemLocation:CreateFromBagAndSlot(bag, slot) end
+  if bank then
+    local base = BankButtonIDToInvSlotID and BankButtonIDToInvSlotID(0)
+    if not base then return nil end
+    return ItemLocation:CreateFromBagAndSlot(-1, slot - base)
+  end
+  if player then return ItemLocation:CreateFromEquipmentSlot(slot) end
+  return nil
+end
+
 local Sets = { map = {}, dirty = true }
 ns.Sets = Sets
 
@@ -762,23 +786,33 @@ function Sets:Map()
   local m = self.map
   for k in pairs(m) do m[k] = nil end
   local E = C_EquipmentSet
-  if not (E and E.GetEquipmentSetIDs and E.GetItemIDs) then return m end
+  local G = C_Item and C_Item.GetItemGUID
+  if not (E and G and E.GetEquipmentSetIDs and E.GetItemLocations) then return m end
   for _, id in ipairs(E.GetEquipmentSetIDs()) do
     local name = E.GetEquipmentSetInfo(id)
-    local ids = name and E.GetItemIDs(id)
-    if ids then
-      for _, itemID in pairs(ids) do
-        if type(itemID) == "number" and itemID > 1 and not m[itemID] then m[itemID] = name end
+    local locs = name and E.GetItemLocations(id)
+    if locs then
+      for _, packed in pairs(locs) do
+        local loc = setLoc(packed)
+        if loc and C_Item.DoesItemExist(loc) then
+          local ok, guid = pcall(G, loc)
+          if ok and guid and not m[guid] then m[guid] = name end
+        end
       end
     end
   end
   return m
 end
 
-function ns.OutfitLabel(itemID)
+function ns.OutfitLabel(loc, itemID)
   local g = ns.Badge("outfit")
-  if not (g.on and itemID) then return nil end
-  local name = Sets:Map()[itemID]
+  if not (g.on and loc and itemID and ns.GearItem(itemID)) then return nil end
+  local m = Sets:Map()
+  if not next(m) then return nil end
+  local G = C_Item and C_Item.GetItemGUID
+  if not G then return nil end
+  local ok, guid = pcall(G, loc)
+  local name = (ok and guid) and m[guid] or nil
   if not name then return nil end
   return abbrev(name, g.k or 4)
 end
@@ -1028,7 +1062,7 @@ function ns.UpdateItemButton(b)
                 and C_Item.DoesItemExist(loc)
                 and C_Item.IsBoundToAccountUntilEquip(loc) or false
     ns.MarkBind(b, ns.BindLabel(hl, iItemID, info.isBound, wue), info.quality)
-    ns.MarkOutfit(b, ns.OutfitLabel(iItemID))
+    ns.MarkOutfit(b, ns.OutfitLabel(loc, iItemID))
     local il = isGear and gearIlvl or nil
     if isGear and not il then
       il = C_Item.DoesItemExist(loc) and C_Item.GetCurrentItemLevel(loc) or nil
