@@ -15,6 +15,16 @@ local function repaintItems()
   if ns.Bank then ns.Bank:Repaint() end
 end
 
+local repaintQ
+local function repaintSoon()
+  if repaintQ then return end
+  repaintQ = true
+  C_Timer.After(0.05, function()
+    repaintQ = nil
+    repaintItems()
+  end)
+end
+
 function ns.Toggle(show)
   local f = Bags:Build()
   if show == nil then show = not f:IsShown() end
@@ -357,14 +367,14 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     end
   elseif event == "PLAYER_LEVEL_UP" or event == "SKILL_LINES_CHANGED" then
     ns.ClearUnusableCache()
-    repaintItems()
+    repaintSoon()
   elseif event == "ITEM_CHANGED" then
-    repaintItems()
+    repaintSoon()
     C_Timer.After(0.5, repaintItems)
   elseif event == "EQUIPMENT_SETS_CHANGED" or event == "EQUIPMENT_SWAP_FINISHED"
       or event == "PLAYER_EQUIPMENT_CHANGED" then
     ns.Sets:Dirty()
-    repaintItems()
+    repaintSoon()
   elseif event == "BANKFRAME_OPENED" then
     ns.Sets:Dirty()
     if ns.Bank then ns.Bank.bankerOpen = true; ns.Bank:OnBankOpened() end
