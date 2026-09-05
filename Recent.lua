@@ -8,11 +8,13 @@ Rec.slots, Rec.ghosts = {}, {}
 local LABEL_H, LABEL_GAP = 13, 4
 local MAX_SLOTS = 24
 local SETTLE = 5
+local FADE = 10
 
-local cells, seq, known, got = {}, {}, {}, {}
+local cells, seq, known, got, stamp = {}, {}, {}, {}, {}
 local locBag, locSlot = {}, {}
 local counter = 0
 local primed = nil
+local fader
 
 function Rec:Enabled()
   return not (WarpeeDB and WarpeeDB.recentShow == false)
@@ -89,12 +91,19 @@ local function used()
   return false
 end
 
+local function mark(id, delta)
+  got[id] = (got[id] or 0) + delta
+  stamp[id] = GetTime()
+  if fader then fader:Show() end
+end
+
 local function add(id, n, delta)
   if seq[id] or pinned(id) then return end
   counter = counter + 1
   for i = 1, n do
     if not cells[i] then
-      cells[i], seq[id], got[id] = id, counter, delta
+      cells[i], seq[id] = id, counter
+      mark(id, delta)
       return
     end
   end
@@ -105,8 +114,9 @@ local function add(id, n, delta)
   end
   if not worn then return end
   local out = cells[worn]
-  seq[out], got[out] = nil, nil
-  cells[worn], seq[id], got[id] = id, counter, delta
+  seq[out], got[out], stamp[out] = nil, nil, nil
+  cells[worn], seq[id] = id, counter
+  mark(id, delta)
 end
 local function compact(n)
   local ids, over = {}, false
@@ -123,7 +133,7 @@ local function compact(n)
   local cut = math.max(0, #ids - n)
   for k = 1, #ids do
     local id = ids[k]
-    if k <= cut then seq[id], got[id] = nil, nil else cells[k - cut] = id end
+    if k <= cut then seq[id], got[id], stamp[id] = nil, nil, nil else cells[k - cut] = id end
   end
 end
 
@@ -131,7 +141,7 @@ local function prune(counts)
   for i = 1, MAX_SLOTS do
     local id = cells[i]
     if id and (not counts[id] or pinned(id)) then
-      seq[id], got[id] = nil, nil
+      seq[id], got[id], stamp[id] = nil, nil, nil
       cells[i] = nil
     end
   end
@@ -149,7 +159,7 @@ local function detect()
     local was = known[id] or 0
     if not hold and c > was then
       if seq[id] then
-        got[id] = (got[id] or 0) + (c - was)
+        mark(id, c - was)
       else
         add(id, n, c - was)
       end
@@ -162,6 +172,38 @@ local function detect()
   end
   prune(counts)
 end
+local function makeBar(b)
+  if b.wpeBar or not b.borderFrame then return b.wpeBar end
+  local t = b.borderFrame:CreateTexture(nil, "OVERLAY", nil, 7)
+  t:SetColorTexture(Theme:C("accent"))
+  Theme:Track(t, function(s) s:SetColorTexture(Theme:C("accent")) end)
+  t:SetPoint("TOPLEFT", b, "TOPLEFT", 1, -1)
+  t:SetPoint("TOPRIGHT", b, "TOPRIGHT", -1, -1)
+  ns.PixelLine(t, 2)
+  t:Hide()
+  b.wpeBar = t
+  return t
+end
+
+function Rec:Fade()
+  local live, now = false, GetTime()
+  for i = 1, MAX_SLOTS do
+    local b, id = self.slots[i], cells[i]
+    local t = b and b.wpeBar
+    if t then
+      local at = id and stamp[id]
+      if at and b.holder:IsShown() and (now - at) < FADE then
+        t:SetAlpha(1 - (now - at) / FADE)
+        t:Show()
+        live = true
+      else
+        t:Hide()
+      end
+    end
+  end
+  return live
+end
+
 local function makeGhost(parent)
   local g = CreateFrame("Frame", nil, parent, "BackdropTemplate")
   ns.PixelBackdrop(g)
@@ -191,6 +233,7 @@ function Rec:Warm()
       b.wpeClicks, b.wpeLockable, b.wpeTotal = ns.CLICKS_USE, nil, nil
       b.wpeNoNew = true
       b.holder:Hide()
+      makeBar(b)
       self.slots[i] = b
     end
     if not self.ghosts[i] then
@@ -309,6 +352,7 @@ function Rec:Apply(bags, x, top, size, gap)
       end
     end
   end
+  if self:Fade() and fader then fader:Show() end
   return LABEL_H + LABEL_GAP + size + 6
 end
 function Rec:Refresh()
@@ -321,8 +365,7 @@ function Rec:Refresh()
   self:Apply(a.bags, a.x, a.top, a.size, a.gap)
 end
 
-local queued = false
-local function soon()
+local queued = falselocal function soon()
   if queued then return end
   queued = true
   C_Timer.After(0.05, function()
@@ -354,4 +397,14 @@ ev:SetScript("OnEvent", function(_, event)
     return
   end
   Rec:Cooldowns()
+end)
+
+fader = CreateFrame("Frame")
+fader:Hide()
+local tick = 0
+fader:SetScript("OnUpdate", function(self, dt)
+  tick = tick + dt
+  if tick < 0.1 then return end
+  tick = 0
+  if not Rec:Fade() then self:Hide() end
 end)
