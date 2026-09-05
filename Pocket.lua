@@ -231,6 +231,10 @@ local function makeCatcher(parent, index)
       Pocket:PinFromCursor(s.pkIndex)
       return
     end
+    if IsShiftKeyDown() and not (IsControlKeyDown() or IsAltKeyDown()) then
+      Pocket:Link(s.pkIndex)
+      return
+    end
     if IsControlKeyDown() and not (IsShiftKeyDown() or IsAltKeyDown()) then
       Pocket:Set(s.pkIndex, nil)
       tipFor(s, s.pkIndex)
@@ -247,6 +251,18 @@ local function makeCatcher(parent, index)
     GameTooltip:Hide()
   end)
   return c
+end
+
+function Pocket:Link(index)
+  local pin = self:List()[index]
+  if not (pin and HandleModifiedItemClick) then return end
+  local b = self.slots[index]
+  local link
+  if b and b.pkBag and b.holder:IsShown() then
+    link = C_Container.GetContainerItemLink(b.pkBag, b.pkSlot)
+  end
+  if not link then link = select(2, C_Item.GetItemInfo(pin)) end
+  if link then HandleModifiedItemClick(link) end
 end
 
 function Pocket:Set(index, pin)

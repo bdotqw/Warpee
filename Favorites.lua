@@ -174,6 +174,10 @@ local function makeCatcher(parent, index)
       Fav:PinFromCursor(s.favIndex)
       return
     end
+    if IsShiftKeyDown() and not (IsControlKeyDown() or IsAltKeyDown()) then
+      Fav:Link(s.favIndex)
+      return
+    end
     if IsAltKeyDown() and not (IsShiftKeyDown() or IsControlKeyDown()) then
       Fav:Lock(s.favIndex)
       return
@@ -194,6 +198,18 @@ local function makeCatcher(parent, index)
     GameTooltip:Hide()
   end)
   return c
+end
+
+function Fav:Link(index)
+  local id = self:List()[index]
+  if not (id and HandleModifiedItemClick) then return end
+  local b = self.slots[index]
+  local link
+  if b and b.favBag and b.holder:IsShown() then
+    link = C_Container.GetContainerItemLink(b.favBag, b.favSlot)
+  end
+  if not link then link = select(2, C_Item.GetItemInfo(id)) end
+  if link then HandleModifiedItemClick(link) end
 end
 
 function Fav:Set(index, id)
