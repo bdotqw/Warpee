@@ -4,6 +4,11 @@ local Theme = ns.Theme
 ns.CLICKS_SLOT = { "LeftButtonUp", "RightButtonUp" }
 ns.CLICKS_USE = { "RightButtonUp" }
 
+function ns.ItemTargeting()
+  local f, g = SpellCanTargetItem, SpellCanTargetItemID
+  return ((f and f()) or (g and g())) and true or false
+end
+
 function ns.ItemStub(link)
   if type(link) ~= "string" then return nil end
   return link:match("|H(item:[^|]+)|h") or link:match("^(item:[^|]+)")
