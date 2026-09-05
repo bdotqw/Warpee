@@ -358,6 +358,7 @@ function Pocket:Build()
     if pp then WarpeeDB.pocketPos = { p = pp, rp = rp, x = x, y = y } end
   end)
   ns.EscClose(w)
+  ns.PixelJob(w, function(s) ns.AlignToScreen(s) end, "align")
 
   local title = Theme:Title(w, 14, "accent")
   ns.LocalText(title, "POCKET")
@@ -458,7 +459,7 @@ function Pocket:Layout()
   local path = ns.Fonts:Current()
   self.title:SetFont(path, 14, "")
   self.title:ClearAllPoints()
-  self.title:SetPoint("LEFT", w, "TOPLEFT", PAD, -mid)
+  ns.SnapPoint(self.title, "LEFT", w, "TOPLEFT", PAD, -mid)
   self.closeBtn:ClearAllPoints()
   ns.SnapPoint(self.closeBtn, "RIGHT", w, "TOPRIGHT", -6, -mid)
 
@@ -598,6 +599,7 @@ function Pocket:Layout()
   ns.SnapPoint(self.idBox, "TOPRIGHT", w, "TOPRIGHT", -PAD, -foot)
   self.idBox:SetHeight(BOX_H)
   ns.SnapSize(w, PAD * 2 + cols * step - gap, foot + BOX_H + PAD)
+  ns.AlignToScreen(w)
 end
 
 function Pocket:Refresh()
