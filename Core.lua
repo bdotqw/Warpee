@@ -355,6 +355,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     ns.Sets:Dirty()
     repaintItems()
   elseif event == "BANKFRAME_OPENED" then
+    ns.Sets:Dirty()
     if ns.Bank then ns.Bank.bankerOpen = true; ns.Bank:OnBankOpened() end
     autoOpenBags("bank")
   elseif event == "BANKFRAME_CLOSED" then
