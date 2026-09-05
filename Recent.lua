@@ -3,7 +3,7 @@ local Theme = ns.Theme
 
 local Rec = {}
 ns.Recent = Rec
-Rec.slots = {}
+Rec.slots, Rec.ghosts = {}, {}
 
 local LABEL_H, LABEL_GAP = 13, 4
 local MAX_SLOTS = 24
@@ -75,13 +75,6 @@ local function pinned(id)
   return false
 end
 
-local function used()
-  for i = 1, MAX_SLOTS do
-    if cells[i] then return true end
-  end
-  return false
-end
-
 local function add(id, n)
   if seq[id] or pinned(id) then return end
   counter = counter + 1
@@ -143,6 +136,18 @@ local function detect()
   end
   prune(counts)
 end
+local function makeGhost(parent)
+  local g = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+  ns.PixelBackdrop(g)
+  g:SetBackdropColor(Theme:C("slot"))
+  g:SetBackdropBorderColor(Theme:C("emptyLine"))
+  Theme:Track(g, function(s)
+    s:SetBackdropColor(Theme:C("slot"))
+    s:SetBackdropBorderColor(Theme:C("emptyLine"))
+  end)
+  return g
+end
+
 -- The cells are container slot buttons, so they are built here, out of combat, and a
 -- redraw only moves and re-ids them after that. A button made during a fight is
 -- tainted for good. The row keeps the right button for using the item and leaves the
@@ -161,6 +166,11 @@ function Rec:Warm()
       b.holder:Hide()
       self.slots[i] = b
     end
+    if not self.ghosts[i] then
+      local g = makeGhost(frame)
+      g:Hide()
+      self.ghosts[i] = g
+    end
   end
   self.cold, self.warmed = nil, true
 end
@@ -174,13 +184,14 @@ end
 function Rec:Hide()
   if self.label then self.label:Hide() end
   for i = 1, MAX_SLOTS do
-    local b = self.slots[i]
+    local b, g = self.slots[i], self.ghosts[i]
     if b then b.holder:Hide(); b.recBag = nil end
+    if g then g:Hide() end
   end
 end
 
 function Rec:Height(size)
-  if not (self:Enabled() and used()) then return 0 end
+  if not self:Enabled() then return 0 end
   return LABEL_H + LABEL_GAP + (tonumber(size) or 0) + 6
 end
 
@@ -201,10 +212,6 @@ function Rec:Apply(bags, x, top, size, gap)
     return 0
   end
   if not self.warmed then self:Warm() end
-  if not used() then
-    self:Hide()
-    return 0
-  end
   if not self.label then
     local fs = Theme:Label(frame, 11, "dim")
     fs:SetJustifyH("LEFT")
@@ -222,7 +229,8 @@ function Rec:Apply(bags, x, top, size, gap)
   for i = 1, MAX_SLOTS do
     local id = (i <= n) and cells[i] or nil
     local bag, slot = id and locBag[id], id and locSlot[id]
-    local b = self.slots[i]
+    local b, g = self.slots[i], self.ghosts[i]
+    local px = x + (i - 1) * (size + gap)
     if id and bag and not b then self.cold = true end
     if id and bag and b then
       if b.recBag ~= bag or b.recSlot ~= slot then
@@ -234,13 +242,21 @@ function Rec:Apply(bags, x, top, size, gap)
       local h = b.holder
       ns.SnapSize(h, size, size)
       h:ClearAllPoints()
-      ns.SnapPoint(h, "TOPLEFT", frame, "TOPLEFT", x + (i - 1) * (size + gap), -rowY)
+      ns.SnapPoint(h, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
       h:Show(); b:Show()
       if repaint then b.link = nil end
       ns.UpdateItemButton(b)
-    elseif b then
-      b.holder:Hide()
-      b.recBag = nil
+      if g then g:Hide() end
+    else
+      if b then b.holder:Hide(); b.recBag = nil end
+      if g and i <= n then
+        ns.SnapBox(g, size, size)
+        g:ClearAllPoints()
+        ns.SnapPoint(g, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
+        g:Show()
+      elseif g then
+        g:Hide()
+      end
     end
   end
   return LABEL_H + LABEL_GAP + size + 6
