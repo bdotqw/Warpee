@@ -907,15 +907,22 @@ function ns.ClearItemPaint()
 end
 
 local gearMemo = {}
+local GEAR_CLASS = {}
+do
+  local C = Enum and Enum.ItemClass
+  for _, k in ipairs({ "Armor", "Weapon", "Profession" }) do
+    if C and C[k] then GEAR_CLASS[C[k]] = true end
+  end
+end
 
 function ns.GearItem(id)
   id = tonumber(id)
   if not id then return false end
   local v = gearMemo[id]
   if v == nil then
-    local loc = select(4, C_Item.GetItemInfoInstant(id))
-    if loc == nil then return false end
-    v = (loc ~= "") and true or false
+    local cls = select(6, C_Item.GetItemInfoInstant(id))
+    if cls == nil then return false end
+    v = GEAR_CLASS[cls] and true or false
     gearMemo[id] = v
   end
   return v
