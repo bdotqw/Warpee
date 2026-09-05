@@ -1112,7 +1112,7 @@ function Bags:UpdateDirty()
   if self.snap then self.dirty = {}; return end
   local total, used = 0, 0
   for _, bag in ipairs(ns.playerBags) do
-    local num = C_Container.GetContainerNumSlots(bag)
+    local num = C_Container.GetContainerNumSlots(bag) or 0
     total = total + num
     used = used + (num - (select(1, C_Container.GetContainerNumFreeSlots(bag)) or 0))
   end
