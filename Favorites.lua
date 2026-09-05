@@ -157,8 +157,9 @@ end
 -- SetPassThroughButtons is refused during combat lockdown, so it is set here, once,
 -- and never touched again. That is why clearing a slot lives on Ctrl + left click:
 -- taking the right button back would mean calling it again mid fight.
--- The one left click it hands on is the one that finishes a pending item spell: the
--- same UseContainerItem line the game runs in its own slot, callable from ours.
+-- The overlay must never finish a pending item spell itself: C_Container.UseContainerItem
+-- from addon code is refused as ADDON_ACTION_FORBIDDEN, traceback 2026-09-05. An enchant
+-- or a gem lands only on a slot whose click the game owns, the recent row or a bag.
 local function makeCatcher(parent, index)
   local c = CreateFrame("Button", nil, parent)
   c.favIndex = index
@@ -172,13 +173,6 @@ local function makeCatcher(parent, index)
   c:SetScript("OnReceiveDrag", function(s) Fav:PinFromCursor(s.favIndex) end)
   c:SetScript("OnClick", function(s, button)
     if button ~= "LeftButton" then return end
-    if ns.ItemTargeting() then
-      local b = Fav.slots[s.favIndex]
-      if b and b.favBag and b.holder:IsShown() then
-        C_Container.UseContainerItem(b.favBag, b.favSlot)
-      end
-      return
-    end
     if GetCursorInfo() then
       Fav:PinFromCursor(s.favIndex)
       return
