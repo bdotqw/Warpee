@@ -396,7 +396,9 @@ function Rec:Refresh()
   if ns.Pocket then ns.Pocket:Refresh() end
 end
 
-local queued = falselocal function soon()
+local queued = false
+
+local function soon()
   if queued then return end
   queued = true
   C_Timer.After(0.05, function()
