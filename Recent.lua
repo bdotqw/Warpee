@@ -12,7 +12,7 @@ local SETTLE = 5
 local cells, seq, known = {}, {}, {}
 local locBag, locSlot = {}, {}
 local counter = 0
-local settleAt = GetTime() + SETTLE
+local settled, firstAt = false, nil
 
 function Rec:Enabled()
   return not (WarpeeDB and WarpeeDB.recentShow == false)
@@ -126,9 +126,23 @@ local function prune(counts)
   end
 end
 
+local function same(counts)
+  for id, c in pairs(counts) do
+    if known[id] ~= c then return false end
+  end
+  for id in pairs(known) do
+    if counts[id] == nil then return false end
+  end
+  return true
+end
+
 local function detect()
   local counts = tally()
-  local hold = frozen() or not Rec:Enabled() or GetTime() < settleAt
+  local hold = not settled or frozen() or not Rec:Enabled()
+  if not settled and (C_Container.GetContainerNumSlots(0) or 0) > 0 then
+    firstAt = firstAt or GetTime()
+    if same(counts) or (GetTime() - firstAt) > SETTLE then settled = true end
+  end
   local n = capacity()
   for id, c in pairs(counts) do
     if not hold and c > (known[id] or 0) then add(id, n) end
