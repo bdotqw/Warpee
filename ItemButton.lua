@@ -549,11 +549,14 @@ local function decorated(t)
   return not tierAtlas(t)
 end
 
+-- The zoom unit was re-scaled once: one now draws the icon 8% over each side, which is
+-- what the old 1.19 drew, and a decoration zooms exactly like everything else.
+local ZOOM_UNIT = 1.19
+
 function ns.ApplyIconZoom(b)
   local ic = b.icon or _G[(b:GetName() or "") .. "IconTexture"]
   if not ic then return end
-  local z = ns.Bags.iconZoom or 1
-  if decorated(b.IconOverlay) or decorated(b.IconOverlay2) then z = z - 0.1 end
+  local z = (ns.Bags.iconZoom or 1) * ZOOM_UNIT
   local sz = cellOf(b)
   if b.zoomFor == z and b.zoomSize == sz then return end
   b.zoomFor, b.zoomSize = z, sz
@@ -1099,7 +1102,8 @@ function ns.UpdateItemButton(b)
   elseif hl and ns.IsItemUnusable(bagID, slot, hl) then
     local R = RED_FONT_COLOR
     ns.SetRarityRing(b, R.r, R.g, R.b, 1)
-  elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q] then
+  elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q]
+         and not decorated(b.IconOverlay) and not decorated(b.IconOverlay2) then
     local c = ITEM_QUALITY_COLORS[q]
     ns.SetRarityRing(b, c.r, c.g, c.b, 1)
   else
@@ -1205,7 +1209,8 @@ function ns.PaintVaultButton(b, d, bagID)
   elseif link and ns.IsLinkUnusable(link) then
     local R = RED_FONT_COLOR
     ns.SetRarityRing(b, R.r, R.g, R.b, 1)
-  elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q] then
+  elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q]
+         and not decorated(b.IconOverlay) and not decorated(b.IconOverlay2) then
     local c = ITEM_QUALITY_COLORS[q]
     ns.SetRarityRing(b, c.r, c.g, c.b, 1)
   else
