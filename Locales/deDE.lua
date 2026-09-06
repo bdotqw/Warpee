@@ -55,6 +55,7 @@ local STRINGS = {
   ["Search"] = "Suche",
   ["Markers"] = "Markierungen",
   ["Slot look"] = "Aussehen der Plätze",
+  ["Rows"] = "Reihen",
   ["Bags grid"] = "Taschenraster",
   ["Bank and Warband grid"] = "Raster für Bank und Kriegsmeute",
   ["Badges"] = "Abzeichen",
