@@ -31,34 +31,27 @@ function Fav:List()
   return WarpeeDB.favorites[k]
 end
 
-local locBag, locSlot, locsDirty = {}, {}, true
+-- Pinned cells are shared with the pocket window. Read the block above ns.PinArg in
+-- ItemButton.lua before touching anything a cell knows or shows, and make the change there
+-- so both rows get it: this file owns only the row, its geometry, the tooltip and the click
+-- overlay. The lists themselves stay apart, this one is its own.
+local pins = {}
+local locsDirty = true
 
-local function scanBag(bag)
-  for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
-    local id = C_Container.GetContainerItemID(bag, slot)
-    if id and not locBag[id] then locBag[id], locSlot[id] = bag, slot end
-  end
+local function scan()
+  if not locsDirty then return end
+  locsDirty = false
+  ns.PinScan(Fav:List(), MAX_SLOTS, pins)
 end
 
-local function locate(id)
-  if not id then return nil end
-  if locsDirty then
-    wipe(locBag); wipe(locSlot)
-    for _, bag in ipairs(ns.playerBags) do scanBag(bag) end
-    if ns.reagentBag then scanBag(ns.reagentBag) end
-    locsDirty = false
-  end
-  return locBag[id], locSlot[id]
+local function locate(pin)
+  scan()
+  return ns.PinLocate(pin, pins)
 end
 
-function Fav:Locate(id) return locate(id) end
-
-local function itemIcon(id)
-  if C_Item and C_Item.GetItemIconByID then
-    local ok, tex = pcall(C_Item.GetItemIconByID, id)
-    if ok and tex then return tex end
-  end
-  return (GetItemIcon and GetItemIcon(id)) or 134400
+local function worn(pin)
+  scan()
+  return ns.PinWorn(pin, pins)
 end
 
 local function favSound(kind, bag, slot)
@@ -136,14 +129,21 @@ local function dragArt()
 end
 
 local function tipFor(c, index)
-  local id = Fav:List()[index]
+  local pin = Fav:List()[index]
   GameTooltip:SetOwner(c, "ANCHOR_RIGHT")
-  if id then
+  if pin then
     local b = Fav.slots[index]
     if b and b.favBag and b.holder:IsShown() then
       GameTooltip:SetBagItem(b.favBag, b.favSlot)
     else
-      GameTooltip:SetItemByID(id)
+      if type(pin) == "string" then
+        GameTooltip:SetHyperlink(pin)
+      else
+        GameTooltip:SetItemByID(pin)
+      end
+      if worn(pin) then
+        GameTooltip:AddLine(ns.L["Equipped"], 0.6, 0.6, 0.6, true)
+      end
     end
   else
     GameTooltip:SetText(ns.L["Favorites"])
@@ -205,30 +205,32 @@ local function makeCatcher(parent, index)
 end
 
 function Fav:Link(index)
-  local id = self:List()[index]
-  if not (id and ChatEdit_InsertLink) then return end
+  local pin = self:List()[index]
+  if not (pin and ChatEdit_InsertLink) then return end
   local b = self.slots[index]
   local link
   if b and b.favBag and b.holder:IsShown() then
     link = C_Container.GetContainerItemLink(b.favBag, b.favSlot)
   end
-  if not link then link = select(2, C_Item.GetItemInfo(id)) end
+  if not link then link = select(2, C_Item.GetItemInfo(ns.PinArg(pin))) end
   if link then ChatEdit_InsertLink(link) end
 end
 
-function Fav:Set(index, id)
+function Fav:Set(index, pin)
   local list = self:List()
-  if id then
+  if pin then
+    local k = ns.ItemKey(pin)
     for i, own in pairs(list) do
-      if own == id and i ~= index then list[i] = nil end
+      if i ~= index and k and ns.ItemKey(own) == k then list[i] = nil end
     end
   end
-  list[index] = id or nil
+  list[index] = pin or nil
+  locsDirty = true
   later()
 end
 
 function Fav:Lock(index)
-  local id = self:List()[index]
+  local id = ns.ItemStubID(self:List()[index])
   local V = ns.Vendor
   if not (id and V and V.Toggle) then return end
   V:Toggle(id, (C_Item.GetItemInfo(id)) or tostring(id))
@@ -237,8 +239,8 @@ function Fav:Lock(index)
 end
 
 function Fav:Lift(index)
-  local id = self:List()[index]
-  if not id then return end
+  local pin = self:List()[index]
+  if not pin then return end
   self.moving = index
   local b = self.slots[index]
   if b then ns.SetSlotHighlight(b, true) end
@@ -246,7 +248,7 @@ function Fav:Lift(index)
   local f = dragArt()
   local sz = math.max(16, (b and b:GetWidth()) or 0)
   f:SetSize(sz, sz)
-  f.icon:SetTexture(itemIcon(id))
+  f.icon:SetTexture(ns.PinIcon(ns.ItemStubID(pin)))
   f:Show()
 end
 
@@ -276,8 +278,9 @@ function Fav:PinFromCursor(index)
   if not id and link then id = tonumber(link:match("item:(%d+)")) end
   if not id then return end
   ClearCursor()
-  favSound("drop", locate(id))
-  self:Set(index, id)
+  local pin = ns.PinFor(id, link)
+  favSound("drop", locate(pin))
+  self:Set(index, pin)
 end
 
 function Fav:Cooldowns()
@@ -321,7 +324,7 @@ function Fav:Warm()
       self.slots[i] = b
     end
     if not self.ghosts[i] then
-      local g = makeGhost(frame)
+      local g = ns.PinGhost(frame)
       g:Hide()
       self.ghosts[i] = g
     end
@@ -374,10 +377,11 @@ function Fav:Apply(bags, x, top, size, gap)
   self.paintKey = gen
   local seen = {}
   for i = 1, n do
-    local id = list[i]
-    if id and seen[id] then list[i], id = nil, nil end
-    if id then seen[id] = true end
-    local bag, slot = locate(id)
+    local pin = list[i]
+    local key = pin and ns.ItemKey(pin)
+    if key and seen[key] then list[i], pin, key = nil, nil, nil end
+    if key then seen[key] = true end
+    local bag, slot = locate(pin)
     local px = x + (i - 1) * (size + gap)
     local b, g = self.slots[i], self.ghosts[i]
     if bag and not b then self.cold = true end
@@ -402,10 +406,8 @@ function Fav:Apply(bags, x, top, size, gap)
         ns.SnapBox(g, size, size)
         g:ClearAllPoints()
         ns.SnapPoint(g, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
-        if id then
-          g.icon:SetTexture(itemIcon(id)); g.icon:Show(); g.plus:Hide()
-        else
-          g.icon:Hide()
+        ns.PaintPin(g, pin, pins, self.slots[1])
+        if not pin then
           g.plus:SetFont(bags.fontPath or ns.Fonts:Current(), plusSize, "")
           g.plus:Show()
         end
@@ -435,13 +437,17 @@ local ev = CreateFrame("Frame")
 ev:RegisterEvent("BAG_UPDATE_DELAYED")
 ev:RegisterEvent("BAG_UPDATE_COOLDOWN")
 ev:RegisterEvent("SPELL_UPDATE_COOLDOWN")
+ev:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+ev:RegisterEvent("EQUIPMENT_SETS_CHANGED")
+ev:RegisterEvent("EQUIPMENT_SWAP_FINISHED")
 ev:RegisterEvent("PLAYER_REGEN_ENABLED")
 ev:SetScript("OnEvent", function(_, event)
   if event == "PLAYER_REGEN_ENABLED" then
     Fav:Flush()
     return
   end
-  if event == "BAG_UPDATE_DELAYED" then
+  if event == "BAG_UPDATE_DELAYED" or event == "PLAYER_EQUIPMENT_CHANGED"
+     or event == "EQUIPMENT_SETS_CHANGED" or event == "EQUIPMENT_SWAP_FINISHED" then
     locsDirty = true
     Fav:Refresh()
     return
