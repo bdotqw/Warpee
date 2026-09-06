@@ -96,6 +96,8 @@ local function hookList(names, fn)
   end
 end
 
+local autoOpenBags, autoCloseBags
+
 local function HookBagToggles()
   -- The one global the addon owns. ToggleAllBags runs from a keybind, from the bag
   -- button, or from another addon, never inside a path that goes on to a protected
@@ -104,6 +106,18 @@ local function HookBagToggles()
   -- ours, so a press could close what it should have opened.
   ToggleAllBags = function() ns.Toggle() end
   hideBlizzBags()
+  -- The game opens the bags by itself when the mail frame comes up, and it passes the
+  -- frame along in the call. Such a call is the game's auto open, not a player's hand,
+  -- so it goes through the same checkbox the interaction event uses: off, and the
+  -- game's own call opens nothing of ours, the way Baganator leaves these calls to its
+  -- per window options. Close calls carry the frame too, so they pass the same gate
+  -- and never close bags the player opened by hand.
+  local OPEN_FRAME_KEY = { MailFrame = "mail" }
+  local function frameKey(frame)
+    if not (frame and frame.GetName) then return nil end
+    local ok, name = pcall(frame.GetName, frame)
+    return (ok and OPEN_FRAME_KEY[name]) or nil
+  end
   -- An item spell waiting for a target, an enchant or a gem, makes the game open the
   -- bags through these same calls. Only our own frame is held back here; the game's
   -- functions still run whole, so nothing of its own is silenced and no protected call
@@ -116,6 +130,12 @@ local function HookBagToggles()
       hideBlizzBags()
       return
     end
+    local key = frameKey(frame)
+    if key then
+      hideBlizzBags()
+      autoOpenBags(key)
+      return
+    end
     if ns.ItemTargeting() and ns.Pocket and ns.Pocket.frame and ns.Pocket.frame:IsShown() then
       hideBlizzBags()
       return
@@ -125,12 +145,17 @@ local function HookBagToggles()
   end)
   hookList(BAG_FN.close, function(frame)
     if frame ~= nil and frame == BankFrame then return end
+    local key = frameKey(frame)
+    if key then
+      autoCloseBags(key)
+      return
+    end
     ns.Toggle(false)
   end)
   hookList(BAG_FN.sync, function() ns.Toggle(blizzBagsOpen()) end)
 end
 
-local function autoOpenBags(key)
+function autoOpenBags(key)
   if not (WarpeeDB and WarpeeDB.autoOpen and WarpeeDB.autoOpen[key]) then return end
   -- The pocket stands in for the bags, so a window that pulls the bags open pushes the
   -- pocket out of the way: too many windows on screen at once, and the pocket answers
@@ -144,7 +169,7 @@ local function autoOpenBags(key)
   end
 end
 
-local function autoCloseBags(key)
+function autoCloseBags(key)
   if ns.autoOpened and (not key or ns.autoOpened == key) then
     ns.autoOpened = nil
     ns.Toggle(false)
