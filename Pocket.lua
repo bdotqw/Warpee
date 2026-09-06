@@ -405,8 +405,9 @@ function Pocket:Layout()
   local w = self.frame
   if not w then return end
   local Bags = ns.Bags
-  local size, gap, step = ns.GridMetrics(w, Bags and Bags.iconSize or 37,
-                                         Bags and Bags.gap or 4)
+  local size, gap, step = ns.GridMetrics(w,
+    (WarpeeDB and tonumber(WarpeeDB.pocketIconSize)) or (Bags and Bags.iconSize) or 37,
+    Bags and Bags.gap or 4)
   local cols, rows = self:Cols(), self:Rows()
   local n = cols * rows
   if (self.warmed or 0) < n or (self.recWarmed or 0) < cols then self:Warm() end

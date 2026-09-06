@@ -485,6 +485,96 @@ function factories.toggle(parent, spec)
   return row
 end
 
+local KEY_MODS = {
+  LCTRL = true, RCTRL = true, LSHIFT = true, RSHIFT = true, LALT = true, RALT = true,
+}
+
+-- Click the row, press a key, done: the binding is written the way the game stores them,
+-- so the client's own key list stays in sync. Escape cancels, a right click unbinds.
+-- SetBinding is protected in combat, so capture never starts there, and a press that
+-- lands mid combat is dropped instead of applied.
+function factories.keybind(parent, spec)
+  local row = CreateFrame("Button", nil, parent)
+  row:SetHeight(26)
+  row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  local fs = track(Theme:Label(row, BASE_FONT, "text"), 0)
+  fs:SetPoint("LEFT", 4, 0)
+  fs:SetJustifyH("LEFT")
+  local val = track(Theme:Label(row, BASE_FONT, "dim"), 0)
+  val:SetPoint("RIGHT", -4, 0)
+  val:SetJustifyH("RIGHT")
+  local capturing = false
+
+  local function keyText()
+    local k = GetBindingKey and GetBindingKey(spec.binding)
+    if k and k ~= "" then return k end
+    return T("Not bound")
+  end
+
+  local function paint()
+    fs:SetText(T(spec.name))
+    if capturing then
+      val:SetText(T("Press a key..."))
+      val:SetTextColor(Theme:C("accent"))
+    else
+      val:SetText(keyText())
+      val:SetTextColor(Theme:C("dim"))
+    end
+  end
+
+  local function stop()
+    if not capturing then return end
+    capturing = false
+    row:EnableKeyboard(false)
+    paint()
+  end
+
+  local function save()
+    SaveBindings((GetCurrentBindingSet and GetCurrentBindingSet()) or 1)
+  end
+
+  row:SetScript("OnClick", function(_, button)
+    if capturing then stop() return end
+    if button == "RightButton" then
+      if InCombatLockdown() then return end
+      local k1, k2 = GetBindingKey and GetBindingKey(spec.binding)
+      if k1 then SetBinding(k1) end
+      if k2 then SetBinding(k2) end
+      if k1 or k2 then save() end
+      paint()
+      return
+    end
+    if InCombatLockdown() then return end
+    capturing = true
+    row:EnableKeyboard(true)
+    paint()
+  end)
+
+  row:SetScript("OnKeyDown", function(_, key)
+    if not capturing then return end
+    local swallow = row.SetPropagateKeyboardInput
+    if swallow then pcall(swallow, row, false) end
+    if key == "ESCAPE" then stop() return end
+    if KEY_MODS[key] then return end
+    stop()
+    if InCombatLockdown() then return end
+    local combo = (IsControlKeyDown() and "CTRL-" or "")
+               .. (IsAltKeyDown() and "ALT-" or "")
+               .. (IsShiftKeyDown() and "SHIFT-" or "")
+               .. key
+    local k1, k2 = GetBindingKey(spec.binding)
+    if k1 then SetBinding(k1) end
+    if k2 then SetBinding(k2) end
+    if SetBinding(combo, spec.binding) then save() end
+    paint()
+  end)
+
+  row:SetScript("OnHide", stop)
+  row.Refresh = paint
+  paint()
+  return row
+end
+
 function factories.input(parent, spec)
   local row = CreateFrame("Frame", nil, parent)
   row:SetHeight(28)
@@ -1500,6 +1590,13 @@ fav.pkColsSet = function(v)
   WarpeeDB.pocketCols = tonumber(v) or 6
   if ns.Pocket then ns.Pocket:Refresh() end
 end
+fav.pkSizeGet = function()
+  return tonumber(WarpeeDB.pocketIconSize) or (Bags.iconSize or 40)
+end
+fav.pkSizeSet = function(v)
+  WarpeeDB.pocketIconSize = tonumber(v) or 40
+  if ns.Pocket then ns.Pocket:Refresh() end
+end
 local lettersGet, lettersSet = field("goldLetters")
 local onlyGet, onlySet       = field("goldOnly")
 
@@ -1563,15 +1660,6 @@ local GENERAL_PAGE = {
     desc = "Never more than the grid is wide. Zero keeps the row as wide as the grid." },
   { type = "toggle", name = "Recent items", col = 1, get = fav.recentGet, set = fav.recentSet,
     desc = "A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload." },
-  { type = "header", name = "Pocket" },
-  { type = "toggle", name = "Pocket window", col = 1, get = fav.pkGet, set = fav.pkSet,
-    desc = "A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one." },
-  { type = "range", name = "Pocket rows", min = 1, max = 6, step = 1, half = "left",
-    get = fav.pkRowsGet, set = fav.pkRowsSet,
-    disabled = function() return not fav.pkGet() end },
-  { type = "range", name = "Slots per row", min = 4, max = 8, step = 1, half = "right",
-    get = fav.pkColsGet, set = fav.pkColsSet,
-    disabled = function() return not fav.pkGet() end },
   { type = "header", name = "Search" },
   { type = "toggle", name = "Clear on close", col = 1, get = sClearGet, set = sClearSet,
     desc = "Empty the search box when the window closes, so it opens unfiltered next time." },
@@ -1601,6 +1689,22 @@ local GENERAL_PAGE = {
   { type = "toggle", name = "Guild bank", col = 2, section = "autoopen", get = gbGet, set = gbSet },
   { type = "toggle", name = "Professions", col = 1, section = "autoopen",
     get = profGet, set = profSet },
+}
+
+local POCKET_PAGE = {
+  { type = "header", name = "Pocket" },
+  { type = "toggle", name = "Pocket window", col = 1, get = fav.pkGet, set = fav.pkSet,
+    desc = "A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one." },
+  { type = "range", name = "Pocket rows", min = 1, max = 6, step = 1, half = "left",
+    get = fav.pkRowsGet, set = fav.pkRowsSet,
+    disabled = function() return not fav.pkGet() end },
+  { type = "range", name = "Slots per row", min = 4, max = 8, step = 1, half = "right",
+    get = fav.pkColsGet, set = fav.pkColsSet,
+    disabled = function() return not fav.pkGet() end },
+  { type = "range", name = "Pocket slot size", min = 24, max = 56, step = 1, half = "left",
+    get = fav.pkSizeGet, set = fav.pkSizeSet,
+    disabled = function() return not fav.pkGet() end },
+  { type = "keybind", name = "Pocket key", binding = "WARPEE_POCKET", half = "right" },
 }
 
 local ITEMS_PAGE = {
@@ -1894,6 +1998,7 @@ local PAGES = {
   { name = "General", list = GENERAL_PAGE },
   { name = "Grid", list = GRID_PAGE },
   { name = "Items", list = ITEMS_PAGE },
+  { name = "Pocket", list = POCKET_PAGE },
   { name = "Vendor", list = VENDOR_PAGE },
   { name = "Characters", list = CHARS_PAGE },
 }
