@@ -99,6 +99,27 @@ function ringWidth(b)
   b.iT:SetHeight(px); b.iB:SetHeight(px)
   b.iL:SetWidth(px);  b.iR:SetWidth(px)
 end
+-- The swirl comes from the template, so how much of it is drawn depends on what that
+-- template happens to set, and the countdown frame of a container slot arrives with no
+-- swipe at all. Every part of the look is stated here instead: the swipe and its texture,
+-- the bright leading edge, no bling, and no numbers of the game's own since the row draws
+-- its own. These are drawing calls on the countdown frame, which is allowed; a script on
+-- it is not, and the rule block at the top of this file says why.
+local SWIPE_TEX = "Interface\Cooldown\cooldown_swipe_circle"
+local EDGE_TEX = "Interface\Cooldown\edge"
+
+local function dressCooldown(cd)
+  cd:SetHideCountdownNumbers(true)
+  if cd.SetSwipeTexture then cd:SetSwipeTexture(SWIPE_TEX) end
+  if cd.SetSwipeColor then cd:SetSwipeColor(0, 0, 0, 0.72) end
+  if cd.SetDrawSwipe then cd:SetDrawSwipe(true) end
+  if cd.SetEdgeTexture then cd:SetEdgeTexture(EDGE_TEX) end
+  if cd.SetUseCircularEdge then cd:SetUseCircularEdge(true) end
+  cd:SetDrawEdge(true)
+  if cd.SetDrawBling then cd:SetDrawBling(false) end
+  if cd.SetReverse then cd:SetReverse(false) end
+end
+
 local function attachBorder(b)
   local bf = CreateFrame("Frame", nil, b)
   bf:SetAllPoints(b)
@@ -359,8 +380,7 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
   local cd = b.Cooldown or _G[nm .. "Cooldown"]
   if cd then
     b.cd = cd
-    cd:SetHideCountdownNumbers(true)
-    cd:SetDrawEdge(true)
+    dressCooldown(cd)
     cd:Clear()
     b.cdText = b.borderFrame:CreateFontString(nil, "OVERLAY")
     b.cdText:SetDrawLayer("OVERLAY", 7)
@@ -682,6 +702,10 @@ function ns.UpdateCooldown(b)
   if start and start > 0 and duration and duration > 2 and enable and enable ~= 0 then
     if b.wpeCdStart ~= start or b.wpeCdDur ~= duration then
       b.wpeCdStart, b.wpeCdDur = start, duration
+      -- The game's own code hides this frame on an empty slot and shows it again with the
+      -- countdown, so a cell that was empty before keeps a hidden frame and the swirl would
+      -- never appear on it.
+      cd:Show()
       cd:SetCooldown(start, duration)
     end
     b.cdEnd = start + duration
