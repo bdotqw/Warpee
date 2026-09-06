@@ -147,39 +147,27 @@ local function pinQuality(pin)
   return (ok and tonumber(q)) or nil
 end
 
-local TIER_ATLAS = {}
-
-local function tierArt(q)
-  local a = TIER_ATLAS[q]
-  if a ~= nil then return a or nil end
-  local info = C_Texture and C_Texture.GetAtlasInfo
-  for _, n in ipairs({ ("professions-icon-quality-tier%d-inv"):format(q),
-                       ("Professions-Icon-Quality-Tier%d-Small"):format(q),
-                       ("Professions-Icon-Quality-Tier%d"):format(q),
-                       ("Professions-ChatIcon-Quality-Tier%d"):format(q) }) do
-    if not info then TIER_ATLAS[q] = n; return n end
-    local ok, d = pcall(info, n)
-    if ok and d then TIER_ATLAS[q] = n; return n end
-  end
-  TIER_ATLAS[q] = false
-  return nil
-end
-
+-- Midnight dropped the two lowest crafting ranks, so the old habit of building an atlas
+-- name out of the quality number now points at the wrong metal. Patch 12.0.0 added the
+-- pair of quality info calls that hand back the atlas for the item itself, and asking the
+-- game is the only mapping that stays right when it renames or renumbers the ranks again.
+-- Reagent quality is asked first and crafted second, the order the game uses on its own
+-- item buttons.
 local function pinTier(pin)
   local T = C_TradeSkillUI
   local arg = pinArg(pin)
   if not (T and arg) then return nil end
-  local q
-  if T.GetItemReagentQualityByItemInfo then
-    local ok, v = pcall(T.GetItemReagentQualityByItemInfo, arg)
-    if ok then q = tonumber(v) end
+  for _, name in ipairs({ "GetItemReagentQualityInfo", "GetItemCraftedQualityInfo" }) do
+    local f = T[name]
+    if f then
+      local ok, info = pcall(f, arg)
+      if ok and type(info) == "table" then
+        local art = info.iconInventory or info.icon or info.iconSmall
+        if art then return art end
+      end
+    end
   end
-  if not q and T.GetItemCraftedQualityByItemInfo then
-    local ok, v = pcall(T.GetItemCraftedQualityByItemInfo, arg)
-    if ok then q = tonumber(v) end
-  end
-  if not (q and q >= 1 and q <= 5) then return nil end
-  return tierArt(q)
+  return nil
 end
 
 local function pinFor(id, link)
@@ -197,10 +185,9 @@ local function pocketGhost(parent)
   local tier = g:CreateTexture(nil, "OVERLAY")
   tier:SetPoint("TOPLEFT", g.icon, "TOPLEFT")
   tier:SetPoint("BOTTOMRIGHT", g.icon, "BOTTOMRIGHT")
-  tier:SetDesaturated(true)
   tier:Hide()
   g.tier = tier
-  local cnt = Theme:Label(g, 11, "faint")
+  local cnt = Theme:Label(g, 11, "accent")
   cnt:SetPoint("BOTTOMRIGHT", -2, 2)
   cnt:Hide()
   g.cnt = cnt
@@ -674,7 +661,7 @@ function Pocket:Layout()
           if pin then
             local pid = ns.ItemStubID(pin)
             g.icon:SetTexture(itemIcon(pid)); g.icon:Show()
-            g:SetBackdropBorderColor(Theme:C(worn(pin) and "azure" or "faint"))
+            g:SetBackdropBorderColor(Theme:C(worn(pin) and "azure" or "accent"))
             local art = pinTier(pin)
             if art then g.tier:SetAtlas(art); g.tier:Show() else g.tier:Hide() end
             if ns.GearItem(pid) then
@@ -696,7 +683,10 @@ function Pocket:Layout()
               end
             else
               g.ilvl:Hide()
-              g.cnt:SetFont(path, math.max(9, math.floor(size * 0.3)), "")
+              local cb = ns.Badge("count")
+              ns.SetOutlined(g.cnt, cb.s)
+              g.cnt:ClearAllPoints()
+              g.cnt:SetPoint(ns.BadgePoint(cb), g, cb.c, cb.x, cb.y)
               g.cnt:SetText("0")
               g.cnt:Show()
             end
