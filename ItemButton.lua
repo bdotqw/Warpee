@@ -1251,6 +1251,13 @@ function ns.ApplySearchToButton(b, filters, blocked)
   b.searchMiss = miss
   b:SetAlpha(miss and 0.20 or 1)
   SetItemButtonDesaturated(b, miss)
+  -- Desaturation reaches the icon alone, so the quality ring kept its hue on a dimmed
+  -- cell and stayed the one colored thing on it. A color texture greys out under
+  -- SetDesaturated the same way, and the flag survives a SetColorTexture repaint.
+  if b.iT then
+    b.iT:SetDesaturated(miss); b.iB:SetDesaturated(miss)
+    b.iL:SetDesaturated(miss); b.iR:SetDesaturated(miss)
+  end
 end
 
 function ns.UpdateItemLock(b)
