@@ -82,7 +82,6 @@ local function blizzBagsOpen()
 end
 
 local BAG_FN = {
-  open  = { "OpenAllBags", "OpenBackpack", "OpenBag" },
   close = { "CloseAllBags", "CloseBackpack" },
   sync  = { "ToggleBackpack", "ToggleBag" },
 }
@@ -106,26 +105,27 @@ local function HookBagToggles()
   -- ours, so a press could close what it should have opened.
   ToggleAllBags = function() ns.Toggle() end
   hideBlizzBags()
-  -- The game opens the bags by itself when the mail frame comes up, and it passes the
-  -- frame along in the call. Such a call is the game's auto open, not a player's hand,
-  -- so it goes through the same checkbox the interaction event uses: off, and the
-  -- game's own call opens nothing of ours, the way Baganator leaves these calls to its
-  -- per window options. Close calls carry the frame too, so they pass the same gate
-  -- and never close bags the player opened by hand.
+  -- The game opens the bags by itself when the mail frame comes up, passing the frame
+  -- along, and its OpenAllBags then walks down through OpenBackpack and OpenBag, so
+  -- one press of the mail frame arrives here as three hooked calls, and the inner two
+  -- carry no frame, or a bag id number. The call stack tells a nested call from a
+  -- player's hand, the way Baganator reads it: only the outermost call decides, and a
+  -- call framed by the mail goes through the same checkbox the interaction event uses,
+  -- so off means the game's own call opens nothing of ours.
   local OPEN_FRAME_KEY = { MailFrame = "mail" }
   local function frameKey(frame)
-    if not (frame and frame.GetName) then return nil end
+    if type(frame) ~= "table" or not frame.GetName then return nil end
     local ok, name = pcall(frame.GetName, frame)
     return (ok and OPEN_FRAME_KEY[name]) or nil
   end
-  -- An item spell waiting for a target, an enchant or a gem, makes the game open the
-  -- bags through these same calls. Only our own frame is held back here; the game's
-  -- functions still run whole, so nothing of its own is silenced and no protected call
-  -- loses its footing. Never turn this into an override of theirs.
-  -- BankFrame opens and closes the bags itself, and it hands itself in as the first
-  -- argument. Those calls are left to the bank events instead, so the banker still
-  -- honours the auto-open settings.
-  hookList(BAG_FN.open, function(frame)
+  local function fromStack(names)
+    local stack = debugstack()
+    for _, n in ipairs(names) do
+      if stack:find(n, 1, true) then return true end
+    end
+    return false
+  end
+  local function onOpen(frame)
     if frame ~= nil and frame == BankFrame then
       hideBlizzBags()
       return
@@ -142,7 +142,27 @@ local function HookBagToggles()
     end
     ns.Toggle(true)
     hideBlizzBags()
-  end)
+  end
+  local OPEN_PARENTS = {
+    OpenAllBags = {},
+    OpenBackpack = { "OpenAllBags" },
+    OpenBag = { "OpenAllBags", "OpenBackpack" },
+  }
+  for name, parents in pairs(OPEN_PARENTS) do
+    if type(_G[name]) == "function" then
+      hooksecurefunc(name, function(frame)
+        if fromStack(parents) then return end
+        onOpen(frame)
+      end)
+    end
+  end
+  -- An item spell waiting for a target, an enchant or a gem, makes the game open the
+  -- bags through these same calls. Only our own frame is held back here; the game's
+  -- functions still run whole, so nothing of its own is silenced and no protected call
+  -- loses its footing. Never turn this into an override of theirs.
+  -- BankFrame opens and closes the bags itself, and it hands itself in as the first
+  -- argument. Those calls are left to the bank events instead, so the banker still
+  -- honours the auto-open settings.
   hookList(BAG_FN.close, function(frame)
     if frame ~= nil and frame == BankFrame then return end
     local key = frameKey(frame)
