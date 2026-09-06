@@ -353,6 +353,9 @@ local STRINGS = {
   ["Pocket window"] = "Ventana del bolsillo",
   ["Pocket rows"] = "Filas del bolsillo",
   ["Pocket slot size"] = "Tamaño de casilla del bolsillo",
+  ["Open with bags"] = "Abrir con las bolsas",
+  ["The pocket opens together with the bags. A window that opens the bags on its own, the auction house or the mail, pushes the pocket aside until you open it yourself."] =
+    "El bolsillo se abre junto con las bolsas. Una ventana que abre las bolsas por sí sola, la casa de subastas o el correo, aparta el bolsillo hasta que lo abras tú.",
   ["Pocket key"] = "Tecla del bolsillo",
   ["Not bound"] = "Sin asignar",
   ["Press a key..."] = "Pulsa una tecla...",

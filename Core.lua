@@ -33,7 +33,15 @@ function ns.Toggle(show)
     f:Show()
     ns.Theme:Raise(f)
     Bags:Layout()
-    if ns.Pocket then ns.Pocket:Restore() end
+    -- The pocket follows the bags on a hand press only. An auto open from the auction
+    -- house, the mail or a merchant has just pushed the pocket aside, and opening the
+    -- bags on top would undo that; ns.autoOpened is set before this runs, so it marks
+    -- which kind of open this is. With the option off nothing touches the pocket here:
+    -- only its own key and the header button open it.
+    if ns.Pocket and not ns.autoOpened
+       and (not WarpeeDB or WarpeeDB.pocketWithBags ~= false) then
+      ns.Pocket:Open()
+    end
   else
     f:Hide()
   end
@@ -124,6 +132,11 @@ end
 
 local function autoOpenBags(key)
   if not (WarpeeDB and WarpeeDB.autoOpen and WarpeeDB.autoOpen[key]) then return end
+  -- The pocket stands in for the bags, so a window that pulls the bags open pushes the
+  -- pocket out of the way: too many windows on screen at once, and the pocket answers
+  -- "with you or not", which the bags already say. Its own key and button still open it
+  -- on top of everything.
+  if ns.Pocket then ns.Pocket:Close(true) end
   local f = Bags.frame
   if f and not f:IsShown() then
     ns.autoOpened = key
@@ -250,6 +263,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.hideReagents == nil then WarpeeDB.hideReagents = false end
     WarpeeDB.pocketKeyDone = nil
     if WarpeeDB.pocketShow == nil then WarpeeDB.pocketShow = true end
+    if WarpeeDB.pocketWithBags == nil then WarpeeDB.pocketWithBags = true end
     WarpeeDB.pocketRows = tonumber(WarpeeDB.pocketRows) or 5
     WarpeeDB.pocketCols = tonumber(WarpeeDB.pocketCols) or 6
     if WarpeeDB.revFill == nil then WarpeeDB.revFill = false end

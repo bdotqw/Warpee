@@ -345,6 +345,9 @@ local STRINGS = {
   ["Pocket window"] = "Ablagefenster",
   ["Pocket rows"] = "Zeilen der Ablage",
   ["Pocket slot size"] = "Feldgröße der Ablage",
+  ["Open with bags"] = "Mit den Taschen öffnen",
+  ["The pocket opens together with the bags. A window that opens the bags on its own, the auction house or the mail, pushes the pocket aside until you open it yourself."] =
+    "Die Ablage öffnet sich zusammen mit den Taschen. Ein Fenster, das die Taschen von selbst öffnet, Auktionshaus oder Post, räumt die Ablage beiseite, bis du sie selbst öffnest.",
   ["Pocket key"] = "Taste der Ablage",
   ["Not bound"] = "Nicht belegt",
   ["Press a key..."] = "Taste drücken...",

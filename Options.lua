@@ -1635,6 +1635,15 @@ fav.pkSet = function(v)
   if ns.Pocket then ns.Pocket:Apply() end
   relayout()
 end
+fav.pkWithGet = function() return WarpeeDB.pocketWithBags ~= false end
+fav.pkWithSet = function(v)
+  WarpeeDB.pocketWithBags = v and true or false
+  if v and ns.Pocket and ns.Bags and ns.Bags.frame and ns.Bags.frame:IsShown()
+     and not (ns.Pocket.frame and ns.Pocket.frame:IsShown()) then
+    ns.Pocket:Open()
+  end
+  relayout()
+end
 fav.pkRowsGet = function() return ns.Pocket and ns.Pocket:Rows() or 5 end
 fav.pkRowsSet = function(v)
   WarpeeDB.pocketRows = tonumber(v) or 5
@@ -1740,6 +1749,9 @@ local POCKET_PAGE = {
   { type = "header", name = "Pocket" },
   { type = "toggle", name = "Pocket window", col = 1, get = fav.pkGet, set = fav.pkSet,
     desc = "A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one." },
+  { type = "toggle", name = "Open with bags", col = 2, get = fav.pkWithGet, set = fav.pkWithSet,
+    disabled = function() return not fav.pkGet() end,
+    desc = "The pocket opens together with the bags. A window that opens the bags on its own, the auction house or the mail, pushes the pocket aside until you open it yourself." },
   { type = "range", name = "Pocket rows", min = 1, max = 6, step = 1, half = "left",
     get = fav.pkRowsGet, set = fav.pkRowsSet,
     disabled = function() return not fav.pkGet() end,

@@ -368,7 +368,7 @@ function Pocket:Build()
     s:SetText("")
     s:ClearFocus()
   end)
-  box:SetScript("OnEditFocusLost", function(s) s:Hide() end)
+  box:SetScript("OnEditFocusLost", function(s) s:SetText(""); s:Hide() end)
   self.idBox = box
 
   w:Hide()
@@ -661,12 +661,6 @@ function Pocket:Hotkey()
   end
   local f = ns.Bags and ns.Bags.frame
   self.solo = not (f and f:IsShown()) or nil
-  self:Open()
-end
-
-function Pocket:Restore()
-  if self.frame and self.frame:IsShown() then return end
-  if not (self:Enabled() and WarpeeDB and WarpeeDB.pocketOpen) then return end
   self:Open()
 end
 

@@ -356,6 +356,9 @@ local STRINGS = {
   ["Pocket window"] = "Окно кармана",
   ["Pocket rows"] = "Рядов в кармане",
   ["Pocket slot size"] = "Размер ячейки кармана",
+  ["Open with bags"] = "Открывать с сумками",
+  ["The pocket opens together with the bags. A window that opens the bags on its own, the auction house or the mail, pushes the pocket aside until you open it yourself."] =
+    "Карман открывается вместе с сумками. Окно, которое открывает сумки само — аукцион или почта — убирает карман с экрана, пока вы не откроете его сами.",
   ["Pocket key"] = "Клавиша кармана",
   ["Not bound"] = "Не назначено",
   ["Press a key..."] = "Нажмите клавишу...",
