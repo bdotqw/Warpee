@@ -1317,6 +1317,12 @@ function ns.PinScan(list, n, t)
     if id and type(pin) == "string" then want[id] = true; byKey = true end
     if id and ns.GearItem(id) then gear = true end
   end
+  local bagKeys, wornKeys, stubFor = {}, {}, {}
+  local function note(where, id, k)
+    local a = where[id]
+    if not a then a = {}; where[id] = a end
+    a[#a + 1] = k
+  end
   local function sweep(bag)
     for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
       local id = C_Container.GetContainerItemID(bag, slot)
@@ -1325,7 +1331,11 @@ function ns.PinScan(list, n, t)
         if want[id] then
           local info = C_Container.GetContainerItemInfo(bag, slot)
           local k = info and ns.ItemKey(info.hyperlink)
-          if k and not keyBag[k] then keyBag[k], keySlot[k] = bag, slot end
+          if k then
+            if not keyBag[k] then keyBag[k], keySlot[k] = bag, slot end
+            if not stubFor[k] then stubFor[k] = ns.ItemStub(info.hyperlink) end
+            note(bagKeys, id, k)
+          end
         end
       end
     end
@@ -1334,24 +1344,52 @@ function ns.PinScan(list, n, t)
   if ns.reagentBag then sweep(ns.reagentBag) end
   if not (byKey or gear) then return end
   local get = C_Item and C_Item.GetItemLink
-  if not (get and ItemLocation) then return end
-  for slot = 1, 19 do
-    local loc = ItemLocation:CreateFromEquipmentSlot(slot)
-    if loc and C_Item.DoesItemExist(loc) then
-      local link = get(loc)
-      local lvl = C_Item.GetCurrentItemLevel and C_Item.GetCurrentItemLevel(loc)
-      local id = C_Item.GetItemID and C_Item.GetItemID(loc)
-      local set = id and ns.OutfitLabel(loc, id)
-      local k = link and ns.ItemKey(link)
-      if k then
-        wornKey[k] = true
-        if lvl then wornIlvl[k] = lvl end
-        if set then wornSet[k] = set end
+  if get and ItemLocation then
+    for slot = 1, 19 do
+      local loc = ItemLocation:CreateFromEquipmentSlot(slot)
+      if loc and C_Item.DoesItemExist(loc) then
+        local link = get(loc)
+        local lvl = C_Item.GetCurrentItemLevel and C_Item.GetCurrentItemLevel(loc)
+        local id = C_Item.GetItemID and C_Item.GetItemID(loc)
+        local set = id and ns.OutfitLabel(loc, id)
+        local k = link and ns.ItemKey(link)
+        if k then
+          wornKey[k] = true
+          if lvl then wornIlvl[k] = lvl end
+          if set then wornSet[k] = set end
+          if not stubFor[k] then stubFor[k] = ns.ItemStub(link) end
+          if id then note(wornKeys, id, k) end
+        end
+        if id then
+          wornKey[tostring(id)] = true
+          if lvl then wornIlvl[tostring(id)] = lvl end
+          if set then wornSet[tostring(id)] = set end
+        end
       end
-      if id then
-        wornKey[tostring(id)] = true
-        if lvl then wornIlvl[tostring(id)] = lvl end
-        if set then wornSet[tostring(id)] = set end
+    end
+  end
+  if not byKey then return end
+  -- Second chance for a pin whose exact copy is nowhere: an upgrade, a gem or an enchant
+  -- rewrites the bonus ids, and ITEM_CHANGED is not proven to arrive for every one of them.
+  -- So a stale pin looks at what copies of that item exist and adopts one only when there is
+  -- no choice to make: a single worn copy first, since a pin on gear is nearly always the
+  -- piece being worn, otherwise a single copy in the bags. Two copies and it stays a ghost
+  -- rather than guess, which is the whole reason the exact key exists.
+  for i = 1, (n or 0) do
+    local pin = list and list[i]
+    if type(pin) == "string" then
+      local k = ns.ItemKey(pin)
+      if k and not keyBag[k] and not wornKey[k] then
+        local id = ns.ItemStubID(pin)
+        local w, b = wornKeys[id], bagKeys[id]
+        local pick
+        if w and #w == 1 then
+          pick = w[1]
+        elseif (not w or #w == 0) and b and #b == 1 then
+          pick = b[1]
+        end
+        local stub = pick and stubFor[pick]
+        if stub then list[i] = stub end
       end
     end
   end
