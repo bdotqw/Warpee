@@ -682,10 +682,11 @@ end
 -- every SPELL_UPDATE_COOLDOWN after that. Restarting a swirl that is already running the
 -- same countdown costs the same as starting it, so an unchanged pair is left alone.
 -- Every cooldown gets the swirl, the global one included: that sweep is the only thing that
--- says the press landed. What the short ones do not get is a digit, since a number that
--- appears and goes inside a second and a half is noise, and no place in the ticker either,
--- because the swirl runs on its own once it has been given the time.
-local DIGITS_ABOVE = 2
+-- says the press landed. What the short ones do not get is a digit: a counting number is
+-- one SetText every second for as long as it runs, and that shows up as a frame spike on
+-- its own. Under ten seconds the swirl alone says everything, so those stay out of the
+-- ticker entirely.
+local DIGITS_ABOVE = 10
 
 function ns.UpdateCooldown(b)
   local cd = b.cd
