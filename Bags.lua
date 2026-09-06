@@ -44,7 +44,7 @@ function Bags:FlowHeader()
   local row1 = ROW1_Y + Theme:TopInset() + Theme:HeadDrop()
   self.headEdge = ns.FlowRow(self.frame, -PAD, -row1, 4,
     { self.closeBtn, self.gearBtn, self.bagsToggle, self.bankBtn,
-      self.sortBtn, self.sellBtn, self.pocketBtn })
+      self.pocketBtn, self.sellBtn, self.sortBtn })
 end
 
 function Bags:AnchorHeader()
