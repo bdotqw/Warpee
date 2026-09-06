@@ -1272,7 +1272,8 @@ end
 -- copy of a ring. Anything new about a pinned cell, another badge, another edge colour,
 -- another state, goes into these functions and both rows have it the same day. Never add it
 -- to one of the two files. Nothing here asks the bank anything: a pinned cell answers "with
--- you or not" and nothing else.
+-- you or not" and nothing else. A row that draws pinned cells has to hear four things for
+-- them to stay right: bag updates, equipment changes, gear set changes and ITEM_CHANGED.
 function ns.PinArg(pin)
   if type(pin) == "number" then return pin end
   return ns.ItemStub(pin)
@@ -1390,6 +1391,25 @@ end
 function ns.PinSet(pin, t)
   local k = ns.ItemKey(pin)
   return (k and t and t.wornSet and t.wornSet[k]) or nil
+end
+
+-- An upgrade, a gem, an enchant or a recraft rewrites the bonus ids of the item, so the exact
+-- key of a pinned copy stops matching: the cell would sit on a ghost for good and print the
+-- item level the piece had before. The game announces the change itself, and ITEM_CHANGED
+-- carries the link from before and after, so the pin is moved onto the new link and stays
+-- exact. Only a pin kept as an item string can go stale; a plain id never does.
+function ns.PinRetarget(list, n, prev, new)
+  local from, to = ns.ItemKey(prev), ns.ItemStub(new)
+  if not (list and from and to) then return false end
+  local hit = false
+  for i = 1, (n or 0) do
+    local pin = list[i]
+    if type(pin) == "string" and ns.ItemKey(pin) == from then
+      list[i] = to
+      hit = true
+    end
+  end
+  return hit
 end
 
 local function pinQuality(pin)

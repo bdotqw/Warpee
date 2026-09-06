@@ -648,7 +648,12 @@ ev:RegisterEvent("EQUIPMENT_SETS_CHANGED")
 ev:RegisterEvent("EQUIPMENT_SWAP_FINISHED")
 ev:RegisterEvent("PLAYER_REGEN_ENABLED")
 ev:RegisterEvent("PLAYER_LOGIN")
-ev:SetScript("OnEvent", function(_, event)
+ev:RegisterEvent("ITEM_CHANGED")
+ev:SetScript("OnEvent", function(_, event, a1, a2)
+  if event == "ITEM_CHANGED" then
+    if ns.PinRetarget(Pocket:List(), Pocket:Count(), a1, a2) then later() end
+    return
+  end
   if event == "PLAYER_LOGIN" then
     C_Timer.After(1, defaultKey)
     return

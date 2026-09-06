@@ -441,9 +441,17 @@ ev:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 ev:RegisterEvent("EQUIPMENT_SETS_CHANGED")
 ev:RegisterEvent("EQUIPMENT_SWAP_FINISHED")
 ev:RegisterEvent("PLAYER_REGEN_ENABLED")
-ev:SetScript("OnEvent", function(_, event)
+ev:RegisterEvent("ITEM_CHANGED")
+ev:SetScript("OnEvent", function(_, event, a1, a2)
   if event == "PLAYER_REGEN_ENABLED" then
     Fav:Flush()
+    return
+  end
+  if event == "ITEM_CHANGED" then
+    if ns.PinRetarget(Fav:List(), MAX_SLOTS, a1, a2) then
+      locsDirty = true
+      Fav:Refresh()
+    end
     return
   end
   if event == "BAG_UPDATE_DELAYED" or event == "PLAYER_EQUIPMENT_CHANGED"
