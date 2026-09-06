@@ -575,7 +575,7 @@ function Pocket:Layout()
           ns.SnapBox(g, size, size)
           g:ClearAllPoints()
           ns.SnapPoint(g, "TOPLEFT", w, "TOPLEFT", px, -py)
-          ns.PaintPin(g, pin, pins)
+          ns.PaintPin(g, pin, pins, self.slots[1])
           g:Show()
         end
       end

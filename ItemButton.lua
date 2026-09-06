@@ -598,8 +598,10 @@ function ns.FitOverlays(b)
   local ic = iconOf(b)
   if not ic then return end
   local nm = b:GetName() or ""
-  fitToIcon(b.IconOverlay or _G[nm .. "IconOverlay"], ic)
-  fitToIcon(b.IconOverlay2 or _G[nm .. "IconOverlay2"], ic)
+  -- The two decor overlays are the game's own art with the game's own corner anchor, and
+  -- they are also the source the ghost tier badge copies its placement from, so they are
+  -- never fitted to the icon: a zoomed icon would stretch them out of that anchor and
+  -- hand the copy our geometry instead of Blizzard's.
   fitToIcon(questTex(b), ic)
   fitToIcon(b.NewItemTexture or _G[nm .. "NewItemTexture"], ic)
   fitToIcon(b.BattlepayItemTexture or _G[nm .. "BattlepayItemTexture"], ic)
@@ -1587,25 +1589,41 @@ function ns.PinGhost(parent)
   return g
 end
 
--- The game's own quality overlay is an intrinsic region with no source to read numbers
--- from, and the overlays on our own buttons are re-fitted to the icon anyway, so there
--- is no anchor left to copy at runtime. The badge is placed by hand instead, measured
--- against the game's own cells: the top left corner, one pixel out, ten pixels square.
-local TIER_SIZE = 10
-
-function ns.PinTierFit(g)
+-- The item button is an intrinsic widget, so its quality overlay lives in no source file to
+-- copy numbers out of. The anchor is read off a real button of the row instead, which is by
+-- definition the corner and the offsets the game itself uses. The overlays are left on the
+-- game's own anchor for this to mean anything: fitting them to the icon would hand this
+-- copy our stretch instead of the game's placement.
+function ns.PinTierFit(g, btn)
   if g.tierFit then return end
-  g.tierFit = true
+  local src = btn and (btn.ProfessionQualityOverlay or btn.IconOverlay)
   g.tier:ClearAllPoints()
-  g.tier:SetPoint("TOPLEFT", g, "TOPLEFT", -1, 1)
-  ns.PixelJob(g.tier, function(x) ns.SnapSize(x, TIER_SIZE, TIER_SIZE) end, "tier")
+  if not (src and src.GetNumPoints and src:GetNumPoints() > 0) then
+    g.tier:SetPoint("TOPLEFT", g.icon, "TOPLEFT")
+    g.tier:SetPoint("BOTTOMRIGHT", g.icon, "BOTTOMRIGHT")
+    return
+  end
+  local n = src:GetNumPoints()
+  for i = 1, n do
+    local p, _, rp, x, y = src:GetPoint(i)
+    if p then g.tier:SetPoint(p, g, rp or p, x or 0, y or 0) end
+  end
+  if n < 3 then
+    local w, h = src:GetSize()
+    if (w or 0) > 0 and (h or 0) > 0 then
+      g.tier:SetSize(w, h)
+    else
+      g.tierArt = true
+    end
+  end
+  g.tierFit = true
 end
 
 -- Blue edge means the item is on you, gold means it is not with you at all, and the gold
 -- zero says the same for something that stacks. Gear carries its item level and its gear set
 -- instead of a count, and the craft tier is drawn only on what is not gear, since an item
 -- level already says how good a piece is.
-function ns.PaintPin(g, pin, t)
+function ns.PaintPin(g, pin, t, btn)
   if not g then return end
   if not pin then
     if g.icon then g.icon:Hide() end
@@ -1624,8 +1642,8 @@ function ns.PaintPin(g, pin, t)
   local art = (not gear) and ns.PinTier(pin) or nil
   if g.tier then
     if art then
-      ns.PinTierFit(g)
-      g.tier:SetAtlas(art)
+      ns.PinTierFit(g, btn)
+      g.tier:SetAtlas(art, g.tierArt and true or false)
       g.tier:Show()
     else
       g.tier:Hide()
