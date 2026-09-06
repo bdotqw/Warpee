@@ -99,27 +99,6 @@ function ringWidth(b)
   b.iT:SetHeight(px); b.iB:SetHeight(px)
   b.iL:SetWidth(px);  b.iR:SetWidth(px)
 end
--- The swirl comes from the template, so how much of it is drawn depends on what that
--- template happens to set, and the countdown frame of a container slot arrives with no
--- swipe at all. Every part of the look is stated here instead: the swipe and its texture,
--- the bright leading edge, no bling, and no numbers of the game's own since the row draws
--- its own. These are drawing calls on the countdown frame, which is allowed; a script on
--- it is not, and the rule block at the top of this file says why.
-local SWIPE_TEX = "Interface\Cooldown\cooldown_swipe_circle"
-local EDGE_TEX = "Interface\Cooldown\edge"
-
-local function dressCooldown(cd)
-  cd:SetHideCountdownNumbers(true)
-  if cd.SetSwipeTexture then cd:SetSwipeTexture(SWIPE_TEX) end
-  if cd.SetSwipeColor then cd:SetSwipeColor(0, 0, 0, 0.72) end
-  if cd.SetDrawSwipe then cd:SetDrawSwipe(true) end
-  if cd.SetEdgeTexture then cd:SetEdgeTexture(EDGE_TEX) end
-  if cd.SetUseCircularEdge then cd:SetUseCircularEdge(true) end
-  cd:SetDrawEdge(true)
-  if cd.SetDrawBling then cd:SetDrawBling(false) end
-  if cd.SetReverse then cd:SetReverse(false) end
-end
-
 local function attachBorder(b)
   local bf = CreateFrame("Frame", nil, b)
   bf:SetAllPoints(b)
@@ -380,7 +359,8 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
   local cd = b.Cooldown or _G[nm .. "Cooldown"]
   if cd then
     b.cd = cd
-    dressCooldown(cd)
+    cd:SetHideCountdownNumbers(true)
+    cd:SetDrawEdge(true)
     cd:Clear()
     b.cdText = b.borderFrame:CreateFontString(nil, "OVERLAY")
     b.cdText:SetDrawLayer("OVERLAY", 7)
@@ -695,25 +675,33 @@ end
 -- single potion brings one of these calls for each of them, and the row keeps calling on
 -- every SPELL_UPDATE_COOLDOWN after that. Restarting a swirl that is already running the
 -- same countdown costs the same as starting it, so an unchanged pair is left alone.
+-- Every cooldown gets the swirl, the global one included: that sweep is the only thing that
+-- says the press landed. What the short ones do not get is a digit, since a number that
+-- appears and goes inside a second and a half is noise, and no place in the ticker either,
+-- because the swirl runs on its own once it has been given the time.
+local DIGITS_ABOVE = 2
+
 function ns.UpdateCooldown(b)
   local cd = b.cd
   if not cd then return end
   local start, duration, enable = C_Container.GetContainerItemCooldown(b.wpeBagID, b:GetID())
-  if start and start > 0 and duration and duration > 2 and enable and enable ~= 0 then
+  if start and start > 0 and duration and duration > 0 and enable and enable ~= 0 then
     if b.wpeCdStart ~= start or b.wpeCdDur ~= duration then
       b.wpeCdStart, b.wpeCdDur = start, duration
-      -- The game's own code hides this frame on an empty slot and shows it again with the
-      -- countdown, so a cell that was empty before keeps a hidden frame and the swirl would
-      -- never appear on it.
-      cd:Show()
       cd:SetCooldown(start, duration)
     end
-    b.cdEnd = start + duration
-    if b:IsVisible() then
-      cdFont(b)
-      cdSay(b, fmtCooldown(b.cdEnd - GetTime()))
+    if duration > DIGITS_ABOVE then
+      b.cdEnd = start + duration
+      if b:IsVisible() then
+        cdFont(b)
+        cdSay(b, fmtCooldown(b.cdEnd - GetTime()))
+      end
+      tick(b, true)
+    else
+      b.cdEnd = nil
+      cdSay(b, "")
+      tick(b, false)
     end
-    tick(b, true)
   elseif b.cdEnd or b.wpeCdStart then
     cd:Clear()
     b.cdEnd, b.wpeCdStart, b.wpeCdDur = nil, nil, nil
