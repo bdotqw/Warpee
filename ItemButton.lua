@@ -301,6 +301,21 @@ function ns.IsWarbound(bagID, slot, loc, bound)
   return false
 end
 
+-- Cells of the recent rows look exactly like the grid, and the row label alone was not
+-- enough to tell them apart. Every one of them carries the same mark: an accent line
+-- along the top edge, above the slot border and the quality ring, under the badges.
+-- The rows own their buttons, so the mark is put on once at creation and never moved.
+function ns.RecMark(b)
+  if b.wpeRecMark then return end
+  local t = b:CreateTexture(nil, "ARTWORK", nil, 5)
+  t:SetColorTexture(Theme:C("accent"))
+  Theme:Track(t, function(x) x:SetColorTexture(Theme:C("accent")) end)
+  t:SetPoint("TOPLEFT")
+  t:SetPoint("TOPRIGHT")
+  ns.PixelLine(t, 1)
+  b.wpeRecMark = t
+end
+
 function ns.SetSlotHighlight(b, on)
   if not on then
     if b.hl then b.hl:Hide() end
