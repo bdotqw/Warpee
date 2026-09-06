@@ -359,6 +359,16 @@ local STRINGS = {
   ["Pocket key"] = "Клавиша кармана",
   ["Not bound"] = "Не назначено",
   ["Press a key..."] = "Нажмите клавишу...",
+  ["How many rows of cells the pocket window holds."] =
+    "Сколько рядов ячеек в окне кармана.",
+  ["How wide the pocket window grows."] =
+    "От этого зависит ширина окна кармана.",
+  ["Size of one cell in the pocket. It follows the bag slot size until you move this."] =
+    "Размер одной ячейки кармана. Пока ползунок не тронут, следует за размером ячейки сумок.",
+  ["The key that opens and closes the pocket. Click, then press a key; a right click clears it, Escape cancels."] =
+    "Клавиша, открывающая и закрывающая карман. Клик, затем нажатие клавиши; ПКМ снимает бинд, Esc отменяет.",
+  ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] =
+    "Снаряжение закрепляется перетаскиванием или вставкой ссылки: по голому id нельзя отличить одну копию от другой.",
   ["Add ID"] = "Добавить ID",
   ["Clear"] = "Очистить",
   ["Equipped"] = "Надето",

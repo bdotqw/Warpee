@@ -625,6 +625,7 @@ function factories.keybind(parent, spec)
 
   btn:SetScript("OnHide", stop)
   row:SetScript("OnHide", stop)
+  tip(row, spec.desc)
   paint()
   return row
 end
@@ -1741,14 +1742,18 @@ local POCKET_PAGE = {
     desc = "A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one." },
   { type = "range", name = "Pocket rows", min = 1, max = 6, step = 1, half = "left",
     get = fav.pkRowsGet, set = fav.pkRowsSet,
-    disabled = function() return not fav.pkGet() end },
+    disabled = function() return not fav.pkGet() end,
+    desc = "How many rows of cells the pocket window holds." },
   { type = "range", name = "Slots per row", min = 4, max = 8, step = 1, half = "right",
     get = fav.pkColsGet, set = fav.pkColsSet,
-    disabled = function() return not fav.pkGet() end },
+    disabled = function() return not fav.pkGet() end,
+    desc = "How wide the pocket window grows." },
   { type = "range", name = "Pocket slot size", min = 24, max = 56, step = 1, half = "left",
     get = fav.pkSizeGet, set = fav.pkSizeSet,
-    disabled = function() return not fav.pkGet() end },
-  { type = "keybind", name = "Pocket key", binding = "WARPEE_POCKET", half = "right" },
+    disabled = function() return not fav.pkGet() end,
+    desc = "Size of one cell in the pocket. It follows the bag slot size until you move this." },
+  { type = "keybind", name = "Pocket key", binding = "WARPEE_POCKET", half = "right",
+    desc = "The key that opens and closes the pocket. Click, then press a key; a right click clears it, Escape cancels." },
 }
 
 local ITEMS_PAGE = {

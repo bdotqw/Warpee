@@ -1371,12 +1371,20 @@ end
 
 -- An equippable that does not stack is kept as its own item string, so the cell finds that
 -- copy and not the twin with different bonus ids. Everything else is kept as a plain id.
+-- One id fits every copy of an item, which is right for a stackable and wrong for gear:
+-- two rings with the same id can differ in enchant, gems or track. This test is what
+-- decides between a bare id pin and an exact item string pin.
+function ns.GearID(id)
+  local loc = id and select(4, C_Item.GetItemInfoInstant(id))
+  if not (loc and loc ~= "") then return false end
+  local max = C_Item.GetItemMaxStackSizeByID and C_Item.GetItemMaxStackSizeByID(id)
+  return (tonumber(max) or 1) <= 1
+end
+
 function ns.PinFor(id, link)
   local stub = ns.ItemStub(link)
   if not (id and stub) then return id end
-  local loc = select(4, C_Item.GetItemInfoInstant(id))
-  local max = C_Item.GetItemMaxStackSizeByID and C_Item.GetItemMaxStackSizeByID(id)
-  if loc and loc ~= "" and (tonumber(max) or 1) <= 1 then return stub end
+  if ns.GearID(id) then return stub end
   return id
 end
 

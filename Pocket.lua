@@ -256,10 +256,21 @@ end
 
 function Pocket:AddByText(text)
   local s = tostring(text or "")
+  local link = s:match("|H(item:[^|]+)|h") or s:match("^(item:[^|%s]+)")
   local id = tonumber(s:match("item:(%d+)")) or tonumber(s:match("%d+"))
   if not id then return end
   local get = C_Item and C_Item.GetItemInfoInstant
   if get and not get(id) then return end
+  -- A pasted link still carries its bonus ids, so gear coming in as a link is pinned
+  -- exactly, the way dragging pins it. A bare id cannot tell one copy of gear from
+  -- another, so it is refused instead of silently binding to whichever copy the scan
+  -- happens to meet first.
+  if not link and ns.GearID(id) then
+    print("|cffd9a85fWarpee|r "
+      .. (ns.L["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] or ""))
+    return
+  end
+  local pin = link and ns.PinFor(id, link) or id
   local list = self:List()
   local n = self:Count()
   for i = 1, n do
@@ -268,7 +279,7 @@ function Pocket:AddByText(text)
   for i = 1, n do
     if not list[i] then
       if C_Item and C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(id) end
-      self:Set(i, id)
+      self:Set(i, pin)
       C_Timer.After(0.4, function() Pocket:Refresh() end)
       return
     end

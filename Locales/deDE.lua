@@ -348,6 +348,16 @@ local STRINGS = {
   ["Pocket key"] = "Taste der Ablage",
   ["Not bound"] = "Nicht belegt",
   ["Press a key..."] = "Taste drücken...",
+  ["How many rows of cells the pocket window holds."] =
+    "Wie viele Zellzeilen das Ablagefenster hat.",
+  ["How wide the pocket window grows."] =
+    "Davon hängt die Breite des Ablagefensters ab.",
+  ["Size of one cell in the pocket. It follows the bag slot size until you move this."] =
+    "Größe eines Feldes in der Ablage. Bis der Regler bewegt wird, folgt sie der Platzgröße der Taschen.",
+  ["The key that opens and closes the pocket. Click, then press a key; a right click clears it, Escape cancels."] =
+    "Die Taste, die die Ablage öffnet und schließt. Klicken, dann eine Taste drücken; Rechtsklick löscht, Escape bricht ab.",
+  ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] =
+    "Ausrüstung wird durch Ziehen oder Einfügen ihres Links gepinnt; eine bloße ID kann eine Kopie nicht von einer anderen unterscheiden.",
   ["Add ID"] = "ID hinzufügen",
   ["Clear"] = "Leeren",
   ["Equipped"] = "Angelegt",
