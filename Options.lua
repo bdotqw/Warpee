@@ -1562,7 +1562,7 @@ local GENERAL_PAGE = {
     disabled = function() return not fav.showGet() end,
     desc = "Never more than the grid is wide. Zero keeps the row as wide as the grid." },
   { type = "toggle", name = "Recent items", col = 1, get = fav.recentGet, set = fav.recentSet,
-    desc = "A row above the favorites holding what came into your bags this session, apart from gray items and anything already pinned to the favorites. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload." },
+    desc = "A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload." },
   { type = "header", name = "Pocket" },
   { type = "toggle", name = "Pocket window", col = 1, get = fav.pkGet, set = fav.pkSet,
     desc = "A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one." },

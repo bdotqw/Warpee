@@ -351,8 +351,8 @@ local STRINGS = {
   ["Favorites"] = "Favoris",
   ["Recent"] = "Récents",
   ["Recent items"] = "Objets récents",
-  ["A row above the favorites holding what came into your bags this session, apart from gray items and anything already pinned to the favorites. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
-    "Une rangée au-dessus des favoris contenant ce qui est arrivé dans vos sacs pendant cette session, hors objets gris et hors ce qui est déjà épinglé dans les favoris. Chaque arrivée prend la première case libre, le plus ancien disparaît quand la rangée est pleine, et la rangée se vide à la déconnexion ou après un rechargement.",
+  ["A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
+    "Une rangée au-dessus des favoris contenant ce qui est arrivé dans vos sacs pendant cette session, hors objets gris. Chaque arrivée prend la première case libre, le plus ancien disparaît quand la rangée est pleine, et la rangée se vide à la déconnexion ou après un rechargement.",
   ["POCKET"] = "POCHE",
   ["Pocket"] = "Poche",
   ["Pocket window"] = "Fenêtre de poche",

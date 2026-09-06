@@ -349,8 +349,8 @@ local STRINGS = {
   ["Favorites"] = "Избранное",
   ["Recent"] = "Недавнее",
   ["Recent items"] = "Недавние предметы",
-  ["A row above the favorites holding what came into your bags this session, apart from gray items and anything already pinned to the favorites. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
-    "Ряд над избранным, в котором лежит то, что попало в сумки за эту сессию, кроме серых предметов и того, что уже приколото в избранном. Каждое поступление занимает первую свободную ячейку, при переполнении уходит самое старое, а при выходе из игры или перезагрузке интерфейса ряд очищается.",
+  ["A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
+    "Ряд над избранным, в котором лежит то, что попало в сумки за эту сессию, кроме серых предметов. Каждое поступление занимает первую свободную ячейку, при переполнении уходит самое старое, а при выходе из игры или перезагрузке интерфейса ряд очищается.",
   ["POCKET"] = "КАРМАН",
   ["Pocket"] = "Карман",
   ["Pocket window"] = "Окно кармана",

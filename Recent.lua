@@ -14,7 +14,7 @@ local locBag, locSlot = {}, {}
 local poor = {}
 local counter = 0
 local primed = nil
-local guidNow, guidHad, guidID, everWorn = {}, {}, {}, {}
+local guidNow, guidHad, everWorn = {}, {}, {}
 local ILOC
 
 local function itemGuid(bag, slot)
@@ -29,11 +29,6 @@ local function itemGuid(bag, slot)
   if not C_Item.DoesItemExist(ILOC) then return nil end
   local ok, g = pcall(G, ILOC)
   return (ok and g) or nil
-end
-
-local function idOf(key)
-  if type(key) == "string" then return guidID[key] end
-  return key
 end
 
 function Rec:Enabled()
@@ -83,7 +78,7 @@ local function scanBag(bag, counts)
     if id then
       local g = ns.GearItem(id) and itemGuid(bag, slot) or nil
       if g then
-        guidNow[g], guidID[g] = true, id
+        guidNow[g] = true
         locBag[g], locSlot[g] = bag, slot
         if info.quality == 0 then poor[g] = true end
       else
@@ -98,19 +93,10 @@ end
 local function tally()
   local counts = {}
   wipe(locBag); wipe(locSlot); wipe(poor)
-  wipe(guidNow); wipe(guidID)
+  wipe(guidNow)
   for _, bag in ipairs(ns.playerBags) do scanBag(bag, counts) end
   if ns.reagentBag then scanBag(ns.reagentBag, counts) end
   return counts
-end
-
-local function pinned(id)
-  local F = ns.Fav
-  if not (F and F.List) then return false end
-  for _, own in pairs(F:List()) do
-    if own == id then return true end
-  end
-  return false
 end
 
 local function used()
@@ -125,7 +111,7 @@ local function mark(id, delta)
 end
 
 local function add(key, n, delta)
-  if seq[key] or pinned(idOf(key)) then return end
+  if seq[key] then return end
   counter = counter + 1
   for i = 1, n do
     if not cells[i] then
@@ -175,7 +161,7 @@ local function prune(counts)
   for i = 1, MAX_SLOTS do
     local key = cells[i]
     local here = key and (type(key) == "string" and guidNow[key] or counts[key])
-    if key and (not here or pinned(idOf(key)) or poor[key]) then
+    if key and (not here or poor[key]) then
       seq[key], got[key] = nil, nil
       cells[i] = nil
     end
