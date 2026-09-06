@@ -105,57 +105,32 @@ local function HookBagToggles()
   -- ours, so a press could close what it should have opened.
   ToggleAllBags = function() ns.Toggle() end
   hideBlizzBags()
-  -- The game opens the bags by itself when the mail frame comes up, passing the frame
-  -- along, and its OpenAllBags then walks down through OpenBackpack and OpenBag, so
-  -- one press of the mail frame arrives here as three hooked calls, and the inner two
-  -- carry no frame, or a bag id number. The call stack tells a nested call from a
-  -- player's hand, the way Baganator reads it: only the outermost call decides, and a
-  -- call framed by the mail goes through the same checkbox the interaction event uses,
-  -- so off means the game's own call opens nothing of ours.
+  -- The game opens its own bags beside a window on its own: the mail calls this family
+  -- with its frame, the merchant and the auction house call it from their own code.
+  -- Following those calls made the auto open checkboxes dead letters, the game's call
+  -- always opened ours, so the hooks now follow none of them. Baganator's shape: the
+  -- auto open checkboxes are the only thing that opens our bags together with a
+  -- window, and these hooks stay only to keep the game's containers tucked away. Two
+  -- game paths still open ours: an enchant or a gem waiting for a target opens them so
+  -- the item to receive it can be clicked, held back when the pocket is on screen, and
+  -- a loot toast click means show what just dropped.
   local OPEN_FRAME_KEY = { MailFrame = "mail" }
   local function frameKey(frame)
     if type(frame) ~= "table" or not frame.GetName then return nil end
     local ok, name = pcall(frame.GetName, frame)
     return (ok and OPEN_FRAME_KEY[name]) or nil
   end
-  local function fromStack(names)
-    local stack = debugstack()
-    for _, n in ipairs(names) do
-      if stack:find(n, 1, true) then return true end
+  hookList({ "OpenAllBags", "OpenBackpack", "OpenBag" }, function()
+    local fromToast = debugstack():find("AlertFrameSystems", 1, true)
+    if ns.ItemTargeting() then
+      if not (ns.Pocket and ns.Pocket.frame and ns.Pocket.frame:IsShown()) then
+        ns.Toggle(true)
+      end
+    elseif fromToast then
+      ns.Toggle(true)
     end
-    return false
-  end
-  local function onOpen(frame)
-    if frame ~= nil and frame == BankFrame then
-      hideBlizzBags()
-      return
-    end
-    local key = frameKey(frame)
-    if key then
-      hideBlizzBags()
-      autoOpenBags(key)
-      return
-    end
-    if ns.ItemTargeting() and ns.Pocket and ns.Pocket.frame and ns.Pocket.frame:IsShown() then
-      hideBlizzBags()
-      return
-    end
-    ns.Toggle(true)
     hideBlizzBags()
-  end
-  local OPEN_PARENTS = {
-    OpenAllBags = {},
-    OpenBackpack = { "OpenAllBags" },
-    OpenBag = { "OpenAllBags", "OpenBackpack" },
-  }
-  for name, parents in pairs(OPEN_PARENTS) do
-    if type(_G[name]) == "function" then
-      hooksecurefunc(name, function(frame)
-        if fromStack(parents) then return end
-        onOpen(frame)
-      end)
-    end
-  end
+  end)
   -- An item spell waiting for a target, an enchant or a gem, makes the game open the
   -- bags through these same calls. Only our own frame is held back here; the game's
   -- functions still run whole, so nothing of its own is silenced and no protected call
