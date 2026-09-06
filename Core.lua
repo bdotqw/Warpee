@@ -413,6 +413,14 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     autoCloseBags("professions")
   elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
     local IT = Enum and Enum.PlayerInteractionType
+    if IT and a1 == IT.Transmogrifier then
+      -- The transmog window covers most of the screen and no bag is needed on it, so
+      -- both of ours get out of the way. Hiding the bags takes the pocket with it when
+      -- it is open beside them; one on its own needs its own word.
+      ns.Toggle(false)
+      if ns.Pocket then ns.Pocket:Close(true) end
+      return
+    end
     if ns.Bank and IT then
       if a1 == IT.AccountBanker then
         ns.Bank.acctBanker = true
