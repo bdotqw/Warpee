@@ -283,10 +283,13 @@ function Fav:PinFromCursor(index)
   self:Set(index, pin)
 end
 
+-- IsShown is only about the cell itself, and a cell in a closed window is still shown, so
+-- the sweep has to ask IsVisible or a closed bag window keeps paying for every spell
+-- cooldown in the game.
 function Fav:Cooldowns()
   for i = 1, (self.max or 0) do
     local b = self.slots[i]
-    if b and b.holder:IsShown() and b.link then ns.UpdateCooldown(b) end
+    if b and b.link and b.holder:IsVisible() then ns.UpdateCooldown(b) end
   end
 end
 

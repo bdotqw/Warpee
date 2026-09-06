@@ -276,13 +276,14 @@ function Pocket:AddByText(text)
 end
 
 function Pocket:Cooldowns()
+  if not (self.frame and self.frame:IsShown()) then return end
   for i = 1, (self.max or 0) do
     local b = self.slots[i]
-    if b and b.holder:IsShown() and b.link then ns.UpdateCooldown(b) end
+    if b and b.link and b.holder:IsVisible() then ns.UpdateCooldown(b) end
   end
   for i = 1, (self.recMax or 0) do
     local b = self.recSlots[i]
-    if b and b.holder:IsShown() and b.link then ns.UpdateCooldown(b) end
+    if b and b.link and b.holder:IsVisible() then ns.UpdateCooldown(b) end
   end
 end
 

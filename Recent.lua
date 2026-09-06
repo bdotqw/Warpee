@@ -341,7 +341,7 @@ end
 function Rec:Cooldowns()
   for i = 1, MAX_SLOTS do
     local b = self.slots[i]
-    if b and b.holder:IsShown() and b.link then ns.UpdateCooldown(b) end
+    if b and b.link and b.holder:IsVisible() then ns.UpdateCooldown(b) end
   end
 end
 function Rec:Apply(bags, x, top, size, gap)

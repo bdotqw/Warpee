@@ -591,9 +591,18 @@ function ns.ApplyItemFont(b)
   for _, d in ipairs(BADGES) do ns.ApplyBadge(b, d.key) end
 end
 
+-- SetFont re-resolves the face and re-lays out the string every call, and the badges ask
+-- for it far more often than they change: the cooldown digits alone would do it ten times
+-- a second per slot. The last font that landed is remembered, so an unchanged one costs a
+-- string compare. A new font path or size makes a new key on its own, so nothing has to be
+-- told when the font changes.
 function ns.SetOutlined(fs, size)
   if not fs then return end
-  fs:SetFont(ns.Fonts:Current(), size, "OUTLINE")
+  local path = ns.Fonts:Current()
+  local key = path .. ":" .. tostring(size)
+  if fs.wpeFontKey == key then return end
+  fs.wpeFontKey = key
+  fs:SetFont(path, size, "OUTLINE")
 end
 
 function ns.FitCount(b, count)
@@ -619,6 +628,13 @@ local function cdFont(b)
   ns.SetOutlined(b.cdText, ns.Badge("count").s)
 end
 
+local function cdSay(b, text)
+  local fs = b.cdText
+  if not fs or b.wpeCdText == text then return end
+  b.wpeCdText = text
+  fs:SetText(text)
+end
+
 -- One ticker for every slot, because a script on the game's Cooldown frame would
 -- put addon code on an object the secure click path also touches.
 local ticking = setmetatable({}, { __mode = "k" })
@@ -632,13 +648,18 @@ ticker:SetScript("OnUpdate", function(self, elapsed)
   for b in pairs(ticking) do
     local left = (b.cdEnd or 0) - GetTime()
     if left > 0 then
-      cdFont(b)
-      if b.cdText then b.cdText:SetText(fmtCooldown(left)) end
+      -- A cell whose window is closed keeps its place in the list, since the swirl runs off
+      -- the time it was given and the digits are read again the moment it comes back, but
+      -- nobody is looking at it, so it is not worth a font and a string every tick.
+      if b:IsVisible() then
+        cdFont(b)
+        cdSay(b, fmtCooldown(left))
+      end
       live = true
     else
       ticking[b] = nil
       b.cdEnd = nil
-      if b.cdText then b.cdText:SetText("") end
+      cdSay(b, "")
     end
   end
   if not live then self:Hide() end
@@ -650,20 +671,29 @@ local function tick(b, on)
   ticker:Show()
 end
 
+-- Using one item puts every item that shares its cooldown category on cooldown too, so a
+-- single potion brings one of these calls for each of them, and the row keeps calling on
+-- every SPELL_UPDATE_COOLDOWN after that. Restarting a swirl that is already running the
+-- same countdown costs the same as starting it, so an unchanged pair is left alone.
 function ns.UpdateCooldown(b)
   local cd = b.cd
   if not cd then return end
   local start, duration, enable = C_Container.GetContainerItemCooldown(b.wpeBagID, b:GetID())
   if start and start > 0 and duration and duration > 2 and enable and enable ~= 0 then
-    cd:SetCooldown(start, duration)
+    if b.wpeCdStart ~= start or b.wpeCdDur ~= duration then
+      b.wpeCdStart, b.wpeCdDur = start, duration
+      cd:SetCooldown(start, duration)
+    end
     b.cdEnd = start + duration
-    cdFont(b)
-    if b.cdText then b.cdText:SetText(fmtCooldown(b.cdEnd - GetTime())) end
+    if b:IsVisible() then
+      cdFont(b)
+      cdSay(b, fmtCooldown(b.cdEnd - GetTime()))
+    end
     tick(b, true)
-  else
+  elseif b.cdEnd or b.wpeCdStart then
     cd:Clear()
-    b.cdEnd = nil
-    if b.cdText then b.cdText:SetText("") end
+    b.cdEnd, b.wpeCdStart, b.wpeCdDur = nil, nil, nil
+    cdSay(b, "")
     tick(b, false)
   end
 end
@@ -671,8 +701,8 @@ end
 function ns.StopCooldown(b)
   if not b.cd then return end
   b.cd:Clear()
-  b.cdEnd = nil
-  if b.cdText then b.cdText:SetText("") end
+  b.cdEnd, b.wpeCdStart, b.wpeCdDur = nil, nil, nil
+  cdSay(b, "")
   tick(b, false)
 end
 
