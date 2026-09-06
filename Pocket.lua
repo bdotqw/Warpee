@@ -315,6 +315,22 @@ function Pocket:Build()
   close:SetScript("OnClick", function() Pocket:Close() end)
   self.closeBtn = close
 
+  local gear = ns.CreateGlyphButton(w, "|TInterface\\Buttons\\UI-OptionsButton:13:13:0:0|t")
+  gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
+  ns.AddTip(gear, ns.L["Settings"], "top")
+  self.gearBtn = gear
+
+  local plus = ns.CreateGlyphButton(w, "+")
+  plus:SetScript("OnClick", function()
+    local b = Pocket.idBox
+    if not b then return end
+    if b:IsShown() then b:ClearFocus() return end
+    b:Show()
+    b:SetFocus()
+  end)
+  ns.AddTip(plus, ns.L["Add ID"], "top")
+  self.plusBtn = plus
+
   local rec = Theme:Label(w, 11, "dim")
   rec:SetJustifyH("LEFT")
   ns.LocalText(rec, "Recent")
@@ -331,11 +347,17 @@ function Pocket:Build()
 
   local box = ns.CreateSearchBox(w, nil, "Add ID")
   box.wpeLinkID = true
+  box:Hide()
   box:SetScript("OnEnterPressed", function(s)
     Pocket:AddByText(s:GetText())
     s:SetText("")
     s:ClearFocus()
   end)
+  box:SetScript("OnEscapePressed", function(s)
+    s:SetText("")
+    s:ClearFocus()
+  end)
+  box:SetScript("OnEditFocusLost", function(s) s:Hide() end)
   self.idBox = box
 
   w:Hide()
@@ -421,6 +443,25 @@ function Pocket:Layout()
   ns.SnapPoint(self.title, "LEFT", w, "TOPLEFT", PAD, -mid)
   self.closeBtn:ClearAllPoints()
   ns.SnapPoint(self.closeBtn, "RIGHT", w, "TOPRIGHT", -6, -mid)
+  local rightBtn = self.closeBtn
+  if self.gearBtn then
+    self.gearBtn:ClearAllPoints()
+    ns.SnapPoint(self.gearBtn, "RIGHT", rightBtn, "LEFT", -4, 0)
+    rightBtn = self.gearBtn
+  end
+  if self.plusBtn then
+    self.plusBtn:ClearAllPoints()
+    ns.SnapPoint(self.plusBtn, "RIGHT", rightBtn, "LEFT", -4, 0)
+    rightBtn = self.plusBtn
+  end
+  if self.idBox then
+    self.idBox:SetFont(path, 13, "")
+    if self.idBox.Hint then self.idBox.Hint:SetFont(path, 13, "") end
+    self.idBox:ClearAllPoints()
+    ns.SnapPoint(self.idBox, "RIGHT", rightBtn, "LEFT", -6, 0)
+    self.idBox:SetWidth(110)
+    self.idBox:SetHeight(BOX_H)
+  end
 
   local gen = ((Bags and Bags.styleGen) or 0) .. ":" .. tostring(path) .. ":" .. size
   local repaint = self.paintKey ~= gen
@@ -550,13 +591,7 @@ function Pocket:Layout()
   self.max = n
   self:Cooldowns()
   local foot = gridTop + (rows - 1) * step + size + BOX_GAP
-  self.idBox:SetFont(path, 13, "")
-  if self.idBox.Hint then self.idBox.Hint:SetFont(path, 13, "") end
-  self.idBox:ClearAllPoints()
-  ns.SnapPoint(self.idBox, "TOPLEFT", w, "TOPLEFT", PAD, -foot)
-  ns.SnapPoint(self.idBox, "TOPRIGHT", w, "TOPRIGHT", -PAD, -foot)
-  self.idBox:SetHeight(BOX_H)
-  ns.SnapSize(w, PAD * 2 + cols * step - gap, foot + BOX_H + PAD)
+  ns.SnapSize(w, PAD * 2 + cols * step - gap, foot + PAD)
   ns.AlignToScreen(w)
 end
 
