@@ -493,6 +493,36 @@ local KEY_MODS = {
 -- them, so the client's own key list stays in sync. Escape cancels, a right click
 -- unbinds. SetBinding is protected in combat, so capture never starts there, and a
 -- press that lands mid combat is dropped instead of applied.
+-- The capture itself follows the game's own KeybindListener shape: one top level
+-- button, no parent, that receives OnKeyDown only while its script is set. A nested
+-- button inside the options window never sees a keypress arrive, no matter how it is
+-- enabled, which is why the capture does not live on the visible button.
+local keyListener = CreateFrame("Button")
+keyListener:SetSize(1, 1)
+keyListener:EnableMouse(false)
+keyListener:SetFrameStrata("DIALOG")
+local keyListen = nil
+
+local function listenerKeyDown(_, key)
+  if not keyListen then return end
+  local swallow = keyListener.SetPropagateKeyboardInput
+  if swallow then pcall(swallow, keyListener, false) end
+  keyListen(key)
+end
+
+local function startListen(fn)
+  keyListen = fn
+  keyListener:SetScript("OnKeyDown", listenerKeyDown)
+  keyListener:Show()
+end
+
+local function stopListen()
+  if not keyListen then return end
+  keyListen = nil
+  keyListener:SetScript("OnKeyDown", nil)
+  keyListener:Hide()
+end
+
 function factories.keybind(parent, spec)
   local row = CreateFrame("Frame", nil, parent)
   row:SetHeight(46)
@@ -536,12 +566,29 @@ function factories.keybind(parent, spec)
   local function stop()
     if not capturing then return end
     capturing = false
-    btn:EnableKeyboard(false)
+    stopListen()
     paint()
   end
 
   local function save()
     SaveBindings((GetCurrentBindingSet and GetCurrentBindingSet()) or 1)
+  end
+
+  local function onKey(key)
+    if not capturing then stopListen() return end
+    if key == "ESCAPE" then stop() return end
+    if KEY_MODS[key] then return end
+    stop()
+    if InCombatLockdown() then return end
+    local combo = (IsControlKeyDown() and "CTRL-" or "")
+               .. (IsAltKeyDown() and "ALT-" or "")
+               .. (IsShiftKeyDown() and "SHIFT-" or "")
+               .. key
+    local k1, k2 = GetBindingKey(spec.binding)
+    if k1 then SetBinding(k1) end
+    if k2 then SetBinding(k2) end
+    if SetBinding(combo, spec.binding) then save() end
+    paint()
   end
 
   row.Refresh = function()
@@ -572,26 +619,7 @@ function factories.keybind(parent, spec)
     end
     if InCombatLockdown() then return end
     capturing = true
-    btn:EnableKeyboard(true)
-    paint()
-  end)
-
-  btn:SetScript("OnKeyDown", function(_, key)
-    if not capturing then return end
-    local swallow = btn.SetPropagateKeyboardInput
-    if swallow then pcall(swallow, btn, false) end
-    if key == "ESCAPE" then stop() return end
-    if KEY_MODS[key] then return end
-    stop()
-    if InCombatLockdown() then return end
-    local combo = (IsControlKeyDown() and "CTRL-" or "")
-               .. (IsAltKeyDown() and "ALT-" or "")
-               .. (IsShiftKeyDown() and "SHIFT-" or "")
-               .. key
-    local k1, k2 = GetBindingKey(spec.binding)
-    if k1 then SetBinding(k1) end
-    if k2 then SetBinding(k2) end
-    if SetBinding(combo, spec.binding) then save() end
+    startListen(onKey)
     paint()
   end)
 
