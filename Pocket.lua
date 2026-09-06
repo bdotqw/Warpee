@@ -700,9 +700,10 @@ function Pocket:Layout()
           ns.SnapPoint(g, "TOPLEFT", w, "TOPLEFT", px, -py)
           if pin then
             local pid = ns.ItemStubID(pin)
+            local gear = ns.GearItem(pid)
             g.icon:SetTexture(itemIcon(pid)); g.icon:Show()
             g:SetBackdropBorderColor(Theme:C(worn(pin) and "azure" or "accent"))
-            local art = pinTier(pin)
+            local art = (not gear) and pinTier(pin) or nil
             if art then
               tierFit(g)
               g.tier:SetAtlas(art, g.tierArt and true or false)
@@ -710,7 +711,7 @@ function Pocket:Layout()
             else
               g.tier:Hide()
             end
-            if ns.GearItem(pid) then
+            if gear then
               g.cnt:Hide()
               local lvl = ns.Badge("ilvl").on and pinIlvl(pin) or nil
               if lvl and lvl > 1 then
