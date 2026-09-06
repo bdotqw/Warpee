@@ -43,11 +43,11 @@ function Pocket:List()
   return WarpeeDB.pocket[k]
 end
 
-local keyBag, keySlot, wornKey, wornIlvl = {}, {}, {}, {}
+local keyBag, keySlot, wornKey, wornIlvl, wornSet = {}, {}, {}, {}, {}
 local keyDirty = true
 
 local function keyScan()
-  wipe(keyBag); wipe(keySlot); wipe(wornKey); wipe(wornIlvl)
+  wipe(keyBag); wipe(keySlot); wipe(wornKey); wipe(wornIlvl); wipe(wornSet)
   local want, byKey, gear = {}, false, false
   local list = Pocket:List()
   for i = 1, Pocket:Count() do
@@ -78,15 +78,18 @@ local function keyScan()
     if loc and C_Item.DoesItemExist(loc) then
       local link = get(loc)
       local lvl = C_Item.GetCurrentItemLevel and C_Item.GetCurrentItemLevel(loc)
+      local id = C_Item.GetItemID and C_Item.GetItemID(loc)
+      local set = id and ns.OutfitLabel(loc, id)
       local k = link and ns.ItemKey(link)
       if k then
         wornKey[k] = true
         if lvl then wornIlvl[k] = lvl end
+        if set then wornSet[k] = set end
       end
-      local id = C_Item.GetItemID and C_Item.GetItemID(loc)
       if id then
         wornKey[tostring(id)] = true
         if lvl then wornIlvl[tostring(id)] = lvl end
+        if set then wornSet[tostring(id)] = set end
       end
     end
   end
@@ -170,6 +173,39 @@ local function pinTier(pin)
   return nil
 end
 
+-- The item button is an intrinsic widget, so its quality overlay lives in no source file to
+-- copy numbers out of. The anchor is read off one of our own real buttons instead, which is
+-- by definition the corner and the offsets the game itself uses.
+local function tierFit(g)
+  if g.tierFit then return end
+  local src
+  for i = 1, (Pocket.warmed or 0) do
+    local b = Pocket.slots[i]
+    local t = b and (b.ProfessionQualityOverlay or b.IconOverlay)
+    if t and t.GetNumPoints and t:GetNumPoints() > 0 then src = t; break end
+  end
+  g.tier:ClearAllPoints()
+  if not src then
+    g.tier:SetPoint("TOPLEFT", g.icon, "TOPLEFT")
+    g.tier:SetPoint("BOTTOMRIGHT", g.icon, "BOTTOMRIGHT")
+    return
+  end
+  local n = src:GetNumPoints()
+  for i = 1, n do
+    local p, _, rp, x, y = src:GetPoint(i)
+    if p then g.tier:SetPoint(p, g, rp or p, x or 0, y or 0) end
+  end
+  if n < 3 then
+    local w, h = src:GetSize()
+    if (w or 0) > 0 and (h or 0) > 0 then
+      g.tier:SetSize(w, h)
+    else
+      g.tierArt = true
+    end
+  end
+  g.tierFit = true
+end
+
 local function pinFor(id, link)
   local stub = ns.ItemStub(link)
   if not (id and stub) then return id end
@@ -183,8 +219,6 @@ local function pocketGhost(parent)
   local g = ns.SlotGhost(parent)
   g.plus:Hide()
   local tier = g:CreateTexture(nil, "OVERLAY")
-  tier:SetPoint("TOPLEFT", g.icon, "TOPLEFT")
-  tier:SetPoint("BOTTOMRIGHT", g.icon, "BOTTOMRIGHT")
   tier:Hide()
   g.tier = tier
   local cnt = Theme:Label(g, 11, "accent")
@@ -193,8 +227,14 @@ local function pocketGhost(parent)
   g.cnt = cnt
   local ilvl = g:CreateFontString(nil, "OVERLAY")
   ilvl:SetDrawLayer("OVERLAY", 6)
+  ilvl:SetTextColor(Theme:C("overlay"))
   ilvl:Hide()
   g.ilvl = ilvl
+  local outfit = g:CreateFontString(nil, "OVERLAY")
+  outfit:SetDrawLayer("OVERLAY", 6)
+  outfit:SetTextColor(Theme:C("overlay"))
+  outfit:Hide()
+  g.outfit = outfit
   return g
 end
 
@@ -663,7 +703,13 @@ function Pocket:Layout()
             g.icon:SetTexture(itemIcon(pid)); g.icon:Show()
             g:SetBackdropBorderColor(Theme:C(worn(pin) and "azure" or "accent"))
             local art = pinTier(pin)
-            if art then g.tier:SetAtlas(art); g.tier:Show() else g.tier:Hide() end
+            if art then
+              tierFit(g)
+              g.tier:SetAtlas(art, g.tierArt and true or false)
+              g.tier:Show()
+            else
+              g.tier:Hide()
+            end
             if ns.GearItem(pid) then
               g.cnt:Hide()
               local lvl = ns.Badge("ilvl").on and pinIlvl(pin) or nil
@@ -681,8 +727,18 @@ function Pocket:Layout()
               else
                 g.ilvl:Hide()
               end
+              local kk = ns.ItemKey(pin)
+              local set = kk and wornSet[kk]
+              if set then
+                ns.ApplyBadge(g, "outfit")
+                g.outfit:SetText(set)
+                g.outfit:Show()
+              else
+                g.outfit:Hide()
+              end
             else
               g.ilvl:Hide()
+              g.outfit:Hide()
               local cb = ns.Badge("count")
               ns.SetOutlined(g.cnt, cb.s)
               g.cnt:ClearAllPoints()
@@ -695,6 +751,7 @@ function Pocket:Layout()
             g.tier:Hide()
             g.cnt:Hide()
             g.ilvl:Hide()
+            g.outfit:Hide()
             g:SetBackdropBorderColor(Theme:C("emptyLine"))
           end
           g:Show()
@@ -813,6 +870,8 @@ ev:RegisterEvent("BAG_UPDATE_DELAYED")
 ev:RegisterEvent("BAG_UPDATE_COOLDOWN")
 ev:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 ev:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+ev:RegisterEvent("EQUIPMENT_SETS_CHANGED")
+ev:RegisterEvent("EQUIPMENT_SWAP_FINISHED")
 ev:RegisterEvent("PLAYER_REGEN_ENABLED")
 ev:RegisterEvent("PLAYER_LOGIN")
 ev:SetScript("OnEvent", function(_, event)
@@ -824,7 +883,8 @@ ev:SetScript("OnEvent", function(_, event)
     Pocket:Flush()
     return
   end
-  if event == "BAG_UPDATE_DELAYED" or event == "PLAYER_EQUIPMENT_CHANGED" then
+  if event == "BAG_UPDATE_DELAYED" or event == "PLAYER_EQUIPMENT_CHANGED"
+     or event == "EQUIPMENT_SETS_CHANGED" or event == "EQUIPMENT_SWAP_FINISHED" then
     later()
     return
   end
