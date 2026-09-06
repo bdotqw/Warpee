@@ -1570,6 +1570,7 @@ end
 function ns.PinGhost(parent)
   local g = ns.SlotGhost(parent)
   local tier = g:CreateTexture(nil, "OVERLAY")
+  tier:SetDrawLayer("OVERLAY", 7)
   tier:Hide()
   g.tier = tier
   local cnt = Theme:Label(g, 11, "gone")
@@ -1589,34 +1590,16 @@ function ns.PinGhost(parent)
   return g
 end
 
--- The item button is an intrinsic widget, so its quality overlay lives in no source file to
--- copy numbers out of. The anchor is read off a real button of the row instead, which is by
--- definition the corner and the offsets the game itself uses. The overlays are left on the
--- game's own anchor for this to mean anything: fitting them to the icon would hand this
--- copy our stretch instead of the game's placement.
-function ns.PinTierFit(g, btn)
+-- The game's own badge is written out in Blizzard_ItemButton/Mainline/ItemButtonTemplate.lua:
+-- anchored TOPLEFT at (-3, 2) on the button, drawn from the iconInventory atlas at the
+-- atlas's own size, at OVERLAY sublevel 7. A runtime copy of that anchor off a row button
+-- read whichever overlay happened to exist, ours as often as theirs, so the numbers come
+-- from the source instead.
+function ns.PinTierFit(g)
   if g.tierFit then return end
-  local src = btn and (btn.ProfessionQualityOverlay or btn.IconOverlay)
-  g.tier:ClearAllPoints()
-  if not (src and src.GetNumPoints and src:GetNumPoints() > 0) then
-    g.tier:SetPoint("TOPLEFT", g.icon, "TOPLEFT")
-    g.tier:SetPoint("BOTTOMRIGHT", g.icon, "BOTTOMRIGHT")
-    return
-  end
-  local n = src:GetNumPoints()
-  for i = 1, n do
-    local p, _, rp, x, y = src:GetPoint(i)
-    if p then g.tier:SetPoint(p, g, rp or p, x or 0, y or 0) end
-  end
-  if n < 3 then
-    local w, h = src:GetSize()
-    if (w or 0) > 0 and (h or 0) > 0 then
-      g.tier:SetSize(w, h)
-    else
-      g.tierArt = true
-    end
-  end
   g.tierFit = true
+  g.tier:ClearAllPoints()
+  g.tier:SetPoint("TOPLEFT", g, "TOPLEFT", -3, 2)
 end
 
 -- Blue edge means the item is on you, gold means it is not with you at all, and the gold
@@ -1642,8 +1625,8 @@ function ns.PaintPin(g, pin, t, btn)
   local art = (not gear) and ns.PinTier(pin) or nil
   if g.tier then
     if art then
-      ns.PinTierFit(g, btn)
-      g.tier:SetAtlas(art, g.tierArt and true or false)
+      ns.PinTierFit(g)
+      g.tier:SetAtlas(art, true)
       g.tier:Show()
     else
       g.tier:Hide()
