@@ -63,7 +63,6 @@ local STRINGS = {
   ["Search"] = "Búsqueda",
   ["Markers"] = "Marcadores",
   ["Slot look"] = "Aspecto de los espacios",
-  ["Rows"] = "Filas",
   ["Bags grid"] = "Cuadrícula de las bolsas",
   ["Bank and Warband grid"] = "Cuadrícula del banco y la banda guerrera",
   ["Badges"] = "Distintivos",

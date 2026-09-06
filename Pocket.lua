@@ -413,7 +413,7 @@ function Pocket:Layout()
   if (self.warmed or 0) < n or (self.recWarmed or 0) < cols then self:Warm() end
   local band = Theme:HeaderBand(w, BAND)
   local head = band and (band + 6) or (30 + Theme:TopInset())
-  local mid = (band or head) / 2
+  local mid = (band or head) / 2 + Theme:TitleDrop()
   local path = ns.Fonts:Current()
   self.title:SetFont(path, 14, "")
   self.title:ClearAllPoints()

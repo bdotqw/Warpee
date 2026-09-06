@@ -532,15 +532,28 @@ function ns.EscClose(frame)
   escFrames[#escFrames + 1] = frame
   escArm(frame)
   frame:HookScript("OnShow", function(s) escArm(s); escFree(s) end)
+  -- The key reaches the topmost armed window first and stops there, so hiding only the
+  -- frame it landed on would leave the rest for the next press. One press closes every
+  -- Warpee window at once; each frame's own OnHide carries its cleanup, the bank's
+  -- included, which closes the banker session with it.
+  local function closeAll()
+    for i = 1, #escFrames do
+      local f = escFrames[i]
+      if f:IsShown() then f:Hide() end
+    end
+  end
   frame:HookScript("OnKeyDown", function(s, key)
-    if InCombatLockdown() then
-      if key == "ESCAPE" then s:Hide() end
+    if key ~= "ESCAPE" then
+      if not InCombatLockdown() then escFree(s) end
       return
     end
-    if key ~= "ESCAPE" then escFree(s); return end
+    if InCombatLockdown() then
+      closeAll()
+      return
+    end
     s.wpeEscEat = true
     s:SetPropagateKeyboardInput(false)
-    s:Hide()
+    closeAll()
     C_Timer.After(0, function() escFree(s) end)
   end)
   return frame
@@ -624,7 +637,7 @@ local EDGE_HIDE = { "NineSlice", "TopLeftCorner", "TopRightCorner", "BotLeftCorn
                     "TopBorder", "BottomBorder", "LeftBorder", "RightBorder", "TitleBg" }
 
 local SKINS = {
-  blizzard     = { inset = 20, grain = true },
+  blizzard     = { inset = 20, grain = true, titleDrop = 10 },
   blizzardflat = { inset = 4, drop = -5, edge = FLAT_EDGE, out = 14, band = 32,
                    bandAlpha = 0.80,
                    edgeTint = "stroke", plate = true, bodyGrain = 0.10 },
@@ -841,6 +854,14 @@ function Theme:HeadDrop()
   local def = self:SkinDef()
   if not def then return 0 end
   return def.drop or 1
+end
+
+-- The pocket centers its title and close button in the top band on its own, and the
+-- blizzard art puts that band lower than the plain themes draw it, so its skin says
+-- how much further down the pair sits.
+function Theme:TitleDrop()
+  local def = self:SkinDef()
+  return (def and def.titleDrop) or 0
 end
 
 function Theme:Panel(frame, bgKey, strokeKey)

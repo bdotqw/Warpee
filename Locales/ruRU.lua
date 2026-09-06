@@ -66,7 +66,6 @@ local STRINGS = {
   ["Search"] = "Поиск",
   ["Markers"] = "Метки",
   ["Slot look"] = "Вид ячейки",
-  ["Rows"] = "Ряды",
   ["Bags grid"] = "Сетка сумок",
   ["Bank and Warband grid"] = "Сетка банка и банка отряда",
   ["Badges"] = "Значки",

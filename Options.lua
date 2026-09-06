@@ -489,20 +489,29 @@ local KEY_MODS = {
   LCTRL = true, RCTRL = true, LSHIFT = true, RSHIFT = true, LALT = true, RALT = true,
 }
 
--- Click the row, press a key, done: the binding is written the way the game stores them,
--- so the client's own key list stays in sync. Escape cancels, a right click unbinds.
--- SetBinding is protected in combat, so capture never starts there, and a press that
--- lands mid combat is dropped instead of applied.
+-- Click the button, press a key, done: the binding is written the way the game stores
+-- them, so the client's own key list stays in sync. Escape cancels, a right click
+-- unbinds. SetBinding is protected in combat, so capture never starts there, and a
+-- press that lands mid combat is dropped instead of applied.
 function factories.keybind(parent, spec)
-  local row = CreateFrame("Button", nil, parent)
-  row:SetHeight(26)
-  row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-  local fs = track(Theme:Label(row, BASE_FONT, "text"), 0)
-  fs:SetPoint("LEFT", 4, 0)
-  fs:SetJustifyH("LEFT")
-  local val = track(Theme:Label(row, BASE_FONT, "dim"), 0)
-  val:SetPoint("RIGHT", -4, 0)
-  val:SetJustifyH("RIGHT")
+  local row = CreateFrame("Frame", nil, parent)
+  row:SetHeight(46)
+
+  local nameFS = track(Theme:Label(row, BASE_FONT, "text"), 0)
+  nameFS:SetPoint("TOPLEFT", 1, -1)
+  nameFS:SetText(T(spec.name))
+
+  local btn = CreateFrame("Button", nil, row, "BackdropTemplate")
+  ns.SnapBox(btn, nil, 24)
+  btn:SetPoint("BOTTOMLEFT", 1, 0)
+  btn:SetPoint("BOTTOMRIGHT", -1, 0)
+  ns.PixelBackdrop(btn)
+  btn:SetBackdropColor(Theme:C("panel"))
+  btn:SetBackdropBorderColor(Theme:C("stroke"))
+  btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+
+  local cur = track(Theme:Label(btn, BASE_FONT - 1, "text"), -1)
+  cur:SetPoint("CENTER")
   local capturing = false
 
   local function keyText()
@@ -512,20 +521,22 @@ function factories.keybind(parent, spec)
   end
 
   local function paint()
-    fs:SetText(T(spec.name))
     if capturing then
-      val:SetText(T("Press a key..."))
-      val:SetTextColor(Theme:C("accent"))
+      cur:SetText(T("Press a key..."))
+      cur:SetTextColor(Theme:C("accent"))
+      btn:SetBackdropBorderColor(Theme:C("accent"))
     else
-      val:SetText(keyText())
-      val:SetTextColor(Theme:C("dim"))
+      cur:SetText(keyText())
+      cur:SetTextColor(Theme:C("text"))
+      btn:SetBackdropBorderColor(Theme:C("stroke"))
     end
+    btn:SetBackdropColor(Theme:C("panel"))
   end
 
   local function stop()
     if not capturing then return end
     capturing = false
-    row:EnableKeyboard(false)
+    btn:EnableKeyboard(false)
     paint()
   end
 
@@ -533,7 +544,22 @@ function factories.keybind(parent, spec)
     SaveBindings((GetCurrentBindingSet and GetCurrentBindingSet()) or 1)
   end
 
-  row:SetScript("OnClick", function(_, button)
+  row.Refresh = function()
+    nameFS:SetText(T(spec.name))
+    paint()
+  end
+
+  btn:SetScript("OnEnter", function(s)
+    if capturing then return end
+    s:SetBackdropColor(Theme:C("panelHi"))
+    s:SetBackdropBorderColor(Theme:C("accent"))
+  end)
+  btn:SetScript("OnLeave", function(s)
+    if capturing then return end
+    paint()
+  end)
+
+  btn:SetScript("OnClick", function(_, button)
     if capturing then stop() return end
     if button == "RightButton" then
       if InCombatLockdown() then return end
@@ -546,14 +572,14 @@ function factories.keybind(parent, spec)
     end
     if InCombatLockdown() then return end
     capturing = true
-    row:EnableKeyboard(true)
+    btn:EnableKeyboard(true)
     paint()
   end)
 
-  row:SetScript("OnKeyDown", function(_, key)
+  btn:SetScript("OnKeyDown", function(_, key)
     if not capturing then return end
-    local swallow = row.SetPropagateKeyboardInput
-    if swallow then pcall(swallow, row, false) end
+    local swallow = btn.SetPropagateKeyboardInput
+    if swallow then pcall(swallow, btn, false) end
     if key == "ESCAPE" then stop() return end
     if KEY_MODS[key] then return end
     stop()
@@ -569,8 +595,8 @@ function factories.keybind(parent, spec)
     paint()
   end)
 
+  btn:SetScript("OnHide", stop)
   row:SetScript("OnHide", stop)
-  row.Refresh = paint
   paint()
   return row
 end
@@ -1770,22 +1796,24 @@ local GRID_PAGE = {
   { type = "range", name = "Icon zoom", min = 0.8, max = 1.2, step = 0.01,
     get = zoomGet, set = zoomSet, half = "right",
     desc = "1.00 fills the slot. Less shrinks the icon, more crops it." },
-  { type = "toggle", name = "Merge reagents", col = 1, of = 2, get = mergeGet, set = mergeSet,
-    disabled = flow.hideGet,
-    desc = "Lay the reagent bag out with the main bags, without its caption." },
-  { type = "toggle", name = "Reagents on top", col = 2, of = 2,
-    get = flow.topGet, set = flow.topSet, disabled = flow.offGet,
-    desc = "Draw the reagent bag above the main bags instead of below them." },
   { type = "toggle", name = "Hide reagents", col = 1, of = 2,
     get = flow.hideGet, set = flow.hideSet,
     desc = "Leave the reagent bag out of the window. Its slots still count in the header, and reagents still go into it." },
-  { type = "toggle", name = "Reverse slot order", col = 1, of = 2,
-    get = flow.revGet, set = flow.revSet,
-    desc = "The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in." },
-  { type = "toggle", name = "Fill grid upwards", col = 2, of = 2,
+  { type = "toggle", name = "Merge reagents", col = 2, of = 2, get = mergeGet, set = mergeSet,
+    disabled = flow.hideGet,
+    desc = "Lay the reagent bag out with the main bags, without its caption." },
+  { type = "toggle", name = "Reagents on top", col = 1, of = 2,
+    get = flow.topGet, set = flow.topSet, disabled = flow.offGet,
+    desc = "Draw the reagent bag above the main bags instead of below them." },
+  { type = "toggle", name = "Recent items", col = 2, of = 2, get = fav.recentGet, set = fav.recentSet,
+    desc = "A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload." },
+  { type = "toggle", name = "Fill grid upwards", col = 1, of = 2,
     get = flow.upGet, set = flow.upSet,
     desc = "The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top." },
-  { type = "header", name = "Rows" },
+  { type = "toggle", name = "Reverse slot order", col = 2, of = 2,
+    get = flow.revGet, set = flow.revSet,
+    desc = "The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in." },
+  { type = "header", name = "Favorites" },
   { type = "toggle", name = "Favorite slots", col = 1, get = fav.showGet, set = fav.showSet,
     desc = "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot." },
   { type = "range", name = "How many slots", min = 0, max = 14, step = 1,
@@ -1793,8 +1821,6 @@ local GRID_PAGE = {
     format = function(v) return (v or 0) <= 0 and T("As the grid") or tostring(v) end,
     disabled = function() return not fav.showGet() end,
     desc = "Never more than the grid is wide. Zero keeps the row as wide as the grid." },
-  { type = "toggle", name = "Recent items", col = 1, get = fav.recentGet, set = fav.recentSet,
-    desc = "A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload." },
   { type = "header", name = "Slot look" },
   { type = "select", name = "Slot background",
     get = styleGet, set = styleSet,
