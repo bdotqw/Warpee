@@ -108,12 +108,12 @@ local function HookBagToggles()
   -- The game opens its own bags beside a window on its own: the mail calls this family
   -- with its frame, the merchant and the auction house call it from their own code.
   -- Following those calls made the auto open checkboxes dead letters, the game's call
-  -- always opened ours, so the hooks now follow none of them. Baganator's shape: the
-  -- auto open checkboxes are the only thing that opens our bags together with a
-  -- window, and these hooks stay only to keep the game's containers tucked away. Two
-  -- game paths still open ours: an enchant or a gem waiting for a target opens them so
-  -- the item to receive it can be clicked, held back when the pocket is on screen, and
-  -- a loot toast click means show what just dropped.
+  -- always opened ours, so the hooks now follow none of them: the auto open
+  -- checkboxes are the only thing that opens our bags together with a window, and
+  -- these hooks stay only to keep the game's containers tucked away. Two game paths
+  -- still open ours: an enchant or a gem waiting for a target opens them so the item
+  -- to receive it can be clicked, held back when the pocket is on screen, and a loot
+  -- toast click means show what just dropped.
   local OPEN_FRAME_KEY = { MailFrame = "mail" }
   local function frameKey(frame)
     if type(frame) ~= "table" or not frame.GetName then return nil end
