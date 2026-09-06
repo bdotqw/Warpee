@@ -598,10 +598,24 @@ function ns.FitOverlays(b)
   local ic = iconOf(b)
   if not ic then return end
   local nm = b:GetName() or ""
-  -- The two decor overlays are the game's own art with the game's own corner anchor, and
-  -- they are also the source the ghost tier badge copies its placement from, so they are
-  -- never fitted to the icon: a zoomed icon would stretch them out of that anchor and
-  -- hand the copy our geometry instead of Blizzard's.
+  -- The two decor overlays follow the icon, so a zoomed icon carries the art with it.
+  -- The craft tier is the exception: it is a small corner badge, not art that fills the
+  -- icon, so whenever one of these overlays carries a tier atlas it is pinned to the
+  -- badge place instead, the same TOPLEFT (-3, 2) at the atlas's own size the game
+  -- gives its own quality badge.
+  local function fit(t)
+    if not t then return end
+    if tierAtlas(t) then
+      local art = t:GetAtlas()
+      t:ClearAllPoints()
+      t:SetPoint("TOPLEFT", b, "TOPLEFT", -3, 2)
+      t:SetAtlas(art, true)
+      return
+    end
+    fitToIcon(t, ic)
+  end
+  fit(b.IconOverlay or _G[nm .. "IconOverlay"])
+  fit(b.IconOverlay2 or _G[nm .. "IconOverlay2"])
   fitToIcon(questTex(b), ic)
   fitToIcon(b.NewItemTexture or _G[nm .. "NewItemTexture"], ic)
   fitToIcon(b.BattlepayItemTexture or _G[nm .. "BattlepayItemTexture"], ic)
@@ -1124,7 +1138,8 @@ function ns.UpdateItemButton(b)
   elseif hl and ns.IsItemUnusable(bagID, slot, hl) then
     local R = RED_FONT_COLOR
     ns.SetRarityRing(b, R.r, R.g, R.b, 1)
-  elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q] then
+  elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q]
+         and not decorated(b.IconOverlay) and not decorated(b.IconOverlay2) then
     local c = ITEM_QUALITY_COLORS[q]
     ns.SetRarityRing(b, c.r, c.g, c.b, 1)
   else
@@ -1230,7 +1245,8 @@ function ns.PaintVaultButton(b, d, bagID)
   elseif link and ns.IsLinkUnusable(link) then
     local R = RED_FONT_COLOR
     ns.SetRarityRing(b, R.r, R.g, R.b, 1)
-  elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q] then
+  elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q]
+         and not decorated(b.IconOverlay) and not decorated(b.IconOverlay2) then
     local c = ITEM_QUALITY_COLORS[q]
     ns.SetRarityRing(b, c.r, c.g, c.b, 1)
   else
