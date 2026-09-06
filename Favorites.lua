@@ -413,7 +413,7 @@ function Fav:Apply(bags, x, top, size, gap)
         ns.SnapBox(g, size, size)
         g:ClearAllPoints()
         ns.SnapPoint(g, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
-        ns.PaintPin(g, pin, pins, self.slots[1])
+        ns.PaintPin(g, pin, pins)
         if not pin then
           g.plus:SetFont(bags.fontPath or ns.Fonts:Current(), plusSize, "")
           g.plus:Show()

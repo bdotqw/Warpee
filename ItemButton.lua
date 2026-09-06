@@ -1587,39 +1587,25 @@ function ns.PinGhost(parent)
   return g
 end
 
--- The item button is an intrinsic widget, so its quality overlay lives in no source file to
--- copy numbers out of. The anchor is read off a real button of the row instead, which is by
--- definition the corner and the offsets the game itself uses.
-function ns.PinTierFit(g, btn)
+-- The game's own quality overlay is an intrinsic region with no source to read numbers
+-- from, and the overlays on our own buttons are re-fitted to the icon anyway, so there
+-- is no anchor left to copy at runtime. The badge is placed by hand instead, measured
+-- against the game's own cells: the top left corner, one pixel out, ten pixels square.
+local TIER_SIZE = 10
+
+function ns.PinTierFit(g)
   if g.tierFit then return end
-  local src = btn and (btn.ProfessionQualityOverlay or btn.IconOverlay)
-  g.tier:ClearAllPoints()
-  if not (src and src.GetNumPoints and src:GetNumPoints() > 0) then
-    g.tier:SetPoint("TOPLEFT", g.icon, "TOPLEFT")
-    g.tier:SetPoint("BOTTOMRIGHT", g.icon, "BOTTOMRIGHT")
-    return
-  end
-  local n = src:GetNumPoints()
-  for i = 1, n do
-    local p, _, rp, x, y = src:GetPoint(i)
-    if p then g.tier:SetPoint(p, g, rp or p, x or 0, y or 0) end
-  end
-  if n < 3 then
-    local w, h = src:GetSize()
-    if (w or 0) > 0 and (h or 0) > 0 then
-      g.tier:SetSize(w, h)
-    else
-      g.tierArt = true
-    end
-  end
   g.tierFit = true
+  g.tier:ClearAllPoints()
+  g.tier:SetPoint("TOPLEFT", g, "TOPLEFT", -1, 1)
+  ns.PixelJob(g.tier, function(x) ns.SnapSize(x, TIER_SIZE, TIER_SIZE) end, "tier")
 end
 
 -- Blue edge means the item is on you, gold means it is not with you at all, and the gold
 -- zero says the same for something that stacks. Gear carries its item level and its gear set
 -- instead of a count, and the craft tier is drawn only on what is not gear, since an item
 -- level already says how good a piece is.
-function ns.PaintPin(g, pin, t, btn)
+function ns.PaintPin(g, pin, t)
   if not g then return end
   if not pin then
     if g.icon then g.icon:Hide() end
@@ -1638,8 +1624,8 @@ function ns.PaintPin(g, pin, t, btn)
   local art = (not gear) and ns.PinTier(pin) or nil
   if g.tier then
     if art then
-      ns.PinTierFit(g, btn)
-      g.tier:SetAtlas(art, g.tierArt and true or false)
+      ns.PinTierFit(g)
+      g.tier:SetAtlas(art)
       g.tier:Show()
     else
       g.tier:Hide()
