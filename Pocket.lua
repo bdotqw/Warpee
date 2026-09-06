@@ -379,7 +379,6 @@ function Pocket:Warm()
       b:RegisterForClicks(unpack(ns.CLICKS_USE))
       b.wpeClicks, b.wpeLockable, b.wpeTotal = ns.CLICKS_USE, nil, nil
       b.wpeNoNew = true
-      ns.RecMark(b)
       b.holder:Hide()
       self.recSlots[i] = b
     end

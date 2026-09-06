@@ -301,10 +301,10 @@ function ns.IsWarbound(bagID, slot, loc, bound)
   return false
 end
 
--- Cells of the recent rows look exactly like the grid, and the row label alone was not
--- enough to tell them apart. Every one of them carries the same mark: an accent line
--- along the top edge, above the slot border and the quality ring, under the badges.
--- The rows own their buttons, so the mark is put on once at creation and never moved.
+-- Empty cells of the recent rows look exactly like the grid, and the row label alone
+-- was not enough to tell them apart. Only the empty ones carry the mark: an accent
+-- line along the top edge of the ghost. A cell that holds an item shows nothing but
+-- the item, its rarity border keeps its own color and nothing draws over it.
 function ns.RecMark(b)
   if b.wpeRecMark then return end
   local t = b:CreateTexture(nil, "ARTWORK", nil, 5)
