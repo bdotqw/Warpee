@@ -1298,6 +1298,14 @@ function ns.PinIcon(id)
   return (GetItemIcon and GetItemIcon(id)) or 134400
 end
 
+-- Two keys have the same stem when they differ in bonus ids alone. Bonus ids are where an
+-- upgrade lands, so a same stem candidate is the same item changed; a different stem means
+-- something the owner chose by hand is different, the enchant, a gem or the suffix, and that
+-- is a different copy that must never be adopted.
+local function pinStem(k)
+  return (type(k) == "string" and k:match("^(.*):")) or nil
+end
+
 -- One pass over the bags per row, filling that row's own tables: every item id, so a
 -- stackable pin finds any copy; the exact key of the copies this row actually pins, so a
 -- gear pin finds its own; and what is worn, with the item level and gear set of each piece.
@@ -1374,7 +1382,9 @@ function ns.PinScan(list, n, t)
   -- So a stale pin looks at what copies of that item exist and adopts one only when there is
   -- no choice to make: a single worn copy first, since a pin on gear is nearly always the
   -- piece being worn, otherwise a single copy in the bags. Two copies and it stays a ghost
-  -- rather than guess, which is the whole reason the exact key exists.
+  -- rather than guess, which is the whole reason the exact key exists. The candidate also has
+  -- to share the stem, so a pinned copy resting in the bank cannot be replaced by the plain
+  -- twin lying in the bags: that twin differs by its enchant, not by an upgrade.
   for i = 1, (n or 0) do
     local pin = list and list[i]
     if type(pin) == "string" then
@@ -1388,6 +1398,7 @@ function ns.PinScan(list, n, t)
         elseif (not w or #w == 0) and b and #b == 1 then
           pick = b[1]
         end
+        if pick and pinStem(pick) ~= pinStem(k) then pick = nil end
         local stub = pick and stubFor[pick]
         if stub then list[i] = stub end
       end
