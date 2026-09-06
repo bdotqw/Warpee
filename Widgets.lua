@@ -444,11 +444,13 @@ end
 
 local linkBoxes = {}
 
--- The hook is deliberately hooksecurefunc and nothing more: ChatEdit_InsertLink must run
--- first and untouched, it carries every link insertion in the game. Only after it returns
--- is its argument read and copied into whichever of our boxes is focused. The pocket id
--- box takes the whole item string, not the bare id: a link is the only way a piece of
--- gear arrives with its bonus ids, and a bare id of gear is refused on purpose.
+-- Link insertion rides the game's dispatcher. Since the chat frame rework the item
+-- modified click goes through ChatFrameUtil.InsertLink, which hands the link to
+-- whichever frame it knows about: the macro editor, the professions search, the
+-- communities chat, the chat itself, the auction house. The old global
+-- ChatEdit_InsertLink is no longer called on that path, so the hook sits on the new
+-- one and keeps the old global as a fallback. Both are hooksecurefunc: the game's
+-- function runs first and untouched, ours only reads its argument afterwards.
 local function linkInto(text)
   if type(text) ~= "string" then return false end
   for _, box in ipairs(linkBoxes) do
@@ -467,6 +469,9 @@ local function linkInto(text)
   return false
 end
 
+if ChatFrameUtil and ChatFrameUtil.InsertLink then
+  hooksecurefunc(ChatFrameUtil, "InsertLink", linkInto)
+end
 if ChatEdit_InsertLink then
   hooksecurefunc("ChatEdit_InsertLink", linkInto)
 end
