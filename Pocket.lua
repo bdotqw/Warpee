@@ -43,199 +43,27 @@ function Pocket:List()
   return WarpeeDB.pocket[k]
 end
 
-local keyBag, keySlot, wornKey, wornIlvl, wornSet = {}, {}, {}, {}, {}
+-- Pinned cells are shared with the favorites row in the bag window. Read the block above
+-- ns.PinArg in ItemButton.lua before touching anything a cell knows or shows, and make the
+-- change there so both rows get it: this file owns only the window, the layout, the tooltip
+-- and the click overlay. The lists themselves stay apart, this one is its own.
+local pins = {}
 local keyDirty = true
 
-local function keyScan()
-  wipe(keyBag); wipe(keySlot); wipe(wornKey); wipe(wornIlvl); wipe(wornSet)
-  local want, byKey, gear = {}, false, false
-  local list = Pocket:List()
-  for i = 1, Pocket:Count() do
-    local pin = list[i]
-    local id = ns.ItemStubID(pin)
-    if id and type(pin) == "string" then want[id] = true; byKey = true end
-    if id and ns.GearItem(id) then gear = true end
-  end
-  if not (byKey or gear) then return end
-  if byKey then
-    local function sweep(bag)
-      for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
-        local id = C_Container.GetContainerItemID(bag, slot)
-        if id and want[id] then
-          local info = C_Container.GetContainerItemInfo(bag, slot)
-          local k = info and ns.ItemKey(info.hyperlink)
-          if k and not keyBag[k] then keyBag[k], keySlot[k] = bag, slot end
-        end
-      end
-    end
-    for _, bag in ipairs(ns.playerBags) do sweep(bag) end
-    if ns.reagentBag then sweep(ns.reagentBag) end
-  end
-  local get = C_Item and C_Item.GetItemLink
-  if not (get and ItemLocation) then return end
-  for slot = 1, 19 do
-    local loc = ItemLocation:CreateFromEquipmentSlot(slot)
-    if loc and C_Item.DoesItemExist(loc) then
-      local link = get(loc)
-      local lvl = C_Item.GetCurrentItemLevel and C_Item.GetCurrentItemLevel(loc)
-      local id = C_Item.GetItemID and C_Item.GetItemID(loc)
-      local set = id and ns.OutfitLabel(loc, id)
-      local k = link and ns.ItemKey(link)
-      if k then
-        wornKey[k] = true
-        if lvl then wornIlvl[k] = lvl end
-        if set then wornSet[k] = set end
-      end
-      if id then
-        wornKey[tostring(id)] = true
-        if lvl then wornIlvl[tostring(id)] = lvl end
-        if set then wornSet[tostring(id)] = set end
-      end
-    end
-  end
+local function scan()
+  if not keyDirty then return end
+  keyDirty = false
+  ns.PinScan(Pocket:List(), Pocket:Count(), pins)
 end
 
 local function locate(pin)
-  if type(pin) == "number" then
-    local F = ns.Fav
-    if not (F and F.Locate) then return nil end
-    return F:Locate(pin)
-  end
-  if type(pin) ~= "string" then return nil end
-  if keyDirty then keyScan(); keyDirty = false end
-  local k = ns.ItemKey(pin)
-  if not k then return nil end
-  return keyBag[k], keySlot[k]
+  scan()
+  return ns.PinLocate(pin, pins)
 end
 
 local function worn(pin)
-  if type(pin) == "string" then
-    if keyDirty then keyScan(); keyDirty = false end
-    local k = ns.ItemKey(pin)
-    return (k and wornKey[k]) and true or false
-  end
-  local f = (C_Item and C_Item.IsEquippedItem) or IsEquippedItem
-  return (pin and f and f(pin)) and true or false
-end
-
-local function itemIcon(id)
-  if C_Item and C_Item.GetItemIconByID then
-    local ok, tex = pcall(C_Item.GetItemIconByID, id)
-    if ok and tex then return tex end
-  end
-  return (GetItemIcon and GetItemIcon(id)) or 134400
-end
-
-local function pinArg(pin)
-  if type(pin) == "number" then return pin end
-  return ns.ItemStub(pin)
-end
-
-local function pinIlvl(pin)
-  local k = ns.ItemKey(pin)
-  local lvl = k and wornIlvl[k]
-  if lvl then return lvl end
-  local f = (C_Item and C_Item.GetDetailedItemLevelInfo) or GetDetailedItemLevelInfo
-  local arg = pinArg(pin)
-  if not (f and arg) then return nil end
-  local ok, v = pcall(f, arg)
-  return (ok and tonumber(v)) or nil
-end
-
-local function pinQuality(pin)
-  local f = C_Item and C_Item.GetItemQualityByID
-  local arg = pinArg(pin)
-  if not (f and arg) then return nil end
-  local ok, q = pcall(f, arg)
-  return (ok and tonumber(q)) or nil
-end
-
--- Midnight dropped the two lowest crafting ranks, so the old habit of building an atlas
--- name out of the quality number now points at the wrong metal. Patch 12.0.0 added the
--- pair of quality info calls that hand back the atlas for the item itself, and asking the
--- game is the only mapping that stays right when it renames or renumbers the ranks again.
--- Reagent quality is asked first and crafted second, the order the game uses on its own
--- item buttons.
-local function pinTier(pin)
-  local T = C_TradeSkillUI
-  local arg = pinArg(pin)
-  if not (T and arg) then return nil end
-  for _, name in ipairs({ "GetItemReagentQualityInfo", "GetItemCraftedQualityInfo" }) do
-    local f = T[name]
-    if f then
-      local ok, info = pcall(f, arg)
-      if ok and type(info) == "table" then
-        local art = info.iconInventory or info.icon or info.iconSmall
-        if art then return art end
-      end
-    end
-  end
-  return nil
-end
-
--- The item button is an intrinsic widget, so its quality overlay lives in no source file to
--- copy numbers out of. The anchor is read off one of our own real buttons instead, which is
--- by definition the corner and the offsets the game itself uses.
-local function tierFit(g)
-  if g.tierFit then return end
-  local src
-  for i = 1, (Pocket.warmed or 0) do
-    local b = Pocket.slots[i]
-    local t = b and (b.ProfessionQualityOverlay or b.IconOverlay)
-    if t and t.GetNumPoints and t:GetNumPoints() > 0 then src = t; break end
-  end
-  g.tier:ClearAllPoints()
-  if not src then
-    g.tier:SetPoint("TOPLEFT", g.icon, "TOPLEFT")
-    g.tier:SetPoint("BOTTOMRIGHT", g.icon, "BOTTOMRIGHT")
-    return
-  end
-  local n = src:GetNumPoints()
-  for i = 1, n do
-    local p, _, rp, x, y = src:GetPoint(i)
-    if p then g.tier:SetPoint(p, g, rp or p, x or 0, y or 0) end
-  end
-  if n < 3 then
-    local w, h = src:GetSize()
-    if (w or 0) > 0 and (h or 0) > 0 then
-      g.tier:SetSize(w, h)
-    else
-      g.tierArt = true
-    end
-  end
-  g.tierFit = true
-end
-
-local function pinFor(id, link)
-  local stub = ns.ItemStub(link)
-  if not (id and stub) then return id end
-  local loc = select(4, C_Item.GetItemInfoInstant(id))
-  local max = C_Item.GetItemMaxStackSizeByID and C_Item.GetItemMaxStackSizeByID(id)
-  if loc and loc ~= "" and (tonumber(max) or 1) <= 1 then return stub end
-  return id
-end
-
-local function pocketGhost(parent)
-  local g = ns.SlotGhost(parent)
-  g.plus:Hide()
-  local tier = g:CreateTexture(nil, "OVERLAY")
-  tier:Hide()
-  g.tier = tier
-  local cnt = Theme:Label(g, 11, "gone")
-  cnt:SetPoint("BOTTOMRIGHT", -2, 2)
-  cnt:Hide()
-  g.cnt = cnt
-  local ilvl = g:CreateFontString(nil, "OVERLAY")
-  ilvl:SetDrawLayer("OVERLAY", 6)
-  ilvl:SetTextColor(Theme:C("overlay"))
-  ilvl:Hide()
-  g.ilvl = ilvl
-  local outfit = g:CreateFontString(nil, "OVERLAY")
-  outfit:SetDrawLayer("OVERLAY", 6)
-  outfit:SetTextColor(Theme:C("overlay"))
-  outfit:Hide()
-  g.outfit = outfit
-  return g
+  scan()
+  return ns.PinWorn(pin, pins)
 end
 
 local deferred = false
@@ -391,7 +219,7 @@ function Pocket:Lift(index)
   local f = dragArt()
   local sz = math.max(16, (b and b:GetWidth()) or 0)
   f:SetSize(sz, sz)
-  f.icon:SetTexture(itemIcon(ns.ItemStubID(pin)))
+  f.icon:SetTexture(ns.PinIcon(ns.ItemStubID(pin)))
   f:Show()
 end
 
@@ -421,7 +249,7 @@ function Pocket:PinFromCursor(index)
   if not id and link then id = tonumber(link:match("item:(%d+)")) end
   if not id then return end
   ClearCursor()
-  local pin = pinFor(id, link)
+  local pin = ns.PinFor(id, link)
   if ns.ItemSound then ns.ItemSound("drop", locate(pin)) end
   self:Set(index, pin)
 end
@@ -532,7 +360,8 @@ function Pocket:Warm()
       self.slots[i] = b
     end
     if not self.ghosts[i] then
-      local g = pocketGhost(w)
+      local g = ns.PinGhost(w)
+      g.plus:Hide()
       g:Hide()
       self.ghosts[i] = g
     end
@@ -698,63 +527,7 @@ function Pocket:Layout()
           ns.SnapBox(g, size, size)
           g:ClearAllPoints()
           ns.SnapPoint(g, "TOPLEFT", w, "TOPLEFT", px, -py)
-          if pin then
-            local pid = ns.ItemStubID(pin)
-            local gear = ns.GearItem(pid)
-            g.icon:SetTexture(itemIcon(pid)); g.icon:Show()
-            g:SetBackdropBorderColor(Theme:C(worn(pin) and "worn" or "gone"))
-            local art = (not gear) and pinTier(pin) or nil
-            if art then
-              tierFit(g)
-              g.tier:SetAtlas(art, g.tierArt and true or false)
-              g.tier:Show()
-            else
-              g.tier:Hide()
-            end
-            if gear then
-              g.cnt:Hide()
-              local lvl = ns.Badge("ilvl").on and pinIlvl(pin) or nil
-              if lvl and lvl > 1 then
-                ns.ApplyBadge(g, "ilvl")
-                local q = (Bags and Bags.qualityColorIlvl) and pinQuality(pin)
-                local qc = q and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
-                if qc then
-                  g.ilvl:SetTextColor(qc.r, qc.g, qc.b)
-                else
-                  g.ilvl:SetTextColor(Theme:C("overlay"))
-                end
-                g.ilvl:SetText(lvl)
-                g.ilvl:Show()
-              else
-                g.ilvl:Hide()
-              end
-              local kk = ns.ItemKey(pin)
-              local set = kk and wornSet[kk]
-              if set then
-                ns.ApplyBadge(g, "outfit")
-                g.outfit:SetText(set)
-                g.outfit:Show()
-              else
-                g.outfit:Hide()
-              end
-            else
-              g.ilvl:Hide()
-              g.outfit:Hide()
-              local cb = ns.Badge("count")
-              ns.SetOutlined(g.cnt, cb.s)
-              g.cnt:ClearAllPoints()
-              g.cnt:SetPoint(ns.BadgePoint(cb), g, cb.c, cb.x, cb.y)
-              g.cnt:SetText("0")
-              g.cnt:Show()
-            end
-          else
-            g.icon:Hide()
-            g.tier:Hide()
-            g.cnt:Hide()
-            g.ilvl:Hide()
-            g.outfit:Hide()
-            g:SetBackdropBorderColor(Theme:C("emptyLine"))
-          end
+          ns.PaintPin(g, pin, pins, self.slots[1])
           g:Show()
         end
       end

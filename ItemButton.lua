@@ -1262,3 +1262,285 @@ function ns.CreateBagButton(parent, bagID, size)
   end)
   return b
 end
+
+-- Pinned cells. The favorites row in the bag window and the pocket window both draw them,
+-- and neither file owns what a pinned cell knows or shows: that is all here, once. The two
+-- lists stay apart, each row keeps its own saved list and its own lookup tables, and a pin
+-- in one row never touches the other. What is shared is the behaviour, and it is shared on
+-- purpose: the pocket once learned exact item keys, ghost edges, the item level and the craft
+-- tier while the favorites row sat on bare item ids and kept binding itself to the wrong
+-- copy of a ring. Anything new about a pinned cell, another badge, another edge colour,
+-- another state, goes into these functions and both rows have it the same day. Never add it
+-- to one of the two files. Nothing here asks the bank anything: a pinned cell answers "with
+-- you or not" and nothing else.
+function ns.PinArg(pin)
+  if type(pin) == "number" then return pin end
+  return ns.ItemStub(pin)
+end
+
+-- An equippable that does not stack is kept as its own item string, so the cell finds that
+-- copy and not the twin with different bonus ids. Everything else is kept as a plain id.
+function ns.PinFor(id, link)
+  local stub = ns.ItemStub(link)
+  if not (id and stub) then return id end
+  local loc = select(4, C_Item.GetItemInfoInstant(id))
+  local max = C_Item.GetItemMaxStackSizeByID and C_Item.GetItemMaxStackSizeByID(id)
+  if loc and loc ~= "" and (tonumber(max) or 1) <= 1 then return stub end
+  return id
+end
+
+function ns.PinIcon(id)
+  if C_Item and C_Item.GetItemIconByID then
+    local ok, tex = pcall(C_Item.GetItemIconByID, id)
+    if ok and tex then return tex end
+  end
+  return (GetItemIcon and GetItemIcon(id)) or 134400
+end
+
+-- One pass over the bags per row, filling that row's own tables: every item id, so a
+-- stackable pin finds any copy; the exact key of the copies this row actually pins, so a
+-- gear pin finds its own; and what is worn, with the item level and gear set of each piece.
+function ns.PinScan(list, n, t)
+  local function tab(k)
+    t[k] = t[k] or {}
+    wipe(t[k])
+    return t[k]
+  end
+  local idBag, idSlot = tab("idBag"), tab("idSlot")
+  local keyBag, keySlot = tab("keyBag"), tab("keySlot")
+  local wornKey, wornIlvl, wornSet = tab("wornKey"), tab("wornIlvl"), tab("wornSet")
+  local want, byKey, gear = {}, false, false
+  for i = 1, (n or 0) do
+    local pin = list and list[i]
+    local id = ns.ItemStubID(pin)
+    if id and type(pin) == "string" then want[id] = true; byKey = true end
+    if id and ns.GearItem(id) then gear = true end
+  end
+  local function sweep(bag)
+    for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
+      local id = C_Container.GetContainerItemID(bag, slot)
+      if id then
+        if not idBag[id] then idBag[id], idSlot[id] = bag, slot end
+        if want[id] then
+          local info = C_Container.GetContainerItemInfo(bag, slot)
+          local k = info and ns.ItemKey(info.hyperlink)
+          if k and not keyBag[k] then keyBag[k], keySlot[k] = bag, slot end
+        end
+      end
+    end
+  end
+  for _, bag in ipairs(ns.playerBags) do sweep(bag) end
+  if ns.reagentBag then sweep(ns.reagentBag) end
+  if not (byKey or gear) then return end
+  local get = C_Item and C_Item.GetItemLink
+  if not (get and ItemLocation) then return end
+  for slot = 1, 19 do
+    local loc = ItemLocation:CreateFromEquipmentSlot(slot)
+    if loc and C_Item.DoesItemExist(loc) then
+      local link = get(loc)
+      local lvl = C_Item.GetCurrentItemLevel and C_Item.GetCurrentItemLevel(loc)
+      local id = C_Item.GetItemID and C_Item.GetItemID(loc)
+      local set = id and ns.OutfitLabel(loc, id)
+      local k = link and ns.ItemKey(link)
+      if k then
+        wornKey[k] = true
+        if lvl then wornIlvl[k] = lvl end
+        if set then wornSet[k] = set end
+      end
+      if id then
+        wornKey[tostring(id)] = true
+        if lvl then wornIlvl[tostring(id)] = lvl end
+        if set then wornSet[tostring(id)] = set end
+      end
+    end
+  end
+end
+
+function ns.PinLocate(pin, t)
+  if pin == nil or not t then return nil end
+  if type(pin) == "number" then return t.idBag and t.idBag[pin], t.idSlot and t.idSlot[pin] end
+  if type(pin) ~= "string" then return nil end
+  local k = ns.ItemKey(pin)
+  if not (k and t.keyBag) then return nil end
+  return t.keyBag[k], t.keySlot[k]
+end
+
+function ns.PinWorn(pin, t)
+  if pin == nil then return false end
+  local k = ns.ItemKey(pin)
+  if k and t and t.wornKey and t.wornKey[k] then return true end
+  if type(pin) == "number" then
+    local f = (C_Item and C_Item.IsEquippedItem) or IsEquippedItem
+    return (pin and f and f(pin)) and true or false
+  end
+  return false
+end
+
+function ns.PinIlvl(pin, t)
+  local k = ns.ItemKey(pin)
+  local lvl = k and t and t.wornIlvl and t.wornIlvl[k]
+  if lvl then return lvl end
+  local f = (C_Item and C_Item.GetDetailedItemLevelInfo) or GetDetailedItemLevelInfo
+  local arg = ns.PinArg(pin)
+  if not (f and arg) then return nil end
+  local ok, v = pcall(f, arg)
+  return (ok and tonumber(v)) or nil
+end
+
+function ns.PinSet(pin, t)
+  local k = ns.ItemKey(pin)
+  return (k and t and t.wornSet and t.wornSet[k]) or nil
+end
+
+local function pinQuality(pin)
+  local f = C_Item and C_Item.GetItemQualityByID
+  local arg = ns.PinArg(pin)
+  if not (f and arg) then return nil end
+  local ok, q = pcall(f, arg)
+  return (ok and tonumber(q)) or nil
+end
+
+-- Midnight dropped the two lowest crafting ranks, so building an atlas name out of the
+-- quality number points at the wrong metal. Patch 12.0.0 added the pair of quality info
+-- calls that hand back the atlas of the item itself, and asking the game is the only mapping
+-- that stays right when the ranks are renamed or renumbered again. Reagent quality is asked
+-- first and crafted second, the order the game uses on its own item buttons.
+function ns.PinTier(pin)
+  local T = C_TradeSkillUI
+  local arg = ns.PinArg(pin)
+  if not (T and arg) then return nil end
+  for _, name in ipairs({ "GetItemReagentQualityInfo", "GetItemCraftedQualityInfo" }) do
+    local f = T[name]
+    if f then
+      local ok, info = pcall(f, arg)
+      if ok and type(info) == "table" then
+        local art = info.iconInventory or info.icon or info.iconSmall
+        if art then return art end
+      end
+    end
+  end
+  return nil
+end
+
+function ns.PinGhost(parent)
+  local g = ns.SlotGhost(parent)
+  local tier = g:CreateTexture(nil, "OVERLAY")
+  tier:Hide()
+  g.tier = tier
+  local cnt = Theme:Label(g, 11, "gone")
+  cnt:SetPoint("BOTTOMRIGHT", -2, 2)
+  cnt:Hide()
+  g.cnt = cnt
+  local ilvl = g:CreateFontString(nil, "OVERLAY")
+  ilvl:SetDrawLayer("OVERLAY", 6)
+  ilvl:SetTextColor(Theme:C("overlay"))
+  ilvl:Hide()
+  g.ilvl = ilvl
+  local outfit = g:CreateFontString(nil, "OVERLAY")
+  outfit:SetDrawLayer("OVERLAY", 6)
+  outfit:SetTextColor(Theme:C("overlay"))
+  outfit:Hide()
+  g.outfit = outfit
+  return g
+end
+
+-- The item button is an intrinsic widget, so its quality overlay lives in no source file to
+-- copy numbers out of. The anchor is read off a real button of the row instead, which is by
+-- definition the corner and the offsets the game itself uses.
+function ns.PinTierFit(g, btn)
+  if g.tierFit then return end
+  local src = btn and (btn.ProfessionQualityOverlay or btn.IconOverlay)
+  g.tier:ClearAllPoints()
+  if not (src and src.GetNumPoints and src:GetNumPoints() > 0) then
+    g.tier:SetPoint("TOPLEFT", g.icon, "TOPLEFT")
+    g.tier:SetPoint("BOTTOMRIGHT", g.icon, "BOTTOMRIGHT")
+    return
+  end
+  local n = src:GetNumPoints()
+  for i = 1, n do
+    local p, _, rp, x, y = src:GetPoint(i)
+    if p then g.tier:SetPoint(p, g, rp or p, x or 0, y or 0) end
+  end
+  if n < 3 then
+    local w, h = src:GetSize()
+    if (w or 0) > 0 and (h or 0) > 0 then
+      g.tier:SetSize(w, h)
+    else
+      g.tierArt = true
+    end
+  end
+  g.tierFit = true
+end
+
+-- Blue edge means the item is on you, gold means it is not with you at all, and the gold
+-- zero says the same for something that stacks. Gear carries its item level and its gear set
+-- instead of a count, and the craft tier is drawn only on what is not gear, since an item
+-- level already says how good a piece is.
+function ns.PaintPin(g, pin, t, btn)
+  if not g then return end
+  if not pin then
+    if g.icon then g.icon:Hide() end
+    if g.tier then g.tier:Hide() end
+    if g.cnt then g.cnt:Hide() end
+    if g.ilvl then g.ilvl:Hide() end
+    if g.outfit then g.outfit:Hide() end
+    g:SetBackdropBorderColor(Theme:C("emptyLine"))
+    return
+  end
+  local id = ns.ItemStubID(pin)
+  local gear = ns.GearItem(id)
+  g.icon:SetTexture(ns.PinIcon(id)); g.icon:Show()
+  if g.plus then g.plus:Hide() end
+  g:SetBackdropBorderColor(Theme:C(ns.PinWorn(pin, t) and "worn" or "gone"))
+  local art = (not gear) and ns.PinTier(pin) or nil
+  if g.tier then
+    if art then
+      ns.PinTierFit(g, btn)
+      g.tier:SetAtlas(art, g.tierArt and true or false)
+      g.tier:Show()
+    else
+      g.tier:Hide()
+    end
+  end
+  if gear then
+    if g.cnt then g.cnt:Hide() end
+    local lvl = ns.Badge("ilvl").on and ns.PinIlvl(pin, t) or nil
+    if g.ilvl then
+      if lvl and lvl > 1 then
+        ns.ApplyBadge(g, "ilvl")
+        local q = (ns.Bags and ns.Bags.qualityColorIlvl) and pinQuality(pin)
+        local qc = q and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+        if qc then
+          g.ilvl:SetTextColor(qc.r, qc.g, qc.b)
+        else
+          g.ilvl:SetTextColor(Theme:C("overlay"))
+        end
+        g.ilvl:SetText(lvl)
+        g.ilvl:Show()
+      else
+        g.ilvl:Hide()
+      end
+    end
+    local set = ns.PinSet(pin, t)
+    if g.outfit then
+      if set then
+        ns.ApplyBadge(g, "outfit")
+        g.outfit:SetText(set)
+        g.outfit:Show()
+      else
+        g.outfit:Hide()
+      end
+    end
+  else
+    if g.ilvl then g.ilvl:Hide() end
+    if g.outfit then g.outfit:Hide() end
+    if g.cnt then
+      local cb = ns.Badge("count")
+      ns.SetOutlined(g.cnt, cb.s)
+      g.cnt:ClearAllPoints()
+      g.cnt:SetPoint(ns.BadgePoint(cb), g, cb.c, cb.x, cb.y)
+      g.cnt:SetText("0")
+      g.cnt:Show()
+    end
+  end
+end
