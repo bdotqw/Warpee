@@ -444,13 +444,18 @@ end
 
 local linkBoxes = {}
 
+-- The hook is deliberately hooksecurefunc and nothing more: ChatEdit_InsertLink must run
+-- first and untouched, it carries every link insertion in the game. Only after it returns
+-- is its argument read and copied into whichever of our boxes is focused. The pocket id
+-- box takes the whole item string, not the bare id: a link is the only way a piece of
+-- gear arrives with its bonus ids, and a bare id of gear is refused on purpose.
 local function linkInto(text)
   if type(text) ~= "string" then return false end
   for _, box in ipairs(linkBoxes) do
     if box:IsVisible() and box:HasFocus() then
       local out
       if box.wpeLinkID then
-        out = text:match("item:(%d+)")
+        out = text:match("|H(item:[^|]+)|h") or text:match("^(item:[^|%s]+)")
       else
         out = text:match("%[(.-)%]")
       end
