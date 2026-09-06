@@ -1115,7 +1115,8 @@ function ns.UpdateItemButton(b)
   ns.SetSlotBorder(b, Theme:C("emptyLine"))
   if ns.QuestMarked(b) then
     ns.SetRarityRing(b)
-  elseif ns.Bags.reagentTint and (b.wpeBagID == ns.reagentBag or b.wpeBagID == ns.reagentBank) then
+  elseif ns.Bags.reagentTint and not b.wpeNoReagent
+         and (b.wpeBagID == ns.reagentBag or b.wpeBagID == ns.reagentBank) then
     local r = Theme.colors.reagent
     ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
   elseif hl and ns.IsItemUnusable(bagID, slot, hl) then
