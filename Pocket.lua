@@ -221,7 +221,7 @@ local function pocketGhost(parent)
   local tier = g:CreateTexture(nil, "OVERLAY")
   tier:Hide()
   g.tier = tier
-  local cnt = Theme:Label(g, 11, "accent")
+  local cnt = Theme:Label(g, 11, "gone")
   cnt:SetPoint("BOTTOMRIGHT", -2, 2)
   cnt:Hide()
   g.cnt = cnt
@@ -702,7 +702,7 @@ function Pocket:Layout()
             local pid = ns.ItemStubID(pin)
             local gear = ns.GearItem(pid)
             g.icon:SetTexture(itemIcon(pid)); g.icon:Show()
-            g:SetBackdropBorderColor(Theme:C(worn(pin) and "azure" or "accent"))
+            g:SetBackdropBorderColor(Theme:C(worn(pin) and "worn" or "gone"))
             local art = (not gear) and pinTier(pin) or nil
             if art then
               tierFit(g)
