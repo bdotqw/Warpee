@@ -412,6 +412,7 @@ function Rec:Apply(bags, x, top, size, gap)
       end
     end
   end
+  self:Cooldowns()
   return LABEL_H + LABEL_GAP + size + 6
 end
 function Rec:Refresh()

@@ -378,6 +378,10 @@ function Fav:Apply(bags, x, top, size, gap)
   local gen = (bags.styleGen or 0) .. ":" .. tostring(bags.fontPath) .. ":" .. size
   local repaint = self.paintKey ~= gen
   self.paintKey = gen
+  -- The scan runs before the loop reads the list, not inside the first locate: an
+  -- adoption rewrites a stale pin in place, and the entry read before the scan would
+  -- paint the old item string for a cycle.
+  scan()
   local seen = {}
   for i = 1, n do
     local pin = list[i]
@@ -433,6 +437,11 @@ function Fav:Apply(bags, x, top, size, gap)
     if g then g:Hide() end
     if c then c:Hide() end
   end
+  -- An unchanged item takes the early return in UpdateItemButton, which also skips its
+  -- cooldown, so a cooldown that started while this row was closed is never seen here
+  -- until the next cooldown event. One pass after placing the cells closes that gap,
+  -- and the cached start and duration keep an unchanged one nearly free.
+  self:Cooldowns()
   return LABEL_H + LABEL_GAP + size + 6
 end
 

@@ -489,6 +489,10 @@ function Pocket:Layout()
     end
   end
 
+  -- The scan runs before the loop reads the list, not inside the first locate: an
+  -- adoption rewrites a stale pin in place, and the entry read before the scan would
+  -- paint the old item string for a cycle.
+  scan()
   local list = self:List()
   local gridTop = y
   local seen = {}
@@ -543,6 +547,7 @@ function Pocket:Layout()
     end
   end
   self.max = n
+  self:Cooldowns()
   local foot = gridTop + (rows - 1) * step + size + BOX_GAP
   self.idBox:SetFont(path, 13, "")
   if self.idBox.Hint then self.idBox.Hint:SetFont(path, 13, "") end
@@ -581,6 +586,9 @@ function Pocket:Open()
   self:Layout()
   w:Show()
   Theme:Raise(w)
+  -- Layout runs before the frame is shown, so its cooldown pass sees nothing visible.
+  -- One pass after Show picks up a cooldown that started while the window was closed.
+  self:Cooldowns()
 end
 
 function Pocket:Close(keep)
@@ -617,6 +625,13 @@ end
 
 function Pocket:Apply()
   if not self:Enabled() then self:Close(true); return end
+  -- Turning the option back on brings the window with it if it was open when the
+  -- option went off: Refresh alone bails on the hidden frame, so the window would
+  -- only come back the next time the bags open.
+  if WarpeeDB.pocketOpen and not (self.frame and self.frame:IsShown()) then
+    self:Open()
+    return
+  end
   self:Refresh()
 end
 

@@ -622,7 +622,16 @@ end
 
 function View:SetMode(mode)
   if not self:ModeAvailable(mode) then return end
-  if mode == self.mode and self.cur then return end
+  if mode == self.mode and self.cur then
+    -- Clicking the tab of the mode already on screen is the way out of another
+    -- character's snapshot: with the banker still open it asks for the live view
+    -- back. Without a banker there is no live view, so the click stays a no-op.
+    if self.snap and self.bankerOpen and ns.Vault:SetView("bank", nil) then
+      self:UpdateCharBtn()
+      if self:ApplySnap() then self:Activate(self.mode) else self:Repaint() end
+    end
+    return
+  end
   self.mode = mode
   self:ApplySnap()
   self:UpdateTabs()
@@ -1145,9 +1154,16 @@ function View:OpenSnapshot(mode)
 end
 
 function View:OnBankClosed()
-  if self.frame then self.frame:Hide() end
+  -- A snapshot is local and browsable without a banker, so losing the banker while
+  -- looking at someone else's bank keeps the window and only drops the live parts.
   self.depositType = nil
   self.acctBanker = nil
+  if self.snap then
+    self:UpdateFooter()
+    ns.RefreshBagDim()
+    return
+  end
+  if self.frame then self.frame:Hide() end
   ns.RefreshBagDim()
 end
 

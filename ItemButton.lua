@@ -325,6 +325,9 @@ end
 --   SetScript any handler on it, or on its Cooldown child. HookScript only.
 --   write a field the game's own item button owns: bagID, slotID, count, icon,
 --     IconOverlay, IconOverlay2, SplitStack, or a mixin method. Use wpe* names.
+--     emptyBackgroundAtlas is the one sanctioned exception: it is the template's own
+--     knob for the empty-slot watermark, only insecure paint code reads it, and there
+--     is no other way to switch that watermark off.
 --   call SetBagID. The holder's SetID carries the bag id, GetBagID falls back to it.
 -- Safe in and out of combat: SetID on the button and on the holder, RegisterForClicks,
 -- RegisterForDrag, hooksecurefunc on child regions and animations, new wpe* fields.
