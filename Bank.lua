@@ -335,14 +335,18 @@ function View:SelectChar(key)
   if self:ApplySnap() then self:Activate(self.mode) else self:Repaint() end
 end
 
+function View:FlowHeader()
+  if not self.frame then return end
+  local row1 = ROW1_Y + Theme:TopInset() + Theme:HeadDrop()
+  self.headEdge = ns.FlowRow(self.frame, -PAD, -row1, 4,
+    { self.closeBtn, self.gearBtn, self.sortBtn })
+end
+
 function View:AnchorHeader()
   if not self.frame then return end
   local top = Theme:TopInset()
   local row1 = ROW1_Y + top + Theme:HeadDrop()
-  if self.closeBtn then
-    self.closeBtn:ClearAllPoints()
-    ns.SnapPoint(self.closeBtn, "TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row1)
-  end
+  self:FlowHeader()
   if self.bankTab then
     self.bankTab:ClearAllPoints()
     ns.SnapPoint(self.bankTab, "TOPLEFT", self.frame, "TOPLEFT", PAD, -row1)
@@ -876,9 +880,10 @@ function View:Resize(st)
 end
 
 function View:FitHeader()
+  self:FlowHeader()
   if self.search then self.search:Show() end
   if self.freeText then
-    local edge = self.sortBtn and self.sortBtn:IsShown() and self.sortBtn:GetLeft()
+    local edge = self.headEdge and self.headEdge:GetLeft()
     local from = self.freeText:GetLeft()
     local show = true
     if edge and from then
@@ -922,6 +927,7 @@ function View:UpdateFooter()
   local live = bankLive(self, bt)
   local transfer = live and moneyTransfer(bt)
   if self.sortBtn then self.sortBtn:SetShown(live) end
+  self:FlowHeader()
 
   local function gate(btn, canName)
     if not btn then return end

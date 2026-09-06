@@ -365,6 +365,25 @@ function ns.CreateGlyphButton(parent, glyph, size)
   return b
 end
 
+-- A header row is chained button to button, and a hidden frame keeps its points, so a
+-- gap stays where it was. Re-chain the row through the shown ones only and hand back the
+-- last one, which is the left edge whatever is hidden.
+function ns.FlowRow(host, x, y, gap, list)
+  local prev
+  for _, b in ipairs(list) do
+    if b and b:IsShown() then
+      b:ClearAllPoints()
+      if prev then
+        ns.SnapPoint(b, "TOPRIGHT", prev, "TOPLEFT", -(gap or 4), 0)
+      else
+        ns.SnapPoint(b, "TOPRIGHT", host, "TOPRIGHT", x, y)
+      end
+      prev = b
+    end
+  end
+  return prev
+end
+
 local function boxTex(box, layer)
   local t = box:CreateTexture(nil, layer or "BORDER")
   t:SetColorTexture(1, 1, 1, 1)

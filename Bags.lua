@@ -39,13 +39,18 @@ function Bags:BaseTop() return HEADER + 4 + Theme:TopInset() - self:HeadShift() 
 
 function Bags:TopOffset() return self:BaseTop() + (self.recentH or 0) + (self.favH or 0) end
 
+function Bags:FlowHeader()
+  if not self.frame then return end
+  local row1 = ROW1_Y + Theme:TopInset() + Theme:HeadDrop()
+  self.headEdge = ns.FlowRow(self.frame, -PAD, -row1, 4,
+    { self.closeBtn, self.gearBtn, self.bagsToggle, self.bankBtn,
+      self.sortBtn, self.sellBtn, self.pocketBtn })
+end
+
 function Bags:AnchorHeader()
   local top = Theme:TopInset()
   local row1 = ROW1_Y + top + Theme:HeadDrop()
-  if self.closeBtn then
-    self.closeBtn:ClearAllPoints()
-    ns.SnapPoint(self.closeBtn, "TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row1)
-  end
+  self:FlowHeader()
   if self.charTag then
     self.charTag:ClearAllPoints()
     ns.SnapPoint(self.charTag, "TOPLEFT", self.frame, "TOPLEFT", PAD, -row1)
@@ -125,6 +130,7 @@ function Bags:Build()
   gear:SetPoint("TOPRIGHT", close, "TOPLEFT", -4, 0)
   gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
   addTip(gear, "Settings")
+  self.gearBtn = gear
 
   local bagsToggle = ns.CreateGlyphButton(f, "", HB)
   bagsToggle:SetPoint("TOPRIGHT", gear, "TOPLEFT", -4, 0)
@@ -775,13 +781,11 @@ end
 
 function Bags:FitHeader()
   if not (self.frame and self.search) then return end
+  self:FlowHeader()
   local w = self.frame:GetWidth()
   self.search:Show()
   if self.slotText and self.charTag then
-    local edge
-    for _, b in ipairs({ self.pocketBtn, self.sellBtn, self.sortBtn, self.bankBtn, self.bagsToggle }) do
-      if b and b:IsShown() and b:GetLeft() then edge = b:GetLeft(); break end
-    end
+    local edge = self.headEdge and self.headEdge:GetLeft()
     local from = self.charTag:GetRight()
     local show = true
     if edge and from then
