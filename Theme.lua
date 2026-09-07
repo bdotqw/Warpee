@@ -929,6 +929,10 @@ local SCRIPTS = {
     chars = { "們", "個", "這", "沒", "麼" },
     fonts = { [[Fonts\bHEI00M.ttf]], [[Fonts\bLEI00D.ttf]], [[Fonts\bKAI00M.ttf]], [[Fonts\ARKai_T.TTF]] },
   },
+  punct = {
+    chars = { "×", "·", "«", "»", "—", "–", "¿" },
+    fonts = {},
+  },
 }
 local NEEDS = {
   deDE = "latin1", esES = "latin1", esMX = "latin1", frFR = "latin1",
@@ -959,6 +963,7 @@ for i = #SHIPPED, 1, -1 do
   local p = MEDIA .. SHIPPED[i].file
   local has = SHIPPED[i].has
   for k in pairs(SCRIPTS) do DECLARED[k][p] = has[k] and true or false end
+  DECLARED.punct[p] = true
   table.insert(BUILTIN, 1, { name = SHIPPED[i].name, path = p })
 end
 local function LSM() return _G.LibStub and _G.LibStub("LibSharedMedia-3.0", true) or nil end
@@ -1033,6 +1038,7 @@ local function pathUsable(path)
       if late ~= nil then
         pathOK[path] = late
         if ns.Fonts.Refresh then ns.Fonts:Refresh() end
+        if ns.CloseDropdown then pcall(ns.CloseDropdown) end
       end
     end)
   end
@@ -1090,6 +1096,7 @@ local function hasScript(script, path)
       if late ~= nil then
         scriptOK[script][path] = late
         if ns.Fonts.Refresh then ns.Fonts:Refresh() end
+        if ns.CloseDropdown then pcall(ns.CloseDropdown) end
       end
     end)
   end
@@ -1120,10 +1127,10 @@ end
 
 needFilter = function(names)
   local need = ns.Fonts:Need()
-  if not need then return names end
   local out = {}
   for _, n in ipairs(names) do
-    if hasScript(need, rawPath(n)) then out[#out + 1] = n end
+    local p = rawPath(n)
+    if (not need or hasScript(need, p)) and hasScript("punct", p) then out[#out + 1] = n end
   end
   return (#out > 0) and out or names
 end
@@ -1133,6 +1140,7 @@ function ns.Fonts:Path(name)
   if not pathUsable(p) then p = clientFont() end
   local need = self:Need()
   if need and not hasScript(need, p) then return scriptFont(need) end
+  if not hasScript("punct", p) then return need and scriptFont(need) or clientFont() end
   return p
 end
 
@@ -1147,6 +1155,7 @@ function ns.Fonts:Usable(name)
   if not pathUsable(p) then return false end
   local need = self:Need()
   if need and not hasScript(need, p) then return false end
+  if not hasScript("punct", p) then return false end
   return true
 end
 
