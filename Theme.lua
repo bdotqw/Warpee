@@ -107,29 +107,19 @@ Theme.THEMES = {
     text = { 0.878, 0.910, 0.925, 1 }, dim = { 0.576, 0.643, 0.678, 1 },
     faint = { 0.376, 0.443, 0.478, 1 }, emptyLine = { 0.110, 0.271, 0.322, 1 },
     azure = { 0.400, 0.706, 0.816, 1 }, reagent = { 0.353, 0.804, 0.667, 1 } },
-  day = { label = "Day",
-    bg = { 0.830, 0.810, 0.770, 0.96 }, panel = { 0.700, 0.680, 0.640, 1 },
-    panelHi = { 0.640, 0.620, 0.580, 1 }, slot = { 0.800, 0.780, 0.740, 1 },
-    stroke = { 0.400, 0.370, 0.330, 1 }, strokeSoft = { 0.500, 0.470, 0.430, 1 },
-    accent = { 0.680, 0.360, 0.160, 1 }, accentInk = { 0.520, 0.270, 0.110, 1 },
-    text = { 0.150, 0.140, 0.130, 1 }, dim = { 0.340, 0.330, 0.300, 1 },
-    faint = { 0.540, 0.520, 0.480, 1 }, emptyLine = { 0.560, 0.540, 0.500, 1 },
-    azure = { 0.150, 0.380, 0.620, 1 }, reagent = { 0.220, 0.520, 0.350, 1 },
-    gaugeHi = { 0.700, 0.220, 0.160, 1 } },
-  dayflat = { label = "Day Flat", skin = "blizzardflat",
-    bg = { 0.830, 0.810, 0.770, 0.95 }, panel = { 0.700, 0.680, 0.640, 1 },
-    panelHi = { 0.640, 0.620, 0.580, 1 }, slot = { 0.800, 0.780, 0.740, 1 },
-    stroke = { 0.400, 0.370, 0.330, 1 }, strokeSoft = { 0.500, 0.470, 0.430, 1 },
-    accent = { 0.680, 0.360, 0.160, 1 }, accentInk = { 0.520, 0.270, 0.110, 1 },
-    text = { 0.150, 0.140, 0.130, 1 }, dim = { 0.340, 0.330, 0.300, 1 },
-    faint = { 0.540, 0.520, 0.480, 1 }, emptyLine = { 0.560, 0.540, 0.500, 1 },
-    azure = { 0.150, 0.380, 0.620, 1 }, reagent = { 0.220, 0.520, 0.350, 1 },
-    gaugeHi = { 0.700, 0.220, 0.160, 1 } },
+  sandstone = { label = "Sandstone Reliquary", skin = "reliquary",
+    bg = { 0.315, 0.275, 0.220, 0.96 }, panel = { 0.385, 0.332, 0.270, 1 },
+    panelHi = { 0.468, 0.402, 0.327, 1 }, slot = { 0.275, 0.232, 0.185, 1 },
+    stroke = { 0.535, 0.442, 0.325, 1 }, strokeSoft = { 0.430, 0.350, 0.255, 1 },
+    accent = { 0.910, 0.694, 0.376, 1 }, accentInk = { 0.965, 0.843, 0.604, 1 },
+    text = { 0.953, 0.929, 0.871, 1 }, dim = { 0.714, 0.655, 0.549, 1 },
+    faint = { 0.518, 0.445, 0.357, 1 }, emptyLine = { 0.453, 0.367, 0.267, 1 },
+    azure = { 0.420, 0.698, 0.902, 1 }, reagent = { 0.373, 0.820, 0.620, 1 } },
 }
 Theme.THEME_ORDER = { "midnight", "blizzard", "blizzardflat", "class",
                       "nightbloom", "void", "nord",
                       "abyss", "blood", "forest", "graphite",
-                      "day", "dayflat" }
+                      "sandstone" }
 
 function Theme:IsLight()
   local c = self.colors.bg
@@ -659,7 +649,10 @@ local SKINS = {
   blizzard     = { inset = 20, grain = true, titleDrop = 10 },
   blizzardflat = { inset = 4, drop = -5, edge = FLAT_EDGE, out = 14, band = 32,
                    bandAlpha = 0.80,
-                   edgeTint = "stroke", plate = true, bodyGrain = 0.10 },
+                   edgeTint = "stroke", plate = true, bodyGrain = 0.10, guestArt = true },
+  reliquary    = { inset = 18, drop = 3, band = 34, bandAlpha = 0.92,
+                   bandColor = "slot", body = [[Interface\FrameGeneral\UI-Background-Rock]],
+                   bodyTint = "panel", bodyAlpha = 0.88, trim = "stroke", guestArt = true },
 }
 
 function Theme:SkinDef()
@@ -750,6 +743,53 @@ local function buildArt(frame, key, def)
     if title.TitleText then title.TitleText:SetText("") end
     if title.SetAlpha then title:SetAlpha(1) end
   end
+  if def.body then
+    local base = art:CreateTexture(nil, "BACKGROUND", nil, -10)
+    base:SetTexture(WHITE)
+    base:SetAllPoints(art)
+    art.wpeBase = base
+    local body = art:CreateTexture(nil, "BACKGROUND", nil, -9)
+    if pcall(body.SetTexture, body, def.body, "REPEAT", "REPEAT") then
+      body:SetHorizTile(true)
+      body:SetVertTile(true)
+      ns.SetInside(body, art, 2)
+      art.wpeBody = body
+    else
+      body:Hide()
+      art.wpeBody = false
+    end
+    local trim = {}
+    local function horiz(top)
+      local t = art:CreateTexture(nil, "BACKGROUND", nil, -8)
+      t:SetTexture(WHITE)
+      if top then
+        t:SetPoint("TOPLEFT", art, "TOPLEFT", 1, -1)
+        t:SetPoint("TOPRIGHT", art, "TOPRIGHT", -1, -1)
+      else
+        t:SetPoint("BOTTOMLEFT", art, "BOTTOMLEFT", 1, 1)
+        t:SetPoint("BOTTOMRIGHT", art, "BOTTOMRIGHT", -1, 1)
+      end
+      ns.PixelLine(t)
+      trim[#trim + 1] = t
+    end
+    local function vert(left)
+      local t = art:CreateTexture(nil, "BACKGROUND", nil, -8)
+      t:SetTexture(WHITE)
+      if left then
+        t:SetPoint("TOPLEFT", art, "TOPLEFT", 1, -1)
+        t:SetPoint("BOTTOMLEFT", art, "BOTTOMLEFT", 1, 1)
+      else
+        t:SetPoint("TOPRIGHT", art, "TOPRIGHT", -1, -1)
+        t:SetPoint("BOTTOMRIGHT", art, "BOTTOMRIGHT", -1, 1)
+      end
+      ns.PixelLine(t, 1, "w")
+      trim[#trim + 1] = t
+    end
+    horiz(true); horiz(false); vert(true); vert(false)
+    art.wpeTrim = trim
+    if art.Bg then art.Bg:Hide() end
+    if art.Center then art.Center:Hide() end
+  end
   if def.plate then
     local plate = art:CreateTexture(nil, "BACKGROUND", nil, -8)
     plate:SetTexture(WHITE)
@@ -782,7 +822,28 @@ function Theme:RefreshArt(frame)
     if art then
       sinkArt(frame, art)
       local a = (self.colors.bg and self.colors.bg[4]) or 1
-      if art.wpePlate then
+      if art.wpeBase then
+        art.wpeBase:SetVertexColor(self:C("bg"))
+        art.wpeBase:SetAlpha(a)
+        art.wpeBase:Show()
+      end
+      if art.wpeBody then
+        art.wpeBody:SetVertexColor(self:C(def.bodyTint or "panel"))
+        art.wpeBody:SetAlpha(a * (def.bodyAlpha or 1))
+        art.wpeBody:Show()
+      end
+      if art.wpeTrim then
+        local r, g, b = self:C(def.trim or "stroke")
+        for _, t in ipairs(art.wpeTrim) do
+          t:SetVertexColor(r, g, b)
+          t:SetAlpha(a)
+          t:Show()
+        end
+      end
+      if def.body then
+        if art.Bg then art.Bg:Hide() end
+        if art.Center then art.Center:Hide() end
+      elseif art.wpePlate then
         local r, g, b = self:C("bg")
         art.wpePlate:SetVertexColor(r, g, b)
         art.wpePlate:SetAlpha(a)
@@ -796,7 +857,7 @@ function Theme:RefreshArt(frame)
       elseif art.Bg then
         art.Bg:SetAlpha(a)
       end
-      if art.Center then art.Center:SetAlpha(a) end
+      if not def.body and art.Center then art.Center:SetAlpha(a) end
       tintEdge(art, def)
       art:Show()
     end
@@ -837,14 +898,19 @@ function Theme:HeaderBand(frame, height)
   local band = frame.wpeBand
   if not band or band:GetParent() ~= art then
     band = art:CreateTexture(nil, "BACKGROUND", nil, 3)
-    band:SetTexture(WHITE)
     frame.wpeBand = band
+  end
+  if def.body and pcall(band.SetTexture, band, def.body, "REPEAT", "REPEAT") then
+    band:SetHorizTile(true)
+    band:SetVertTile(true)
+  else
+    band:SetTexture(WHITE)
   end
   band:ClearAllPoints()
   band:SetPoint("TOPLEFT", frame, "TOPLEFT")
   band:SetPoint("TOPRIGHT", frame, "TOPRIGHT")
   band:SetHeight(h)
-  band:SetVertexColor(self:C("panelHi"))
+  band:SetVertexColor(self:C(def.bandColor or "panelHi"))
   band:SetAlpha(a * (def.bandAlpha or 1))
   band:Show()
   local line = frame.wpeBandLine
@@ -890,7 +956,7 @@ function Theme:Panel(frame, bgKey, strokeKey)
   local function paint(x)
     if Theme:Skinned() then
       local def = Theme:SkinDef()
-      local host = ART_FRAMES[x] or (x.wpeGuest and def and def.edge ~= nil)
+      local host = ART_FRAMES[x] or (x.wpeGuest and def and def.guestArt)
       local art = host and Theme:RefreshArt(x)
       if art then
         if art.Bg then
