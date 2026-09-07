@@ -702,7 +702,7 @@ function View:SetMode(mode)
   self:Activate(mode)
 end
 
-local TAB_SIZE, TAB_GAP = 26, 4
+local TAB_SIZE, TAB_GAP = 30, 4
 local TAB_FALLBACK_ICON = [[Interface\Icons\INV_Misc_QuestionMark]]
 
 function View:StripEntries(mode)
