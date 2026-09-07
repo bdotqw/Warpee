@@ -373,8 +373,8 @@ local STRINGS = {
     "Détermine la largeur de la fenêtre de poche.",
   ["Size of one cell in the pocket. It follows the bag slot size until you move this."] =
     "Taille d'une case de la poche. Tant que le curseur n'est pas touché, elle suit la taille des cases des sacs.",
-  ["The key that opens and closes the pocket. Click, then press a key; a right click clears it, Escape cancels."] =
-    "La touche qui ouvre et ferme la poche. Cliquez, puis appuyez sur une touche; le clic droit l'efface, Échap annule.",
+  ["The key that opens and closes the pocket. Click, then press a key, a mouse button or the wheel, with Shift, Ctrl or Alt if you like; a right click clears it, Escape cancels."] =
+    "La touche qui ouvre et ferme la poche. Cliquez, puis appuyez sur une touche, un bouton de souris ou la molette, avec Maj, Ctrl ou Alt si vous voulez ; le clic droit l'efface, Échap annule.",
   ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] =
     "L'équipement s'épingle en le glissant ou en collant son lien; un id seul ne distingue pas une copie d'une autre.",
   ["Add ID"] = "Ajouter un ID",

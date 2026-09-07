@@ -371,8 +371,8 @@ local STRINGS = {
     "От этого зависит ширина окна кармана.",
   ["Size of one cell in the pocket. It follows the bag slot size until you move this."] =
     "Размер одной ячейки кармана. Пока ползунок не тронут, следует за размером ячейки сумок.",
-  ["The key that opens and closes the pocket. Click, then press a key; a right click clears it, Escape cancels."] =
-    "Клавиша, открывающая и закрывающая карман. Клик, затем нажатие клавиши; ПКМ снимает бинд, Esc отменяет.",
+  ["The key that opens and closes the pocket. Click, then press a key, a mouse button or the wheel, with Shift, Ctrl or Alt if you like; a right click clears it, Escape cancels."] =
+    "Клавиша, открывающая и закрывающая карман. Клик, затем клавиша, кнопка мыши или колесо, при желании с Shift, Ctrl или Alt; ПКМ снимает бинд, Esc отменяет.",
   ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] =
     "Снаряжение закрепляется перетаскиванием или вставкой ссылки: по голому id нельзя отличить одну копию от другой.",
   ["Add ID"] = "Добавить ID",

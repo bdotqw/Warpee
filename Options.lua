@@ -489,14 +489,18 @@ local KEY_MODS = {
   LCTRL = true, RCTRL = true, LSHIFT = true, RSHIFT = true, LALT = true, RALT = true,
 }
 
--- Click the button, press a key, done: the binding is written the way the game stores
--- them, so the client's own key list stays in sync. Escape cancels, a right click
--- unbinds. SetBinding is protected in combat, so capture never starts there, and a
--- press that lands mid combat is dropped instead of applied.
+-- Click the button, press a key, a mouse button, or the wheel, done: the binding is
+-- written the way the game stores them, so the client's own key list stays in sync.
+-- Escape cancels, a right click outside the capture unbinds. SetBinding is protected
+-- in combat, so capture never starts there, and a press that lands mid combat is
+-- dropped instead of applied.
 -- The capture itself follows the game's own KeybindListener shape: one top level
 -- button, no parent, that receives OnKeyDown only while its script is set. A nested
 -- button inside the options window never sees a keypress arrive, no matter how it is
--- enabled, which is why the capture does not live on the visible button.
+-- enabled, which is why the capture does not live on the visible button. The mouse
+-- buttons and the wheel arrive through a fullscreen catcher instead: keys have no
+-- position, clicks do, and the catcher owns them all while the capture runs, with
+-- left and right reserved for cancel.
 local keyListener = CreateFrame("Button")
 keyListener:SetSize(1, 1)
 keyListener:EnableMouse(false)
@@ -510,10 +514,34 @@ local function listenerKeyDown(_, key)
   keyListen(key)
 end
 
+local mouseCatcher
+local function catcherClick(_, button)
+  if not keyListen then return end
+  button = (button or ""):upper()
+  if button == "LEFTBUTTON" or button == "RIGHTBUTTON" then keyListen("CANCEL") return end
+  keyListen(button)
+end
+
+local function catcherWheel(_, delta)
+  if not keyListen then return end
+  keyListen((delta or 0) > 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN")
+end
+
 local function startListen(fn)
   keyListen = fn
   keyListener:SetScript("OnKeyDown", listenerKeyDown)
   keyListener:Show()
+  if not mouseCatcher then
+    mouseCatcher = CreateFrame("Button", nil, UIParent)
+    mouseCatcher:SetAllPoints(UIParent)
+    mouseCatcher:SetFrameStrata("FULLSCREEN_DIALOG")
+    mouseCatcher:RegisterForClicks("AnyUp")
+    mouseCatcher:EnableMouseWheel(true)
+    mouseCatcher:Hide()
+  end
+  mouseCatcher:SetScript("OnClick", catcherClick)
+  mouseCatcher:SetScript("OnMouseWheel", catcherWheel)
+  mouseCatcher:Show()
 end
 
 local function stopListen()
@@ -521,6 +549,11 @@ local function stopListen()
   keyListen = nil
   keyListener:SetScript("OnKeyDown", nil)
   keyListener:Hide()
+  if mouseCatcher then
+    mouseCatcher:SetScript("OnClick", nil)
+    mouseCatcher:SetScript("OnMouseWheel", nil)
+    mouseCatcher:Hide()
+  end
 end
 
 function factories.keybind(parent, spec)
@@ -576,7 +609,7 @@ function factories.keybind(parent, spec)
 
   local function onKey(key)
     if not capturing then stopListen() return end
-    if key == "ESCAPE" then stop() return end
+    if key == "ESCAPE" or key == "CANCEL" then stop() return end
     if KEY_MODS[key] then return end
     stop()
     if InCombatLockdown() then return end
@@ -1766,7 +1799,7 @@ local POCKET_PAGE = {
     disabled = function() return not fav.pkGet() end,
     desc = "Size of one cell in the pocket. It follows the bag slot size until you move this." },
   { type = "keybind", name = "Pocket key", binding = "WARPEE_POCKET", half = "right",
-    desc = "The key that opens and closes the pocket. Click, then press a key; a right click clears it, Escape cancels." },
+    desc = "The key that opens and closes the pocket. Click, then press a key, a mouse button or the wheel, with Shift, Ctrl or Alt if you like; a right click clears it, Escape cancels." },
 }
 
 local ITEMS_PAGE = {

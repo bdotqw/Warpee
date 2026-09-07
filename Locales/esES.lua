@@ -368,8 +368,8 @@ local STRINGS = {
     "De esto depende el ancho de la ventana del bolsillo.",
   ["Size of one cell in the pocket. It follows the bag slot size until you move this."] =
     "Tamaño de una casilla del bolsillo. Hasta que muevas el control, sigue el tamaño de las casillas de las bolsas.",
-  ["The key that opens and closes the pocket. Click, then press a key; a right click clears it, Escape cancels."] =
-    "La tecla que abre y cierra el bolsillo. Haz clic y pulsa una tecla; el clic derecho la borra, Escape cancela.",
+  ["The key that opens and closes the pocket. Click, then press a key, a mouse button or the wheel, with Shift, Ctrl or Alt if you like; a right click clears it, Escape cancels."] =
+    "La tecla que abre y cierra el bolsillo. Haz clic y pulsa una tecla, un botón del ratón o la rueda, con Mayús, Ctrl o Alt si quieres; el clic derecho la borra, Escape cancela.",
   ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] =
     "El equipo se fija arrastrándolo o pegando su enlace; un id simple no distingue una copia de otra.",
   ["Add ID"] = "Añadir ID",
