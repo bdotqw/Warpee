@@ -368,6 +368,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     HookBagToggles()
     WarpeeDB.bankCols = WarpeeDB.bankCols or 28
     WarpeeDB.warbandCols = WarpeeDB.warbandCols or 26
+    WarpeeDB.bankTabSel = WarpeeDB.bankTabSel or {}
     WarpeeDB.bankIconSize = WarpeeDB.bankIconSize or 36
     WarpeeDB.bankSlotStyle = nil
     WarpeeDB.bankFontSize, WarpeeDB.bankCustomSize, WarpeeDB.hideBlizzBank = nil, nil, nil

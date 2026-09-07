@@ -67,6 +67,16 @@ local function moneyTransfer(bankType)
   return bankType == (Enum and Enum.BankType and Enum.BankType.Account)
 end
 
+local function tabBags(mode)
+  local bt = bankTypeFor(mode)
+  if bt and C_Bank and C_Bank.FetchPurchasedBankTabIDs then
+    local ok, ids = pcall(C_Bank.FetchPurchasedBankTabIDs, bt)
+    if ok and type(ids) == "table" and #ids > 0 then return ids end
+  end
+  if mode == "warband" then return WARBAND end
+  return BANK_MAIN
+end
+
 -- Never touch BankFrame.BankPanel from here or anywhere else. The game reads
 -- BankFrame on every right click of a bag slot, so writing the panel's fields or
 -- showing it from addon code kills using items everywhere for the rest of the
@@ -198,6 +208,11 @@ function View:Build()
   end)
   self.frame = f
   ns.CreateMoveBar(f, "bankPos")
+  self.tabSel = {}
+  if WarpeeDB and WarpeeDB.bankTabSel then
+    self.tabSel.bank = WarpeeDB.bankTabSel.bank
+    self.tabSel.warband = WarpeeDB.bankTabSel.warband
+  end
 
   local close = ns.CreateGlyphButton(f, "×", 26)
   close:SetPoint("TOPRIGHT", -PAD, -ROW1_Y)
@@ -445,6 +460,55 @@ function View:EnforceMode()
   end
 end
 
+function View:LiveTabMeta(mode)
+  local bt = bankTypeFor(mode)
+  if not (bt and C_Bank and C_Bank.FetchPurchasedBankTabData) then return nil end
+  local ok, data = pcall(C_Bank.FetchPurchasedBankTabData, bt)
+  if not (ok and type(data) == "table") then return nil end
+  local bags = tabBags(mode)
+  local out = nil
+  for i, td in ipairs(data) do
+    local bag = bags[i]
+    if bag ~= nil and type(td) == "table" and (td.name or td.icon) then
+      out = out or {}
+      out[bag] = { name = td.name, icon = td.icon }
+    end
+  end
+  return out
+end
+
+function View:TabSel(mode)
+  mode = mode or self.mode
+  local sel = self.tabSel and self.tabSel[mode]
+  if sel == nil then return nil end
+  local known = false
+  for _, sec in ipairs(self:Sections(mode)) do
+    for _, bag in ipairs(sec.ids) do
+      if bag == sel then known = true; break end
+    end
+    if known then break end
+  end
+  if not known then return nil end
+  if self.snap then
+    if ns.Vault:Count(mode, sel) <= 0 then return nil end
+  elseif (C_Container.GetContainerNumSlots(sel) or 0) <= 0 then
+    return nil
+  end
+  return sel
+end
+
+function View:SelectTab(bag)
+  local mode = self.mode
+  self.tabSel = self.tabSel or {}
+  if self.tabSel[mode] == bag then return end
+  self.tabSel[mode] = bag or nil
+  if WarpeeDB then
+    WarpeeDB.bankTabSel = WarpeeDB.bankTabSel or {}
+    WarpeeDB.bankTabSel[mode] = bag or nil
+  end
+  if self.frame and self.frame:IsShown() then self:Layout() end
+end
+
 -- Bank tab plumbing. Read all of this before changing any of it.
 --
 -- The bank that a right click in a bag deposits into is BankFrame own tab type and nothing
@@ -638,6 +702,94 @@ function View:SetMode(mode)
   self:Activate(mode)
 end
 
+local TAB_SIZE, TAB_GAP = 26, 4
+local TAB_FALLBACK_ICON = [[Interface\Icons\INV_Misc_QuestionMark]]
+
+function View:StripEntries(mode)
+  local list = { { bag = nil } }
+  for _, sec in ipairs(self:Sections(mode)) do
+    for _, bag in ipairs(sec.ids) do
+      local n
+      if self.snap then n = ns.Vault:Count(mode, bag)
+      else n = C_Container.GetContainerNumSlots(bag) or 0 end
+      if n > 0 then list[#list + 1] = { bag = bag } end
+    end
+  end
+  return list
+end
+
+function View:RefreshStrip()
+  local f = self.frame
+  if not f then return end
+  self.tabBtns = self.tabBtns or {}
+  local entries = self:StripEntries(self.mode)
+  if #entries < 2 then
+    for _, b in ipairs(self.tabBtns) do b:Hide() end
+    return
+  end
+  local meta = (not self.snap) and self:LiveTabMeta(self.mode) or nil
+  local sel = self:TabSel(self.mode)
+  local y = ROW1_Y + Theme:TopInset() + Theme:HeadDrop()
+  local out = 0
+  local def = Theme.SkinDef and Theme:SkinDef()
+  if def and tonumber(def.out) then out = def.out end
+  local x = 6 + out
+  for i, e in ipairs(entries) do
+    local b = self.tabBtns[i]
+    if not b then
+      b = CreateFrame("Button", nil, f, "BackdropTemplate")
+      ns.SnapBox(b, TAB_SIZE, TAB_SIZE)
+      ns.PixelBackdrop(b)
+      b:SetBackdropColor(Theme:C("panel"))
+      b:SetBackdropBorderColor(Theme:C("stroke"))
+      Theme:Track(b, function(s)
+        s:SetBackdropColor(Theme:C(s.wpeOn and "panelHi" or "panel"))
+        s:SetBackdropBorderColor(Theme:C(s.wpeOn and "accent" or "stroke"))
+      end)
+      b:RegisterForClicks("LeftButtonUp")
+      b:SetScript("OnEnter", function(s)
+        s:SetBackdropColor(Theme:C("panelHi"))
+        s:SetBackdropBorderColor(Theme:C("accent"))
+      end)
+      b:SetScript("OnLeave", function(s)
+        s:SetBackdropColor(Theme:C(s.wpeOn and "panelHi" or "panel"))
+        s:SetBackdropBorderColor(Theme:C(s.wpeOn and "accent" or "stroke"))
+        GameTooltip:Hide()
+      end)
+      b:SetScript("OnClick", function(s) self:SelectTab(s.wpeBag) end)
+      ns.AddTip(b, function(s) return s.wpeTip end, "left")
+      self.tabBtns[i] = b
+    end
+    local ic = b.wpeIcon
+    if not ic then
+      ic = b:CreateTexture(nil, "ARTWORK")
+      ic:SetPoint("TOPLEFT", 3, -3)
+      ic:SetPoint("BOTTOMRIGHT", -3, 3)
+      ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+      b.wpeIcon = ic
+    end
+    local m = e.bag ~= nil and ((meta and meta[e.bag]) or ns.Vault:TabMeta(self.mode, e.bag)) or nil
+    if e.bag == nil then
+      ic:SetTexture(nil)
+      if ic.SetAtlas then ic:SetAtlas("bag-main") end
+      b.wpeTip = ns.L["Everything"]
+    else
+      if m and m.icon then ic:SetTexture(m.icon) else ic:SetTexture(TAB_FALLBACK_ICON) end
+      if m and m.name and m.name ~= "" then b.wpeTip = m.name
+      elseif e.bag == ns.reagentBank then b.wpeTip = ns.L["REAGENTS"]
+      else b.wpeTip = (ns.L["Tab %d"]):format(i - 1) end
+    end
+    b.wpeBag = e.bag
+    b.wpeOn = (e.bag == sel) or nil
+    b:SetBackdropColor(Theme:C(b.wpeOn and "panelHi" or "panel"))
+    b:SetBackdropBorderColor(Theme:C(b.wpeOn and "accent" or "stroke"))
+    b:ClearAllPoints()
+    ns.SnapPoint(b, "TOPLEFT", f, "TOPRIGHT", x, -(y + (i - 1) * (TAB_SIZE + TAB_GAP)))
+    b:Show()
+  end
+  for j = #entries + 1, #self.tabBtns do self.tabBtns[j]:Hide() end
+end
+
 function View:Activate(mode)
   local st = self:State(mode)
   local prev = self.cur
@@ -694,17 +846,20 @@ function View:PaintKey(size)
   return table.concat({ size, Bags.slotStyle or "tile", Bags.styleGen or 0,
                         Bags.qualityBorder and 1 or 0, Bags.qualityColorIlvl and 1 or 0,
                         ns.Badge("junk").on and 1 or 0, Bags.reagentTint and 1 or 0,
-                        Bags.unusableBorder and 1 or 0 }, ":")
+                        Bags.unusableBorder and 1 or 0,
+                        (self.tabSel and self.tabSel[self.mode]) or 0 }, ":")
 end
 
 function View:Plan(st, size, cols, gap)
   local step = stepFor(size, gap)
   local plan = st.plan
   local n, used, total, bottom, li = 0, 0, 0, 0, 0
+  local only = self:TabSel(st.mode)
 
   for _, sec in ipairs(self:Sections(st.mode)) do
     local first, count = n, 0
     for _, bag in ipairs(sec.ids) do
+      if not only or bag == only then
       local num, taken
       if self.snap then
         num = ns.Vault:Count(st.mode, bag)
@@ -721,10 +876,11 @@ function View:Plan(st, size, cols, gap)
         c.bag, c.slot = bag, slot
         plan[first + count] = c
       end
+      end
     end
     if count > 0 then
       local secTop = bottom
-      if sec.label then
+      if sec.label and not only then
         secTop = bottom + DIV
         li = li + 1
         local lbl = self:Label(st, li, sec.color)
@@ -878,6 +1034,7 @@ function View:Layout()
   self:Fonts()
   self:AnchorHeader()
   self:LayoutMode(self.cur, "fill")
+  self:RefreshStrip()
 end
 
 function View:Resize(st)
@@ -1008,8 +1165,10 @@ end
 
 function View:CountSlots(mode)
   local total, used = 0, 0
+  local only = self:TabSel(mode)
   for _, sec in ipairs(self:Sections(mode)) do
     for _, bag in ipairs(sec.ids) do
+      if not only or bag == only then
       if self.snap then
         total = total + ns.Vault:Count(mode, bag)
         used = used + ns.Vault:Used(mode, bag)
@@ -1017,6 +1176,7 @@ function View:CountSlots(mode)
         local num = C_Container.GetContainerNumSlots(bag) or 0
         total = total + num
         used = used + (num - (select(1, C_Container.GetContainerNumFreeSlots(bag)) or 0))
+      end
       end
     end
   end
@@ -1064,6 +1224,7 @@ function View:QueueRefresh(bagID)
     local st = self.cur
     if self.bankerOpen and not self.snap and st then
       ns.Vault:Capture(st.mode, (not st.needLayout) and next(st.dirty) and st.dirty or nil)
+      ns.Vault:SetTabs(st.mode, self:LiveTabMeta(st.mode))
     end
     if not (st and self.frame and self.frame:IsShown()) then return end
     if st.needLayout or st.filling then
@@ -1136,6 +1297,8 @@ function View:OnBankOpened()
   self:Activate(self.mode)
   if not self:AccountOnly() then ns.Vault:Capture("bank") end
   if ns.WarbandActive() then ns.Vault:Capture("warband") end
+  if not self:AccountOnly() then ns.Vault:SetTabs("bank", self:LiveTabMeta("bank")) end
+  if ns.WarbandActive() then ns.Vault:SetTabs("warband", self:LiveTabMeta("warband")) end
   ns.RefreshBagDim()
 end
 

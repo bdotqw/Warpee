@@ -148,6 +148,21 @@ function Vault:Box(mode)
   return box
 end
 
+function Vault:SetTabs(mode, tabs)
+  if not tabs then return end
+  local box = self:OwnerBox(mode, true)
+  if not box then return end
+  box.tabs = box.tabs or {}
+  for bag, m in pairs(tabs) do
+    if m and (m.name or m.icon) then box.tabs[bag] = { name = m.name, icon = m.icon } end
+  end
+end
+
+function Vault:TabMeta(mode, bag)
+  local box = self:Box(mode)
+  return box and box.tabs and box.tabs[bag] or nil
+end
+
 function Vault:OwnerBox(mode, create)
   local v = store()
   if not v then return nil end
