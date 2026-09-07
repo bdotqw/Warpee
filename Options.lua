@@ -1610,6 +1610,7 @@ flow.revGet, flow.revSet = field("revFill")
 flow.upGet, flow.upSet   = field("fillUp")
 local questGet, questSet     = styleField("questMarks")
 local newGet, newSet         = styleField("newItemGlow")
+local unusableGet, unusableSet = styleField("unusableBorder")
 local function gridAlphaGet() return Theme:GridAlpha() end
 local function gridAlphaSet(v) WarpeeDB.gridAlpha = v; Theme:ApplyGridAlpha() end
 local gaugeGet, gaugeSet     = field("showGauge")
@@ -1788,6 +1789,8 @@ local ITEMS_PAGE = {
   { type = "toggle", name = "Item level by quality", col = 1, get = qColorGet, set = qColorSet,
     disabled = function() return not ns.Badge("ilvl").on end,
     desc = "Tint the item level number with the item's quality color." },
+  { type = "toggle", name = "Unusable border", col = 2, get = unusableGet, set = unusableSet,
+    desc = "Red border around gear your character cannot wear." },
   { type = "range", name = "Border thickness", min = 1, max = 6, step = 1,
     get = edgeGet, set = edgeSet,
     desc = "Thickness of the slot border." },

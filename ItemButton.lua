@@ -1135,18 +1135,18 @@ function ns.UpdateItemButton(b)
          and (b.wpeBagID == ns.reagentBag or b.wpeBagID == ns.reagentBank) then
     local r = Theme.colors.reagent
     ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
-  elseif hl and ns.IsItemUnusable(bagID, slot, hl) then
+  elseif ns.Bags.unusableBorder and hl and ns.IsItemUnusable(bagID, slot, hl) then
     local R = RED_FONT_COLOR
     ns.SetRarityRing(b, R.r, R.g, R.b, 1)
   elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q]
          and not decorated(b.IconOverlay) and not decorated(b.IconOverlay2) then
-    local c = ITEM_QUALITY_COLORS[q]
-    ns.SetRarityRing(b, c.r, c.g, c.b, 1)
-  else
-    ns.SetRarityRing(b)
-  end
-  ns.PaintSlotBg(b)
-  local nm = hl and hl:match("%[(.-)%]") or nil
+     local c = ITEM_QUALITY_COLORS[q]
+     ns.SetRarityRing(b, c.r, c.g, c.b, 1)
+   else
+     ns.SetRarityRing(b)
+   end
+   ns.PaintSlotBg(b)
+   local nm = hl and hl:match("%[(.-)%]") or nil
   b.itemName = nm
   if nm then
     local loc = slotLoc(b, bagID, slot)
@@ -1242,7 +1242,7 @@ function ns.PaintVaultButton(b, d, bagID)
   elseif ns.Bags.reagentTint and bagID and (bagID == ns.reagentBank or bagID == ns.reagentBag) then
     local r = Theme.colors.reagent
     ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
-  elseif link and ns.IsLinkUnusable(link) then
+  elseif link and ns.Bags.unusableBorder and ns.IsLinkUnusable(link) then
     local R = RED_FONT_COLOR
     ns.SetRarityRing(b, R.r, R.g, R.b, 1)
   elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q]

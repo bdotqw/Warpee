@@ -291,6 +291,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.questMarks == nil then WarpeeDB.questMarks = true end
     if WarpeeDB.newItemGlow == nil then WarpeeDB.newItemGlow = false end
     if WarpeeDB.reagentTint == nil then WarpeeDB.reagentTint = true end
+    if WarpeeDB.unusableBorder == nil then WarpeeDB.unusableBorder = true end
     WarpeeDB.goldFormat = WarpeeDB.goldFormat or "short"
     WarpeeDB.vendorIlvl = tonumber(WarpeeDB.vendorIlvl) or 100
     WarpeeDB.vendorIlvlMin = tonumber(WarpeeDB.vendorIlvlMin) or 10
@@ -357,6 +358,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     Bags.questMarks       = WarpeeDB.questMarks
     Bags.newItemGlow      = WarpeeDB.newItemGlow
     Bags.reagentTint      = WarpeeDB.reagentTint
+    Bags.unusableBorder   = WarpeeDB.unusableBorder
     Bags:Build()
     Bags:RestorePos()
     Bags:Warm()

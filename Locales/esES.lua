@@ -198,6 +198,7 @@ local STRINGS = {
   ["New item glow"] = "Brillo de los objetos nuevos",
   ["Junk coin"] = "Moneda en la basura",
   ["Reagent border"] = "Borde de los componentes",
+  ["Unusable border"] = "Borde de lo inusable",
   ["Border thickness"] = "Grosor del borde",
   ["Item level by quality"] = "Nivel de objeto según la calidad",
   ["Corner"] = "Esquina",
@@ -212,6 +213,8 @@ local STRINGS = {
     "Brillo del color de la calidad en los objetos que el juego todavía cuenta como nuevos.",
   ["Tint the slots of the reagent bag and the reagent bank."] =
     "Colorea los espacios de la bolsa de componentes y del banco de componentes.",
+  ["Red border around gear your character cannot wear."] =
+    "Borde rojo alrededor del equipo que tu personaje no puede llevar.",
   ["Thickness of the slot border."] = "Grosor del borde de los espacios.",
   ["Tint the item level number with the item's quality color."] =
     "Colorea el nivel de objeto con el color de su calidad.",
@@ -370,6 +373,8 @@ local STRINGS = {
   ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] =
     "El equipo se fija arrastrándolo o pegando su enlace; un id simple no distingue una copia de otra.",
   ["Add ID"] = "Añadir ID",
+  ["Popular"] = "Populares",
+  ["Already in the pocket"] = "Ya en el bolsillo",
   ["Clear"] = "Vaciar",
   ["Equipped"] = "Equipado",
   ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =

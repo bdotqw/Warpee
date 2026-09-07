@@ -201,6 +201,7 @@ local STRINGS = {
   ["New item glow"] = "Свечение новых предметов",
   ["Junk coin"] = "Монета на хламе",
   ["Reagent border"] = "Рамка реагентов",
+  ["Unusable border"] = "Рамка ненадеваемого",
   ["Border thickness"] = "Толщина рамки",
   ["Item level by quality"] = "Уровень предмета по качеству",
   ["Corner"] = "Угол",
@@ -215,6 +216,8 @@ local STRINGS = {
     "Свечение цвета качества на предметах, которые игра ещё считает новыми.",
   ["Tint the slots of the reagent bag and the reagent bank."] =
     "Подсвечивать ячейки сумки реагентов и банка реагентов.",
+  ["Red border around gear your character cannot wear."] =
+    "Красная рамка вокруг экипировки, которую персонаж не может носить.",
   ["Thickness of the slot border."] = "Толщина рамки ячейки.",
   ["Tint the item level number with the item's quality color."] =
     "Окрашивать уровень предмета в цвет его качества.",
@@ -373,6 +376,8 @@ local STRINGS = {
   ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] =
     "Снаряжение закрепляется перетаскиванием или вставкой ссылки: по голому id нельзя отличить одну копию от другой.",
   ["Add ID"] = "Добавить ID",
+  ["Popular"] = "Популярное",
+  ["Already in the pocket"] = "Уже в кармане",
   ["Clear"] = "Очистить",
   ["Equipped"] = "Надето",
   ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =
