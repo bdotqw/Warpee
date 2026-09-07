@@ -201,7 +201,7 @@ local STRINGS = {
   ["New item glow"] = "Свечение новых предметов",
   ["Junk coin"] = "Монета на хламе",
   ["Reagent border"] = "Рамка реагентов",
-  ["Unusable border"] = "Рамка ненадеваемого",
+  ["Unusable border"] = "Рамка «нельзя надеть»",
   ["Border thickness"] = "Толщина рамки",
   ["Item level by quality"] = "Уровень предмета по качеству",
   ["Corner"] = "Угол",
@@ -217,7 +217,7 @@ local STRINGS = {
   ["Tint the slots of the reagent bag and the reagent bank."] =
     "Подсвечивать ячейки сумки реагентов и банка реагентов.",
   ["Red border around gear your character cannot wear."] =
-    "Красная рамка вокруг экипировки, которую персонаж не может носить.",
+    "Красная рамка вокруг вещей, которые персонаж не может надеть.",
   ["Thickness of the slot border."] = "Толщина рамки ячейки.",
   ["Tint the item level number with the item's quality color."] =
     "Окрашивать уровень предмета в цвет его качества.",
