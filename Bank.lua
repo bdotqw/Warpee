@@ -188,6 +188,7 @@ function View:Build()
   f:SetScript("OnHide", function()
     ns.ClearSearch(self.search)
     self.depositType = nil
+    if self.tabEditFrame then self.tabEditFrame:Hide() end
     if ns.CharPicker then ns.CharPicker:Close() end
     if ns.Vault:SetView("bank", nil) then self:UpdateCharBtn() end
     ns.RefreshBagDim()
@@ -473,7 +474,7 @@ function View:LiveTabMeta(mode)
     local bag = bags[i]
     if bag ~= nil and type(td) == "table" and (td.name or td.icon) then
       out = out or {}
-      out[bag] = { name = td.name, icon = td.icon }
+      out[bag] = { name = td.name, icon = td.icon, depositFlags = td.depositFlags }
     end
   end
   return out
@@ -508,6 +509,7 @@ function View:SelectTab(bag)
     WarpeeDB.bankTabSel = WarpeeDB.bankTabSel or {}
     WarpeeDB.bankTabSel[mode] = bag or nil
   end
+  if self.tabEditFrame then self.tabEditFrame:Hide() end
   if self.frame and self.frame:IsShown() then self:Layout() end
 end
 
@@ -748,7 +750,7 @@ function View:RefreshStrip()
         s:SetBackdropColor(Theme:C(s.wpeOn and "panelHi" or "panel"))
         s:SetBackdropBorderColor(Theme:C(s.wpeOn and "accent" or "stroke"))
       end)
-      b:RegisterForClicks("LeftButtonUp")
+      b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
       b:SetScript("OnEnter", function(s)
         s:SetBackdropColor(Theme:C("panelHi"))
         s:SetBackdropBorderColor(Theme:C("accent"))
@@ -758,8 +760,15 @@ function View:RefreshStrip()
         s:SetBackdropBorderColor(Theme:C(s.wpeOn and "accent" or "stroke"))
         GameTooltip:Hide()
       end)
-      b:SetScript("OnClick", function(s) self:SelectTab(s.wpeBag) end)
-      ns.AddTip(b, function(s) return s.wpeTip end, "left")
+      b:SetScript("OnClick", function(s, button)
+        if button == "RightButton" then self:OpenTabEdit(s, s.wpeBag)
+        else self:SelectTab(s.wpeBag) end
+      end)
+      ns.AddTip(b, function(s) return s.wpeTip end, "left", function()
+        if self.bankerOpen and not self.snap then
+          return { { text = ns.L["Right-click to edit"], color = "dim" } }
+        end
+      end)
       self.tabBtns[i] = b
     end
     local ic = b.wpeIcon
@@ -790,6 +799,206 @@ function View:RefreshStrip()
     b:Show()
   end
   for j = #entries + 1, #self.tabBtns do self.tabBtns[j]:Hide() end
+end
+
+local TAB_ICONS = {
+  [[Interface\MoneyFrame\UI-GoldIcon]],
+  [[Interface\MoneyFrame\UI-SilverIcon]],
+  [[Interface\MoneyFrame\UI-CopperIcon]],
+  [[Interface\PaperDoll\UI-PaperDoll-Slot-Bag]],
+  [[Interface\Icons\INV_Misc_Bag_08]],
+  [[Interface\Icons\INV_Misc_Gear_01]],
+  [[Interface\Icons\INV_Misc_Note_01]],
+  [[Interface\Icons\inv_misc_gem_amethyst_02]],
+  [[Interface\Icons\INV_Ore_FelIron]],
+  [[Interface\Icons\INV_Misc_Map_01]],
+  [[Interface\Icons\INV_Misc_QuestionMark]],
+}
+local EDIT_W, EDIT_PAD = 220, 10
+local EDIT_COLS, EDIT_SIZE, EDIT_GAP = 6, 30, 4
+
+function View:BuildTabEdit()
+  local f = self.tabEditFrame
+  if f then return f end
+  f = CreateFrame("Frame", "WarpeeBankTabEdit", UIParent, "BackdropTemplate")
+  Theme:Panel(f, "bg", "stroke")
+  Theme:Window(f)
+  f:SetFrameStrata("DIALOG")
+  f:SetClampedToScreen(true)
+  f:EnableMouse(true)
+  f:Hide()
+  ns.EscClose(f)
+  self.tabEditFrame = f
+
+  local title = Theme:Title(f, 14, "accent")
+  title:SetPoint("TOPLEFT", EDIT_PAD, -8)
+  self.tabEditTitle = title
+
+  local close = ns.CreateGlyphButton(f, "×", 22)
+  close:SetPoint("TOPRIGHT", -6, -6)
+  close:SetScript("OnClick", function() f:Hide() end)
+
+  local prev = f:CreateTexture(nil, "ARTWORK")
+  prev:SetSize(40, 40)
+  prev:SetPoint("TOPLEFT", EDIT_PAD, -30)
+  prev:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+  self.tabEditPrev = prev
+
+  local name = ns.CreateSearchBox(f, nil, "Tab name")
+  name:SetPoint("TOPLEFT", prev, "TOPRIGHT", 6, -9)
+  name:SetPoint("TOPRIGHT", f, "TOPRIGHT", -EDIT_PAD, -39)
+  name:SetHeight(22)
+  name:SetScript("OnEnterPressed", function(s) s:ClearFocus(); self:SaveTabEdit() end)
+  self.tabEditName = name
+
+  self.tabEditBtns = {}
+  for i = 1, #TAB_ICONS do
+    local b = CreateFrame("Button", nil, f, "BackdropTemplate")
+    ns.SnapBox(b, EDIT_SIZE, EDIT_SIZE)
+    ns.PixelBackdrop(b)
+    b:SetBackdropColor(Theme:C("slot"))
+    b:SetBackdropBorderColor(Theme:C("emptyLine"))
+    local pick = function(s)
+      s:SetBackdropBorderColor(Theme:C(s.wpeOn and "accent" or "emptyLine"))
+    end
+    Theme:Track(b, function(s)
+      s:SetBackdropColor(Theme:C("slot"))
+      pick(s)
+    end)
+    local ic = b:CreateTexture(nil, "ARTWORK")
+    ic:SetPoint("TOPLEFT", 2, -2)
+    ic:SetPoint("BOTTOMRIGHT", -2, 2)
+    ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    ic:SetTexture(TAB_ICONS[i])
+    b.wpeIconPath = TAB_ICONS[i]
+    b:RegisterForClicks("LeftButtonUp")
+    b:SetScript("OnEnter", function(s)
+      s:SetBackdropColor(Theme:C("panelHi"))
+      s:SetBackdropBorderColor(Theme:C("accent"))
+    end)
+    b:SetScript("OnLeave", function(s)
+      s:SetBackdropColor(Theme:C("slot"))
+      pick(s)
+    end)
+    b:SetScript("OnClick", function(s)
+      if self.tabEdit then self.tabEdit.icon = s.wpeIconPath end
+      self:PaintTabEdit()
+    end)
+    b:Hide()
+    self.tabEditBtns[i] = b
+  end
+
+  local link = ns.CreateSearchBox(f, nil, "Item link")
+  link.wpeLinkID = true
+  link:SetHeight(22)
+  link:SetScript("OnEnterPressed", function(s)
+    self:TakeTabIcon(s:GetText())
+    s:SetText("")
+    s:ClearFocus()
+  end)
+  link:SetScript("OnEscapePressed", function(s)
+    s:SetText("")
+    s:ClearFocus()
+  end)
+  link:SetScript("OnEditFocusLost", function(s) s:SetText("") end)
+  self.tabEditLink = link
+
+  local save = ns.CreateButton(f, ns.L["Save"], 80, 22)
+  ns.LocalText(save, "Save")
+  save:SetScript("OnClick", function() self:SaveTabEdit() end)
+  self.tabEditSave = save
+
+  local cancel = ns.CreateButton(f, ns.L["Cancel"], 80, 22)
+  ns.LocalText(cancel, "Cancel")
+  cancel:SetScript("OnClick", function() f:Hide() end)
+  self.tabEditCancel = cancel
+
+  local gridTop = 78
+  for i, b in ipairs(self.tabEditBtns) do
+    local col, row = (i - 1) % EDIT_COLS, math.floor((i - 1) / EDIT_COLS)
+    b:ClearAllPoints()
+    ns.SnapPoint(b, "TOPLEFT", f, "TOPLEFT",
+      EDIT_PAD + col * (EDIT_SIZE + EDIT_GAP), -(gridTop + row * (EDIT_SIZE + EDIT_GAP)))
+    b:Show()
+  end
+  local rows = math.ceil(#self.tabEditBtns / EDIT_COLS)
+  local linkTop = gridTop + rows * EDIT_SIZE + (rows - 1) * EDIT_GAP + 8
+  link:ClearAllPoints()
+  ns.SnapPoint(link, "TOPLEFT", f, "TOPLEFT", EDIT_PAD, -linkTop)
+  ns.SnapPoint(link, "TOPRIGHT", f, "TOPRIGHT", -EDIT_PAD, -linkTop)
+  cancel:ClearAllPoints()
+  ns.SnapPoint(cancel, "BOTTOMLEFT", f, "BOTTOMLEFT", EDIT_PAD, EDIT_PAD)
+  save:ClearAllPoints()
+  ns.SnapPoint(save, "BOTTOMRIGHT", f, "BOTTOMRIGHT", -EDIT_PAD, EDIT_PAD)
+  ns.SnapSize(f, EDIT_W, linkTop + 22 + 8 + 22 + EDIT_PAD)
+  return f
+end
+
+function View:PaintTabEdit()
+  local e = self.tabEdit
+  local f = self.tabEditFrame
+  if not (e and f) then return end
+  self.tabEditTitle:SetText(e.name or "")
+  self.tabEditPrev:SetTexture(e.icon or TAB_FALLBACK_ICON)
+  for _, b in ipairs(self.tabEditBtns) do
+    b.wpeOn = (b.wpeIconPath == e.icon) or nil
+    b:SetBackdropBorderColor(Theme:C(b.wpeOn and "accent" or "emptyLine"))
+  end
+end
+
+function View:OpenTabEdit(anchor, bag)
+  if bag == nil or not (self.bankerOpen and not self.snap) then return end
+  if InCombatLockdown() then return end
+  local f = self:BuildTabEdit()
+  local meta = self:LiveTabMeta(self.mode) or {}
+  local m = meta[bag] or {}
+  self.tabEdit = {
+    bag = bag, mode = self.mode,
+    icon = m.icon or TAB_FALLBACK_ICON,
+    flags = m.depositFlags or 0,
+    name = anchor.wpeTip,
+  }
+  local path = ns.Fonts:Current()
+  self.tabEditTitle:SetFont(path, 14, "")
+  self.tabEditName:SetFont(path, 13, "")
+  if self.tabEditName.Hint then self.tabEditName.Hint:SetFont(path, 13, "") end
+  self.tabEditLink:SetFont(path, 13, "")
+  if self.tabEditLink.Hint then self.tabEditLink.Hint:SetFont(path, 13, "") end
+  self.tabEditSave.Text:SetFont(path, 12, "")
+  self.tabEditCancel.Text:SetFont(path, 12, "")
+  self.tabEditName:SetText(self.tabEdit.name or "")
+  self.tabEditLink:SetText("")
+  self:PaintTabEdit()
+  f:ClearAllPoints()
+  ns.SnapPoint(f, "TOPLEFT", anchor, "TOPRIGHT", 6, 0)
+  f:Show()
+end
+
+function View:TakeTabIcon(text)
+  local e = self.tabEdit
+  if not e then return end
+  local s = tostring(text or "")
+  local id = tonumber(s:match("item:(%d+)")) or tonumber(s:match("%d+"))
+  if not (id and C_Item and C_Item.GetItemIconByID) then return end
+  local ok, tex = pcall(C_Item.GetItemIconByID, id)
+  if ok and tex then
+    e.icon = tex
+    self:PaintTabEdit()
+  end
+end
+
+function View:SaveTabEdit()
+  local e = self.tabEdit
+  local f = self.tabEditFrame
+  if not e then if f then f:Hide() end return end
+  local name = ""
+  if self.tabEditName then name = self.tabEditName:GetText() or "" end
+  if name == "" then name = e.name or "" end
+  local bt = bankTypeFor(e.mode)
+  if bt and C_Bank and C_Bank.UpdateBankTabSettings and not InCombatLockdown() then
+    pcall(C_Bank.UpdateBankTabSettings, bt, e.bag, name, e.icon or TAB_FALLBACK_ICON, e.flags or 0)
+  end
+  if f then f:Hide() end
 end
 
 function View:Activate(mode)
