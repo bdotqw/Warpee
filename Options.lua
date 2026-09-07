@@ -1789,7 +1789,7 @@ local ITEMS_PAGE = {
   { type = "toggle", name = "Item level by quality", col = 1, get = qColorGet, set = qColorSet,
     disabled = function() return not ns.Badge("ilvl").on end,
     desc = "Tint the item level number with the item's quality color." },
-  { type = "toggle", name = "Unusable border", col = 2, get = unusableGet, set = unusableSet,
+  { type = "toggle", name = "Unwearable border", col = 2, get = unusableGet, set = unusableSet,
     desc = "Red border around gear your character cannot wear." },
   { type = "range", name = "Border thickness", min = 1, max = 6, step = 1,
     get = edgeGet, set = edgeSet,
