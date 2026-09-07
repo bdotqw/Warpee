@@ -744,11 +744,11 @@ local function buildArt(frame, key, def)
     if title.SetAlpha then title:SetAlpha(1) end
   end
   if def.body then
-    local base = art:CreateTexture(nil, "BACKGROUND", nil, -10)
+    local base = art:CreateTexture(nil, "BACKGROUND", nil, -8)
     base:SetTexture(WHITE)
     base:SetAllPoints(art)
     art.wpeBase = base
-    local body = art:CreateTexture(nil, "BACKGROUND", nil, -9)
+    local body = art:CreateTexture(nil, "BACKGROUND", nil, -7)
     if pcall(body.SetTexture, body, def.body, "REPEAT", "REPEAT") then
       body:SetHorizTile(true)
       body:SetVertTile(true)
