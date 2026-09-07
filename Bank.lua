@@ -285,13 +285,15 @@ function View:Build()
     StaticPopup_Show(which, nil, nil, { bankType = bankTypeFor(self.mode) })
   end
 
-  local dep = ns.CreateButton(f, _G.BANK_DEPOSIT_MONEY_BUTTON_LABEL or "Deposit", 70, 20)
+  local dep = ns.CreateButton(f, ns.L["Deposit"], 70, 20)
+  ns.LocalText(dep, "Deposit")
   dep:SetPoint("BOTTOMLEFT", PAD, 5)
   dep:SetScript("OnClick", function() moneyPopup("BANK_MONEY_DEPOSIT", "BANK_MONEY_WITHDRAW") end)
   addTip(dep, "Put your gold into the Warband bank")
   self.depositBtn = dep
 
-  local wdr = ns.CreateButton(f, _G.BANK_WITHDRAW_MONEY_BUTTON_LABEL or "Withdraw", 76, 20)
+  local wdr = ns.CreateButton(f, ns.L["Withdraw"], 76, 20)
+  ns.LocalText(wdr, "Withdraw")
   wdr:SetPoint("LEFT", dep, "RIGHT", 4, 0)
   wdr:SetScript("OnClick", function() moneyPopup("BANK_MONEY_WITHDRAW", "BANK_MONEY_DEPOSIT") end)
   addTip(wdr, "Take gold out of the Warband bank")
@@ -427,7 +429,7 @@ function View:BuildBuyButtons()
       addTip(b, mode == "warband" and "Buy another Warband bank tab" or "Buy another bank tab",
         function(btn)
           if not btn.cost then return nil end
-          local poor = btn.cost > GetMoney()
+          local poor = (tonumber(btn.cost) or 0) > GetMoney()
           return { { text = (ns.L["Cost: %s"]):format(ns.FormatMoney(btn.cost)),
                      color = poor and "gaugeHi" or "text" } }
         end)
@@ -1111,10 +1113,13 @@ function View:UpdateFooter()
   local buy = self.buyBtn and self.buyBtn[self.mode]
   if buy then
     local cost = live and purchasableCost(bt) or nil
+    cost = tonumber(cost) or nil
     buy.cost = cost
     if cost then
+      local poor = cost > GetMoney()
       buy.Text:SetText((ns.L["Buy tab · %s"]):format(ns.FormatGold(cost)))
-      buy.Text:SetTextColor(Theme:C(cost > GetMoney() and "gaugeHi" or "text"))
+      buy.Text:SetTextColor(Theme:C(poor and "gaugeHi" or "text"))
+      buy:SetBackdropBorderColor(Theme:C(poor and "gaugeHi" or "stroke"))
       buy:SetWidth(math.max(90, math.ceil(buy.Text:GetStringWidth()) + 22))
       buy:ClearAllPoints()
       if transfer and self.withdrawBtn then
