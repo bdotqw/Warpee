@@ -10,6 +10,48 @@ local PAD, BAND = 12, 26
 local LABEL_H, LABEL_GAP, SPLIT = 13, 4, 10
 local BOX_H, BOX_GAP = 22, 8
 local MAX_COLS, MAX_ROWS = 8, 6
+local PICK_MAX, PICK_COLS = 64, 8
+local PICK_SIZE, PICK_GAP, PICK_PAD = 36, 4, 10
+
+local POCKET_PICKS = {
+  272195, -- Vantus Rune: Tides
+  243734, -- Thalassian Phoenix Oil
+  259085, -- Void-Touched Augment Rune
+  132514, -- auto-hammer
+  269586, -- Emergency Soul Link
+  248486, -- Emergency Soul Link
+  242747, -- Hearty Royal Roast
+  242275, -- Royal Roast
+  271884, -- Concentrated Silvermoon Health Potion
+  271883, -- Concentrated Silvermoon Health Potion
+  241300, -- Lightfused Mana Potion
+  241301, -- Lightfused Mana Potion
+  245916, -- Fleeting Lightfused Mana Potion
+  241308, -- Light's Potential
+  241309, -- Light's Potential
+  245898, -- Fleeting Light's Potential
+  241292, -- Draught of Rampant Abandon
+  241293, -- Draught of Rampant Abandon
+  245910, -- Fleeting Draught of Rampant Abandon
+  241288, -- Potion of Recklessness
+  241289, -- Potion of Recklessness
+  245902, -- Fleeting Potion of Recklessness
+  271887, -- Liquid Luster
+  271886, -- Liquid Luster
+  274764, -- Fleeting Liquid Luster
+  241324, -- Flask of the Blood Knights
+  241325, -- Flask of the Blood Knights
+  245931, -- Fleeting Flask of the Blood Knights
+  241326, -- Flask of the Shattered Sun
+  241327, -- Flask of the Shattered Sun
+  245929, -- Fleeting Flask of the Shattered Sun
+  241322, -- Flask of the Magisters
+  241323, -- Flask of the Magisters
+  245933, -- Fleeting Flask of the Magisters
+  241320, -- Flask of Thalassian Resistance
+  241321, -- Flask of Thalassian Resistance
+  245926, -- Fleeting Flask of Thalassian Resistance
+}
 
 local function charKey()
   local n = UnitName("player") or "?"
@@ -254,6 +296,31 @@ function Pocket:PinFromCursor(index)
   self:Set(index, pin)
 end
 
+function Pocket:AddID(id, pin)
+  id = tonumber(id)
+  if not id then return false end
+  if not pin and ns.GearID(id) then
+    print("|cffd9a85fWarpee|r "
+      .. (ns.L["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] or ""))
+    return false
+  end
+  local list = self:List()
+  local n = self:Count()
+  for i = 1, n do
+    if ns.ItemStubID(list[i]) == id then return false end
+  end
+  for i = 1, n do
+    if not list[i] then
+      if C_Item and C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(id) end
+      self:Set(i, pin or id)
+      if self.picksFrame and self.picksFrame:IsShown() then self:PickPaint() end
+      C_Timer.After(0.4, function() Pocket:Refresh() end)
+      return true
+    end
+  end
+  return false
+end
+
 function Pocket:AddByText(text)
   local s = tostring(text or "")
   local link = s:match("|H(item:[^|]+)|h") or s:match("^(item:[^|%s]+)")
@@ -261,29 +328,7 @@ function Pocket:AddByText(text)
   if not id then return end
   local get = C_Item and C_Item.GetItemInfoInstant
   if get and not get(id) then return end
-  -- A pasted link still carries its bonus ids, so gear coming in as a link is pinned
-  -- exactly, the way dragging pins it. A bare id cannot tell one copy of gear from
-  -- another, so it is refused instead of silently binding to whichever copy the scan
-  -- happens to meet first.
-  if not link and ns.GearID(id) then
-    print("|cffd9a85fWarpee|r "
-      .. (ns.L["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] or ""))
-    return
-  end
-  local pin = link and ns.PinFor(id, link) or id
-  local list = self:List()
-  local n = self:Count()
-  for i = 1, n do
-    if ns.ItemStubID(list[i]) == id then return end
-  end
-  for i = 1, n do
-    if not list[i] then
-      if C_Item and C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(id) end
-      self:Set(i, pin)
-      C_Timer.After(0.4, function() Pocket:Refresh() end)
-      return
-    end
-  end
+  self:AddID(id, link and ns.PinFor(id, link) or nil)
 end
 
 function Pocket:Cooldowns()
@@ -332,14 +377,8 @@ function Pocket:Build()
   self.gearBtn = gear
 
   local plus = ns.CreateGlyphButton(w, "+")
-  plus:SetScript("OnClick", function()
-    local b = Pocket.idBox
-    if not b then return end
-    if b:IsShown() then b:ClearFocus() return end
-    b:Show()
-    b:SetFocus()
-  end)
-  ns.AddTip(plus, ns.L["Add ID"], "top")
+  plus:SetScript("OnClick", function() Pocket:TogglePicks() end)
+  ns.AddTip(plus, ns.L["Popular"], "top")
   self.plusBtn = plus
 
   local rec = Theme:Label(w, 11, "dim")
@@ -356,9 +395,73 @@ function Pocket:Build()
   clr:Hide()
   self.recWipe = clr
 
-  local box = ns.CreateSearchBox(w, nil, "Add ID")
+  local picks = CreateFrame("Frame", "WarpeePocketPicks", UIParent, "BackdropTemplate")
+  Theme:Panel(picks, "bg", "stroke")
+  Theme:Window(picks)
+  picks:SetClampedToScreen(true)
+  picks:EnableMouse(true)
+  picks:Hide()
+  ns.EscClose(picks)
+  self.picksFrame = picks
+
+  local ptitle = Theme:Title(picks, 14, "accent")
+  ns.LocalText(ptitle, "Popular")
+  self.picksTitle = ptitle
+
+  local pclose = ns.CreateGlyphButton(picks, "×", 22)
+  pclose:SetScript("OnClick", function() Pocket:TogglePicks() end)
+  self.picksClose = pclose
+
+  self.pickBtns = {}
+  for i = 1, PICK_MAX do
+    local b = CreateFrame("Button", nil, picks, "BackdropTemplate")
+    ns.PixelBackdrop(b)
+    b:SetBackdropColor(Theme:C("slot"))
+    b:SetBackdropBorderColor(Theme:C("emptyLine"))
+    local function pickBorder(s)
+      s:SetBackdropBorderColor(Theme:C(s.wpePinned and "gone" or "emptyLine"))
+    end
+    Theme:Track(b, function(s)
+      s:SetBackdropColor(Theme:C("slot"))
+      pickBorder(s)
+    end)
+    b:RegisterForClicks("LeftButtonUp")
+    b:SetScript("OnEnter", function(s)
+      s:SetBackdropColor(Theme:C("panelHi"))
+      s:SetBackdropBorderColor(Theme:C(s.wpePinned and "gone" or "accent"))
+      GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
+      if s.wpeID then
+        GameTooltip:SetItemByID(s.wpeID)
+        if s.wpePinned then
+          GameTooltip:AddLine(ns.L["Already in the pocket"], 0.6, 0.6, 0.6, true)
+        end
+      end
+      GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function(s)
+      s:SetBackdropColor(Theme:C("slot"))
+      pickBorder(s)
+      GameTooltip:Hide()
+    end)
+    b:SetScript("OnClick", function(s)
+      if s.wpeID and not s.wpePinned then
+        if Pocket:AddID(s.wpeID) then
+          if ns.ItemSound then ns.ItemSound("pickup") end
+        end
+      end
+    end)
+    local ic = b:CreateTexture(nil, "ARTWORK")
+    ic:SetPoint("TOPLEFT", 1, -1)
+    ic:SetPoint("BOTTOMRIGHT", -1, 1)
+    ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    b.icon = ic
+    b:Hide()
+    self.pickBtns[i] = b
+  end
+
+  local box = ns.CreateSearchBox(picks, nil, "Add ID")
   box.wpeLinkID = true
-  box:Hide()
+  box:SetHeight(22)
   box:SetScript("OnEnterPressed", function(s)
     Pocket:AddByText(s:GetText())
     s:SetText("")
@@ -368,7 +471,7 @@ function Pocket:Build()
     s:SetText("")
     s:ClearFocus()
   end)
-  box:SetScript("OnEditFocusLost", function(s) s:SetText(""); s:Hide() end)
+  box:SetScript("OnEditFocusLost", function(s) s:SetText("") end)
   self.idBox = box
 
   w:Hide()
@@ -464,14 +567,6 @@ function Pocket:Layout()
     self.plusBtn:ClearAllPoints()
     ns.SnapPoint(self.plusBtn, "RIGHT", rightBtn, "LEFT", -4, 0)
     rightBtn = self.plusBtn
-  end
-  if self.idBox then
-    self.idBox:SetFont(path, 13, "")
-    if self.idBox.Hint then self.idBox.Hint:SetFont(path, 13, "") end
-    self.idBox:ClearAllPoints()
-    ns.SnapPoint(self.idBox, "RIGHT", rightBtn, "LEFT", -6, 0)
-    self.idBox:SetWidth(110)
-    self.idBox:SetHeight(BOX_H)
   end
 
   local gen = ((Bags and Bags.styleGen) or 0) .. ":" .. tostring(path) .. ":" .. size
@@ -606,6 +701,85 @@ function Pocket:Layout()
   ns.AlignToScreen(w)
 end
 
+function Pocket:PickPaint()
+  local p = self.picksFrame
+  if not (p and self.pickBtns) then return end
+  local list = self:List()
+  local n = #POCKET_PICKS
+  local path = ns.Fonts:Current()
+  local band = Theme:HeaderBand(p, BAND)
+  local head = band and (band + 6) or (30 + Theme:TopInset())
+  local mid = (band or head) / 2 + Theme:TitleDrop()
+  if self.picksTitle then
+    self.picksTitle:SetFont(path, 14, "")
+    self.picksTitle:ClearAllPoints()
+    ns.SnapPoint(self.picksTitle, "LEFT", p, "TOPLEFT", PICK_PAD, -mid)
+  end
+  if self.picksClose then
+    self.picksClose:ClearAllPoints()
+    ns.SnapPoint(self.picksClose, "RIGHT", p, "TOPRIGHT", -6, -mid)
+  end
+  if self.idBox then
+    self.idBox:SetFont(path, 13, "")
+    if self.idBox.Hint then self.idBox.Hint:SetFont(path, 13, "") end
+    self.idBox:ClearAllPoints()
+    ns.SnapPoint(self.idBox, "TOPLEFT", p, "TOPLEFT", PICK_PAD, -head)
+    ns.SnapPoint(self.idBox, "TOPRIGHT", p, "TOPRIGHT", -PICK_PAD, -head)
+  end
+  local gridTop = head + BOX_H + BOX_GAP
+  for i = 1, n do
+    local id = POCKET_PICKS[i]
+    local b = self.pickBtns[i]
+    b.wpeID = id
+    b.icon:SetTexture(ns.PinIcon(id))
+    local pinned = false
+    for j = 1, self:Count() do
+      if ns.ItemStubID(list[j]) == id then pinned = true; break end
+    end
+    b.wpePinned = pinned
+    b:SetBackdropColor(Theme:C("slot"))
+    b:SetBackdropBorderColor(Theme:C(pinned and "gone" or "emptyLine"))
+    b.icon:SetDesaturated(pinned)
+    b:Show()
+  end
+  for i = n + 1, PICK_MAX do self.pickBtns[i]:Hide() end
+  local cols = math.max(1, math.min(PICK_COLS, n))
+  local rows = n > 0 and math.ceil(n / cols) or 0
+  local gridH = rows > 0 and (rows * PICK_SIZE + (rows - 1) * PICK_GAP) or 0
+  local pickW = PICK_PAD * 2 + cols * PICK_SIZE + (cols - 1) * PICK_GAP
+  ns.SnapSize(p, math.max(pickW, 176), gridTop + gridH + PICK_PAD)
+  for i = 1, n do
+    local b = self.pickBtns[i]
+    ns.SnapSize(b, PICK_SIZE, PICK_SIZE)
+    b:ClearAllPoints()
+    local col, row = (i - 1) % cols, math.floor((i - 1) / cols)
+    ns.SnapPoint(b, "TOPLEFT", p, "TOPLEFT",
+      PICK_PAD + col * (PICK_SIZE + PICK_GAP),
+      -(gridTop + row * (PICK_SIZE + PICK_GAP)))
+  end
+  local w = self.frame
+  if w then
+    p:ClearAllPoints()
+    ns.SnapPoint(p, "TOPRIGHT", w, "TOPLEFT", -6, 0)
+  end
+end
+
+function Pocket:TogglePicks()
+  local p = self.picksFrame
+  if not p then return end
+  if p:IsShown() then
+    p:Hide()
+    if self.idBox then self.idBox:ClearFocus() end
+    return
+  end
+  self:PickPaint()
+  p:Show()
+  for _, id in ipairs(POCKET_PICKS) do
+    if C_Item and C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(id) end
+  end
+  if self.idBox then self.idBox:SetFocus() end
+end
+
 function Pocket:Soon()
   later()
 end
@@ -614,6 +788,7 @@ function Pocket:Refresh()
   keyDirty = true
   if not (self.frame and self.frame:IsShown()) then return end
   self:Layout()
+  if self.picksFrame and self.picksFrame:IsShown() then self:PickPaint() end
 end
 
 function Pocket:Open()
@@ -640,6 +815,7 @@ end
 
 function Pocket:Close(keep)
   if self.idBox then self.idBox:SetText(""); self.idBox:ClearFocus() end
+  if self.picksFrame then self.picksFrame:Hide() end
   if self.frame then self.frame:Hide() end
   if not keep then WarpeeDB.pocketOpen, self.solo = nil, nil end
 end
@@ -707,9 +883,14 @@ ev:RegisterEvent("EQUIPMENT_SWAP_FINISHED")
 ev:RegisterEvent("PLAYER_REGEN_ENABLED")
 ev:RegisterEvent("PLAYER_LOGIN")
 ev:RegisterEvent("ITEM_CHANGED")
+pcall(ev.RegisterEvent, ev, "ITEM_DATA_LOAD_RESULT")
 ev:SetScript("OnEvent", function(_, event, a1, a2)
   if event == "ITEM_CHANGED" then
     if ns.PinRetarget(Pocket:List(), Pocket:Count(), a1, a2) then later() end
+    return
+  end
+  if event == "ITEM_DATA_LOAD_RESULT" then
+    if Pocket.picksFrame and Pocket.picksFrame:IsShown() then Pocket:PickPaint() end
     return
   end
   if event == "PLAYER_LOGIN" then

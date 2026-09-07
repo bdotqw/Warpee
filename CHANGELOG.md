@@ -1,5 +1,11 @@
 # Warpee
 
+## Unreleased
+
+New
+
+- The plus button in the pocket opens a quick add window beside the pocket with your own list of popular items as plain icons; a left click pins one into the first free cell, a pickup sound answers the click, an item already pinned wears the amber edge and the desaturated icon it has in the pocket and its click does nothing, the tooltip repeats the word, and the id box sits in the window too, so it stays the one place to add by id, by link or by click
+
 ## 2.0.0
 
 New
