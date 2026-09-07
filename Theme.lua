@@ -787,9 +787,11 @@ function Theme:RefreshArt(frame)
         art.wpePlate:SetVertexColor(r, g, b)
         art.wpePlate:SetAlpha(a)
         art.wpePlate:Show()
-        if art.Bg and def.bodyGrain then
+        if art.Bg and def.bodyGrain and not self:IsLight() then
           art.Bg:SetAlpha(a * def.bodyGrain)
           art.Bg:Show()
+        elseif art.Bg then
+          art.Bg:Hide()
         end
       elseif art.Bg then
         art.Bg:SetAlpha(a)
