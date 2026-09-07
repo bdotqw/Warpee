@@ -1140,13 +1140,13 @@ function ns.UpdateItemButton(b)
     ns.SetRarityRing(b, R.r, R.g, R.b, 1)
   elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q]
          and not decorated(b.IconOverlay) and not decorated(b.IconOverlay2) then
-     local c = ITEM_QUALITY_COLORS[q]
-     ns.SetRarityRing(b, c.r, c.g, c.b, 1)
-   else
-     ns.SetRarityRing(b)
-   end
-   ns.PaintSlotBg(b)
-   local nm = hl and hl:match("%[(.-)%]") or nil
+    local c = ITEM_QUALITY_COLORS[q]
+    ns.SetRarityRing(b, c.r, c.g, c.b, 1)
+  else
+    ns.SetRarityRing(b)
+  end
+  ns.PaintSlotBg(b)
+  local nm = hl and hl:match("%[(.-)%]") or nil
   b.itemName = nm
   if nm then
     local loc = slotLoc(b, bagID, slot)
