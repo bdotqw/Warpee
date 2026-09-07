@@ -107,10 +107,29 @@ Theme.THEMES = {
     text = { 0.878, 0.910, 0.925, 1 }, dim = { 0.576, 0.643, 0.678, 1 },
     faint = { 0.376, 0.443, 0.478, 1 }, emptyLine = { 0.110, 0.271, 0.322, 1 },
     azure = { 0.400, 0.706, 0.816, 1 }, reagent = { 0.353, 0.804, 0.667, 1 } },
+  day = { label = "Day",
+    bg = { 0.830, 0.810, 0.770, 0.96 }, panel = { 0.700, 0.680, 0.640, 1 },
+    panelHi = { 0.640, 0.620, 0.580, 1 }, slot = { 0.800, 0.780, 0.740, 1 },
+    stroke = { 0.400, 0.370, 0.330, 1 }, strokeSoft = { 0.500, 0.470, 0.430, 1 },
+    accent = { 0.680, 0.360, 0.160, 1 }, accentInk = { 0.520, 0.270, 0.110, 1 },
+    text = { 0.150, 0.140, 0.130, 1 }, dim = { 0.340, 0.330, 0.300, 1 },
+    faint = { 0.540, 0.520, 0.480, 1 }, emptyLine = { 0.560, 0.540, 0.500, 1 },
+    azure = { 0.150, 0.380, 0.620, 1 }, reagent = { 0.220, 0.520, 0.350, 1 },
+    gaugeHi = { 0.700, 0.220, 0.160, 1 } },
+  dayflat = { label = "Day Flat", skin = "blizzardflat",
+    bg = { 0.830, 0.810, 0.770, 0.95 }, panel = { 0.700, 0.680, 0.640, 1 },
+    panelHi = { 0.640, 0.620, 0.580, 1 }, slot = { 0.800, 0.780, 0.740, 1 },
+    stroke = { 0.400, 0.370, 0.330, 1 }, strokeSoft = { 0.500, 0.470, 0.430, 1 },
+    accent = { 0.680, 0.360, 0.160, 1 }, accentInk = { 0.520, 0.270, 0.110, 1 },
+    text = { 0.150, 0.140, 0.130, 1 }, dim = { 0.340, 0.330, 0.300, 1 },
+    faint = { 0.540, 0.520, 0.480, 1 }, emptyLine = { 0.560, 0.540, 0.500, 1 },
+    azure = { 0.150, 0.380, 0.620, 1 }, reagent = { 0.220, 0.520, 0.350, 1 },
+    gaugeHi = { 0.700, 0.220, 0.160, 1 } },
 }
 Theme.THEME_ORDER = { "midnight", "blizzard", "blizzardflat", "class",
                       "nightbloom", "void", "nord",
-                      "abyss", "blood", "forest", "graphite" }
+                      "abyss", "blood", "forest", "graphite",
+                      "day", "dayflat" }
 
 function Theme:IsLight()
   local c = self.colors.bg
