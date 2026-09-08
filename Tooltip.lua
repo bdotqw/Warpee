@@ -130,7 +130,7 @@ end
 local function goldTipFrame()
   if goldTip then return goldTip end
   local t = CreateFrame("Frame", "WarpeeGoldTip", UIParent, "BackdropTemplate")
-  Theme:Panel(t, "bg", "accent")
+  Theme:Panel(t, "deep", "accent")
   t:SetFrameStrata("TOOLTIP")
   t:SetClampedToScreen(true)
   t:Hide()
@@ -160,7 +160,7 @@ local function showGoldTip(anchor)
 
   local n, y, widest = 0, TIP_PAD, 90
 
-  local function row(name, amount, colorKey, class)
+  local function row(name, amount, colorKey, col)
     n = n + 1
     local r = tipRow(t, n)
     r:SetHeight(rowH)
@@ -171,9 +171,9 @@ local function showGoldTip(anchor)
     r.Right:SetFont(path, fs, "")
     r.Left:SetText(name)
     r.Right:SetText(amount or "")
-    if class then r.Left:SetTextColor(Theme:ClassInk(class))
+    if col then r.Left:SetTextColor(col.r, col.g, col.b)
     else r.Left:SetTextColor(Theme:C(colorKey or "text")) end
-    r.Right:SetTextColor(Theme:C("text"))
+    r.Right:SetTextColor(Theme:C("overlay"))
     r:Show()
     widest = math.max(widest,
       math.ceil(r.Left:GetStringWidth() + r.Right:GetStringWidth()) + TIP_GAP)
@@ -181,7 +181,8 @@ local function showGoldTip(anchor)
   end
 
   for _, e in ipairs(list) do
-    row(e.name, ns.FormatMoney(e.money, true), "text", e.class)
+    local col = e.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
+    row(e.name, ns.FormatMoney(e.money, true, true), "text", col)
   end
   if n == 0 then row(ns.L["No gold recorded yet"], "", "dim") end
 
@@ -193,10 +194,10 @@ local function showGoldTip(anchor)
   t.sep:Show()
   y = y + 4
   if wb and wb > 0 then
-    row(ns.L["Warband bank"], ns.FormatMoney(wb, true), "azure")
+    row(ns.L["Warband bank"], ns.FormatMoney(wb, true, true), "azure")
     sum = sum + wb
   end
-  row(ns.L["Total"], ns.FormatMoney(sum, true), "accent")
+  row(ns.L["Total"], ns.FormatMoney(sum, true, true), "accent")
 
   for i = n + 1, #t.rows do t.rows[i]:Hide() end
   t:SetSize(widest + TIP_PAD * 2, y + TIP_PAD)

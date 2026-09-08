@@ -24,7 +24,7 @@ function Picker:Build()
 
   local m = CreateFrame("Frame", "WarpeeCharPicker", UIParent, "BackdropTemplate")
   m:Hide()
-  Theme:Panel(m, "bg", "accent")
+  Theme:Panel(m, "deep", "accent")
   m:SetFrameStrata("FULLSCREEN_DIALOG")
   Theme:WindowArt(m)
   m:EnableMouse(true)
@@ -168,8 +168,8 @@ function Picker:CharRow(n, y, e, path)
     r.icon:Hide()
   end
   r.Text:SetText(e.name)
-  if col then r.Text:SetTextColor(Theme:ClassInk(e.class))
-  else r.Text:SetTextColor(Theme:C("text")) end
+  if col then r.Text:SetTextColor(col.r, col.g, col.b)
+  else r.Text:SetTextColor(Theme:C("overlay")) end
   r:SetAlpha(e.hidden and 0.4 or 1)
   r.dot:SetShown(e.key == self.currentKey)
   r.bg:Hide()

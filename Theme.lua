@@ -187,7 +187,7 @@ Theme.THEMES = {
     text = { 0.105, 0.083, 0.045, 1.000 }, dim = { 0.282, 0.256, 0.214, 1.000 },
     faint = { 0.458, 0.430, 0.384, 1.000 }, emptyLine = { 0.564, 0.520, 0.448, 1.000 },
     azure = { 0.197, 0.459, 0.708, 1.000 }, reagent = { 0.353, 0.804, 0.616, 1.000 },
-    overlay = { 0.949, 0.957, 0.973, 1.000 },
+    overlay = { 0.949, 0.957, 0.973, 1.000 }, deep = { 0.075, 0.060, 0.045, 1.000 },
     icontint = { 1.000, 1.000, 1.000, 1.000 }, shadow = { 1.000, 1.000, 1.000, 0.650 },
   },
   ice = { label = "Ice",
@@ -198,7 +198,7 @@ Theme.THEMES = {
     text = { 0.042, 0.072, 0.103, 1.000 }, dim = { 0.209, 0.244, 0.280, 1.000 },
     faint = { 0.378, 0.416, 0.456, 1.000 }, emptyLine = { 0.451, 0.510, 0.572, 1.000 },
     azure = { 0.000, 0.522, 0.501, 1.000 }, reagent = { 0.353, 0.804, 0.616, 1.000 },
-    overlay = { 0.949, 0.957, 0.973, 1.000 },
+    overlay = { 0.949, 0.957, 0.973, 1.000 }, deep = { 0.055, 0.070, 0.095, 1.000 },
     icontint = { 1.000, 1.000, 1.000, 1.000 }, shadow = { 1.000, 1.000, 1.000, 0.650 },
   },
 }
@@ -222,6 +222,7 @@ function Theme:Apply(name)
   for k, v in pairs(t) do
     if k ~= "label" and k ~= "skin" then c[k] = v end
   end
+  if not c.deep then c.deep = c.bg end
   self.colors = c
   self.skin = t.skin or "flat"
   self.active = self.THEMES[name] and name or "midnight"
@@ -572,25 +573,6 @@ end
 function Theme:IconTint()
   local c = self.colors.icontint
   if c then return c[1], c[2], c[3], c[4] or 1 end
-  return self:C("text")
-end
-
-local LIGHT_CLASS_INK = {
-  WARRIOR = { 0.420, 0.052, 0.001 }, PALADIN = { 0.408, 0.001, 0.248 },
-  HUNTER = { 0.230, 0.230, 0.001 }, ROGUE = { 0.264, 0.216, 0.001 },
-  PRIEST = { 0.333, 0.333, 0.373 }, DEATHKNIGHT = { 0.427, 0.001, 0.126 },
-  SHAMAN = { 0.001, 0.224, 0.404 }, MAGE = { 0.001, 0.242, 0.329 },
-  WARLOCK = { 0.221, 0.001, 0.592 }, MONK = { 0.001, 0.265, 0.164 },
-  DRUID = { 0.344, 0.163, 0.001 }, DEMONHUNTER = { 0.289, 0.001, 0.520 },
-  EVOKER = { 0.001, 0.262, 0.198 },
-}
-function Theme:ClassInk(class)
-  if class then
-    local ink = LIGHT_CLASS_INK[class]
-    if ink and self:IsLight() then return ink[1], ink[2], ink[3] end
-    local col = RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
-    if col then return col.r, col.g, col.b end
-  end
   return self:C("text")
 end
 

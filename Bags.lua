@@ -583,43 +583,38 @@ local COIN_ICON = {
   c = "|TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:0|t",
 }
 local COIN_HEX = { g = "ffd700", s = "c7c7cf", c = "eda55f" }
-local COIN_HEX_LIGHT = { g = "8a6d00", s = "5b6470", c = "a3541f" }
-local function coinHex(letter)
-  if Theme:IsLight() then return COIN_HEX_LIGHT[letter] end
-  return COIN_HEX[letter]
-end
 
-local function whiteNum(str)
-  return "|cff" .. Theme:Hex("text") .. str .. "|r"
+local function whiteNum(str, deep)
+  return "|cff" .. Theme:Hex(deep and "overlay" or "text") .. str .. "|r"
 end
 
 local function coinUnit(letter)
   if not Bags.goldLetters then return COIN_ICON[letter] end
   local sp = (letter == "g" and WarpeeDB and WarpeeDB.goldFormat == "short") and " " or ""
-  return sp .. "|cff" .. coinHex(letter) .. ns.CoinLetter(letter) .. "|r"
+  return sp .. "|cff" .. COIN_HEX[letter] .. ns.CoinLetter(letter) .. "|r"
 end
 
-local function coinSeg(num, letter)
-  return whiteNum(num) .. coinUnit(letter)
+local function coinSeg(num, letter, deep)
+  return whiteNum(num, deep) .. coinUnit(letter)
 end
 
-function ns.FormatMoney(money, goldOnly)
+function ns.FormatMoney(money, goldOnly, deep)
   money = money or 0
   local g = math.floor(money / 10000)
   if goldOnly == nil then goldOnly = Bags.goldOnly end
-  if goldOnly then return coinSeg(ns.FormatNumber(g), "g") end
+  if goldOnly then return coinSeg(ns.FormatNumber(g), "g", deep) end
   local sv = math.floor((money % 10000) / 100)
   local cp = money % 100
   local parts = {}
-  if g  > 0 then parts[#parts + 1] = coinSeg(ns.FormatNumber(g), "g") end
-  if sv > 0 then parts[#parts + 1] = coinSeg(sv, "s") end
-  if cp > 0 or #parts == 0 then parts[#parts + 1] = coinSeg(cp, "c") end
+  if g  > 0 then parts[#parts + 1] = coinSeg(ns.FormatNumber(g), "g", deep) end
+  if sv > 0 then parts[#parts + 1] = coinSeg(sv, "s", deep) end
+  if cp > 0 or #parts == 0 then parts[#parts + 1] = coinSeg(cp, "c", deep) end
   return table.concat(parts, " ")
 end
 function Bags:FormatMoney() return ns.FormatMoney(GetMoney()) end
 
-function ns.FormatGold(copper)
-  return coinSeg(ns.FormatNumber(math.floor((copper or 0) / 10000)), "g")
+function ns.FormatGold(copper, deep)
+  return coinSeg(ns.FormatNumber(math.floor((copper or 0) / 10000)), "g", deep)
 end
 
 function Bags:UpdateBagBar()
