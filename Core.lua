@@ -237,8 +237,8 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.gap = WarpeeDB.gap or 2
     WarpeeDB.iconSize = WarpeeDB.iconSize or 40
     WarpeeDB.slotStyle = WarpeeDB.slotStyle or "flat"
-    WarpeeDB.theme = WarpeeDB.theme or "midnight"
-    if not ns.Theme.THEMES[WarpeeDB.theme] then WarpeeDB.theme = "midnight" end
+    WarpeeDB.theme = WarpeeDB.theme or "blizzard"
+    if not ns.Theme.THEMES[WarpeeDB.theme] then WarpeeDB.theme = "blizzard" end
     ns.Theme:Apply(WarpeeDB.theme)
     WarpeeDB.iconZoom = tonumber(WarpeeDB.iconZoom) or 1
     WarpeeDB.borderWidth = tonumber(WarpeeDB.borderWidth) or 1
