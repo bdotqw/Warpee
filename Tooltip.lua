@@ -172,7 +172,11 @@ local function showGoldTip(anchor)
     r.Left:SetText(name)
     r.Right:SetText(amount or "")
     if col then
-      r.Left:SetTextColor(col.r, col.g, col.b)
+      if Theme:IsLight() then
+        r.Left:SetTextColor(col.r * 0.6, col.g * 0.6, col.b * 0.6)
+      else
+        r.Left:SetTextColor(col.r, col.g, col.b)
+      end
     else
       r.Left:SetTextColor(Theme:C(colorKey or "text"))
     end

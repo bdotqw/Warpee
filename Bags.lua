@@ -583,6 +583,11 @@ local COIN_ICON = {
   c = "|TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:0|t",
 }
 local COIN_HEX = { g = "ffd700", s = "c7c7cf", c = "eda55f" }
+local COIN_HEX_LIGHT = { g = "8a6d00", s = "5b6470", c = "a3541f" }
+local function coinHex(letter)
+  if Theme:IsLight() then return COIN_HEX_LIGHT[letter] end
+  return COIN_HEX[letter]
+end
 
 local function whiteNum(str)
   return "|cff" .. Theme:Hex("text") .. str .. "|r"
@@ -591,7 +596,7 @@ end
 local function coinUnit(letter)
   if not Bags.goldLetters then return COIN_ICON[letter] end
   local sp = (letter == "g" and WarpeeDB and WarpeeDB.goldFormat == "short") and " " or ""
-  return sp .. "|cff" .. COIN_HEX[letter] .. ns.CoinLetter(letter) .. "|r"
+  return sp .. "|cff" .. coinHex(letter) .. ns.CoinLetter(letter) .. "|r"
 end
 
 local function coinSeg(num, letter)
