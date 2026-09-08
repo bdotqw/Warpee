@@ -116,16 +116,6 @@ local function tipRow(t, i)
   local r = t.rows[i]
   if r then return r end
   r = CreateFrame("Frame", nil, t)
-  local zebra = r:CreateTexture(nil, "BACKGROUND")
-  zebra:SetAllPoints(r)
-  local zr, zg, zb = Theme:C("panelHi")
-  zebra:SetColorTexture(zr, zg, zb, 0.55)
-  Theme:Track(zebra, function(x)
-    local ar, ag, ab = Theme:C("panelHi")
-    x:SetColorTexture(ar, ag, ab, 0.55)
-  end)
-  if i % 2 == 0 then zebra:Hide() end
-  r.zebra = zebra
   local l = Theme:Label(r, TIP_FONT_MAX, "text")
   l:SetPoint("LEFT", 0, 0)
   l:SetJustifyH("LEFT")
