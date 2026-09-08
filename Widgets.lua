@@ -88,8 +88,7 @@ function ns.CreateCharTag(parent, height, dir)
 
   local fs = Theme:Label(b, 12, "text")
   fs:SetJustifyH("LEFT")
-  fs:SetShadowColor(0, 0, 0, 0.85)
-  fs:SetShadowOffset(1, -1)
+  Theme:Shadow(fs)
   b.Text = fs
 
   if dir == "left" then

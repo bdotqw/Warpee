@@ -705,6 +705,17 @@ function Theme:Title(parent, size, colorKey)
   return fs
 end
 
+function Theme:Shadow(fs)
+  local function paint(x)
+    if Theme:IsLight() then x:SetShadowColor(1, 1, 1, 0.65)
+    else x:SetShadowColor(0, 0, 0, 0.85) end
+    x:SetShadowOffset(1, -1)
+  end
+  paint(fs)
+  track(fs, paint)
+  return fs
+end
+
 local TIP_BG   = [[Interface\Tooltips\UI-Tooltip-Background]]
 local TIP_EDGE = [[Interface\Tooltips\UI-Tooltip-Border]]
 local SLOT_ATLAS = "bags-item-slot64"
