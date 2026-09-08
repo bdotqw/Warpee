@@ -110,10 +110,19 @@ for i = #Theme.THEME_ORDER, 1, -1 do
   local t = Theme.THEMES[k]
   if t then THEME_LABELS[k] = t.label or k else table.remove(Theme.THEME_ORDER, i) end
 end
-local function themeGet() return WarpeeDB.theme or "midnight" end
+local function themeGet() return WarpeeDB.theme or "blizzard" end
 local function themeSet(v)
   WarpeeDB.theme = v
   Theme:Restyle(v)
+end
+local THEME_KEYS = { "#light" }
+for i, k in ipairs(Theme.THEME_ORDER) do if Theme.LIGHT[k] then THEME_KEYS[#THEME_KEYS + 1] = k end end
+THEME_KEYS[#THEME_KEYS + 1] = "#dark"
+for i, k in ipairs(Theme.THEME_ORDER) do if not Theme.LIGHT[k] then THEME_KEYS[#THEME_KEYS + 1] = k end end
+local function themeLabel(k)
+  if k == "#light" then return "Light" end
+  if k == "#dark" then return "Dark" end
+  return THEME_LABELS[k] or k
 end
 
 local function fontKeys()
@@ -332,15 +341,20 @@ local function openDropdown(anchor, spec, onPick)
     r.dot:SetSize(3, rowH - 8)
     r.Text:SetFont(dropdownFont(), BASE_FONT - 1, "")
     r.Text:SetText(T(spec.label(key)))
-    local on = (key == cur)
+    local head = type(key) == "string" and key:sub(1, 1) == "#"
+    local on = (not head and key == cur)
     r.dot:SetShown(on)
-    r.Text:SetTextColor(Theme:C(on and "accentInk" or "text"))
+    r.Text:SetTextColor(head and Theme:C("faint") or Theme:C(on and "accentInk" or "text"))
     r.bg:Hide()
-    r:SetScript("OnClick", function()
-      closeDropdown()
-      spec.set(key)
-      if onPick then onPick() end
-    end)
+    if head then
+      r:SetScript("OnClick", nil)
+    else
+      r:SetScript("OnClick", function()
+        closeDropdown()
+        spec.set(key)
+        if onPick then onPick() end
+      end)
+    end
     r:Show()
     if on then curIndex = i end
   end
@@ -1734,7 +1748,7 @@ SECTION_CLOSED.autoopen = true
 local GENERAL_PAGE = {
   { type = "header", name = "Look" },
   { type = "select", name = "Theme", get = themeGet, set = themeSet,
-    keys = function() return Theme.THEME_ORDER end, label = function(k) return THEME_LABELS[k] or k end,
+    keys = function() return THEME_KEYS end, label = themeLabel,
     desc = "Color scheme for the whole addon." },
   { type = "select", name = "Font", get = fontGet,
     set = function(v) WarpeeDB.fontWish = nil; fontSet(v); Options:ApplyFont() end,

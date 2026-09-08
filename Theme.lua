@@ -193,6 +193,7 @@ Theme.THEME_ORDER = { "midnight", "blizzard", "blizzardflat", "class",
                       "abyss", "blood", "forest", "graphite",
                       "harbor", "velvet", "meadow", "reef", "storm", "plum",
                       "fel", "contrast", "frost", "magma" }
+Theme.LIGHT = { blizzard = true, blizzardflat = true, nord = true, harbor = true, meadow = true, reef = true }
 
 function Theme:IsLight()
   local c = self.colors.bg
