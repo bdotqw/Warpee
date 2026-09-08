@@ -107,19 +107,10 @@ Theme.THEMES = {
     text = { 0.878, 0.910, 0.925, 1 }, dim = { 0.576, 0.643, 0.678, 1 },
     faint = { 0.376, 0.443, 0.478, 1 }, emptyLine = { 0.110, 0.271, 0.322, 1 },
     azure = { 0.400, 0.706, 0.816, 1 }, reagent = { 0.353, 0.804, 0.667, 1 } },
-  sandstone = { label = "Sandstone Reliquary", skin = "reliquary",
-    bg = { 0.315, 0.275, 0.220, 0.96 }, panel = { 0.385, 0.332, 0.270, 1 },
-    panelHi = { 0.468, 0.402, 0.327, 1 }, slot = { 0.275, 0.232, 0.185, 1 },
-    stroke = { 0.535, 0.442, 0.325, 1 }, strokeSoft = { 0.430, 0.350, 0.255, 1 },
-    accent = { 0.760, 0.520, 0.270, 1 }, accentInk = { 0.930, 0.760, 0.500, 1 },
-    text = { 0.953, 0.929, 0.871, 1 }, dim = { 0.714, 0.655, 0.549, 1 },
-    faint = { 0.518, 0.445, 0.357, 1 }, emptyLine = { 0.453, 0.367, 0.267, 1 },
-    azure = { 0.420, 0.698, 0.902, 1 }, reagent = { 0.373, 0.820, 0.620, 1 } },
 }
 Theme.THEME_ORDER = { "midnight", "blizzard", "blizzardflat", "class",
                       "nightbloom", "void", "nord",
-                      "abyss", "blood", "forest", "graphite",
-                      "sandstone" }
+                      "abyss", "blood", "forest", "graphite" }
 
 function Theme:IsLight()
   local c = self.colors.bg
@@ -641,17 +632,6 @@ local function nineSlice(base)
 end
 
 local FLAT_EDGE = nineSlice("OptionsFrame-NineSlice")
-local RELIQUARY_EDGE = {
-  disableSharpening = true,
-  TopLeftCorner = { layer = "OVERLAY", atlas = "UI-Frame-Metal-CornerTopLeft", x = -13, y = 16 },
-  TopRightCorner = { layer = "OVERLAY", atlas = "UI-Frame-Metal-CornerTopRight", x = 4, y = 16 },
-  BottomLeftCorner = { layer = "OVERLAY", atlas = "UI-Frame-Metal-CornerBottomLeft", x = -13, y = -3 },
-  BottomRightCorner = { layer = "OVERLAY", atlas = "UI-Frame-Metal-CornerBottomRight", x = 4, y = -3 },
-  TopEdge = { layer = "OVERLAY", atlas = "_UI-Frame-Metal-EdgeTop", x = 0, y = 0, x1 = 0, y1 = 0 },
-  BottomEdge = { layer = "OVERLAY", atlas = "_UI-Frame-Metal-EdgeBottom", x = 0, y = 0, x1 = 0, y1 = 0 },
-  LeftEdge = { layer = "OVERLAY", atlas = "!UI-Frame-Metal-EdgeLeft", x = 0, y = 0, x1 = 0, y1 = 0 },
-  RightEdge = { layer = "OVERLAY", atlas = "!UI-Frame-Metal-EdgeRight", x = 0, y = 0, x1 = 0, y1 = 0 },
-}
 local EDGE_PIECES = { "TopLeftCorner", "TopRightCorner", "BottomLeftCorner",
                       "BottomRightCorner", "TopEdge", "BottomEdge", "LeftEdge", "RightEdge" }
 local EDGE_HIDE = { "NineSlice", "TopLeftCorner", "TopRightCorner", "BotLeftCorner",
@@ -663,11 +643,6 @@ local SKINS = {
   blizzardflat = { inset = 4, drop = -5, edge = FLAT_EDGE, out = 14, band = 32,
                    bandAlpha = 0.80,
                    edgeTint = "stroke", plate = true, bodyGrain = 0.10, guestArt = true },
-  reliquary    = { inset = 20, drop = 1, titleDrop = 8, edge = RELIQUARY_EDGE, out = 2, outX = 3, edgeTint = "stroke",
-                   band = 34, bandAlpha = 0.92, bandColor = "slot",
-                   body = [[Interface\FrameGeneral\UI-Background-Rock]],
-                   bodyTint = "panel", bodyAlpha = 0.88, flatSlots = true,
-                   gridAlpha = 0, quietTabs = true, bareHeader = true, guestArt = true }
 }
 
 function Theme:SkinDef()
