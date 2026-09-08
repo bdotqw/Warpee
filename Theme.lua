@@ -567,6 +567,11 @@ function Theme:C(name)
   return c[1], c[2], c[3], c[4]
 end
 
+function Theme:IconTint()
+  if self:IsLight() then return 1, 1, 1, 1 end
+  return self:C("text")
+end
+
 function Theme:Hex(name)
   local c = self.colors[name]
   local r, g, b = c[1], c[2], c[3]

@@ -141,8 +141,8 @@ function Bags:Build()
   bagIcon:SetAtlas("bag-main")
   bagIcon:SetSize(22, 22)
   bagIcon:SetPoint("CENTER")
-  bagIcon:SetVertexColor(Theme:C("text"))
-  Theme:Track(bagIcon, function(x) x:SetVertexColor(Theme:C("text")) end)
+  bagIcon:SetVertexColor(Theme:IconTint())
+  Theme:Track(bagIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
   bagsToggle.icon = bagIcon
   self.bagsToggle = bagsToggle
 
@@ -163,8 +163,8 @@ function Bags:Build()
   end
   bankIcon:SetSize(20, 20)
   bankIcon:SetPoint("CENTER")
-  bankIcon:SetVertexColor(Theme:C("text"))
-  Theme:Track(bankIcon, function(x) x:SetVertexColor(Theme:C("text")) end)
+  bankIcon:SetVertexColor(Theme:IconTint())
+  Theme:Track(bankIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
   bank.icon = bankIcon
   self.bankBtn = bank
 
