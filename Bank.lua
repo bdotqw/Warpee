@@ -172,6 +172,7 @@ end
 function View:Build()
   if self.frame then return self.frame end
   local f = CreateFrame("Frame", "WarpeeBankFrame", UIParent, "BackdropTemplate")
+  f.wpeNoBand = true
   f:Hide()
   Theme:Panel(f, "bg", "stroke")
   f:SetClampedToScreen(true); f:SetMovable(true); f:EnableMouse(true)
@@ -736,7 +737,7 @@ function View:RefreshStrip()
   local y = ROW1_Y + Theme:TopInset() + Theme:HeadDrop()
   local out = 0
   local def = Theme.SkinDef and Theme:SkinDef()
-  if def and tonumber(def.out) then out = def.out end
+  if def then out = tonumber(def.outX or def.out) or 0 end
   local x = 6 + out
   for i, e in ipairs(entries) do
     local b = self.tabBtns[i]

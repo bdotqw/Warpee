@@ -1644,7 +1644,7 @@ flow.upGet, flow.upSet   = field("fillUp")
 local questGet, questSet     = styleField("questMarks")
 local newGet, newSet         = styleField("newItemGlow")
 local unusableGet, unusableSet = styleField("unusableBorder")
-local function gridAlphaGet() return Theme:GridAlpha() end
+local function gridAlphaGet() return tonumber(WarpeeDB and WarpeeDB.gridAlpha) or 0 end
 local function gridAlphaSet(v) WarpeeDB.gridAlpha = v; Theme:ApplyGridAlpha() end
 local gaugeGet, gaugeSet     = field("showGauge")
 local fav = {}
@@ -2112,7 +2112,8 @@ local PAGES = {
 
 local function paintTab(b)
   if b.sel then
-    b:SetBackdropColor(Theme:C("panelHi"))
+    local def = Theme.SkinDef and Theme:SkinDef()
+    b:SetBackdropColor(Theme:C((def and def.quietTabs) and "panel" or "panelHi"))
     b:SetBackdropBorderColor(Theme:C("accent"))
     b.Text:SetTextColor(Theme:C("accent"))
   else

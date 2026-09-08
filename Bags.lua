@@ -73,6 +73,7 @@ function Bags:Build()
   if self.frame then return self.frame end
 
   local f = CreateFrame("Frame", "WarpeeFrame", UIParent, "BackdropTemplate")
+  f.wpeNoBand = true
   Theme:Panel(f, "bg", "stroke")
   f:SetClampedToScreen(true)
   f:SetMovable(true)
@@ -263,6 +264,7 @@ function Bags:BuildBagWindow()
   if self.bagWindow then return self.bagWindow end
   local BPAD = 12
   local w = CreateFrame("Frame", "WarpeeBagsWindow", UIParent, "BackdropTemplate")
+  w.wpeNoBand = true
   Theme:Panel(w, "bg", "stroke")
   Theme:WindowArt(w)
   w:SetFrameStrata("DIALOG")
@@ -313,7 +315,7 @@ function Bags:LayoutBagWindow()
   local cf = ns.Badge("count").s
   local band = Theme:HeaderBand(w, BBAND)
   local BHEAD = band and (band + 6) or (30 + Theme:TopInset())
-  local mid = (band or BHEAD) / 2
+  local mid = (band or BHEAD) / 2 + Theme:TitleDrop()
   if self.bagTitle then
     self.bagTitle:ClearAllPoints()
     self.bagTitle:SetPoint("LEFT", w, "TOPLEFT", BPAD, -mid)

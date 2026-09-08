@@ -55,7 +55,9 @@ function ns.PaintSlotBg(b)
   local style = ns.Bags.slotStyle or "tile"
   b.bg:SetTexCoord(0, 1, 0, 1)
   b.bg:SetVertexColor(1, 1, 1, 1)
-  if style ~= "flat" and not Theme:IsLight() and Theme.Skinned and Theme:Skinned() then
+  local def = Theme.SkinDef and Theme:SkinDef()
+  if style ~= "flat" and not Theme:IsLight() and Theme.Skinned and Theme:Skinned()
+     and not (def and def.flatSlots) then
     local atlas = Theme.SlotAtlas and Theme:SlotAtlas()
     if atlas and b.bg.SetAtlas and pcall(b.bg.SetAtlas, b.bg, atlas) then
       if style == "deep" then

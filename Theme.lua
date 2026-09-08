@@ -111,7 +111,7 @@ Theme.THEMES = {
     bg = { 0.315, 0.275, 0.220, 0.96 }, panel = { 0.385, 0.332, 0.270, 1 },
     panelHi = { 0.468, 0.402, 0.327, 1 }, slot = { 0.275, 0.232, 0.185, 1 },
     stroke = { 0.535, 0.442, 0.325, 1 }, strokeSoft = { 0.430, 0.350, 0.255, 1 },
-    accent = { 0.910, 0.694, 0.376, 1 }, accentInk = { 0.965, 0.843, 0.604, 1 },
+    accent = { 0.760, 0.520, 0.270, 1 }, accentInk = { 0.930, 0.760, 0.500, 1 },
     text = { 0.953, 0.929, 0.871, 1 }, dim = { 0.714, 0.655, 0.549, 1 },
     faint = { 0.518, 0.445, 0.357, 1 }, emptyLine = { 0.453, 0.367, 0.267, 1 },
     azure = { 0.420, 0.698, 0.902, 1 }, reagent = { 0.373, 0.820, 0.620, 1 } },
@@ -501,6 +501,8 @@ function Theme:Restyle(name)
 end
 
 function Theme:GridAlpha()
+  local def = self:SkinDef()
+  if def and def.gridAlpha ~= nil then return def.gridAlpha end
   local a = WarpeeDB and tonumber(WarpeeDB.gridAlpha)
   if a == nil then return 1 end
   return a
@@ -639,6 +641,17 @@ local function nineSlice(base)
 end
 
 local FLAT_EDGE = nineSlice("OptionsFrame-NineSlice")
+local RELIQUARY_EDGE = {
+  disableSharpening = true,
+  TopLeftCorner = { layer = "OVERLAY", atlas = "UI-Frame-Metal-CornerTopLeft", x = -13, y = 16 },
+  TopRightCorner = { layer = "OVERLAY", atlas = "UI-Frame-Metal-CornerTopRight", x = 4, y = 16 },
+  BottomLeftCorner = { layer = "OVERLAY", atlas = "UI-Frame-Metal-CornerBottomLeft", x = -13, y = -3 },
+  BottomRightCorner = { layer = "OVERLAY", atlas = "UI-Frame-Metal-CornerBottomRight", x = 4, y = -3 },
+  TopEdge = { layer = "OVERLAY", atlas = "_UI-Frame-Metal-EdgeTop", x = 0, y = 0, x1 = 0, y1 = 0 },
+  BottomEdge = { layer = "OVERLAY", atlas = "_UI-Frame-Metal-EdgeBottom", x = 0, y = 0, x1 = 0, y1 = 0 },
+  LeftEdge = { layer = "OVERLAY", atlas = "!UI-Frame-Metal-EdgeLeft", x = 0, y = 0, x1 = 0, y1 = 0 },
+  RightEdge = { layer = "OVERLAY", atlas = "!UI-Frame-Metal-EdgeRight", x = 0, y = 0, x1 = 0, y1 = 0 },
+}
 local EDGE_PIECES = { "TopLeftCorner", "TopRightCorner", "BottomLeftCorner",
                       "BottomRightCorner", "TopEdge", "BottomEdge", "LeftEdge", "RightEdge" }
 local EDGE_HIDE = { "NineSlice", "TopLeftCorner", "TopRightCorner", "BotLeftCorner",
@@ -650,9 +663,11 @@ local SKINS = {
   blizzardflat = { inset = 4, drop = -5, edge = FLAT_EDGE, out = 14, band = 32,
                    bandAlpha = 0.80,
                    edgeTint = "stroke", plate = true, bodyGrain = 0.10, guestArt = true },
-  reliquary    = { inset = 18, drop = 3, band = 34, bandAlpha = 0.92,
-                   bandColor = "slot", body = [[Interface\FrameGeneral\UI-Background-Rock]],
-                   bodyTint = "panel", bodyAlpha = 0.88, trim = "stroke", guestArt = true },
+  reliquary    = { inset = 20, drop = 1, titleDrop = 8, edge = RELIQUARY_EDGE, out = 2, outX = 3, edgeTint = "stroke",
+                   band = 34, bandAlpha = 0.92, bandColor = "slot",
+                   body = [[Interface\FrameGeneral\UI-Background-Rock]],
+                   bodyTint = "panel", bodyAlpha = 0.88, flatSlots = true,
+                   gridAlpha = 0, quietTabs = true, bareHeader = true, guestArt = true }
 }
 
 function Theme:SkinDef()
@@ -704,9 +719,9 @@ local function dressEdge(art, def)
   local ok, edge = pcall(CreateFrame, "Frame", nil, art, "NineSliceCodeTemplate")
   if not ok or not edge then ok, edge = pcall(CreateFrame, "Frame", nil, art) end
   if not ok or not edge then art.wpeEdge = false; return false end
-  local o = def.out or 0
-  edge:SetPoint("TOPLEFT", art, "TOPLEFT", -o, o)
-  edge:SetPoint("BOTTOMRIGHT", art, "BOTTOMRIGHT", o, -o)
+  local ox, oy = def.outX or def.out or 0, def.outY or def.out or 0
+  edge:SetPoint("TOPLEFT", art, "TOPLEFT", -ox, oy)
+  edge:SetPoint("BOTTOMRIGHT", art, "BOTTOMRIGHT", ox, -oy)
   edge:EnableMouse(false)
   for _, piece in ipairs(EDGE_PIECES) do
     if not edge[piece] then edge[piece] = edge:CreateTexture(nil, "OVERLAY") end
@@ -758,35 +773,6 @@ local function buildArt(frame, key, def)
       body:Hide()
       art.wpeBody = false
     end
-    local trim = {}
-    local function horiz(top)
-      local t = art:CreateTexture(nil, "BACKGROUND", nil, -8)
-      t:SetTexture(WHITE)
-      if top then
-        t:SetPoint("TOPLEFT", art, "TOPLEFT", 1, -1)
-        t:SetPoint("TOPRIGHT", art, "TOPRIGHT", -1, -1)
-      else
-        t:SetPoint("BOTTOMLEFT", art, "BOTTOMLEFT", 1, 1)
-        t:SetPoint("BOTTOMRIGHT", art, "BOTTOMRIGHT", -1, 1)
-      end
-      ns.PixelLine(t)
-      trim[#trim + 1] = t
-    end
-    local function vert(left)
-      local t = art:CreateTexture(nil, "BACKGROUND", nil, -8)
-      t:SetTexture(WHITE)
-      if left then
-        t:SetPoint("TOPLEFT", art, "TOPLEFT", 1, -1)
-        t:SetPoint("BOTTOMLEFT", art, "BOTTOMLEFT", 1, 1)
-      else
-        t:SetPoint("TOPRIGHT", art, "TOPRIGHT", -1, -1)
-        t:SetPoint("BOTTOMRIGHT", art, "BOTTOMRIGHT", -1, 1)
-      end
-      ns.PixelLine(t, 1, "w")
-      trim[#trim + 1] = t
-    end
-    horiz(true); horiz(false); vert(true); vert(false)
-    art.wpeTrim = trim
     if art.Bg then art.Bg:Hide() end
     if art.Center then art.Center:Hide() end
   end
@@ -831,14 +817,6 @@ function Theme:RefreshArt(frame)
         art.wpeBody:SetVertexColor(self:C(def.bodyTint or "panel"))
         art.wpeBody:SetAlpha(a * (def.bodyAlpha or 1))
         art.wpeBody:Show()
-      end
-      if art.wpeTrim then
-        local r, g, b = self:C(def.trim or "stroke")
-        for _, t in ipairs(art.wpeTrim) do
-          t:SetVertexColor(r, g, b)
-          t:SetAlpha(a)
-          t:Show()
-        end
       end
       if def.body then
         if art.Bg then art.Bg:Hide() end
@@ -895,6 +873,11 @@ function Theme:HeaderBand(frame, height)
     return
   end
   local a = (self.colors.bg and self.colors.bg[4]) or 1
+  if frame.wpeNoBand and def.bareHeader then
+    if frame.wpeBand then frame.wpeBand:Hide() end
+    if frame.wpeBandLine then frame.wpeBandLine:Hide() end
+    return 30 + Theme:TopInset()
+  end
   local band = frame.wpeBand
   if not band or band:GetParent() ~= art then
     band = art:CreateTexture(nil, "BACKGROUND", nil, 3)
