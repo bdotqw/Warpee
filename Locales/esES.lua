@@ -161,6 +161,7 @@ local STRINGS = {
   ["Fill grid upwards"] = "Filas de abajo arriba",
   ["Slot background"] = "Fondo de los espacios",
   ["Plate opacity"] = "Opacidad del fondo",
+  ["Brightness"] = "Brillo",
   ["Bank slots per row"] = "Espacios por fila (banco)",
   ["Warband slots per row"] = "Espacios por fila (banda guerrera)",
   ["Size of one slot in the bags."] = "Tamaño de un espacio en las bolsas.",
@@ -182,6 +183,8 @@ local STRINGS = {
     "Lo que hay detrás de cada icono. «Transparente» deja ver el fondo, «Aclarado» resalta un poco el espacio, «Opaco» lo cierra del todo.",
   ["The plate behind the slots. Transparent slots show it through every cell, and the gaps show it at any Spacing above 0."] =
     "El fondo que hay detrás de los espacios. Con espacios transparentes se ve en cada casilla, y en los huecos con cualquier espaciado mayor que 0.",
+  ["Lifts panels, slots and borders out of the dark. For dim screens, glare, or whenever the themes feel too dark."] =
+    "Aclara los paneles, espacios y bordes. Para pantallas tenues, reflejos o siempre que los temas parezcan demasiado oscuros.",
   ["The bank keeps its own width and icon size, apart from the bags."] =
     "El banco mantiene su propio ancho y su propio tamaño de iconos, aparte de las bolsas.",
   ["One icon size for both bank tabs."] = "Un solo tamaño de iconos para las dos pestañas del banco.",

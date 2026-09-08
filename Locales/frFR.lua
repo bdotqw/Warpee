@@ -164,6 +164,7 @@ local STRINGS = {
   ["Fill grid upwards"] = "Lignes de bas en haut",
   ["Slot background"] = "Fond des emplacements",
   ["Plate opacity"] = "Opacité du fond",
+  ["Brightness"] = "Luminosité",
   ["Bank slots per row"] = "Emplacements par ligne (banque)",
   ["Warband slots per row"] = "Emplacements par ligne (bataillon)",
   ["Size of one slot in the bags."] = "Taille d'un emplacement dans les sacs.",
@@ -185,6 +186,8 @@ local STRINGS = {
     "Ce qui se trouve derrière chaque icône. « Transparent » laisse voir le fond, « Éclairci » détache légèrement l'emplacement, « Opaque » le referme complètement.",
   ["The plate behind the slots. Transparent slots show it through every cell, and the gaps show it at any Spacing above 0."] =
     "Le fond derrière les emplacements. Avec des emplacements transparents il apparaît dans chaque case, et dans les espaces dès un espacement supérieur à 0.",
+  ["Lifts panels, slots and borders out of the dark. For dim screens, glare, or whenever the themes feel too dark."] =
+    "Éclaircit les panneaux, emplacements et bordures. Pour les écrans sombres, les reflets, ou quand les thèmes semblent trop sombres.",
   ["The bank keeps its own width and icon size, apart from the bags."] =
     "La banque garde sa propre largeur et sa propre taille d'icônes, indépendamment des sacs.",
   ["One icon size for both bank tabs."] = "Une seule taille d'icônes pour les deux onglets de banque.",

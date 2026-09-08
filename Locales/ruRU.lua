@@ -164,6 +164,7 @@ local STRINGS = {
   ["Fill grid upwards"] = "Ряды снизу вверх",
   ["Slot background"] = "Фон ячейки",
   ["Plate opacity"] = "Плотность подложки",
+  ["Brightness"] = "Яркость",
   ["Bank slots per row"] = "Ячеек в ряду (банк)",
   ["Warband slots per row"] = "Ячеек в ряду (банк отряда)",
   ["Size of one slot in the bags."] = "Размер одной ячейки в сумках.",
@@ -185,6 +186,8 @@ local STRINGS = {
     "Что находится за иконкой. «Прозрачный» — сквозь ячейку видна подложка, «Подсветка» — ячейка чуть светлее фона, «Заливка» — фон полностью закрыт.",
   ["The plate behind the slots. Transparent slots show it through every cell, and the gaps show it at any Spacing above 0."] =
     "Подложка за ячейками. Через прозрачные ячейки она видна целиком, а в промежутках — при любом отступе больше 0.",
+  ["Lifts panels, slots and borders out of the dark. For dim screens, glare, or whenever the themes feel too dark."] =
+    "Поднимает панели, слоты и рамки из темноты. Для тусклых экранов, бликов и случаев, когда темы кажутся слишком тёмными.",
   ["The bank keeps its own width and icon size, apart from the bags."] =
     "У банка своя ширина и свой размер иконок, отдельно от сумок.",
   ["One icon size for both bank tabs."] = "Один размер иконок для обеих вкладок банка.",

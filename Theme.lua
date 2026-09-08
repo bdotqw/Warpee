@@ -625,11 +625,32 @@ if UIParent.SetIgnoreParentScale then
   hooksecurefunc(UIParent, "SetIgnoreParentScale", function() ns.ScaleChanged() end)
 end
 
-function Theme:C(name) local c = self.colors[name]; return c[1], c[2], c[3], c[4] end
+local LIFT = { bg = true, panel = true, panelHi = true, slot = true, stroke = true, strokeSoft = true, emptyLine = true }
+function Theme:Brightness()
+  local v = WarpeeDB and tonumber(WarpeeDB.brightness) or 0
+  if v < 0 then return 0 end
+  if v > 0.3 then return 0.3 end
+  return v
+end
+function Theme:C(name)
+  local c = self.colors[name]
+  local lift = self:Brightness()
+  if lift > 0 and LIFT[name] then
+    return math.min(1, c[1] + lift), math.min(1, c[2] + lift), math.min(1, c[3] + lift), c[4]
+  end
+  return c[1], c[2], c[3], c[4]
+end
 
 function Theme:Hex(name)
   local c = self.colors[name]
-  return string.format("%02x%02x%02x", c[1] * 255 + 0.5, c[2] * 255 + 0.5, c[3] * 255 + 0.5)
+  local r, g, b = c[1], c[2], c[3]
+  local lift = self:Brightness()
+  if lift > 0 and LIFT[name] then
+    r = math.min(1, r + lift)
+    g = math.min(1, g + lift)
+    b = math.min(1, b + lift)
+  end
+  return string.format("%02x%02x%02x", r * 255 + 0.5, g * 255 + 0.5, b * 255 + 0.5)
 end
 
 local tracked = setmetatable({}, { __mode = "k" })

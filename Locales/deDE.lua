@@ -153,6 +153,7 @@ local STRINGS = {
   ["Fill grid upwards"] = "Raster von unten füllen",
   ["Slot background"] = "Platzhintergrund",
   ["Plate opacity"] = "Deckkraft der Unterlage",
+  ["Brightness"] = "Helligkeit",
   ["Bank slots per row"] = "Bankplätze pro Reihe",
   ["Warband slots per row"] = "Kriegsmeutenplätze pro Reihe",
   ["Size of one slot in the bags."] = "Größe eines Platzes in den Taschen.",
@@ -174,6 +175,8 @@ local STRINGS = {
     "Was hinter jedem Symbol liegt. »Transparent« lässt die Unterlage durchscheinen, »Aufgehellt« hebt den Platz leicht hervor, »Deckend« schließt ihn ganz ab.",
   ["The plate behind the slots. Transparent slots show it through every cell, and the gaps show it at any Spacing above 0."] =
     "Die Unterlage hinter den Plätzen. Bei transparenten Plätzen scheint sie durch jedes Feld, in den Zwischenräumen ab Abstand 1.",
+  ["Lifts panels, slots and borders out of the dark. For dim screens, glare, or whenever the themes feel too dark."] =
+    "Hebt Paneele, Plätze und Rahmen aus dem Dunkel. Für dunkle Bildschirme, Blendeffekte und alle, denen die Themes zu dunkel sind.",
   ["The bank keeps its own width and icon size, apart from the bags."] =
     "Die Bank hat ihre eigene Breite und Symbolgröße, unabhängig von den Taschen.",
   ["One icon size for both bank tabs."] = "Eine Symbolgröße für Bank und Kriegsmeute.",
