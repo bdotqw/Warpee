@@ -164,6 +164,9 @@ local STRINGS = {
   ["Brightness"] = "Brillo",
   ["Light"] = "Claros",
   ["Dark"] = "Oscuros",
+  ["High contrast"] = "Contraste alto",
+  ["Maximum readability: pure text and stronger borders on any theme."] =
+    "Legibilidad máxima: texto puro y bordes más marcados en cualquier tema.",
   ["Bank slots per row"] = "Espacios por fila (banco)",
   ["Warband slots per row"] = "Espacios por fila (banda guerrera)",
   ["Size of one slot in the bags."] = "Tamaño de un espacio en las bolsas.",

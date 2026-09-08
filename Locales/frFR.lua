@@ -167,6 +167,9 @@ local STRINGS = {
   ["Brightness"] = "Luminosité",
   ["Light"] = "Clairs",
   ["Dark"] = "Sombres",
+  ["High contrast"] = "Contraste élevé",
+  ["Maximum readability: pure text and stronger borders on any theme."] =
+    "Lisibilité maximale : texte pur et bordures renforcées sur tous les thèmes.",
   ["Bank slots per row"] = "Emplacements par ligne (banque)",
   ["Warband slots per row"] = "Emplacements par ligne (bataillon)",
   ["Size of one slot in the bags."] = "Taille d'un emplacement dans les sacs.",

@@ -1663,6 +1663,8 @@ local function gridAlphaGet() return tonumber(WarpeeDB and WarpeeDB.gridAlpha) o
 local function gridAlphaSet(v) WarpeeDB.gridAlpha = v; Theme:ApplyGridAlpha() end
 local function brightnessGet() return tonumber(WarpeeDB and WarpeeDB.brightness) or 0 end
 local function brightnessSet(v) WarpeeDB.brightness = v; Theme:Restyle(Theme.active) end
+local function hcGet() return Theme:HighContrast() end
+local function hcSet(v) WarpeeDB.highContrast = v and true or false; Theme:Restyle(Theme.active) end
 local gaugeGet, gaugeSet     = field("showGauge")
 local fav = {}
 fav.showGet = function() return ns.Fav:Enabled() end
@@ -1934,6 +1936,9 @@ local GRID_PAGE = {
     get = brightnessGet, set = brightnessSet,
     format = function(v) return math.floor((v or 0) * 100 + 0.5) .. "%" end,
     desc = "Lifts panels, slots and borders out of the dark. For dim screens, glare, or whenever the themes feel too dark." },
+  { type = "toggle", name = "High contrast",
+    get = hcGet, set = hcSet,
+    desc = "Maximum readability: pure text and stronger borders on any theme." },
   { type = "header", name = "Bank and Warband grid", key = "bankgrid",
     state = function() return (L["%d and %d wide"]):format(bankColsGet(), wbColsGet()) end },
   { type = "description", section = "bankgrid",

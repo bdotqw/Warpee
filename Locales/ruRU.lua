@@ -167,6 +167,9 @@ local STRINGS = {
   ["Brightness"] = "Яркость",
   ["Light"] = "Светлые",
   ["Dark"] = "Тёмные",
+  ["High contrast"] = "Максимальный контраст",
+  ["Maximum readability: pure text and stronger borders on any theme."] =
+    "Максимальная читаемость: чистый текст и усиленные рамки на любой теме.",
   ["Bank slots per row"] = "Ячеек в ряду (банк)",
   ["Warband slots per row"] = "Ячеек в ряду (банк отряда)",
   ["Size of one slot in the bags."] = "Размер одной ячейки в сумках.",

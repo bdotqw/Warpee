@@ -561,13 +561,34 @@ function Theme:Brightness()
   if v > 0.3 then return 0.3 end
   return v
 end
+function Theme:HighContrast()
+  return WarpeeDB and WarpeeDB.highContrast and true or false
+end
+local HC_TEXT = { text = true }
+local HC_PUSH = { dim = true, faint = true, stroke = true, strokeSoft = true, emptyLine = true }
+local function hcShift(self, name, r, g, b)
+  if HC_TEXT[name] then
+    if self:IsLight() then return 0, 0, 0 end
+    return 1, 1, 1
+  end
+  if HC_PUSH[name] then
+    local d = self:IsLight() and -0.10 or 0.10
+    local function sh(v) v = v + d; if v < 0 then return 0 end; if v > 1 then return 1 end; return v end
+    return sh(r), sh(g), sh(b)
+  end
+  return r, g, b
+end
 function Theme:C(name)
   local c = self.colors[name]
+  local r, g, b, a = c[1], c[2], c[3], c[4]
   local lift = self:Brightness()
   if lift > 0 and LIFT[name] then
-    return math.min(1, c[1] + lift), math.min(1, c[2] + lift), math.min(1, c[3] + lift), c[4]
+    r = math.min(1, r + lift)
+    g = math.min(1, g + lift)
+    b = math.min(1, b + lift)
   end
-  return c[1], c[2], c[3], c[4]
+  if self:HighContrast() then r, g, b = hcShift(self, name, r, g, b) end
+  return r, g, b, a
 end
 
 function Theme:IconTint()
@@ -585,6 +606,7 @@ function Theme:Hex(name)
     g = math.min(1, g + lift)
     b = math.min(1, b + lift)
   end
+  if self:HighContrast() then r, g, b = hcShift(self, name, r, g, b) end
   return string.format("%02x%02x%02x", r * 255 + 0.5, g * 255 + 0.5, b * 255 + 0.5)
 end
 
