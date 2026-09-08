@@ -1666,7 +1666,10 @@ end
 fav.pkGet = function() return ns.Pocket and ns.Pocket:Enabled() end
 fav.pkSet = function(v)
   WarpeeDB.pocketShow = v and true or false
-  if ns.Pocket then ns.Pocket:Apply() end
+  if ns.Pocket then
+    if v and WarpeeDB.pocketOpen then ns.Pocket:Open()
+    else ns.Pocket:Apply() end
+  end
   relayout()
 end
 fav.pkWithGet = function() return WarpeeDB.pocketWithBags ~= false end

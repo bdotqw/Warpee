@@ -842,13 +842,6 @@ end
 
 function Pocket:Apply()
   if not self:Enabled() then self:Close(true); return end
-  -- Turning the option back on brings the window with it if it was open when the
-  -- option went off: Refresh alone bails on the hidden frame, so the window would
-  -- only come back the next time the bags open.
-  if WarpeeDB.pocketOpen and not (self.frame and self.frame:IsShown()) then
-    self:Open()
-    return
-  end
   self:Refresh()
 end
 
