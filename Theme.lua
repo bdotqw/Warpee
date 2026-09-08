@@ -83,13 +83,13 @@ Theme.THEMES = {
     faint = { 0.525, 0.518, 0.498, 1 }, emptyLine = { 0.278, 0.271, 0.255, 1 },
     azure = { 0.478, 0.729, 0.906, 1 }, reagent = { 0.353, 0.804, 0.616, 1 } },
   graphite = { label = "Graphite",
-    bg = { 0.071, 0.071, 0.071, 0.96 }, panel = { 0.129, 0.129, 0.129, 1 },
-    panelHi = { 0.196, 0.196, 0.196, 1 }, slot = { 0.094, 0.094, 0.094, 1 },
-    stroke = { 0.251, 0.251, 0.251, 1 }, strokeSoft = { 0.192, 0.192, 0.192, 1 },
-    accent = { 0.949, 0.949, 0.949, 1 }, accentInk = { 1, 1, 1, 1 },
+    bg = { 0.040, 0.040, 0.040, 0.96 }, panel = { 0.070, 0.070, 0.070, 1 },
+    panelHi = { 0.120, 0.120, 0.120, 1 }, slot = { 0.050, 0.050, 0.050, 1 },
+    stroke = { 0.200, 0.200, 0.200, 1 }, strokeSoft = { 0.150, 0.150, 0.150, 1 },
+    accent = { 1.000, 1.000, 1.000, 1 }, accentInk = { 1.000, 1.000, 1.000, 1 },
     overlay = { 0.949, 0.949, 0.949, 1 }, gaugeHi = { 0.824, 0.686, 0.678, 1 },
-    text = { 0.878, 0.878, 0.878, 1 }, dim = { 0.604, 0.604, 0.604, 1 },
-    faint = { 0.404, 0.404, 0.404, 1 }, emptyLine = { 0.290, 0.290, 0.290, 1 },
+    text = { 0.790, 0.790, 0.790, 1 }, dim = { 0.550, 0.550, 0.550, 1 },
+    faint = { 0.350, 0.350, 0.350, 1 }, emptyLine = { 0.250, 0.250, 0.250, 1 },
     azure = { 0.729, 0.729, 0.729, 1 }, reagent = { 0.686, 0.686, 0.686, 1 } },
   class = { label = "Class", classAccent = true,
     bg = { 0.055, 0.059, 0.067, 0.96 }, panel = { 0.106, 0.114, 0.129, 1 },
@@ -155,11 +155,28 @@ Theme.THEMES = {
     text = { 0.931, 0.942, 0.963, 1.000 }, dim = { 0.633, 0.652, 0.690, 1.000 },
     faint = { 0.416, 0.440, 0.487, 1.000 }, emptyLine = { 0.154, 0.189, 0.260, 1.000 },
     azure = { 0.172, 0.630, 0.671, 1.000 }, reagent = { 0.353, 0.804, 0.616, 1.000 } },
+  fel = { label = "Fel",
+    bg = { 0.030, 0.055, 0.035, 0.960 }, panel = { 0.052, 0.095, 0.062, 1.000 },
+    panelHi = { 0.075, 0.135, 0.090, 1.000 }, slot = { 0.038, 0.068, 0.045, 1.000 },
+    stroke = { 0.100, 0.220, 0.130, 1.000 }, strokeSoft = { 0.078, 0.170, 0.100, 1.000 },
+    accent = { 0.620, 0.300, 0.950, 1.000 }, accentInk = { 0.750, 0.500, 0.970, 1.000 },
+    text = { 0.900, 0.930, 0.900, 1.000 }, dim = { 0.620, 0.680, 0.620, 1.000 },
+    faint = { 0.420, 0.480, 0.430, 1.000 }, emptyLine = { 0.130, 0.230, 0.155, 1.000 },
+    azure = { 0.250, 0.900, 0.450, 1.000 }, reagent = { 0.353, 0.804, 0.616, 1.000 } },
+  contrast = { label = "Contrast",
+    bg = { 0.004, 0.004, 0.004, 0.960 }, panel = { 0.090, 0.090, 0.090, 1.000 },
+    panelHi = { 0.160, 0.160, 0.160, 1.000 }, slot = { 0.030, 0.030, 0.030, 1.000 },
+    stroke = { 0.500, 0.500, 0.500, 1.000 }, strokeSoft = { 0.350, 0.350, 0.350, 1.000 },
+    accent = { 1.000, 0.850, 0.200, 1.000 }, accentInk = { 1.000, 0.920, 0.550, 1.000 },
+    text = { 1.000, 1.000, 1.000, 1.000 }, dim = { 0.780, 0.780, 0.780, 1.000 },
+    faint = { 0.560, 0.560, 0.560, 1.000 }, emptyLine = { 0.450, 0.450, 0.450, 1.000 },
+    azure = { 0.250, 0.850, 1.000, 1.000 }, reagent = { 0.350, 0.850, 0.550, 1.000 } },
 }
 Theme.THEME_ORDER = { "midnight", "blizzard", "blizzardflat", "class",
                       "nightbloom", "void", "nord",
                       "abyss", "blood", "forest", "graphite",
-                      "harbor", "velvet", "meadow", "reef", "storm", "plum" }
+                      "harbor", "velvet", "meadow", "reef", "storm", "plum",
+                      "fel", "contrast" }
 
 function Theme:IsLight()
   local c = self.colors.bg
@@ -175,6 +192,74 @@ local function classAccent()
          { lift(col.r), lift(col.g), lift(col.b), 1 }
 end
 
+local CLASS_DIP_LMUL = { DEMONHUNTER = 0.5, WARLOCK = 0.8, EVOKER = 0.85, DEATHKNIGHT = 1.12 }
+local CLASS_DIP_SHIFT = { DEATHKNIGHT = -14 }
+local CLASS_DIP_SAT = { DEMONHUNTER = 0.06, DEATHKNIGHT = 0.06 }
+
+local function dipCbrt(x)
+  if x < 0 then return -((-x) ^ (1 / 3)) else return x ^ (1 / 3) end
+end
+
+local function dipToLCh(r, g, b)
+  local function lin(c)
+    if c <= 0.04045 then return c / 12.92 else return ((c + 0.055) / 1.055) ^ 2.4 end
+  end
+  local lr, lg, lb = lin(r), lin(g), lin(b)
+  local l = dipCbrt(0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb)
+  local mm = dipCbrt(0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb)
+  local s = dipCbrt(0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb)
+  local L = 0.2104542553 * l + 0.7936177850 * mm - 0.0040720468 * s
+  local av = 1.9779984951 * l - 2.4285922050 * mm + 0.4505937099 * s
+  local bv = 0.0259040371 * l + 0.7827717660 * mm - 0.8086757660 * s
+  local h = math.atan2(bv, av) * 180 / math.pi
+  if h < 0 then h = h + 360 end
+  return L, math.sqrt(av * av + bv * bv), h
+end
+
+local function dipFromLCh(L, C, h, a)
+  local r = h * math.pi / 180
+  local av, bv = C * math.cos(r), C * math.sin(r)
+  local l_ = L + 0.3963377774 * av + 0.2158037573 * bv
+  local m_ = L - 0.1055613458 * av - 0.0638541728 * bv
+  local s_ = L - 0.0894841775 * av - 1.2914855480 * bv
+  local l, m, s = l_ * l_ * l_, m_ * m_ * m_, s_ * s_ * s_
+  local R = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s
+  local G = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s
+  local B = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
+  local function g(v)
+    if v < 0 then v = 0 elseif v > 1 then v = 1 end
+    if v <= 0.0031308 then return 12.92 * v else return 1.055 * v ^ (1 / 2.4) - 0.055 end
+  end
+  return { g(R), g(G), g(B), a or 1 }
+end
+
+local function dipHueDist(a, b)
+  local d = math.abs(a - b) % 360
+  if d > 180 then d = 360 - d end
+  return d
+end
+
+local function classDipColors(c, cls, col)
+  local _, cc, chh = dipToLCh(col.r, col.g, col.b)
+  if cc < 0.03 then return end
+  local ch = (chh + (CLASS_DIP_SHIFT[cls] or 0) + 360) % 360
+  local lm = CLASS_DIP_LMUL[cls] or 1.0
+  local cs = CLASS_DIP_SAT[cls] or 0.045
+  local out = {}
+  for _, k in ipairs({ "bg", "panel", "panelHi", "slot" }) do
+    local L, C = dipToLCh(c[k][1], c[k][2], c[k][3])
+    out[k] = dipFromLCh(L * lm, math.max(C, cs), ch, c[k][4])
+  end
+  for _, k in ipairs({ "stroke", "strokeSoft" }) do
+    local L, C = dipToLCh(c[k][1], c[k][2], c[k][3])
+    out[k] = dipFromLCh(L * lm, math.max(C, cs + 0.02), ch, c[k][4])
+  end
+  local azL, azC, azH = dipToLCh(c.azure[1], c.azure[2], c.azure[3])
+  if dipHueDist(ch, azH) < 45 then azH = (ch + 150) % 360 end
+  out.azure = dipFromLCh(azL, azC, azH, c.azure[4])
+  return out
+end
+
 Theme.colors = {}
 function Theme:Apply(name)
   local t = self.THEMES[name] or self.THEMES.midnight
@@ -184,8 +269,14 @@ function Theme:Apply(name)
     if k ~= "label" and k ~= "skin" and k ~= "classAccent" then c[k] = v end
   end
   if t.classAccent then
-    local a, ink = classAccent()
-    if a then c.accent, c.accentInk = a, ink end
+    local _, cls = UnitClass("player")
+    local col = cls and RAID_CLASS_COLORS and RAID_CLASS_COLORS[cls]
+    if col and col.r then
+      local a, ink = classAccent()
+      if a then c.accent, c.accentInk = a, ink end
+      local dip = classDipColors(c, cls, col)
+      if dip then for k, v in pairs(dip) do c[k] = v end end
+    end
   end
   self.colors = c
   self.skin = t.skin or "flat"
