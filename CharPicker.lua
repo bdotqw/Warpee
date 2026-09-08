@@ -167,6 +167,8 @@ function Picker:CharRow(n, y, e, path)
   else
     r.icon:Hide()
   end
+  if col then r.icon:SetVertexColor(col.r, col.g, col.b)
+  else r.icon:SetVertexColor(1, 1, 1, 1) end
   r.Text:SetText(e.name)
   if col then r.Text:SetTextColor(col.r, col.g, col.b)
   else r.Text:SetTextColor(Theme:C("overlay")) end
