@@ -160,7 +160,7 @@ local function showGoldTip(anchor)
 
   local n, y, widest = 0, TIP_PAD, 90
 
-  local function row(name, amount, colorKey, col)
+  local function row(name, amount, colorKey, class)
     n = n + 1
     local r = tipRow(t, n)
     r:SetHeight(rowH)
@@ -171,15 +171,8 @@ local function showGoldTip(anchor)
     r.Right:SetFont(path, fs, "")
     r.Left:SetText(name)
     r.Right:SetText(amount or "")
-    if col then
-      if Theme:IsLight() then
-        r.Left:SetTextColor(col.r * 0.55, col.g * 0.55, col.b * 0.55)
-      else
-        r.Left:SetTextColor(col.r, col.g, col.b)
-      end
-    else
-      r.Left:SetTextColor(Theme:C(colorKey or "text"))
-    end
+    if class then r.Left:SetTextColor(Theme:ClassInk(class))
+    else r.Left:SetTextColor(Theme:C(colorKey or "text")) end
     r.Right:SetTextColor(Theme:C("text"))
     r:Show()
     widest = math.max(widest,
@@ -188,8 +181,7 @@ local function showGoldTip(anchor)
   end
 
   for _, e in ipairs(list) do
-    local col = e.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
-    row(e.name, ns.FormatMoney(e.money, true), "text", col)
+    row(e.name, ns.FormatMoney(e.money, true), "text", e.class)
   end
   if n == 0 then row(ns.L["No gold recorded yet"], "", "dim") end
 

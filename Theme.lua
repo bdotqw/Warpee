@@ -188,6 +188,7 @@ Theme.THEMES = {
     faint = { 0.458, 0.430, 0.384, 1.000 }, emptyLine = { 0.564, 0.520, 0.448, 1.000 },
     azure = { 0.197, 0.459, 0.708, 1.000 }, reagent = { 0.353, 0.804, 0.616, 1.000 },
     overlay = { 0.949, 0.957, 0.973, 1.000 },
+    icontint = { 1.000, 1.000, 1.000, 1.000 }, shadow = { 1.000, 1.000, 1.000, 0.650 },
   },
   ice = { label = "Ice",
     bg = { 0.610, 0.650, 0.694, 1.000 }, panel = { 0.683, 0.724, 0.769, 1.000 },
@@ -198,6 +199,7 @@ Theme.THEMES = {
     faint = { 0.378, 0.416, 0.456, 1.000 }, emptyLine = { 0.451, 0.510, 0.572, 1.000 },
     azure = { 0.000, 0.522, 0.501, 1.000 }, reagent = { 0.353, 0.804, 0.616, 1.000 },
     overlay = { 0.949, 0.957, 0.973, 1.000 },
+    icontint = { 1.000, 1.000, 1.000, 1.000 }, shadow = { 1.000, 1.000, 1.000, 0.650 },
   },
 }
 Theme.THEME_ORDER = { "midnight", "blizzard", "blizzardflat",
@@ -568,7 +570,27 @@ function Theme:C(name)
 end
 
 function Theme:IconTint()
-  if self:IsLight() then return 1, 1, 1, 1 end
+  local c = self.colors.icontint
+  if c then return c[1], c[2], c[3], c[4] or 1 end
+  return self:C("text")
+end
+
+local LIGHT_CLASS_INK = {
+  WARRIOR = { 0.478, 0.361, 0.220 }, PALADIN = { 0.722, 0.227, 0.408 },
+  HUNTER = { 0.290, 0.478, 0.141 }, ROGUE = { 0.478, 0.400, 0.000 },
+  PRIEST = { 0.333, 0.333, 0.373 }, DEATHKNIGHT = { 0.769, 0.122, 0.231 },
+  SHAMAN = { 0.000, 0.439, 0.871 }, MAGE = { 0.110, 0.431, 0.627 },
+  WARLOCK = { 0.341, 0.278, 0.561 }, MONK = { 0.000, 0.478, 0.302 },
+  DRUID = { 0.722, 0.361, 0.000 }, DEMONHUNTER = { 0.494, 0.157, 0.627 },
+  EVOKER = { 0.118, 0.420, 0.357 },
+}
+function Theme:ClassInk(class)
+  if class then
+    local ink = LIGHT_CLASS_INK[class]
+    if ink and self:IsLight() then return ink[1], ink[2], ink[3] end
+    local col = RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+    if col then return col.r, col.g, col.b end
+  end
   return self:C("text")
 end
 
@@ -712,7 +734,8 @@ end
 
 function Theme:Shadow(fs)
   local function paint(x)
-    if Theme:IsLight() then x:SetShadowColor(1, 1, 1, 0.65)
+    local c = Theme.colors.shadow
+    if c then x:SetShadowColor(c[1], c[2], c[3], c[4] or 0.85)
     else x:SetShadowColor(0, 0, 0, 0.85) end
     x:SetShadowOffset(1, -1)
   end

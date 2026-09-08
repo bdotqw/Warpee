@@ -168,9 +168,7 @@ function Picker:CharRow(n, y, e, path)
     r.icon:Hide()
   end
   r.Text:SetText(e.name)
-  if col then
-    if Theme:IsLight() then r.Text:SetTextColor(col.r * 0.55, col.g * 0.55, col.b * 0.55)
-    else r.Text:SetTextColor(col.r, col.g, col.b) end
+  if col then r.Text:SetTextColor(Theme:ClassInk(e.class))
   else r.Text:SetTextColor(Theme:C("text")) end
   r:SetAlpha(e.hidden and 0.4 or 1)
   r.dot:SetShown(e.key == self.currentKey)
