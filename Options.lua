@@ -344,7 +344,8 @@ local function openDropdown(anchor, spec, onPick)
     local head = type(key) == "string" and key:sub(1, 1) == "#"
     local on = (not head and key == cur)
     r.dot:SetShown(on)
-    r.Text:SetTextColor(head and Theme:C("faint") or Theme:C(on and "accentInk" or "text"))
+    local tkey = head and "faint" or (on and "accentInk" or "text")
+    r.Text:SetTextColor(Theme:C(tkey))
     r.bg:Hide()
     if head then
       r:SetScript("OnClick", nil)
