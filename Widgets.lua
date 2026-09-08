@@ -86,7 +86,7 @@ function ns.CreateCharTag(parent, height, dir)
   ic:SetTexture(CLASS_RING)
   b.icon = ic
 
-  local fs = Theme:Label(b, 12, "text")
+  local fs = Theme:Label(b, 12, "dim")
   fs:SetJustifyH("LEFT")
   Theme:Shadow(fs)
   b.Text = fs
