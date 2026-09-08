@@ -809,7 +809,8 @@ function factories.range(parent, spec)
     if not sl.offDuty then thumb:SetVertexColor(Theme:C("text")) end
   end)
   s:SetScript("OnLeave", function(sl)
-    thumb:SetVertexColor(Theme:C(sl.offDuty and "faint" or "accentInk"))
+    if sl.offDuty then thumb:SetVertexColor(Theme:C("faint"))
+    else thumb:SetVertexColor(Theme:Thumb()) end
   end)
 
   row.Refresh = function()
@@ -819,7 +820,8 @@ function factories.range(parent, spec)
     fs:SetText(T(spec.name))
     fs:SetTextColor(Theme:C(on and "text" or "faint"))
     val:SetTextColor(Theme:C(on and "accentInk" or "faint"))
-    thumb:SetVertexColor(Theme:C(on and "accentInk" or "faint"))
+    if on then thumb:SetVertexColor(Theme:Thumb())
+    else thumb:SetVertexColor(Theme:C("faint")) end
     fill:SetVertexColor(Theme:C(on and "accent" or "strokeSoft"))
     s.quiet = true
     s:SetValue(spec.get())

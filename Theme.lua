@@ -189,6 +189,7 @@ Theme.THEMES = {
     azure = { 0.197, 0.459, 0.708, 1.000 }, reagent = { 0.353, 0.804, 0.616, 1.000 },
     overlay = { 0.949, 0.957, 0.973, 1.000 }, deep = { 0.075, 0.060, 0.045, 1.000 },
     icontint = { 1.000, 1.000, 1.000, 1.000 }, shadow = { 1.000, 1.000, 1.000, 0.650 },
+    thumb = { 0.420, 0.300, 0.200, 1.000 },
   },
   ice = { label = "Ice",
     bg = { 0.610, 0.650, 0.694, 1.000 }, panel = { 0.683, 0.724, 0.769, 1.000 },
@@ -200,6 +201,7 @@ Theme.THEMES = {
     azure = { 0.000, 0.522, 0.501, 1.000 }, reagent = { 0.353, 0.804, 0.616, 1.000 },
     overlay = { 0.949, 0.957, 0.973, 1.000 }, deep = { 0.055, 0.070, 0.095, 1.000 },
     icontint = { 1.000, 1.000, 1.000, 1.000 }, shadow = { 1.000, 1.000, 1.000, 0.650 },
+    thumb = { 0.300, 0.360, 0.440, 1.000 },
   },
 }
 Theme.THEME_ORDER = { "midnight", "blizzard", "blizzardflat",
@@ -595,6 +597,12 @@ function Theme:IconTint()
   local c = self.colors.icontint
   if c then return c[1], c[2], c[3], c[4] or 1 end
   return self:C("text")
+end
+
+function Theme:Thumb()
+  local c = self.colors.thumb
+  if c then return c[1], c[2], c[3], c[4] or 1 end
+  return self:C("accentInk")
 end
 
 function Theme:Hex(name)
