@@ -98,7 +98,7 @@ function Picker:Row(i)
   r.icon = ic
   local fs = Theme:Label(r, 14, "text")
   fs:SetJustifyH("LEFT")
-  Theme:Shadow(fs)
+  Theme:Shadow(fs, true)
   r.Text = fs
   local line = Theme:Rect(r, "strokeSoft", "ARTWORK")
   ns.PixelLine(line, 1)

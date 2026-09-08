@@ -714,10 +714,12 @@ function Theme:Title(parent, size, colorKey)
   return fs
 end
 
-function Theme:Shadow(fs)
+function Theme:Shadow(fs, dark)
   local function paint(x)
-    local c = Theme.colors.shadow
-    if c then x:SetShadowColor(c[1], c[2], c[3], c[4] or 0.85)
+    if not dark then
+      local c = Theme.colors.shadow
+      if c then x:SetShadowColor(c[1], c[2], c[3], c[4] or 0.85)
+      else x:SetShadowColor(0, 0, 0, 0.85) end
     else x:SetShadowColor(0, 0, 0, 0.85) end
     x:SetShadowOffset(1, -1)
   end
