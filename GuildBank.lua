@@ -161,7 +161,7 @@ local function skinSlot(b)
       s.wpeHl:SetAlpha(0.22)
     end
   end)
-  label(b.Count or _G[(b:GetName() or "") .. "Count"], 12, "text", "OUTLINE")
+  label(b.Count or _G[(b:GetName() or "") .. "Count"], 12, "text", ns.OutlineFlags())
 end
 
 local function skinSideTab(tab, index)
