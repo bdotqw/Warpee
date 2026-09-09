@@ -199,7 +199,7 @@ function Picker:Paint(keepScroll)
   local skin = Theme.skin
   local top, wide, drop = PAD, 0, 0
   if skin == "blizzardflat" then top = PAD - 3
-  elseif skin == "blizzard" then top = PAD + 12; wide = 16; drop = 12 end
+  elseif skin == "blizzard" then top = PAD + 20; wide = 16; drop = 20 end
   if self.hideBtn then
     self.hideBtn:ClearAllPoints()
     self.hideBtn:SetPoint("TOPLEFT", PAD, -top)
