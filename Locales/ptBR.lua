@@ -112,9 +112,9 @@ local STRINGS = {
   ["Gold format"] = "Formato dos valores",
   ["Gold only"] = "Somente ouro",
   ["Coin letters"] = "Letras das moedas",
-  ["Clear on close"] = "Limpar ao fechar",
+  ["Clear search on close"] = "Limpar a busca ao fechar",
   ["Bag arrangement"] = "Layout da bolsa",
-  ["Bags and bank together"] = "Bolsas e banco juntos",
+  ["Search bags and bank together"] = "Buscar em bolsas e banco juntos",
   ["Color scheme for the whole addon."] = "Esquema de cores de todo o addon.",
   ["Used for every label Warpee draws. Other addons can add to this list."] =
     "Usada em todos os textos exibidos pelo Warpee. Outros addons podem adicionar fontes a esta lista.",

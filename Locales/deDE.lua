@@ -111,9 +111,9 @@ local STRINGS = {
   ["Gold format"] = "Zahlenformat",
   ["Gold only"] = "Nur Gold",
   ["Coin letters"] = "Münzbuchstaben",
-  ["Clear on close"] = "Beim Schließen leeren",
+  ["Clear search on close"] = "Suche beim Schließen leeren",
   ["Bag arrangement"] = "Taschenanordnung",
-  ["Bags and bank together"] = "Taschen und Bank zusammen",
+  ["Search bags and bank together"] = "Gemeinsam in Taschen und Bank suchen",
   ["Color scheme for the whole addon."] = "Farbschema für das ganze Addon.",
   ["Used for every label Warpee draws. Other addons can add to this list."] =
     "Wird für jeden Text verwendet, den Warpee zeichnet. Andere Addons können diese Liste erweitern.",

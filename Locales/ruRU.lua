@@ -122,9 +122,9 @@ local STRINGS = {
   ["Gold format"] = "Формат сумм",
   ["Gold only"] = "Только золото",
   ["Coin letters"] = "Буквы вместо монет",
-  ["Clear on close"] = "Очищать при закрытии",
+  ["Clear search on close"] = "Очищать поиск при закрытии",
   ["Bag arrangement"] = "Компоновка сумки",
-  ["Bags and bank together"] = "Сумки и банк вместе",
+  ["Search bags and bank together"] = "Искать в сумках и банке вместе",
   ["Color scheme for the whole addon."] = "Цветовая схема всего аддона.",
   ["Used for every label Warpee draws. Other addons can add to this list."] =
     "Используется для всех надписей Warpee. Другие аддоны могут добавлять шрифты в этот список.",
