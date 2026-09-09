@@ -1721,6 +1721,13 @@ function ns.PaintPin(g, pin, t, btn)
   else
     if g.ilvl then g.ilvl:Hide() end
     if g.outfit then g.outfit:Hide() end
-    if g.cnt then g.cnt:Hide() end
+    if g.cnt then
+      local cb = ns.Badge("count")
+      ns.SetOutlined(g.cnt, cb.s)
+      g.cnt:ClearAllPoints()
+      g.cnt:SetPoint(ns.BadgePoint(cb), g, cb.c, cb.x, cb.y)
+      g.cnt:SetText("0")
+      g.cnt:Show()
+    end
   end
 end
