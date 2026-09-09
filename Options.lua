@@ -911,7 +911,6 @@ function factories.select(parent, spec)
   return row
 end
 
-local CLASS_RING = "Interface\\TargetingFrame\\UI-Classes-Circles"
 local CHAR_COLS = 3
 local CHAR_CELL_H, CHAR_HEAD_H, CHAR_DEL_H = 24, 22, 26
 
@@ -990,13 +989,8 @@ local function charCell(row, i)
   minus:SetPoint("RIGHT", box, "RIGHT", -ns.PixelFloor(box, 3), 0)
   minus:Hide()
   c.box, c.mark, c.minus = box, mark, minus
-  local ic = c:CreateTexture(nil, "ARTWORK")
-  ic:SetSize(15, 15)
-  ic:SetPoint("LEFT", box, "RIGHT", 5, 0)
-  ic:SetTexture(CLASS_RING)
-  c.icon = ic
   local fs = track(Theme:Label(c, BASE_FONT - 2, "text"), -2)
-  fs:SetPoint("LEFT", ic, "RIGHT", 4, 0)
+  fs:SetPoint("LEFT", box, "RIGHT", 5, 0)
   fs:SetPoint("RIGHT", -2, 0)
   fs:SetJustifyH("LEFT")
   c.Text = fs
@@ -1053,7 +1047,9 @@ local function charCell(row, i)
       s.minus:Hide()
       s.mark:SetShown(on)
       s.box:SetKeys("slot", on and "bg" or "stroke", "accent")
-      s.Text:SetTextColor(Theme:C(on and "text" or "dim"))
+      local cc = on and s.wpeClassColor or nil
+      if cc then s.Text:SetTextColor(cc.r, cc.g, cc.b)
+      else s.Text:SetTextColor(Theme:C(on and "text" or "dim")) end
     end
   end
   row.cells[i] = c
@@ -1114,14 +1110,10 @@ function factories.chars(parent, spec)
       c:SetWidth(colW)
       c:ClearAllPoints()
       c:SetPoint("TOPLEFT", col * (colW + 8), -y)
-      local coords = e.class and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[e.class]
-      if coords then
-        c.icon:SetTexCoord(coords[1], coords[2], coords[3], coords[4]); c.icon:Show()
-      else
-        c.icon:Hide()
-      end
+      local cc = e.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
+      c.wpeClassColor = cc
       c.Text:SetText(e.name)
-      c.Text:SetFont(path, math.max(7, BASE_FONT - 2), "")
+      c.Text:SetFont(path, math.max(7, BASE_FONT - 2), "OUTLINE")
       c:Paint()
       c:Show()
       col = col + 1
@@ -1145,9 +1137,9 @@ function factories.chars(parent, spec)
       c:SetWidth(colW)
       c:ClearAllPoints()
       c:SetPoint("TOPLEFT", 0, -y)
-      c.icon:Hide()
+      c.wpeClassColor = nil
       c.Text:SetText(L["Warband bank"])
-      c.Text:SetFont(path, math.max(7, BASE_FONT - 2), "")
+      c.Text:SetFont(path, math.max(7, BASE_FONT - 2), "OUTLINE")
       c:Paint()
       c:Show()
       y = y + CHAR_CELL_H
