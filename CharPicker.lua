@@ -197,6 +197,9 @@ function Picker:Paint(keepScroll)
   end
   if self.hideBtn then
     self.hideBtn.Text:SetFont(path, 13, "")
+    local w = math.max(68, math.ceil(self.hideBtn.Text:GetStringWidth()) + 18)
+    self.hideBtn.wpeBoxW = w
+    self.hideBtn:SetWidth(w)
   end
   self:UpdateHiddenBorder()
 
