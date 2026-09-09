@@ -139,24 +139,12 @@ Theme.THEMES = {
     text = { 1.000, 1.000, 1.000, 1.000 }, dim = { 0.780, 0.780, 0.780, 1.000 },
     faint = { 0.560, 0.560, 0.560, 1.000 }, emptyLine = { 0.480, 0.300, 0.220, 1.000 },
     azure = { 0.250, 0.850, 1.000, 1.000 }, reagent = { 0.350, 0.850, 0.550, 1.000 } },
-  parchment = { label = "Parchment",
-    bg = { 0.691, 0.638, 0.551, 0.960 }, panel = { 0.766, 0.711, 0.623, 1.000 },
-    panelHi = { 0.817, 0.761, 0.671, 1.000 }, slot = { 0.542, 0.496, 0.421, 1.000 },
-    stroke = { 0.548, 0.467, 0.333, 1.000 }, strokeSoft = { 0.631, 0.563, 0.452, 1.000 },
-    accent = { 0.632, 0.183, 0.207, 1.000 }, accentInk = { 0.189, 0.008, 0.022, 1.000 },
-    text = { 0.000, 0.000, 0.000, 1.000 }, dim = { 0.282, 0.256, 0.214, 1.000 },
-    faint = { 0.458, 0.430, 0.384, 1.000 }, emptyLine = { 0.564, 0.520, 0.448, 1.000 },
-    azure = { 0.197, 0.459, 0.708, 1.000 }, reagent = { 0.353, 0.804, 0.616, 1.000 },
-    overlay = { 0.949, 0.957, 0.973, 1.000 }, deep = { 0.075, 0.060, 0.045, 1.000 },
-    icontint = { 1.000, 1.000, 1.000, 1.000 }, shadow = { 1.000, 1.000, 1.000, 0.650 },
-    thumb = { 0.420, 0.300, 0.200, 1.000 },
-  },
 }
 Theme.THEME_ORDER = { "midnight", "blizzard", "blizzardflat",
                       "nightbloom", "void", "nord",
                       "abyss", "blood", "forest", "graphite",
-                      "harbor", "velvet", "meadow", "reef", "parchment", "magma" }
-Theme.LIGHT = { blizzard = true, blizzardflat = true, nord = true, harbor = true, meadow = true, reef = true, parchment = true }
+                      "harbor", "velvet", "meadow", "reef", "magma" }
+Theme.LIGHT = { blizzard = true, blizzardflat = true, nord = true, harbor = true, meadow = true, reef = true }
 
 function Theme:IsLight()
   local c = self.colors.bg
