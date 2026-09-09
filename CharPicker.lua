@@ -37,11 +37,7 @@ function Picker:Build()
   hide:SetScript("OnLeave", function() self:UpdateHiddenBorder() end)
   hide:SetScript("OnClick", function()
     self.showHidden = not self.showHidden
-  if self.close then
-    self.close:ClearAllPoints()
-    self.close:SetPoint("TOPRIGHT", -PAD, -top)
-  end
-  self:UpdateHiddenBorder()
+    self:UpdateHiddenBorder()
     self:Paint()
   end)
   self.hideBtn = hide
@@ -200,7 +196,7 @@ function Picker:Paint(keepScroll)
     self.filter:SetFont(path, 13, "")
     if self.filter.Hint then self.filter.Hint:SetFont(path, 13, "") end
   end
-  local top = PAD - ((Theme.skin == "blizzardflat") and 4 or 0)
+  local top = PAD - ((Theme.skin == "blizzardflat") and 3 or 0)
   if self.hideBtn then
     self.hideBtn:ClearAllPoints()
     self.hideBtn:SetPoint("TOPLEFT", PAD, -top)
@@ -208,6 +204,10 @@ function Picker:Paint(keepScroll)
     local w = math.max(68, math.ceil(self.hideBtn.Text:GetStringWidth()) + 18)
     self.hideBtn.wpeBoxW = w
     self.hideBtn:SetWidth(w)
+  end
+  if self.close then
+    self.close:ClearAllPoints()
+    self.close:SetPoint("TOPRIGHT", -PAD, -top)
   end
   self:UpdateHiddenBorder()
 
