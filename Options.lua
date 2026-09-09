@@ -2171,6 +2171,7 @@ function Options:Select(index)
   local area = self.areas[index]
   area:ScrollTo(0)
   area:PaintBar()
+  self:Refresh()
 end
 
 function Options:ApplyFont()
