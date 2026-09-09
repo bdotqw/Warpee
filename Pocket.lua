@@ -296,6 +296,20 @@ function Pocket:PinFromCursor(index)
   self:Set(index, pin)
 end
 
+function Pocket:DropID(id)
+  id = tonumber(id)
+  if not id then return false end
+  local list = self:List()
+  for i = 1, self:Count() do
+    if ns.ItemStubID(list[i]) == id then
+      self:Set(i, nil)
+      if self.picksFrame and self.picksFrame:IsShown() then self:PickPaint() end
+      return true
+    end
+  end
+  return false
+end
+
 function Pocket:AddID(id, pin)
   id = tonumber(id)
   if not id then return false end
@@ -444,9 +458,11 @@ function Pocket:Build()
       GameTooltip:Hide()
     end)
     b:SetScript("OnClick", function(s)
-      if s.wpeID and not s.wpePinned then
-        if Pocket:AddID(s.wpeID) then
-          if ns.ItemSound then ns.ItemSound("pickup") end
+      if not s.wpeID then return end
+      if s.wpePinned then
+        Pocket:DropID(s.wpeID)
+      elseif Pocket:AddID(s.wpeID) then
+        if ns.ItemSound then ns.ItemSound("pickup") end
         end
       end
     end)
