@@ -186,7 +186,7 @@ function Picker:Paint(keepScroll)
       end
       n = n + 1
       widest = math.max(widest, self:CharRow(n, y, e, path))
-      y = y + ROW_H
+      y = y + ROW_H + 3
     end
   end
   for i = n + 1, #self.rows do self.rows[i]:Hide() end
