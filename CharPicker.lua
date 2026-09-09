@@ -21,7 +21,7 @@ function Picker:Build()
 
   local m = CreateFrame("Frame", "WarpeeCharPicker", UIParent, "BackdropTemplate")
   m:Hide()
-  Theme:Panel(m, "deep", "accent")
+  Theme:Panel(m, "deep", "deep")
   m:SetFrameStrata("FULLSCREEN_DIALOG")
   Theme:WindowArt(m)
   m:EnableMouse(true)
