@@ -224,7 +224,13 @@ local function sectionOpen(key)
   if not key then return true end
   local t = WarpeeDB and WarpeeDB.optSections
   local v = t and t[key]
-  if v == nil then return not SECTION_CLOSED[key] end
+  if v == nil then
+    if key == "locked" then
+      for _ in pairs(WarpeeDB and WarpeeDB.vendorBlack or {}) do return true end
+      return false
+    end
+    return not SECTION_CLOSED[key]
+  end
   return v and true or false
 end
 
@@ -596,15 +602,17 @@ function factories.keybind(parent, spec)
   end
 
   local function paint()
+    local on = not (spec.disabled and spec.disabled())
     if capturing then
       cur:SetText(T("Press a key..."))
       cur:SetTextColor(Theme:C("accent"))
       btn:SetBackdropBorderColor(Theme:C("accent"))
     else
       cur:SetText(keyText())
-      cur:SetTextColor(Theme:C("text"))
+      cur:SetTextColor(Theme:C(on and "text" or "faint"))
       btn:SetBackdropBorderColor(Theme:C("stroke"))
     end
+    nameFS:SetTextColor(Theme:C(on and "text" or "faint"))
     btn:SetBackdropColor(Theme:C("panel"))
   end
 
@@ -652,6 +660,7 @@ function factories.keybind(parent, spec)
   end)
 
   btn:SetScript("OnClick", function(_, button)
+    if spec.disabled and spec.disabled() then return end
     if capturing then stop() return end
     if button == "RightButton" then
       if InCombatLockdown() then return end
@@ -1746,6 +1755,7 @@ local GENERAL_PAGE = {
     set = function(v) WarpeeDB.fontWish = nil; fontSet(v); Options:ApplyFont() end,
     keys = fontKeys, label = function(k) return k end,
     desc = "Used for every label Warpee draws. Other addons can add to this list." },
+  { type = "header", name = "Language" },
   { type = "select", name = "Language", get = localeGet, set = localeSet,
     keys = localeKeys, label = localeLabel,
     desc = "Language for the addon's own text. Item names always come from the game." },
@@ -1797,19 +1807,24 @@ local POCKET_PAGE = {
   { type = "toggle", name = "Open with bags", col = 2, get = fav.pkWithGet, set = fav.pkWithSet,
     disabled = function() return not fav.pkGet() end,
     desc = "The pocket opens together with the bags. A window that opens the bags on its own, the auction house or the mail, pushes the pocket aside until you open it yourself." },
+  { type = "header", name = "Pocket size", key = "pocketsize" },
   { type = "range", name = "Pocket rows", min = 1, max = 6, step = 1, half = "left",
+    section = "pocketsize",
     get = fav.pkRowsGet, set = fav.pkRowsSet,
     disabled = function() return not fav.pkGet() end,
     desc = "How many rows of cells the pocket window holds." },
   { type = "range", name = "Slots per row", min = 4, max = 8, step = 1, half = "right",
+    section = "pocketsize",
     get = fav.pkColsGet, set = fav.pkColsSet,
     disabled = function() return not fav.pkGet() end,
     desc = "How wide the pocket window grows." },
   { type = "range", name = "Pocket slot size", min = 24, max = 56, step = 1, half = "left",
+    section = "pocketsize",
     get = fav.pkSizeGet, set = fav.pkSizeSet,
     disabled = function() return not fav.pkGet() end,
     desc = "Size of one cell in the pocket. It follows the bag slot size until you move this." },
   { type = "keybind", name = "Pocket key", binding = "WARPEE_POCKET", half = "right",
+    disabled = function() return not fav.pkGet() end,
     desc = "The key that opens and closes the pocket. Click, then press a key, a mouse button or the wheel, with Shift, Ctrl or Alt if you like; a right click clears it, Escape cancels." },
 }
 
@@ -1876,6 +1891,9 @@ local ITEMS_PAGE = {
 }
 
 SECTION_CLOSED.bankgrid = true
+SECTION_CLOSED.badges = true
+SECTION_CLOSED.arrange = true
+SECTION_CLOSED.pocketsize = true
 
 local GRID_PAGE = {
   { type = "header", name = "Bags grid" },
@@ -1888,23 +1906,25 @@ local GRID_PAGE = {
   { type = "range", name = "Icon zoom", min = 0.8, max = 1.2, step = 0.01,
     get = zoomGet, set = zoomSet, half = "right",
     desc = "1.00 fills the slot. Less shrinks the icon, more crops it." },
-  { type = "toggle", name = "Hide reagents", col = 1, of = 2,
+  { type = "header", name = "Bag arrangement", key = "arrange" },
+  { type = "toggle", name = "Hide reagents", col = 1, of = 2, section = "arrange",
     get = flow.hideGet, set = flow.hideSet,
     desc = "Leave the reagent bag out of the window. Its slots still count in the header, and reagents still go into it." },
   { type = "toggle", name = "Merge reagents", col = 2, of = 2, get = mergeGet, set = mergeSet,
-    disabled = flow.hideGet,
+    section = "arrange", disabled = flow.hideGet,
     desc = "Lay the reagent bag out with the main bags, without its caption." },
-  { type = "toggle", name = "Reagents on top", col = 1, of = 2,
+  { type = "toggle", name = "Reagents on top", section = "arrange",
     get = flow.topGet, set = flow.topSet, disabled = flow.offGet,
     desc = "Draw the reagent bag above the main bags instead of below them." },
-  { type = "toggle", name = "Recent items", col = 2, of = 2, get = fav.recentGet, set = fav.recentSet,
-    desc = "A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload." },
-  { type = "toggle", name = "Fill grid upwards", col = 1, of = 2,
+  { type = "toggle", name = "Fill grid upwards", col = 1, of = 2, section = "arrange",
     get = flow.upGet, set = flow.upSet,
     desc = "The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top." },
-  { type = "toggle", name = "Reverse slot order", col = 2, of = 2,
+  { type = "toggle", name = "Reverse slot order", col = 2, of = 2, section = "arrange",
     get = flow.revGet, set = flow.revSet,
     desc = "The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in." },
+  { type = "header", name = "Quick access" },
+  { type = "toggle", name = "Recent items", get = fav.recentGet, set = fav.recentSet,
+    desc = "A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload." },
   { type = "header", name = "Favorites" },
   { type = "toggle", name = "Favorite slots", col = 1, get = fav.showGet, set = fav.showSet,
     desc = "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot." },
@@ -2037,12 +2057,31 @@ local VENDOR_PAGE = {
     desc = "Sell every gray item, whatever its item level." },
   { type = "toggle", name = "Repair", col = 2, of = 3, get = V.repGet, set = V.repSet,
     desc = "Repair at merchants who offer it. Others are left alone, with no message." },
-  { type = "select", name = "", col = 3, of = 3, get = V.repByGet, set = V.repBySet,
+  { type = "select", name = "Pay with", col = 3, of = 3, get = V.repByGet, set = V.repBySet,
     keys = function() return V.REPAIR_BY end,
     label = function(k) return V.REPAIR_LABELS[k] or k end,
     disabled = function() return not V.repGet() end,
     desc = "Where the repair money comes from. The guild bank is used only if your withdraw limit covers the whole bill." },
-  { type = "header", name = "The coin button" },
+  { type = "header", name = "The coin button",
+    state = function()
+      local min, max = V.minGet(), vIlvlGet()
+      if max > 0 and min >= max then return L["Invalid range"] end
+      if not V.autoGet() then return nil end
+      local parts = {}
+      if min > 0 and max > 0 then parts[#parts + 1] = ("ilvl %d-%d"):format(min, max)
+      elseif min > 0 then parts[#parts + 1] = ("ilvl %d+"):format(min)
+      elseif max > 0 then parts[#parts + 1] = ("ilvl < %d"):format(max) end
+      if V.greyGet() then parts[#parts + 1] = T("Sell junk") end
+      if V.relicGet() then parts[#parts + 1] = T("Legion relics") end
+      if V.consumGet() then parts[#parts + 1] = T("Old consumables") end
+      if V.tokenGet() then parts[#parts + 1] = T("Tier tokens") end
+      if #parts == 0 then return nil end
+      if #parts > 4 then
+        local short = { parts[1], parts[2], parts[3], "..." }
+        return table.concat(short, ", ")
+      end
+      return table.concat(parts, ", ")
+    end },
   { type = "description",
     name = "Everything below is sold by the coin in the bags header, unless you switch on automatic selling." },
   { type = "input", name = "Item level from", col = 1, min = 0, max = 9999,
@@ -2057,11 +2096,9 @@ local VENDOR_PAGE = {
     desc = "Sell potions, flasks, food and bandages older than the previous expansion." },
   { type = "toggle", name = "Tier tokens", col = 1, get = V.tokenGet, set = V.tokenSet,
     desc = "Sell raid armor tokens, item level ignored. Only from the expansions ticked below." },
-  { type = "toggle", name = "Sell all of this automatically",
-    get = V.autoGet, set = V.autoSet,
-    desc = "Sell the list above at every merchant, without pressing the coin." },
   { type = "header", name = "Token expansions", key = "tokenexp",
     state = function()
+      if V.tokensOff() then return L["Off"] end
       local t = WarpeeDB.vendorTokenExp or {}
       local none = ns.TOKEN_EXP_NONE or {}
       local cur = LE_EXPANSION_LEVEL_CURRENT
@@ -2077,6 +2114,9 @@ local VENDOR_PAGE = {
     end },
   { type = "description", section = "tokenexp",
     name = "Which expansions tokens may be sold from. The four newest are kept by default. Expansions that never had tokens are not listed." },
+  { type = "toggle", name = "Sell all of this automatically",
+    get = V.autoGet, set = V.autoSet,
+    desc = "Sell the list above at every merchant, without pressing the coin." },
   { type = "header", name = "Never sell",
     state = function() return onOf({ V.boeGet, V.wbGet, V.gemGet }) end },
   { type = "toggle", name = "Keep BoE", col = 1, get = V.boeGet, set = V.boeSet,
@@ -2092,7 +2132,7 @@ do
               or (GetExpansionLevel and GetExpansionLevel()) or 0
   local at
   for i, row in ipairs(VENDOR_PAGE) do
-    if row.type == "header" and row.name == "Never sell" then at = i; break end
+    if row.type == "toggle" and row.name == "Sell all of this automatically" then at = i; break end
   end
   local rows = {}
   local none = ns.TOKEN_EXP_NONE or {}

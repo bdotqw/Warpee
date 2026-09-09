@@ -232,7 +232,9 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     return
   end
   if event == "PLAYER_LOGIN" then
+    local fresh = (WarpeeDB == nil)
     WarpeeDB = WarpeeDB or {}
+    if fresh then WarpeeDB.pocketShow = false end
     WarpeeDB.cols = WarpeeDB.cols or 16
     WarpeeDB.gap = WarpeeDB.gap or 2
     WarpeeDB.iconSize = WarpeeDB.iconSize or 40
