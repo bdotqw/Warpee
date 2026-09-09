@@ -1656,10 +1656,11 @@ function ns.PinTierFit(g)
   g.tier:SetPoint("TOPLEFT", g, "TOPLEFT", -3, 2)
 end
 
--- Blue edge means the item is on you, gold means it is not with you at all, and the gold
--- zero says the same for something that stacks. Gear carries its item level and its gear set
--- instead of a count, and the craft tier is drawn only on what is not gear, since an item
--- level already says how good a piece is.
+-- Blue edge means the item is on you, gold means it is not with you at all. Gear
+-- carries its item level and its gear set instead of a count, and the craft tier
+-- is drawn only on what is not gear, since an item level already says how good
+-- a piece is. A missing stackable keeps its colours at half alpha so it stays
+-- recognisable, the gold edge already says it is not with you.
 function ns.PaintPin(g, pin, t, btn)
   if not g then return end
   if not pin then
@@ -1674,6 +1675,8 @@ function ns.PaintPin(g, pin, t, btn)
   local id = ns.ItemStubID(pin)
   local gear = ns.GearItem(id)
   g.icon:SetTexture(ns.PinIcon(id)); g.icon:Show()
+  g.icon:SetDesaturated(gear)
+  g.icon:SetAlpha(gear and 1 or 0.55)
   if g.plus then g.plus:Hide() end
   g:SetBackdropBorderColor(Theme:C(ns.PinWorn(pin, t) and "worn" or "gone"))
   local art = (not gear) and ns.PinTier(pin) or nil
@@ -1718,13 +1721,6 @@ function ns.PaintPin(g, pin, t, btn)
   else
     if g.ilvl then g.ilvl:Hide() end
     if g.outfit then g.outfit:Hide() end
-    if g.cnt then
-      local cb = ns.Badge("count")
-      ns.SetOutlined(g.cnt, cb.s)
-      g.cnt:ClearAllPoints()
-      g.cnt:SetPoint(ns.BadgePoint(cb), g, cb.c, cb.x, cb.y)
-      g.cnt:SetText("0")
-      g.cnt:Show()
-    end
+    if g.cnt then g.cnt:Hide() end
   end
 end
