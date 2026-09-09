@@ -745,7 +745,7 @@ local SLOT_ATLAS = "bags-item-slot64"
 local ART_TEMPLATE = "DefaultPanelTemplate"
 local ART_FALLBACK = "PortraitFrameTemplate"
 local ART_HIDE = { "CloseButton", "PortraitContainer", "portrait", "PortraitFrame",
-                   "Portrait", "TopTileStreaks", "Inset" }
+                   "Portrait", "TopTileStreaks", "Inset", "TitleBg" }
 local ART_FRAMES = setmetatable({}, { __mode = "k" })
 
 local function nineSlice(base)
@@ -1054,6 +1054,8 @@ function Theme:Panel(frame, bgKey, strokeKey)
       local host = ART_FRAMES[x] or (x.wpeGuest and def and def.guestArt)
       local art = host and Theme:RefreshArt(x)
       if art then
+        local tb = art.TitleBg
+        if tb and tb.Hide then tb:Hide() end
         if art.Bg then
           x:SetBackdrop(nil)
         else
