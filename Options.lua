@@ -1663,8 +1663,6 @@ local newGet, newSet         = styleField("newItemGlow")
 local unusableGet, unusableSet = styleField("unusableBorder")
 local function gridAlphaGet() return tonumber(WarpeeDB and WarpeeDB.gridAlpha) or 0 end
 local function gridAlphaSet(v) WarpeeDB.gridAlpha = v; Theme:ApplyGridAlpha() end
-local function brightnessGet() return tonumber(WarpeeDB and WarpeeDB.brightness) or 0 end
-local function brightnessSet(v) WarpeeDB.brightness = v; Theme:Restyle(Theme.active) end
 local function hcGet() return Theme:HighContrast() end
 local function hcSet(v) WarpeeDB.highContrast = v and true or false; Theme:Restyle(Theme.active) end
 local gaugeGet, gaugeSet     = field("showGauge")
@@ -1934,10 +1932,6 @@ local GRID_PAGE = {
   { type = "range", name = "Plate opacity", min = 0, max = 1, step = 0.01,
     get = gridAlphaGet, set = gridAlphaSet,
     desc = "The plate behind the slots. Transparent slots show it through every cell, and the gaps show it at any Spacing above 0." },
-  { type = "range", name = "Brightness", min = 0, max = 0.3, step = 0.01,
-    get = brightnessGet, set = brightnessSet,
-    format = function(v) return math.floor((v or 0) * 100 + 0.5) .. "%" end,
-    desc = "Lifts panels, slots and borders out of the dark. For dim screens, glare, or whenever the themes feel too dark." },
   { type = "toggle", name = "High contrast",
     get = hcGet, set = hcSet,
     desc = "Maximum readability: pure text and stronger borders on any theme." },
