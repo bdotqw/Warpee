@@ -105,7 +105,7 @@ local STRINGS = {
   ["French"] = "Francês",
   ["Russian"] = "Russo",
   ["Italian"] = "Italiano",
-  ["Brazilian Portuguese"] = "Português do Brasil",
+  ["Portuguese"] = "Português",
   ["Lock windows"] = "Travar janelas",
   ["Hide X/Y fields"] = "Ocultar campos X/Y",
   ["Capacity bar"] = "Barra de capacidade",
@@ -408,7 +408,7 @@ local STRINGS = {
     "Alt + clique em um item nas bolsas enquanto esta aba estiver aberta.",
 }
 
-ns.AddLocale("ptBR", "Brazilian Portuguese", {
+ns.AddLocale("ptBR", "Portuguese", {
   coin = { g = "o", s = "p", c = "c" },
   short = { dec = ",", units = { { 1e9, " bi" }, { 1e6, " mi" }, { 1e3, " mil" } } },
   words = WORDS,
