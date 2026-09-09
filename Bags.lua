@@ -1077,6 +1077,12 @@ end
 function Bags:ApplySearch()
   local p = self:Pool()
   for j = 1, (self.shown or 0) do self:ApplyToButton(p[j]) end
+  if ns.Fav and ns.Fav.slots then
+    for _, b in ipairs(ns.Fav.slots) do if b:IsShown() then self:ApplyToButton(b) end end
+  end
+  if ns.Recent and ns.Recent.slots then
+    for _, b in ipairs(ns.Recent.slots) do if b:IsShown() then self:ApplyToButton(b) end end
+  end
 end
 
 function Bags:RefreshNewItems()

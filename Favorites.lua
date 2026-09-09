@@ -407,6 +407,7 @@ function Fav:Apply(bags, x, top, size, gap)
       h:Show(); b:Show()
       if repaint then b.link = nil end
       ns.UpdateItemButton(b)
+      if bags.ApplyToButton then bags:ApplyToButton(b) end
       if g then g:Hide() end
     else
       if g then

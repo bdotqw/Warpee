@@ -400,6 +400,7 @@ function Rec:Apply(bags, x, top, size, gap)
       b.wpeForce = got[id]
       if repaint then b.link = nil end
       ns.UpdateItemButton(b)
+      if bags.ApplyToButton then bags:ApplyToButton(b) end
       if g then g:Hide() end
     else
       if b then b.holder:Hide(); b.recBag, b.wpeForce = nil, nil end
