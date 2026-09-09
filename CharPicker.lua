@@ -197,12 +197,12 @@ function Picker:Paint(keepScroll)
     if self.filter.Hint then self.filter.Hint:SetFont(path, 13, "") end
   end
   local skin = Theme.skin
-  local top, wide, drop = PAD, 0, 0
+  local top, wide, drop, side = PAD, 0, 0, 0
   if skin == "blizzardflat" then top = PAD - 3
-  elseif skin == "blizzard" then top = PAD + 20; wide = 16; drop = 20 end
+  elseif skin == "blizzard" then top = PAD + 20; wide = 16; drop = 12; side = 2 end
   if self.hideBtn then
     self.hideBtn:ClearAllPoints()
-    self.hideBtn:SetPoint("TOPLEFT", PAD, -top)
+    self.hideBtn:SetPoint("TOPLEFT", PAD + side, -top)
     self.hideBtn.Text:SetFont(path, 13, "")
     local w = math.max(68, math.ceil(self.hideBtn.Text:GetStringWidth()) + 18)
     self.hideBtn.wpeBoxW = w
@@ -210,7 +210,7 @@ function Picker:Paint(keepScroll)
   end
   if self.close then
     self.close:ClearAllPoints()
-    self.close:SetPoint("TOPRIGHT", -PAD, -top)
+    self.close:SetPoint("TOPRIGHT", -PAD + side, -top)
   end
   self:UpdateHiddenBorder()
 
