@@ -1,0 +1,418 @@
+local addonName, ns = ...
+
+local WORDS = {
+  ["scadente"] = "poor", ["cianfrusaglia"] = "junk", ["cianfrusaglie"] = "junk", ["grigio"] = "gray",
+  ["comune"] = "common", ["bianco"] = "white",
+  ["noncomune"] = "uncommon", ["verde"] = "green",
+  ["raro"] = "rare", ["blu"] = "blue",
+  ["epico"] = "epic", ["viola"] = "purple",
+  ["leggendario"] = "legendary", ["arancione"] = "orange",
+  ["artefatto"] = "artifact", ["cimelio"] = "heirloom",
+  ["testa"] = "head", ["elmo"] = "helm", ["collo"] = "neck",
+  ["spalla"] = "shoulder", ["spalle"] = "shoulder",
+  ["schiena"] = "back", ["mantello"] = "cloak", ["torso"] = "chest", ["petto"] = "chest",
+  ["polsi"] = "wrist", ["bracciali"] = "bracers",
+  ["mani"] = "hands", ["guanti"] = "gloves",
+  ["vita"] = "waist", ["cintura"] = "belt",
+  ["gambe"] = "legs", ["pantaloni"] = "pants",
+  ["piedi"] = "feet", ["stivali"] = "boots",
+  ["dito"] = "finger", ["anello"] = "ring", ["anelli"] = "rings",
+  ["monile"] = "trinket", ["monili"] = "trinket",
+  ["scudo"] = "shield", ["insegna"] = "tabard", ["camicia"] = "shirt",
+  ["reliquia"] = "relic", ["reliquie"] = "relic",
+  ["distanza"] = "ranged", ["lancio"] = "thrown",
+  ["munizioni"] = "ammo", ["faretra"] = "quiver",
+  ["strumento"] = "tool", ["professione"] = "profgear",
+  ["slotborsa"] = "bagslot",
+  ["arma"] = "weapon", ["primaria"] = "mainhand", ["secondaria"] = "offhand",
+  ["2m"] = "2h", ["1m"] = "1h",
+  ["stoffa"] = "cloth", ["cuoio"] = "leather", ["maglia"] = "mail", ["piastre"] = "plate",
+  ["cosmetico"] = "cosmetic", ["cosmetica"] = "cosmetic",
+  ["pugnale"] = "dagger", ["spada"] = "sword", ["ascia"] = "axe", ["mazza"] = "mace",
+  ["asta"] = "polearm", ["bastone"] = "staff", ["arco"] = "bow",
+  ["fucile"] = "gun", ["balestra"] = "crossbow", ["bacchetta"] = "wand",
+  ["tirapugni"] = "fist", ["glaive"] = "warglaive", ["canna"] = "fishing", ["pesca"] = "fishing",
+  ["cavalcatura"] = "mount", ["gemma"] = "gem", ["ricetta"] = "recipe", ["glifo"] = "glyph",
+  ["borsa"] = "bag", ["contenitore"] = "container",
+  ["mascotte"] = "pet", ["proiettile"] = "projectile", ["proiettili"] = "projectile",
+  ["merci"] = "tradegoods", ["materiali"] = "tradegoods", ["varie"] = "misc",
+  ["potenziamento"] = "enhancement", ["reagente"] = "reagent", ["reagenti"] = "reagents",
+  ["missione"] = "quest", ["missioni"] = "quest",
+  ["consumabile"] = "consumable", ["consumabili"] = "consumables",
+  ["equipaggiamento"] = "gear", ["chiave"] = "keystone", ["mitico"] = "mythic", ["mitica"] = "mythic",
+  ["gettone"] = "token", ["gettoni"] = "token", ["tier"] = "tier",
+  ["bloccato"] = "locked", ["protetto"] = "locked", ["brigata"] = "warband",
+  ["vincolato"] = "soulbound", ["equipaggiare"] = "boe",
+  ["attuale"] = "current", ["vecchio"] = "legacy", ["retaggio"] = "legacy",
+}
+
+local STRINGS = {
+  ["General"] = "Generale",
+  ["Grid"] = "Griglia",
+  ["Items"] = "Oggetti",
+  ["Vendor"] = "Mercante",
+  ["Characters"] = "Personaggi",
+  ["Look"] = "Aspetto",
+  ["Windows"] = "Finestre",
+  ["Money"] = "Denaro",
+  ["Search"] = "Ricerca",
+  ["Markers"] = "Indicatori",
+  ["Slot look"] = "Aspetto degli scomparti",
+  ["Bags grid"] = "Griglia delle borse",
+  ["Bank and Warband grid"] = "Griglia della banca e della Brigata",
+  ["Badges"] = "Contrassegni",
+  ["Item level"] = "Livello oggetto",
+  ["Stack count"] = "Quantità nella pila",
+  ["Binding"] = "Vincolo",
+  ["Gear set"] = "Set d'equipaggiamento",
+  ["Letters"] = "Lettere",
+  ["How many letters of the set name to show."] =
+    "Quante lettere mostrare del nome del set.",
+  ["Vendor lock"] = "Protezione dalla vendita",
+  ["Badge scale"] = "Dimensione del contrassegno",
+  ["Which corner of the slot the badge is pinned to."] =
+    "L'angolo dello scomparto al quale è fissato il contrassegno.",
+  ["Grows left to right"] = "Si estende da sinistra a destra",
+  ["Grows right to left"] = "Si estende da destra a sinistra",
+  ["Grows from the center"] = "Si estende dal centro",
+  ["Growth direction: which way the badge grows when the value gets longer."] =
+    "Direzione di estensione: verso quale lato si allarga il contrassegno quando il valore diventa più lungo.",
+  ["Drag a badge, or click where you want it. Left-click a name to show that badge, right-click the name to hide it."] =
+    "Trascina un contrassegno o fai clic dove vuoi posizionarlo. Clic sinistro su un nome per mostrarlo, clic destro per nasconderlo.",
+  ["Show only the selected badge"] = "Mostra solo il contrassegno selezionato",
+  ["Item level on gear, and a keystone's level."] =
+    "Il livello oggetto dell'equipaggiamento e il livello di una Chiave del Potere.",
+  ["How many items the stack holds."] = "Quanti oggetti contiene la pila.",
+  ["BoE while unbound, WuE for warbound until equipped, BoA for account bound."] =
+    "BoE finché non è vincolato, WuE per vincolato alla Brigata fino all'equipaggiamento, BoA per vincolato all'account.",
+  ["The equipment set the item belongs to, cut to a few letters."] =
+    "Il set d'equipaggiamento a cui appartiene l'oggetto, abbreviato in poche lettere.",
+  ["A coin on gray junk items."] = "Una moneta sugli oggetti grigi di scarso valore.",
+  ["A padlock on the items you locked."] = "Un lucchetto sugli oggetti protetti.",
+  ["In the cell above, hide every badge except the selected one."] =
+    "Nella cella qui sopra, nascondi tutti i contrassegni tranne quello selezionato.",
+  ["Locked items"] = "Oggetti protetti",
+  ["Item tooltips"] = "Descrizioni degli oggetti",
+  ["Open bags with"] = "Apri le borse con",
+  ["Runs on its own"] = "Automaticamente",
+  ["The coin button"] = "Pulsante della moneta",
+  ["Token expansions"] = "Espansioni dei gettoni",
+  ["Never sell"] = "Non vendere mai",
+  ["Theme"] = "Tema",
+  ["Font"] = "Carattere",
+  ["Language"] = "Lingua",
+  ["English"] = "Inglese",
+  ["German"] = "Tedesco",
+  ["Spanish"] = "Spagnolo",
+  ["French"] = "Francese",
+  ["Russian"] = "Russo",
+  ["Italian"] = "Italiano",
+  ["Brazilian Portuguese"] = "Portoghese brasiliano",
+  ["Lock windows"] = "Blocca le finestre",
+  ["Hide X/Y fields"] = "Nascondi i campi X/Y",
+  ["Capacity bar"] = "Barra di capienza",
+  ["Hide minimap icon"] = "Nascondi l'icona della minimappa",
+  ["Gold format"] = "Formato delle somme",
+  ["Gold only"] = "Solo oro",
+  ["Coin letters"] = "Lettere delle monete",
+  ["Clear on close"] = "Svuota alla chiusura",
+  ["Bags and bank together"] = "Borse e banca insieme",
+  ["Color scheme for the whole addon."] = "Schema di colori per l'intero addon.",
+  ["Used for every label Warpee draws. Other addons can add to this list."] =
+    "Usato per ogni testo visualizzato da Warpee. Altri addon possono aggiungere caratteri a questo elenco.",
+  ["Language for the addon's own text. Item names always come from the game."] =
+    "Lingua dei testi dell'addon. I nomi degli oggetti provengono sempre dal gioco.",
+  ["Freeze every window in place. Unlocked, the bags and the bank show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
+    "Blocca tutte le finestre in posizione. Se sbloccate, le borse e la banca mostrano i campi X/Y sul bordo inferiore. Inserisci un valore o regolalo con le frecce (Maiusc = 10).",
+  ["The windows stay movable by dragging, but the X/Y fields are not drawn."] =
+    "Le finestre restano spostabili trascinandole, ma i campi X/Y non vengono mostrati.",
+  ["Fill bar in the bags header showing how full they are."] =
+    "Barra nell'intestazione delle borse che indica quanto sono piene.",
+  ["Takes the Warpee button off the minimap."] = "Rimuove il pulsante di Warpee dalla minimappa.",
+  ["Grouping for printed amounts. Short abbreviates to K and M."] =
+    "Raggruppamento delle cifre nelle somme. Il formato breve usa K e M.",
+  ["Show gold only, hide silver and copper."] = "Mostra solo l'oro e nasconde argento e rame.",
+  ["On = g/s/c letters. Off = coin icons."] = "Attivo: lettere o/a/r. Disattivo: icone delle monete.",
+  ["Empty the search box when the window closes, so it opens unfiltered next time."] =
+    "Svuota la ricerca alla chiusura della finestra, così la prossima volta si apre senza filtri.",
+  ["While both windows are open, typing in either box searches both at once."] =
+    "Quando entrambe le finestre sono aperte, digitare in una casella cerca in entrambe.",
+  ["The bags open together with these windows and close with them again."] =
+    "Le borse si aprono e si chiudono insieme a queste finestre.",
+  ["Bank"] = "Banca",
+  ["Mail"] = "Posta",
+  ["Mythical"] = "Mitico",
+  ["Auction house"] = "Casa d'Aste",
+  ["Trade"] = "Commercia",
+  ["Guild bank"] = "Banca di Gilda",
+  ["Professions"] = "Professioni",
+  ["Bank slot size"] = "Dimensione scomparti banca",
+  ["Slot size"] = "Dimensione scomparti",
+  ["Slots per row"] = "Scomparti per riga",
+  ["Spacing"] = "Spaziatura",
+  ["Icon zoom"] = "Zoom icona",
+  ["Merge reagents"] = "Unisci i reagenti",
+  ["Reagents on top"] = "Reagenti in alto",
+  ["Hide reagents"] = "Nascondi i reagenti",
+  ["Reverse slot order"] = "Inverti l'ordine degli scomparti",
+  ["Fill grid upwards"] = "Riempi la griglia verso l'alto",
+  ["Slot background"] = "Sfondo degli scomparti",
+  ["Plate opacity"] = "Opacità dello sfondo",
+  ["Brightness"] = "Luminosità",
+  ["Light"] = "Chiari",
+  ["Dark"] = "Scuri",
+  ["High contrast"] = "Contrasto elevato",
+  ["Maximum readability: pure text and stronger borders on any theme."] =
+    "Massima leggibilità: testo netto e bordi più marcati con qualsiasi tema.",
+  ["Bank slots per row"] = "Scomparti per riga (banca)",
+  ["Warband slots per row"] = "Scomparti per riga (Brigata)",
+  ["Size of one slot in the bags."] = "Dimensione di uno scomparto nelle borse.",
+  ["How wide the bag window grows."] = "Determina la larghezza della finestra delle borse.",
+  ["Gap between slots, in every grid."] = "Spazio tra gli scomparti in tutte le griglie.",
+  ["1.00 fills the slot. Less shrinks the icon, more crops it."] =
+    "1.00 riempie lo scomparto. Un valore minore riduce l'icona, uno maggiore la ritaglia.",
+  ["Lay the reagent bag out with the main bags, without its caption."] =
+    "Mostra la borsa dei reagenti insieme alle borse principali, senza titolo.",
+  ["Draw the reagent bag above the main bags instead of below them."] =
+    "Mostra la borsa dei reagenti sopra le borse principali anziché sotto.",
+  ["Leave the reagent bag out of the window. Its slots still count in the header, and reagents still go into it."] =
+    "Esclude la borsa dei reagenti dalla finestra. I suoi scomparti contano ancora nell'intestazione e i reagenti continuano a finirci.",
+  ["The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in."] =
+    "Gli scomparti delle borse vengono mostrati al contrario: l'ultimo scomparto dell'ultima borsa occupa la prima cella. Nulla si sposta nelle borse, cambia solo l'ordine di visualizzazione.",
+  ["The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top."] =
+    "Le righe si dispongono dal basso verso l'alto, così l'ultima riga incompleta resta in cima.",
+  ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
+    "Ciò che appare dietro ogni icona. Trasparente mostra lo sfondo, Evidenziato mette in risalto lo scomparto, Pieno lo chiude.",
+  ["The plate behind the slots. Transparent slots show it through every cell, and the gaps show it at any Spacing above 0."] =
+    "Lo sfondo dietro gli scomparti. È visibile attraverso quelli trasparenti e negli spazi quando la spaziatura è maggiore di 0.",
+  ["Lifts panels, slots and borders out of the dark. For dim screens, glare, or whenever the themes feel too dark."] =
+    "Schiarisce pannelli, scomparti e bordi. Utile su schermi poco luminosi, con riflessi o quando i temi sembrano troppo scuri.",
+  ["The bank keeps its own width and icon size, apart from the bags."] =
+    "La banca mantiene larghezza e dimensione delle icone indipendenti dalle borse.",
+  ["One icon size for both bank tabs."] = "Una dimensione delle icone per entrambe le schede della banca.",
+  ["Transparent"] = "Trasparente",
+  ["Highlight"] = "Evidenziato",
+  ["Solid"] = "Pieno",
+  ["Top left"] = "In alto a sinistra",
+  ["Top right"] = "In alto a destra",
+  ["Bottom left"] = "In basso a sinistra",
+  ["Bottom right"] = "In basso a destra",
+  ["Delete saved bags and bank of %s?"] = "Eliminare le borse e la banca salvate di %s?",
+  ["Quality border"] = "Bordo qualità",
+  ["Quest marker"] = "Indicatore missione",
+  ["New item glow"] = "Bagliore oggetti nuovi",
+  ["Junk coin"] = "Moneta sulle cianfrusaglie",
+  ["Reagent border"] = "Bordo reagenti",
+  ["Unwearable border"] = "Bordo non equipaggiabile",
+  ["Border thickness"] = "Spessore bordo",
+  ["Item level by quality"] = "Livello oggetto per qualità",
+  ["Corner"] = "Angolo",
+  ["Text size"] = "Dimensione testo",
+  ["X offset"] = "Scostamento X",
+  ["Y offset"] = "Scostamento Y",
+  ["A border around every item in its quality color."] =
+    "Un bordo attorno a ogni oggetto nel colore della sua qualità.",
+  ["Blizzard quest art: a mark for unaccepted quests, a border for quest items."] =
+    "Grafica missioni di Blizzard: un indicatore per le missioni non accettate e un bordo per gli oggetti di missione.",
+  ["Quality-colored glow on items the game still counts as new."] =
+    "Bagliore nel colore della qualità sugli oggetti che il gioco considera ancora nuovi.",
+  ["Tint the slots of the reagent bag and the reagent bank."] =
+    "Colora gli scomparti della borsa dei reagenti e della banca dei reagenti.",
+  ["Red border around gear your character cannot wear."] =
+    "Bordo rosso attorno all'equipaggiamento che il personaggio non può indossare.",
+  ["Thickness of the slot border."] = "Spessore del bordo dello scomparto.",
+  ["Tint the item level number with the item's quality color."] =
+    "Colora il livello oggetto con il colore della qualità dell'oggetto.",
+  ["Alt-click an item to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Works in the bags, the bank, the favorites row and the pocket. Alt-click again, or the cross here, to unlock."] =
+    "Alt + clic su un oggetto per proteggerlo: appare un lucchetto e non può più essere venduto, né automaticamente né con clic destro da un mercante. Funziona nelle borse, in banca, nei preferiti e in tasca. Ripeti Alt + clic o usa la croce qui per sbloccarlo.",
+  ["Alt-click to lock it from the vendor"] = "Alt + clic per proteggerlo dalla vendita",
+  ["Locked from the vendor. Alt-click to unlock"] =
+    "Protetto dalla vendita. Alt + clic per sbloccare",
+  ["Count across characters"] = "Conta tra i personaggi",
+  ["Include bank"] = "Includi la banca",
+  ["Include Warband"] = "Includi la Brigata",
+  ["Adds an Inventory block to item tooltips: how many each character carries."] =
+    "Aggiunge un riquadro Inventario alle descrizioni: indica quanti oggetti possiede ogni personaggio.",
+  ["Count each character's bank too. Off = bags only."] =
+    "Conta anche la banca di ogni personaggio. Disattivo: solo le borse.",
+  ["Count the shared Warband bank on its own line."] =
+    "Conta la banca condivisa della Brigata su una riga separata.",
+  ["Unchecked characters stay saved but are hidden from the character list."] =
+    "I personaggi deselezionati restano salvati ma vengono nascosti dall'elenco.",
+  ["Snapshots"] = "Istantanee",
+  ["Copies of what you carry, so another character's bags and bank open from your own window."] =
+    "Copie di ciò che possiedi, per aprire borse e banca di un altro personaggio dalla tua finestra.",
+  ["Remember bags"] = "Memorizza le borse",
+  ["Save this character's bags and gold whenever the bag window opens. Off = the saved copy stops updating, and stays visible until you delete the character below."] =
+    "Salva borse e oro di questo personaggio all'apertura delle borse. Disattivo: la copia non si aggiorna più e resta visibile finché non elimini il personaggio qui sotto.",
+  ["Remember bank"] = "Memorizza la banca",
+  ["Save the character bank while you stand at a banker."] =
+    "Salva la banca del personaggio mentre sei presso un banchiere.",
+  ["Remember Warband bank"] = "Memorizza la banca della Brigata",
+  ["Save the shared Warband bank while you stand at a banker."] =
+    "Salva la banca condivisa della Brigata mentre sei presso un banchiere.",
+  ["Delete the saved Warband bank?"] = "Eliminare la banca della Brigata salvata?",
+  ["Account"] = "Account",
+  ["Nothing saved for other characters yet"] = "Nessun dato salvato per gli altri personaggi",
+  ["Sell junk"] = "Vendi cianfrusaglie",
+  ["Repair"] = "Riparazione",
+  ["Item level from"] = "Livello oggetto da",
+  ["Item level under"] = "Livello oggetto inferiore a",
+  ["Legion relics"] = "Reliquie di Legion",
+  ["Old consumables"] = "Consumabili obsoleti",
+  ["Tier tokens"] = "Gettoni di tier",
+  ["Sell all of this automatically"] = "Vendi tutto automaticamente",
+  ["Keep BoE"] = "Conserva i BoE",
+  ["Keep warbound"] = "Conserva i vincolati alla Brigata",
+  ["Keep socketed or enchanted"] = "Conserva gli oggetti incastonati o incantati",
+  ["Your gold"] = "Il tuo oro",
+  ["Guild / yours"] = "Gilda / personale",
+  ["These start when a merchant window opens, with no click from you."] =
+    "Queste azioni iniziano automaticamente all'apertura della finestra di un mercante.",
+  ["Everything below is sold by the coin in the bags header, unless you switch on automatic selling."] =
+    "Tutto ciò che segue viene venduto con la moneta nell'intestazione delle borse, salvo attivare la vendita automatica.",
+  ["Sell every gray item, whatever its item level."] =
+    "Vendi tutti gli oggetti grigi, indipendentemente dal livello oggetto.",
+  ["Repair at merchants who offer it. Others are left alone, with no message."] =
+    "Ripara presso i mercanti che offrono il servizio. Dagli altri non accade nulla e non appare alcun messaggio.",
+  ["Where the repair money comes from. The guild bank is used only if your withdraw limit covers the whole bill."] =
+    "Da dove proviene il denaro per le riparazioni. La banca di gilda viene usata solo se il limite di prelievo copre l'intero costo.",
+  ["Gear at or above this item level is sold."] =
+    "Vendi l'equipaggiamento con questo livello oggetto o superiore.",
+  ["Gear under this item level is sold. Zero keeps every piece."] =
+    "Vendi l'equipaggiamento sotto questo livello oggetto. Zero conserva ogni pezzo.",
+  ["Sell Legion artifact relics. Item level ignored."] =
+    "Vendi le reliquie degli artefatti di Legion. Il livello oggetto viene ignorato.",
+  ["Sell potions, flasks, food and bandages older than the previous expansion."] =
+    "Vendi pozioni, fiasche, cibo e bende precedenti all'ultima espansione.",
+  ["Sell raid armor tokens, item level ignored. Only from the expansions ticked below."] =
+    "Vendi i gettoni per armature da incursione, ignorando il livello oggetto. Solo dalle espansioni selezionate qui sotto.",
+  ["Sell the list above at every merchant, without pressing the coin."] =
+    "Vendi l'elenco qui sopra da ogni mercante, senza premere la moneta.",
+  ["Sell tier tokens from this expansion."] = "Vendi i gettoni di tier di questa espansione.",
+  ["Which expansions tokens may be sold from. The four newest are kept by default. Expansions that never had tokens are not listed."] =
+    "Scegli da quali espansioni vendere i gettoni. Le quattro più recenti vengono conservate per impostazione predefinita. Le espansioni senza gettoni non sono elencate.",
+  ["Skip gear that is not bound yet, so it can go to the auction house."] =
+    "Ignora l'equipaggiamento non ancora vincolato, così può essere venduto alla Casa d'Aste.",
+  ["Skip warbound gear, since an alt can still use it."] =
+    "Ignora l'equipaggiamento vincolato alla Brigata, perché può ancora servire a un altro personaggio.",
+  ["Skip any piece with a gem socketed or an enchant applied."] =
+    "Ignora gli oggetti con una gemma incastonata o un incantamento applicato.",
+  ["Commas (5,000,000)"] = "Virgole (5,000,000)",
+  ["Dots (5.000.000)"] = "Punti (5.000.000)",
+  ["Spaces (5 000 000)"] = "Spazi (5 000 000)",
+  ["Short (5M, 284.4K)"] = "Breve (5 M, 284,4 K)",
+  ["%d of %d"] = "%d di %d",
+  ["1 item"] = "1 oggetto",
+  ["%d items"] = "%d oggetti",
+  ["%d and %d wide"] = "%d e %d per riga",
+  ["Slots %d/%d"] = "Scomparti %d/%d",
+  ["Clean up bags"] = "Riordina le borse",
+  ["Clean up"] = "Riordina",
+  ["Settings"] = "Impostazioni",
+  ["Bags"] = "Borse",
+  ["Bank / Warband"] = "Banca / Brigata",
+  ["Sell now"] = "Vendi ora",
+  ["Bags of another character"] = "Borse di un altro personaggio",
+  ["REAGENTS"] = "REAGENTI",
+  ["BAGS"] = "BORSE",
+  ["WARBAND BANK"] = "BANCA DELLA BRIGATA",
+  ["Warband"] = "Brigata",
+  ["Everything"] = "Tutto",
+  ["Tab %d"] = "Scheda %d",
+  ["Save"] = "Salva",
+  ["Cancel"] = "Annulla",
+  ["Tab name"] = "Nome scheda",
+  ["Item link"] = "Collegamento oggetto",
+  ["Right-click to edit"] = "Clic destro per modificare",
+  ["Buy tab"] = "Acquista scheda",
+  ["Buy tab · %s"] = "Acquista scheda · %s",
+  ["Cost: %s"] = "Costo: %s",
+  ["Hidden"] = "Nascosti",
+  ["Visit a banker to record this bank"] = "Visita un banchiere per registrare questa banca",
+  ["Browse another character's bank"] = "Consulta la banca di un altro personaggio",
+  ["Put your gold into the Warband bank"] = "Deposita il tuo oro nella banca della Brigata",
+  ["Take gold out of the Warband bank"] = "Preleva oro dalla banca della Brigata",
+  ["Deposit"] = "Deposita",
+  ["Withdraw"] = "Preleva",
+  ["Buy another bank tab"] = "Acquista un'altra scheda della banca",
+  ["Buy another Warband bank tab"] = "Acquista un'altra scheda della banca della Brigata",
+  ["Show characters you hid"] = "Mostra i personaggi nascosti",
+  ["Close"] = "Chiudi",
+  ["Left-click: show this character"] = "Clic sinistro: mostra questo personaggio",
+  ["Right-click: hide"] = "Clic destro: nascondi",
+  ["Right-click: unhide"] = "Clic destro: mostra di nuovo",
+  ["Warpee"] = "Warpee",
+  ["Click opens the settings"] = "Clic per aprire le impostazioni",
+  ["Drag to move around the minimap"] = "Trascina per spostare l'icona sulla minimappa",
+  ["Nothing to sell"] = "Niente da vendere",
+  ["Selling now"] = "Vendita in corso",
+  ["Talk to a merchant first"] = "Parla prima con un mercante",
+  ["%d items for %s"] = "%d oggetti per %s",
+  ["%d items could not be sold and stayed in the bags"] =
+    "%d oggetti non sono stati venduti e sono rimasti nelle borse",
+  ["repaired for %s from %s"] = "riparato per %s usando %s",
+  ["guild funds"] = "fondi di gilda",
+  ["your gold"] = "il tuo oro",
+  ["Inventory"] = "Inventario",
+  ["Warband bank"] = "Banca della Brigata",
+  ["Total"] = "Totale",
+  ["%d  (%d bags, %d bank)"] = "%d  (%d borse, %d banca)",
+  ["%d  (bank)"] = "%d  (banca)",
+  ["%d  (bags)"] = "%d  (borse)",
+  ["Favorites"] = "Preferiti",
+  ["Recent"] = "Recenti",
+  ["Recent items"] = "Oggetti recenti",
+  ["A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
+    "Una riga sopra i preferiti con ciò che è entrato nelle borse durante questa sessione, esclusi gli oggetti grigi. Ogni arrivo occupa la prima cella libera, il più vecchio esce quando la riga è piena e la riga si svuota alla disconnessione o al ricaricamento.",
+  ["POCKET"] = "TASCA",
+  ["Pocket"] = "Tasca",
+  ["Pocket window"] = "Finestra della tasca",
+  ["Pocket rows"] = "Righe della tasca",
+  ["Pocket slot size"] = "Dimensione celle della tasca",
+  ["Open with bags"] = "Apri con le borse",
+  ["The pocket opens together with the bags. A window that opens the bags on its own, the auction house or the mail, pushes the pocket aside until you open it yourself."] =
+    "La tasca si apre insieme alle borse. Una finestra che apre automaticamente le borse, la Casa d'Aste o la posta, nasconde la tasca finché non la apri tu.",
+  ["Pocket key"] = "Tasto della tasca",
+  ["Not bound"] = "Non assegnato",
+  ["Press a key..."] = "Premi un tasto...",
+  ["How many rows of cells the pocket window holds."] =
+    "Quante righe di celle contiene la finestra della tasca.",
+  ["How wide the pocket window grows."] =
+    "Determina la larghezza della finestra della tasca.",
+  ["Size of one cell in the pocket. It follows the bag slot size until you move this."] =
+    "Dimensione di una cella nella tasca. Segue quella degli scomparti delle borse finché non modifichi questo valore.",
+  ["The key that opens and closes the pocket. Click, then press a key, a mouse button or the wheel, with Shift, Ctrl or Alt if you like; a right click clears it, Escape cancels."] =
+    "Il tasto che apre e chiude la tasca. Fai clic, quindi premi un tasto, un pulsante del mouse o la rotella, anche con Maiusc, Ctrl o Alt; il clic destro cancella, Esc annulla.",
+  ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] =
+    "L'equipaggiamento si fissa trascinandolo o incollandone il collegamento; un semplice ID non distingue una copia dall'altra.",
+  ["Add ID"] = "Aggiungi ID",
+  ["Popular"] = "Popolari",
+  ["Already in the pocket"] = "Già nella tasca",
+  ["Clear"] = "Svuota",
+  ["Equipped"] = "Equipaggiato",
+  ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =
+    "Una piccola finestra di celle-segnalibro accanto alle borse, aperta dal pulsante a griglia nell'intestazione. Trascina un oggetto in una cella e la cella lo conserva ovunque si sposti nelle borse. Trascina una cella sull'altra per scambiarle; Ctrl + clic sinistro ne svuota una.",
+  ["Favorite slots"] = "Scomparti preferiti",
+  ["How many slots"] = "Numero di scomparti",
+  ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
+    "Una riga di scomparti sopra la griglia, sempre visibile. Trascina un oggetto su uno scomparto per tenerlo a portata di clic; Ctrl + clic sinistro lo svuota.",
+  ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =
+    "Mai più larga della griglia. Zero mantiene la riga larga quanto la griglia.",
+  ["As the grid"] = "Come la griglia",
+  ["Drag an item here to keep it one click away"] =
+    "Trascina qui un oggetto per tenerlo a portata di clic",
+  ["Ctrl + left click clears the slot"] = "Ctrl + clic sinistro svuota lo scomparto",
+  ["Drag moves it to another slot"] = "Trascina per spostarlo in un altro scomparto",
+  ["No gold recorded yet"] = "Nessun oro registrato",
+  ["Delete mode"] = "Modalità eliminazione",
+  ["Alt-click an item in your bags while this tab is open."] =
+    "Alt + clic su un oggetto nelle borse mentre questa scheda è aperta.",
+}
+
+ns.AddLocale("itIT", "Italian", {
+  coin = { g = "o", s = "a", c = "r" },
+  short = { dec = ",", units = { { 1e9, " mld" }, { 1e6, " mln" }, { 1e3, " mila" } } },
+  words = WORDS,
+  strings = STRINGS,
+})

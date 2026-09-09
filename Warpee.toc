@@ -16,6 +16,8 @@ Locale.lua
 Locales\deDE.lua
 Locales\esES.lua
 Locales\frFR.lua
+Locales\itIT.lua
+Locales\ptBR.lua
 Locales\ruRU.lua
 Theme.lua
 Widgets.lua
