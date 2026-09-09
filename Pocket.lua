@@ -14,15 +14,18 @@ local PICK_MAX, PICK_COLS = 64, 8
 local PICK_SIZE, PICK_GAP, PICK_PAD = 36, 4, 10
 
 local function pickTier(id)
-  if not (id and C_TradeSkillUI and C_TradeSkillUI.GetItemCraftedQualityByItemInfo) then return nil end
-  local ok, q = pcall(C_TradeSkillUI.GetItemCraftedQualityByItemInfo, id)
-  q = (ok and q) or nil
-  if not q then
-    local rg = C_TradeSkillUI.GetItemReagentQualityByItemInfo
-    if rg then ok, q = pcall(rg, id); q = (ok and q) or nil end
+  if not (id and C_TradeSkillUI) then return nil end
+  local info
+  if C_TradeSkillUI.GetItemCraftedQualityInfo then
+    local ok, r = pcall(C_TradeSkillUI.GetItemCraftedQualityInfo, id)
+    info = (ok and r) or nil
   end
-  if type(q) ~= "number" or q < 1 then return nil end
-  local atlas = ("Professions-Icon-Quality-Tier%d-Inv"):format(q)
+  if not (info and (info.iconInventory or info.iconSmall)) then
+    local rg = C_TradeSkillUI.GetItemReagentQualityInfo
+    if rg then local ok, r = pcall(rg, id); info = (ok and r) or nil end
+  end
+  local atlas = info and (info.iconInventory or info.iconSmall) or nil
+  if type(atlas) ~= "string" then return nil end
   if C_Texture and C_Texture.GetAtlasInfo and not C_Texture.GetAtlasInfo(atlas) then return nil end
   return atlas
 end
