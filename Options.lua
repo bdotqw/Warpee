@@ -1738,6 +1738,7 @@ local tradeGet, tradeSet = autoField("trade")
 local vendGet, vendSet = autoField("vendor")
 
 SECTION_CLOSED.autoopen = true
+SECTION_CLOSED.interface = true
 
 local GENERAL_PAGE = {
   { type = "header", name = "Look" },
@@ -1755,25 +1756,9 @@ local GENERAL_PAGE = {
     set = function(v) WarpeeDB.fontWish = nil; fontSet(v); Options:ApplyFont() end,
     keys = fontKeys, label = function(k) return k end,
     desc = "Used for every label Warpee draws. Other addons can add to this list." },
-  { type = "header", name = "Language" },
-  { type = "select", name = "Language", get = localeGet, set = localeSet,
-    keys = localeKeys, label = localeLabel,
-    desc = "Language for the addon's own text. Item names always come from the game." },
-  { type = "header", name = "Windows" },
-  { type = "toggle", name = "Lock windows", col = 1, get = lockGet, set = lockSet,
-    desc = "Freeze every window in place. Unlocked, the bags and the bank show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)." },
-  { type = "toggle", name = "Hide X/Y fields", col = 2, get = hideFieldsGet, set = hideFieldsSet,
-    disabled = function() return lockGet() end,
-    desc = "The windows stay movable by dragging, but the X/Y fields are not drawn." },
-  { type = "toggle", name = "Capacity bar", col = 1, get = gaugeGet, set = gaugeSet,
-    desc = "Fill bar in the bags header showing how full they are." },
-  { type = "toggle", name = "Hide minimap icon", col = 2, get = mmHideGet, set = mmHideSet,
-    desc = "Takes the Warpee button off the minimap." },
-  { type = "header", name = "Search" },
-  { type = "toggle", name = "Clear on close", col = 1, get = sClearGet, set = sClearSet,
-    desc = "Empty the search box when the window closes, so it opens unfiltered next time." },
-  { type = "toggle", name = "Bags and bank together", col = 2, get = sLinkGet, set = sLinkSet,
-    desc = "While both windows are open, typing in either box searches both at once." },
+  { type = "range", name = "Border thickness", min = 1, max = 6, step = 1,
+    get = edgeGet, set = edgeSet,
+    desc = "Thickness of the slot border." },
   { type = "header", name = "Money" },
   { type = "select", name = "Gold format", get = goldFmtGet, set = goldFmtSet,
     keys = function() return GOLD_FORMATS end, label = function(k) return GOLD_FORMAT_LABELS[k] or k end,
@@ -1782,6 +1767,23 @@ local GENERAL_PAGE = {
     desc = "Show gold only, hide silver and copper." },
   { type = "toggle", name = "Coin letters", col = 2, get = lettersGet, set = lettersSet,
     desc = "On = g/s/c letters. Off = coin icons." },
+  { type = "header", name = "Interface", key = "interface" },
+  { type = "select", name = "Language", section = "interface", get = localeGet, set = localeSet,
+    keys = localeKeys, label = localeLabel,
+    desc = "Language for the addon's own text. Item names always come from the game." },
+  { type = "toggle", name = "Lock windows", col = 1, section = "interface", get = lockGet, set = lockSet,
+    desc = "Freeze every window in place. Unlocked, the bags and the bank show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)." },
+  { type = "toggle", name = "Hide X/Y fields", col = 2, section = "interface", get = hideFieldsGet, set = hideFieldsSet,
+    disabled = function() return lockGet() end,
+    desc = "The windows stay movable by dragging, but the X/Y fields are not drawn." },
+  { type = "toggle", name = "Capacity bar", col = 1, section = "interface", get = gaugeGet, set = gaugeSet,
+    desc = "Fill bar in the bags header showing how full they are." },
+  { type = "toggle", name = "Hide minimap icon", col = 2, section = "interface", get = mmHideGet, set = mmHideSet,
+    desc = "Takes the Warpee button off the minimap." },
+  { type = "toggle", name = "Clear on close", col = 1, section = "interface", get = sClearGet, set = sClearSet,
+    desc = "Empty the search box when the window closes, so it opens unfiltered next time." },
+  { type = "toggle", name = "Bags and bank together", col = 2, section = "interface", get = sLinkGet, set = sLinkSet,
+    desc = "While both windows are open, typing in either box searches both at once." },
   { type = "header", name = "Open bags with", key = "autoopen",
     state = function()
       return onOf({ aucGet, bankGet, gbGet, mailGet, profGet, tradeGet, vendGet })
@@ -1813,7 +1815,7 @@ local POCKET_PAGE = {
     get = fav.pkRowsGet, set = fav.pkRowsSet,
     disabled = function() return not fav.pkGet() end,
     desc = "How many rows of cells the pocket window holds." },
-  { type = "range", name = "Slots per row", min = 4, max = 8, step = 1, half = "right",
+  { type = "range", name = "Pocket slots per row", min = 4, max = 8, step = 1, half = "right",
     section = "pocketsize",
     get = fav.pkColsGet, set = fav.pkColsSet,
     disabled = function() return not fav.pkGet() end,
@@ -1850,9 +1852,6 @@ local ITEMS_PAGE = {
     desc = "Tint the item level number with the item's quality color." },
   { type = "toggle", name = "Unwearable border", col = 2, get = unusableGet, set = unusableSet,
     desc = "Red border around gear your character cannot wear." },
-  { type = "range", name = "Border thickness", min = 1, max = 6, step = 1,
-    get = edgeGet, set = edgeSet,
-    desc = "Thickness of the slot border." },
   { type = "header", name = "Badges", key = "badges",
     state = function()
       return ("%s, %d/%d"):format(T(bg.label(bg.sel)), bg.shown(), #ns.BADGES)
@@ -2079,6 +2078,9 @@ local VENDOR_PAGE = {
     desc = "Sell potions, flasks, food and bandages older than the previous expansion." },
   { type = "toggle", name = "Tier tokens", col = 1, get = V.tokenGet, set = V.tokenSet,
     desc = "Sell raid armor tokens, item level ignored. Only from the expansions ticked below." },
+  { type = "toggle", name = "Sell all of this automatically",
+    get = V.autoGet, set = V.autoSet,
+    desc = "Sell the list above at every merchant, without pressing the coin." },
   { type = "header", name = "Token expansions", key = "tokenexp",
     state = function()
       if V.tokensOff() then return L["Off"] end
@@ -2097,9 +2099,6 @@ local VENDOR_PAGE = {
     end },
   { type = "description", section = "tokenexp",
     name = "Which expansions tokens may be sold from. The four newest are kept by default. Expansions that never had tokens are not listed." },
-  { type = "toggle", name = "Sell all of this automatically",
-    get = V.autoGet, set = V.autoSet,
-    desc = "Sell the list above at every merchant, without pressing the coin." },
   { type = "header", name = "Never sell",
     state = function() return onOf({ V.boeGet, V.wbGet, V.gemGet }) end },
   { type = "toggle", name = "Keep BoE", col = 1, get = V.boeGet, set = V.boeSet,
@@ -2115,7 +2114,7 @@ do
               or (GetExpansionLevel and GetExpansionLevel()) or 0
   local at
   for i, row in ipairs(VENDOR_PAGE) do
-    if row.type == "toggle" and row.name == "Sell all of this automatically" then at = i; break end
+    if row.type == "description" and row.section == "tokenexp" then at = i + 1; break end
   end
   local rows = {}
   local none = ns.TOKEN_EXP_NONE or {}
