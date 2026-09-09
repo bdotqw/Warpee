@@ -196,7 +196,10 @@ function Picker:Paint(keepScroll)
     self.filter:SetFont(path, 13, "")
     if self.filter.Hint then self.filter.Hint:SetFont(path, 13, "") end
   end
-  local top = PAD - ((Theme.skin == "blizzardflat") and 3 or 0)
+  local skin = Theme.skin
+  local top, wide, drop = PAD, 0, 0
+  if skin == "blizzardflat" then top = PAD - 3
+  elseif skin == "blizzard" then top = PAD + 12; wide = 16; drop = 12 end
   if self.hideBtn then
     self.hideBtn:ClearAllPoints()
     self.hideBtn:SetPoint("TOPLEFT", PAD, -top)
@@ -211,9 +214,12 @@ function Picker:Paint(keepScroll)
   end
   self:UpdateHiddenBorder()
 
+  self.sf:ClearAllPoints()
+  self.sf:SetPoint("TOPLEFT", PAD, -(PAD + HEAD_H + drop))
+  self.sf:SetPoint("BOTTOMRIGHT", -PAD, PAD)
   local bodyH = math.max(ROW_H, math.min(y, MAX_ROWS * ROW_H))
-  ns.SnapSize(self.frame, widest + PAD * 2, PAD * 2 + HEAD_H + bodyH)
-  self.child:SetSize(widest, math.max(1, y))
+  ns.SnapSize(self.frame, widest + PAD * 2 + wide, PAD * 2 + HEAD_H + bodyH + drop)
+  self.child:SetSize(widest + wide, math.max(1, y))
   local span = math.max(0, y - bodyH)
   self.sf:SetVerticalScroll(math.min(span, math.max(0, scroll)))
 end
