@@ -796,7 +796,7 @@ local function buildArt(frame, key, def)
   if not ok or not art then
     ok, art = pcall(CreateFrame, "Frame", nil, frame, ART_FALLBACK)
   end
-  if not ok or not art then cache[key] = false; return false end
+  if not ok or not art then return false end
   art:SetAllPoints(frame)
   art:EnableMouse(false)
   sinkArt(frame, art)
@@ -853,13 +853,13 @@ end
 function Theme:RefreshArt(frame)
   local def = self:SkinDef()
   if def then
-    local art = buildArt(frame, self.skin, def)
     local cache = frame.wpeArts
     if cache then
       for key, other in pairs(cache) do
         if other and key ~= self.skin then other:Hide() end
       end
     end
+    local art = buildArt(frame, self.skin, def)
     if art then
       sinkArt(frame, art)
       local a = (self.colors.bg and self.colors.bg[4]) or 1
@@ -996,6 +996,7 @@ function Theme:Panel(frame, bgKey, strokeKey)
       local def = Theme:SkinDef()
       local host = ART_FRAMES[x] or (x.wpeGuest and def and def.guestArt)
       local art = host and Theme:RefreshArt(x)
+      if not art and x.wpeArt then x.wpeArt:Hide(); x.wpeArt = nil end
       if art then
         local tb = art.TitleBg
         if tb and tb.Hide then tb:Hide() end
