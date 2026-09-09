@@ -115,13 +115,10 @@ local function themeSet(v)
   WarpeeDB.theme = v
   Theme:Restyle(v)
 end
-local THEME_KEYS = { "#light" }
+local THEME_KEYS = {}
 for i, k in ipairs(Theme.THEME_ORDER) do if Theme.LIGHT[k] then THEME_KEYS[#THEME_KEYS + 1] = k end end
-THEME_KEYS[#THEME_KEYS + 1] = "#dark"
 for i, k in ipairs(Theme.THEME_ORDER) do if not Theme.LIGHT[k] then THEME_KEYS[#THEME_KEYS + 1] = k end end
 local function themeLabel(k)
-  if k == "#light" then return "Light" end
-  if k == "#dark" then return "Dark" end
   return THEME_LABELS[k] or k
 end
 
