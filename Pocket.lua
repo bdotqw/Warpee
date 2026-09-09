@@ -743,7 +743,7 @@ function Pocket:PickPaint()
     b.wpePinned = pinned
     b:SetBackdropColor(Theme:C("slot"))
     b:SetBackdropBorderColor(Theme:C(pinned and "accent" or "emptyLine"))
-    b.icon:SetDesaturated(pinned)
+    b.icon:SetDesaturated(false)
     b.icon:SetAlpha(pinned and 0.55 or 1)
     local atlas = ns.PinTier(id)
     if atlas then b.tier:SetAtlas(atlas, true); b.tier:Show() else b.tier:Hide() end
