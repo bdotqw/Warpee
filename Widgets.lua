@@ -1,8 +1,6 @@
 local addonName, ns = ...
 local Theme = ns.Theme
 
-local CLASS_RING = "Interface\\TargetingFrame\\UI-Classes-Circles"
-
 local TRI = {
   up    = { { 1, 1, 0 }, { 3, -1, 0 } },
   down  = { { 2, 1, 0 }, { 4, -1, 0 } },
@@ -81,11 +79,6 @@ function ns.CreateCharTag(parent, height, dir)
   local caret = ns.ArrowGlyph(b, side and dir or "down", side and 11 or 8)
   b.caret = caret
 
-  local ic = b:CreateTexture(nil, "ARTWORK")
-  ic:SetSize(14, 14)
-  ic:SetTexture(CLASS_RING)
-  b.icon = ic
-
   local fs = Theme:Label(b, 12, "dim")
   fs:SetJustifyH("LEFT")
   Theme:Shadow(fs)
@@ -93,12 +86,10 @@ function ns.CreateCharTag(parent, height, dir)
 
   if dir == "left" then
     caret:SetPoint("LEFT", PADX, 0)
-    ic:SetPoint("LEFT", caret, "RIGHT", GAP, 0)
-    fs:SetPoint("LEFT", ic, "RIGHT", GAP, 0)
+    fs:SetPoint("LEFT", caret, "RIGHT", GAP, 0)
     fs:SetPoint("RIGHT", -PADX, 0)
   else
-    ic:SetPoint("LEFT", PADX, 0)
-    fs:SetPoint("LEFT", ic, "RIGHT", GAP, 0)
+    fs:SetPoint("LEFT", PADX, 0)
     caret:SetPoint("RIGHT", -PADX, 0)
     fs:SetPoint("RIGHT", caret, "LEFT", -GAP, 0)
   end
@@ -120,18 +111,12 @@ end
 
 function ns.PaintCharTag(b, name, class)
   if not b then return end
-  local coords = class and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[class]
-  if coords then
-    b.icon:SetTexCoord(coords[1], coords[2], coords[3], coords[4]); b.icon:Show()
-  else
-    b.icon:Hide()
-  end
   b.Text:SetText(name or "?")
   local col = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
   if col then b.Text:SetTextColor(col.r, col.g, col.b) else b.Text:SetTextColor(Theme:C("text")) end
   local caret = math.ceil((b.caret and b.caret:GetWidth()) or 8)
   if caret <= 0 then caret = 8 end
-  local extra = 8 + 14 + 6 + 6 + 8 + caret + 2
+  local extra = 8 + 6 + 8 + caret + 2
   b:SetWidth(math.max(78, math.ceil(b.Text:GetStringWidth()) + extra))
 end
 

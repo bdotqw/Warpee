@@ -1,7 +1,6 @@
 local addonName, ns = ...
 local Theme = ns.Theme
 
-local CLASS_RING = "Interface\\TargetingFrame\\UI-Classes-Circles"
 local ROW_H, HDR_H, HEAD_H, PAD = 27, 22, 32, 8
 local MAX_ROWS = 18
 local MIN_W = 265
@@ -9,10 +8,8 @@ local MIN_W = 265
 local Picker = { rows = {} }
 ns.CharPicker = Picker
 
-local function classLook(class)
-  local coords = class and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[class]
-  local col = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
-  return coords, col
+local function classColor(class)
+  return class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class] or nil
 end
 
 local function fontPath()
@@ -91,11 +88,6 @@ function Picker:Row(i)
   dot:SetPoint("LEFT", 1, 0)
   dot:Hide()
   r.dot = dot
-  local ic = r:CreateTexture(nil, "ARTWORK")
-  ic:SetSize(20, 20)
-  ic:SetPoint("LEFT", 8, 0)
-  ic:SetTexture(CLASS_RING)
-  r.icon = ic
   local fs = Theme:Label(r, 14, "text")
   fs:SetJustifyH("LEFT")
   Theme:Shadow(fs, true)
@@ -139,7 +131,7 @@ function Picker:RealmRow(n, y, realm, path)
   h:SetPoint("TOPLEFT", 0, -y)
   h:SetPoint("TOPRIGHT", 0, -y)
   h:SetAlpha(1)
-  h.icon:Hide(); h.dot:Hide(); h.bg:Hide(); h.line:Show()
+  h.dot:Hide(); h.bg:Hide(); h.line:Show()
   h.Text:ClearAllPoints()
   h.Text:SetPoint("LEFT", 2, 0)
   h.Text:SetPoint("RIGHT", -6, 0)
@@ -158,15 +150,10 @@ function Picker:CharRow(n, y, e, path)
   r:SetPoint("TOPRIGHT", 0, -y)
   r.line:Hide()
   r.Text:ClearAllPoints()
-  r.Text:SetPoint("LEFT", r.icon, "RIGHT", 8, 0)
+  r.Text:SetPoint("LEFT", 8, 0)
   r.Text:SetPoint("RIGHT", -8, 0)
   r.Text:SetFont(path, 14, "")
-  local coords, col = classLook(e.class)
-  if coords then
-    r.icon:SetTexCoord(coords[1], coords[2], coords[3], coords[4]); r.icon:Show()
-  else
-    r.icon:Hide()
-  end
+  local col = classColor(e.class)
   r.Text:SetText(e.name)
   if col then r.Text:SetTextColor(col.r, col.g, col.b)
   else r.Text:SetTextColor(Theme:C("overlay")) end
@@ -174,7 +161,7 @@ function Picker:CharRow(n, y, e, path)
   r.dot:SetShown(e.key == self.currentKey)
   r.bg:Hide()
   r:Show()
-  return math.ceil(r.Text:GetStringWidth()) + 54
+  return math.ceil(r.Text:GetStringWidth()) + 24
 end
 
 function Picker:Paint(keepScroll)
