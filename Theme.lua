@@ -850,18 +850,28 @@ local function buildArt(frame, key, def)
   return art
 end
 
+local function dropForeignArt(frame, skin)
+  local cache = frame.wpeArts
+  if not cache then return end
+  local stale = {}
+  for key, other in pairs(cache) do
+    if other and key ~= skin then stale[#stale + 1] = key end
+  end
+  for _, key in ipairs(stale) do
+    local other = cache[key]
+    cache[key] = nil
+    if other then
+      if other.wpeEdge and other.wpeEdge.Hide then pcall(other.wpeEdge.Hide, other.wpeEdge) end
+      pcall(other.Hide, other)
+      pcall(other.SetParent, other, nil)
+    end
+  end
+end
+
 function Theme:RefreshArt(frame)
   local def = self:SkinDef()
   if def then
-    local cache = frame.wpeArts
-    if cache then
-      for key, other in pairs(cache) do
-        if other and key ~= self.skin then
-          other:Hide()
-          if other.wpeEdge and other.wpeEdge.Hide then other.wpeEdge:Hide() end
-        end
-      end
-    end
+    dropForeignArt(frame, self.skin)
     local art = buildArt(frame, self.skin, def)
     if art then
       sinkArt(frame, art)
@@ -895,22 +905,13 @@ function Theme:RefreshArt(frame)
       end
       if not def.body and art.Center then art.Center:SetAlpha(a) end
       tintEdge(art, def)
-      if art.wpeEdge and art.wpeEdge.Show then art.wpeEdge:Show() end
       art:Show()
     end
     frame.wpeArt = art
     if not frame.wpeGuest and (frame.wpeBandH or def.band) then self:HeaderBand(frame) end
     return art
   end
-  local cache = frame.wpeArts
-  if cache then
-    for _, other in pairs(cache) do
-      if other then
-        other:Hide()
-        if other.wpeEdge and other.wpeEdge.Hide then other.wpeEdge:Hide() end
-      end
-    end
-  end
+  dropForeignArt(frame, false)
   frame.wpeArt = nil
   if frame.wpeBand then frame.wpeBand:Hide() end
   if frame.wpeBandLine then frame.wpeBandLine:Hide() end
