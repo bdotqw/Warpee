@@ -868,9 +868,40 @@ function View:BuildTabEdit()
   name:SetScript("OnEnterPressed", function(s) s:ClearFocus(); self:SaveTabEdit() end)
   self.tabEditName = name
 
+  local gridTop = 78
+  local GRID_H = 5 * EDIT_SIZE + 4 * EDIT_GAP
+  local icons = {}
+  if IconDataProviderMixin and IconDataProviderExtraType then
+    local ok, prov = pcall(CreateAndInitFromMixin, IconDataProviderMixin, IconDataProviderExtraType.None)
+    if ok and prov and prov.GetNumIcons then
+      local okN, n = pcall(prov.GetNumIcons, prov)
+      if okN and n then
+        for i = 1, math.min(n, 480) do
+          local okI, p = pcall(prov.GetIconByIndex, prov, i)
+          if okI and p then icons[#icons + 1] = p end
+        end
+      end
+      if prov.Release then pcall(prov.Release, prov) end
+    end
+  end
+  if #icons == 0 then for i = 1, #TAB_ICONS do icons[i] = TAB_ICONS[i] end end
+
+  local grid = CreateFrame("ScrollFrame", nil, f)
+  ns.SnapBox(grid, EDIT_COLS * (EDIT_SIZE + EDIT_GAP) - EDIT_GAP, GRID_H)
+  ns.SnapPoint(grid, "TOPLEFT", f, "TOPLEFT", EDIT_PAD, -gridTop)
+  grid:SetClampedToScreen(true)
+  grid:EnableMouseWheel(true)
+  local child = CreateFrame("Frame", nil, grid)
+  child:SetSize(EDIT_COLS * (EDIT_SIZE + EDIT_GAP) - EDIT_GAP, GRID_H)
+  grid:SetScrollChild(child)
+  self.tabEditGrid = grid
+
+  local rows = math.ceil(#icons / EDIT_COLS)
+  child:SetHeight(rows * (EDIT_SIZE + EDIT_GAP))
+
   self.tabEditBtns = {}
-  for i = 1, #TAB_ICONS do
-    local b = CreateFrame("Button", nil, f, "BackdropTemplate")
+  for i, p in ipairs(icons) do
+    local b = CreateFrame("Button", nil, child, "BackdropTemplate")
     ns.SnapBox(b, EDIT_SIZE, EDIT_SIZE)
     ns.PixelBackdrop(b)
     b:SetBackdropColor(Theme:C("slot"))
@@ -886,9 +917,9 @@ function View:BuildTabEdit()
     ic:SetPoint("TOPLEFT", 2, -2)
     ic:SetPoint("BOTTOMRIGHT", -2, 2)
     ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    ic:SetTexture(TAB_ICONS[i])
-    b.wpeIconPath = TAB_ICONS[i]
-    b.wpeIconID = (GetFileIDFromPath and GetFileIDFromPath(TAB_ICONS[i])) or TAB_ICONS[i]
+    ic:SetTexture(p)
+    b.wpeIconPath = p
+    b.wpeIconID = (GetFileIDFromPath and GetFileIDFromPath(p)) or p
     b:RegisterForClicks("LeftButtonUp")
     b:SetScript("OnEnter", function(s)
       s:SetBackdropColor(Theme:C("panelHi"))
@@ -902,9 +933,37 @@ function View:BuildTabEdit()
       if self.tabEdit then self.tabEdit.icon = s.wpeIconID end
       self:PaintTabEdit()
     end)
-    b:Hide()
+    local col, row = (i - 1) % EDIT_COLS, math.floor((i - 1) / EDIT_COLS)
+    ns.SnapPoint(b, "TOPLEFT", child, "TOPLEFT",
+      col * (EDIT_SIZE + EDIT_GAP), -row * (EDIT_SIZE + EDIT_GAP))
     self.tabEditBtns[i] = b
   end
+
+  local bar = CreateFrame("Frame", nil, f)
+  ns.PixelBackdrop(bar)
+  bar:SetBackdropColor(Theme:C("strokeSoft"))
+  ns.SnapBox(bar, 4, GRID_H)
+  ns.SnapPoint(bar, "LEFT", grid, "RIGHT", 5, 0)
+  local thumb = CreateFrame("Frame", nil, bar)
+  ns.PixelBackdrop(thumb)
+  thumb:SetBackdropColor(Theme:C("accentInk"))
+  local function paintBar()
+    local max = child:GetHeight() - GRID_H
+    if max <= 0 then bar:Hide(); return end
+    bar:Show()
+    local th = math.max(18, GRID_H * GRID_H / child:GetHeight())
+    ns.SnapSize(thumb, 4, th)
+    thumb:ClearAllPoints()
+    ns.SnapPoint(thumb, "TOPLEFT", bar, "TOPLEFT", 0, -((GRID_H - th) * grid:GetVerticalScroll() / max))
+  end
+  grid:SetScript("OnVerticalScroll", paintBar)
+  grid:SetScript("OnMouseWheel", function(s, delta)
+    local max = child:GetHeight() - GRID_H
+    if max <= 0 then return end
+    local v = s:GetVerticalScroll() - delta * 34
+    s:SetVerticalScroll(math.max(0, math.min(max, v)))
+  end)
+  paintBar()
 
   local link = ns.CreateSearchBox(f, nil, "Icon ID / item link")
   link.wpeLinkID = true
@@ -936,27 +995,18 @@ function View:BuildTabEdit()
   cancel:SetScript("OnClick", function() f:Hide() end)
   self.tabEditCancel = cancel
 
-  local gridTop = 78
-  for i, b in ipairs(self.tabEditBtns) do
-    local col, row = (i - 1) % EDIT_COLS, math.floor((i - 1) / EDIT_COLS)
-    b:ClearAllPoints()
-    ns.SnapPoint(b, "TOPLEFT", f, "TOPLEFT",
-      EDIT_PAD + col * (EDIT_SIZE + EDIT_GAP), -(gridTop + row * (EDIT_SIZE + EDIT_GAP)))
-    b:Show()
-  end
-  local rows = math.ceil(#self.tabEditBtns / EDIT_COLS)
-  local capTop = gridTop + rows * EDIT_SIZE + (rows - 1) * EDIT_GAP + 8
+  local linkTop = gridTop + GRID_H + 8
   self.tabEditLinkCap:ClearAllPoints()
-  ns.SnapPoint(self.tabEditLinkCap, "TOPLEFT", f, "TOPLEFT", EDIT_PAD, -capTop)
-  local linkTop = capTop + 14
+  ns.SnapPoint(self.tabEditLinkCap, "TOPLEFT", f, "TOPLEFT", EDIT_PAD, -linkTop)
+  local linkTop2 = linkTop + 14
   link:ClearAllPoints()
-  ns.SnapPoint(link, "TOPLEFT", f, "TOPLEFT", EDIT_PAD, -linkTop)
-  ns.SnapPoint(link, "TOPRIGHT", f, "TOPRIGHT", -EDIT_PAD, -linkTop)
+  ns.SnapPoint(link, "TOPLEFT", f, "TOPLEFT", EDIT_PAD, -linkTop2)
+  ns.SnapPoint(link, "TOPRIGHT", f, "TOPRIGHT", -EDIT_PAD, -linkTop2)
   cancel:ClearAllPoints()
   ns.SnapPoint(cancel, "BOTTOMLEFT", f, "BOTTOMLEFT", EDIT_PAD, EDIT_PAD)
   save:ClearAllPoints()
   ns.SnapPoint(save, "BOTTOMRIGHT", f, "BOTTOMRIGHT", -EDIT_PAD, EDIT_PAD)
-  ns.SnapSize(f, EDIT_W, linkTop + 22 + 8 + 22 + EDIT_PAD)
+  ns.SnapSize(f, EDIT_W, linkTop2 + 22 + 8 + 22 + EDIT_PAD)
   return f
 end
 
