@@ -13,23 +13,6 @@ local MAX_COLS, MAX_ROWS = 8, 6
 local PICK_MAX, PICK_COLS = 64, 8
 local PICK_SIZE, PICK_GAP, PICK_PAD = 36, 8, 12
 
-local function pickTier(id)
-  if not (id and C_TradeSkillUI) then return nil end
-  local info
-  if C_TradeSkillUI.GetItemCraftedQualityInfo then
-    local ok, r = pcall(C_TradeSkillUI.GetItemCraftedQualityInfo, id)
-    info = (ok and r) or nil
-  end
-  if not (info and (info.iconInventory or info.iconSmall)) then
-    local rg = C_TradeSkillUI.GetItemReagentQualityInfo
-    if rg then local ok, r = pcall(rg, id); info = (ok and r) or nil end
-  end
-  local atlas = info and (info.iconInventory or info.iconSmall) or nil
-  if type(atlas) ~= "string" then return nil end
-  if C_Texture and C_Texture.GetAtlasInfo and not C_Texture.GetAtlasInfo(atlas) then return nil end
-  return atlas
-end
-
 local POCKET_PICKS = {
   272195, -- Vantus Rune: Tides
   243734, -- Thalassian Phoenix Oil
@@ -761,7 +744,7 @@ function Pocket:PickPaint()
     b:SetBackdropColor(Theme:C("slot"))
     b:SetBackdropBorderColor(Theme:C(pinned and "gone" or "emptyLine"))
     b.icon:SetDesaturated(pinned)
-    local atlas = pickTier(id)
+    local atlas = ns.PinTier(id)
     if atlas then b.tier:SetAtlas(atlas, true); b.tier:Show() else b.tier:Hide() end
     b:Show()
   end
