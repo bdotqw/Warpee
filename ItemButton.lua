@@ -179,6 +179,16 @@ function ns.SyncQuestMark(b)
   return ns.QuestMarked(b) ~= was
 end
 
+local SEARCH_BADGE_DIM = 0.30
+function ns.SearchBadgeAlpha(b)
+  return (b and b.searchMiss) and SEARCH_BADGE_DIM or 1
+end
+local function paintBadgeAlpha(b, o, key)
+  if not (o and o.SetAlpha) then return end
+  if key and not ns.Badge(key).on then o:SetAlpha(0); return end
+  o:SetAlpha(ns.SearchBadgeAlpha(b))
+end
+
 function ns.MarkNewItem(b, bagID, slot, quality)
   local nt, bp = b.NewItemTexture, b.BattlepayItemTexture
   if not (nt or bp) then return end
@@ -196,7 +206,7 @@ function ns.MarkNewItem(b, bagID, slot, quality)
   local store = C_Container.IsBattlePayItem and C_Container.IsBattlePayItem(bagID, slot)
   if store then
     if nt then nt:Hide() end
-    if bp then fitToIcon(bp, iconOf(b)); bp:SetAlpha(1); bp:Show() end
+    if bp then fitToIcon(bp, iconOf(b)); bp:SetAlpha(ns.SearchBadgeAlpha(b)); bp:Show() end
     return
   end
   if bp then bp:Hide() end
@@ -209,7 +219,7 @@ function ns.MarkNewItem(b, bagID, slot, quality)
              or (NEW_ITEM_ATLAS_BY_QUALITY and quality and NEW_ITEM_ATLAS_BY_QUALITY[quality])
   nt:SetAtlas(atlas or "bags-glow-white")
   fitToIcon(nt, iconOf(b))
-  nt:SetAlpha(1)
+  nt:SetAlpha(ns.SearchBadgeAlpha(b))
   nt:Show()
 end
 
@@ -561,7 +571,7 @@ function ns.ApplyBadge(b, key)
   end
   o:ClearAllPoints()
   o:SetPoint(ns.BadgePoint(g), b, g.c, g.x, g.y)
-  o:SetAlpha(g.on and 1 or 0)
+  o:SetAlpha(g.on and ns.SearchBadgeAlpha(b) or 0)
 end
 
 local function decorated(t)
@@ -1292,6 +1302,16 @@ function ns.ApplySearchToButton(b, filters, blocked)
     b.iT:SetDesaturated(miss); b.iB:SetDesaturated(miss)
     b.iL:SetDesaturated(miss); b.iR:SetDesaturated(miss)
   end
+  paintBadgeAlpha(b, b.Count or _G[(b:GetName() or "") .. "Count"], "count")
+  paintBadgeAlpha(b, b.ilvl, "ilvl")
+  paintBadgeAlpha(b, b.bind, "bind")
+  paintBadgeAlpha(b, b.outfit, "outfit")
+  paintBadgeAlpha(b, b.junk, "junk")
+  paintBadgeAlpha(b, b.blocked, "blocked")
+  paintBadgeAlpha(b, questTex(b))
+  paintBadgeAlpha(b, b.NewItemTexture)
+  paintBadgeAlpha(b, b.BattlepayItemTexture)
+  paintBadgeAlpha(b, b.cdText)
 end
 
 function ns.UpdateItemLock(b)
