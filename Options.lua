@@ -1661,18 +1661,11 @@ local newGet, newSet         = styleField("newItemGlow")
 local unusableGet, unusableSet = styleField("unusableBorder")
 local function gridAlphaGet() return tonumber(WarpeeDB and WarpeeDB.gridAlpha) or 0 end
 local function gridAlphaSet(v) WarpeeDB.gridAlpha = v; Theme:ApplyGridAlpha() end
-local function hcGet() return Theme:HighContrast() end
-local function hcSet(v) WarpeeDB.highContrast = v and true or false; Theme:Restyle(Theme.active) end
 local gaugeGet, gaugeSet     = field("showGauge")
 local fav = {}
 fav.showGet = function() return ns.Fav:Enabled() end
 fav.showSet = function(v)
   WarpeeDB.favShow = v and true or false
-  relayout()
-end
-fav.countGet = function() return ns.Fav:Count() end
-fav.countSet = function(v)
-  WarpeeDB.favCount = tonumber(v) or 6
   relayout()
 end
 fav.recentGet = function() return ns.Recent and ns.Recent:Enabled() end
@@ -1751,6 +1744,13 @@ local GENERAL_PAGE = {
   { type = "select", name = "Theme", get = themeGet, set = themeSet,
     keys = function() return THEME_KEYS end, label = themeLabel,
     desc = "Color scheme for the whole addon." },
+  { type = "select", name = "Slot background",
+    get = styleGet, set = styleSet,
+    keys = function() return STYLES end, label = function(k) return STYLE_LABELS[k] or k end,
+    desc = "What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off." },
+  { type = "range", name = "Plate opacity", min = 0, max = 1, step = 0.01,
+    get = gridAlphaGet, set = gridAlphaSet,
+    desc = "The plate behind the slots. Transparent slots show it through every cell, and the gaps show it at any Spacing above 0." },
   { type = "select", name = "Font", get = fontGet,
     set = function(v) WarpeeDB.fontWish = nil; fontSet(v); Options:ApplyFont() end,
     keys = fontKeys, label = function(k) return k end,
@@ -1925,25 +1925,8 @@ local GRID_PAGE = {
   { type = "header", name = "Quick access" },
   { type = "toggle", name = "Recent items", get = fav.recentGet, set = fav.recentSet,
     desc = "A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload." },
-  { type = "header", name = "Favorites" },
   { type = "toggle", name = "Favorite slots", col = 1, get = fav.showGet, set = fav.showSet,
     desc = "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot." },
-  { type = "range", name = "How many slots", min = 0, max = 14, step = 1,
-    get = fav.countGet, set = fav.countSet,
-    format = function(v) return (v or 0) <= 0 and T("As the grid") or tostring(v) end,
-    disabled = function() return not fav.showGet() end,
-    desc = "Never more than the grid is wide. Zero keeps the row as wide as the grid." },
-  { type = "header", name = "Slot look" },
-  { type = "select", name = "Slot background",
-    get = styleGet, set = styleSet,
-    keys = function() return STYLES end, label = function(k) return STYLE_LABELS[k] or k end,
-    desc = "What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off." },
-  { type = "range", name = "Plate opacity", min = 0, max = 1, step = 0.01,
-    get = gridAlphaGet, set = gridAlphaSet,
-    desc = "The plate behind the slots. Transparent slots show it through every cell, and the gaps show it at any Spacing above 0." },
-  { type = "toggle", name = "High contrast",
-    get = hcGet, set = hcSet,
-    desc = "Maximum readability: pure text and stronger borders on any theme." },
   { type = "header", name = "Bank and Warband grid", key = "bankgrid",
     state = function() return (L["%d and %d wide"]):format(bankColsGet(), wbColsGet()) end },
   { type = "description", section = "bankgrid",

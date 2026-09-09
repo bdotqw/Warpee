@@ -216,18 +216,18 @@ function View:Build()
     self.tabSel.warband = WarpeeDB.bankTabSel.warband
   end
 
-  local close = ns.CreateGlyphButton(f, "×", 26)
+  local close = ns.CreateGlyphButton(f, "×", 26, "icon")
   close:SetPoint("TOPRIGHT", -PAD, -ROW1_Y)
   close:SetScript("OnClick", function() f:Hide() end)
   self.closeBtn = close
 
-  local gear = ns.CreateGlyphButton(f, "|TInterface\\Buttons\\UI-OptionsButton:13:13:0:0|t", 26)
+  local gear = ns.CreateGlyphButton(f, "|TInterface\\Buttons\\UI-OptionsButton:13:13:0:0|t", 26, "icon")
   gear:SetPoint("TOPRIGHT", close, "TOPLEFT", -4, 0)
   gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
   addTip(gear, "Settings", nil, "top")
   self.gearBtn = gear
 
-  local sort = ns.CreateGlyphButton(f, "", 26)
+  local sort = ns.CreateGlyphButton(f, "", 26, "icon")
   sort:SetPoint("TOPRIGHT", gear, "TOPLEFT", -4, 0)
   sort:SetScript("OnClick", function() self:Sort() end)
   addTip(sort, "Clean up", nil, "top")
@@ -235,9 +235,12 @@ function View:Build()
   sortIcon:SetAtlas("auctionhouse-ui-sortarrow")
   sortIcon:SetSize(13, 15)
   sortIcon:SetPoint("CENTER")
-  sortIcon:SetVertexColor(Theme:C("text"))
-  Theme:Track(sortIcon, function(x) x:SetVertexColor(Theme:C("text")) end)
+  sortIcon:SetVertexColor(Theme:C("overlay"))
+  Theme:Track(sortIcon, function(x) x:SetVertexColor(Theme:C("overlay")) end)
   sort.icon = sortIcon
+  sort.wpeIconPaint = function(s)
+    if s.icon then s.icon:SetVertexColor(Theme:C("overlay")) end
+  end
   self.sortBtn = sort
 
   local bankTab = ns.CreateButton(f, ns.L["Bank"], 52, HBTN)
@@ -273,6 +276,7 @@ function View:Build()
   self:AnchorSearch()
 
   local money = Theme:Label(f, 16, "text")
+  Theme:Money(money)
   money:SetPoint("BOTTOMRIGHT", -PAD, 6)
   self.money = money
   ns.AttachGoldTooltip(money, f)
@@ -1223,7 +1227,11 @@ function View:Fonts()
   end
   put(self.freeText, -1)
   put(self.hint, 0)
-  put(self.money, 3)
+  if self.money then
+    put(self.money, 3)
+    self.money:SetFont(path, math.max(7, base + 3), Theme:IsLight() and ns.OutlineFlags() or "")
+    Theme:Money(self.money)
+  end
   put(self.moneyCaption, -3)
   local sh = math.max(22, base + 8)
   if self.search then put(self.search, 0); put(self.search.Hint, 0); self.search:SetHeight(sh) end
@@ -1231,6 +1239,7 @@ function View:Fonts()
   if self.wbTab then put(self.wbTab.Text, -1); fit(self.wbTab, 68, nil, HBTN) end
   if self.charBtn then
     put(self.charBtn.Text, -1)
+    self.charBtn.Text:SetFont(path, math.max(7, base - 1), ns.OutlineFlags())
     self.charBtn:SetHeight(sh)
   end
   if self.depositBtn then put(self.depositBtn.Text, -1); fit(self.depositBtn, 70, 18) end
@@ -1380,7 +1389,7 @@ function View:UpdateFooter()
       if ok then sum = v end
     end
     if sum == nil then sum = ns.Vault:WarbandMoney() end
-    self.money:SetText(sum and ns.FormatMoney(sum) or "—")
+    self.money:SetText(sum and ns.FormatMoney(sum, nil, Theme:IsLight()) or "—")
     self.moneyCaption:SetText(ns.L["WARBAND BANK"])
   end
 
@@ -1511,6 +1520,15 @@ function View:Repaint()
     st.paintKey = nil
   end
   self:Refresh()
+end
+
+function View:RepaintHeader()
+  for _, b in ipairs({ self.closeBtn, self.gearBtn, self.sortBtn }) do
+    if b and b.Repaint then b:Repaint() end
+  end
+  if self.sortBtn and self.sortBtn.icon then
+    self.sortBtn.icon:SetVertexColor(Theme:C("overlay"))
+  end
 end
 
 function View:Restyle()

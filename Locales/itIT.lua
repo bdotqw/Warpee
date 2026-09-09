@@ -57,7 +57,6 @@ local STRINGS = {
   ["Money"] = "Denaro",
   ["Search"] = "Ricerca",
   ["Markers"] = "Indicatori",
-  ["Slot look"] = "Aspetto degli scomparti",
   ["Bags grid"] = "Griglia delle borse",
   ["Bank and Warband grid"] = "Griglia della banca e della Brigata",
   ["Badges"] = "Contrassegni",
@@ -158,12 +157,6 @@ local STRINGS = {
   ["Fill grid upwards"] = "Riempi la griglia verso l'alto",
   ["Slot background"] = "Sfondo degli scomparti",
   ["Plate opacity"] = "Opacità dello sfondo",
-  ["Brightness"] = "Luminosità",
-  ["Light"] = "Chiari",
-  ["Dark"] = "Scuri",
-  ["High contrast"] = "Contrasto elevato",
-  ["Maximum readability: pure text and stronger borders on any theme."] =
-    "Massima leggibilità: testo netto e bordi più marcati con qualsiasi tema.",
   ["Bank slots per row"] = "Scomparti per riga (banca)",
   ["Warband slots per row"] = "Scomparti per riga (Brigata)",
   ["Size of one slot in the bags."] = "Dimensione di uno scomparto nelle borse.",
@@ -185,8 +178,6 @@ local STRINGS = {
     "Ciò che appare dietro ogni icona. Trasparente mostra lo sfondo, Evidenziato mette in risalto lo scomparto, Pieno lo chiude.",
   ["The plate behind the slots. Transparent slots show it through every cell, and the gaps show it at any Spacing above 0."] =
     "Lo sfondo dietro gli scomparti. È visibile attraverso quelli trasparenti e negli spazi quando la spaziatura è maggiore di 0.",
-  ["Lifts panels, slots and borders out of the dark. For dim screens, glare, or whenever the themes feel too dark."] =
-    "Schiarisce pannelli, scomparti e bordi. Utile su schermi poco luminosi, con riflessi o quando i temi sembrano troppo scuri.",
   ["The bank keeps its own width and icon size, apart from the bags."] =
     "La banca mantiene larghezza e dimensione delle icone indipendenti dalle borse.",
   ["One icon size for both bank tabs."] = "Una dimensione delle icone per entrambe le schede della banca.",
@@ -323,6 +314,7 @@ local STRINGS = {
   ["Save"] = "Salva",
   ["Cancel"] = "Annulla",
   ["Tab name"] = "Nome scheda",
+  ["Icon ID / item link"] = "ID icona / collegamento oggetto",
   ["Item link"] = "Collegamento oggetto",
   ["Right-click to edit"] = "Clic destro per modificare",
   ["Buy tab"] = "Acquista scheda",
@@ -394,7 +386,6 @@ local STRINGS = {
   ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =
     "Una piccola finestra di celle-segnalibro accanto alle borse, aperta dal pulsante a griglia nell'intestazione. Trascina un oggetto in una cella e la cella lo conserva ovunque si sposti nelle borse. Trascina una cella sull'altra per scambiarle; Ctrl + clic sinistro ne svuota una.",
   ["Favorite slots"] = "Scomparti preferiti",
-  ["How many slots"] = "Numero di scomparti",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
     "Una riga di scomparti sopra la griglia, sempre visibile. Trascina un oggetto su uno scomparto per tenerlo a portata di clic; Ctrl + clic sinistro lo svuota.",
   ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =

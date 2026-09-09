@@ -70,7 +70,40 @@ function Bags:AnchorHeader()
 end
 
 function Bags:Build()
-  if self.frame then return self.frame end
+  if self.frame then
+    local f = self.frame
+    if not self.content then self.content = CreateFrame("Frame", nil, f) end
+    if not self.gaugeBg then
+      local gaugeBg = Theme:Rect(f, "panel", "BACKGROUND")
+      gaugeBg:SetHeight(2)
+      self.gaugeBg = gaugeBg
+    end
+    if not self.gaugeFill then
+      local gaugeFill = Theme:Rect(f, "accent", "ARTWORK")
+      gaugeFill:SetHeight(2)
+      gaugeFill:SetPoint("TOPLEFT", self.gaugeBg, "TOPLEFT")
+      self.gaugeFill = gaugeFill
+    end
+    if not self.gridBg then
+      local gridBg = Theme:Rect(f, "panel", "BACKGROUND")
+      gridBg:SetDrawLayer("BACKGROUND", 1)
+      self.gridBg = gridBg
+    end
+    if not self.money then
+      local money = Theme:Label(f, 16, "text")
+      Theme:Money(money)
+      money:SetPoint("BOTTOMRIGHT", -PAD, 6)
+      self.money = money
+      ns.AttachGoldTooltip(money, f)
+    end
+    if not self.reagentLabel then
+      local rlabel = Theme:Label(self.content, 11, "reagent")
+      ns.LocalText(rlabel, "REAGENTS")
+      rlabel:Hide()
+      self.reagentLabel = rlabel
+    end
+    return f
+  end
 
   local f = CreateFrame("Frame", "WarpeeFrame", UIParent, "BackdropTemplate")
   f.wpeNoBand = true
@@ -99,6 +132,7 @@ function Bags:Build()
     end
   end)
   self.frame = f
+  self.content = CreateFrame("Frame", nil, f)
   ns.CreateMoveBar(f, "pos")
 
   local title = Theme:Title(f, 15, "accent")
@@ -110,30 +144,33 @@ function Bags:Build()
     ns.AddTip(btn, txt, "top")
   end
 
-  local close = ns.CreateGlyphButton(f, "×", HB)
+  local close = ns.CreateGlyphButton(f, "×", HB, "icon")
   close:SetPoint("TOPRIGHT", -PAD, -ROW1_Y)
   close:SetScript("OnClick", function() ns.Toggle(false) end)
   self.closeBtn = close
 
-  local sort = ns.CreateGlyphButton(f, "", HB)
+  local sort = ns.CreateGlyphButton(f, "", HB, "icon")
   sort:SetScript("OnClick", function() Bags:SortBags() end)
   addTip(sort, "Clean up bags")
   local sortIcon = sort:CreateTexture(nil, "ARTWORK")
   sortIcon:SetAtlas("auctionhouse-ui-sortarrow")
   sortIcon:SetSize(13, 15)
   sortIcon:SetPoint("CENTER")
-  sortIcon:SetVertexColor(Theme:C("text"))
-  Theme:Track(sortIcon, function(x) x:SetVertexColor(Theme:C("text")) end)
+  sortIcon:SetVertexColor(Theme:C("overlay"))
+  Theme:Track(sortIcon, function(x) x:SetVertexColor(Theme:C("overlay")) end)
   sort.icon = sortIcon
+  sort.wpeIconPaint = function(s)
+    if s.icon then s.icon:SetVertexColor(Theme:C("overlay")) end
+  end
   self.sortBtn = sort
 
-  local gear = ns.CreateGlyphButton(f, "|TInterface\\Buttons\\UI-OptionsButton:13:13:0:0|t", HB)
+  local gear = ns.CreateGlyphButton(f, "|TInterface\\Buttons\\UI-OptionsButton:13:13:0:0|t", HB, "icon")
   gear:SetPoint("TOPRIGHT", close, "TOPLEFT", -4, 0)
   gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
   addTip(gear, "Settings")
   self.gearBtn = gear
 
-  local bagsToggle = ns.CreateGlyphButton(f, "", HB)
+  local bagsToggle = ns.CreateGlyphButton(f, "", HB, "icon")
   bagsToggle:SetPoint("TOPRIGHT", gear, "TOPLEFT", -4, 0)
   bagsToggle:SetScript("OnClick", function() Bags:ToggleBagWindow() end)
   addTip(bagsToggle, "Bags")
@@ -144,9 +181,12 @@ function Bags:Build()
   bagIcon:SetVertexColor(Theme:IconTint())
   Theme:Track(bagIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
   bagsToggle.icon = bagIcon
+  bagsToggle.wpeIconPaint = function(s)
+    if s.icon then s.icon:SetVertexColor(Theme:IconTint()) end
+  end
   self.bagsToggle = bagsToggle
 
-  local bank = ns.CreateGlyphButton(f, "", HB)
+  local bank = ns.CreateGlyphButton(f, "", HB, "icon")
   bank:SetPoint("TOPRIGHT", bagsToggle, "TOPLEFT", -4, 0)
   bank:SetScript("OnClick", function() if ns.ToggleBank then ns.ToggleBank() end end)
   ns.AddTip(bank, "Bank / Warband", "top", function(s)
@@ -166,11 +206,14 @@ function Bags:Build()
   bankIcon:SetVertexColor(Theme:IconTint())
   Theme:Track(bankIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
   bank.icon = bankIcon
+  bank.wpeIconPaint = function(s)
+    if s.icon then s.icon:SetVertexColor(Theme:IconTint()) end
+  end
   self.bankBtn = bank
 
   sort:SetPoint("TOPRIGHT", bank, "TOPLEFT", -4, 0)
 
-  local sell = ns.CreateGlyphButton(f, "", HB)
+  local sell = ns.CreateGlyphButton(f, "", HB, "icon")
   sell:SetPoint("TOPRIGHT", sort, "TOPLEFT", -4, 0)
   sell:SetScript("OnClick", function() if ns.Vendor then ns.Vendor:Sell() end end)
   ns.AddTip(sell, "Sell now", "top", function()
@@ -182,16 +225,21 @@ function Bags:Build()
   sellIcon:SetPoint("CENTER")
   sellIcon:SetDesaturated(true)
   sellIcon:SetAlpha(0.45)
+  sellIcon:SetVertexColor(Theme:IconTint())
+  Theme:Track(sellIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
   sell.icon = sellIcon
+  sell.wpeIconPaint = function(s)
+    if s.icon then s.icon:SetVertexColor(Theme:IconTint()) end
+  end
   ns.SetButtonEnabled(sell, false)
   self.sellBtn = sell
 
-  local pocket = ns.CreateGlyphButton(f, "", HB)
+  local pocket = ns.CreateGlyphButton(f, "", HB, "icon")
   pocket:SetPoint("TOPRIGHT", sell, "TOPLEFT", -4, 0)
   pocket:SetScript("OnClick", function() if ns.Pocket then ns.Pocket:Toggle() end end)
   addTip(pocket, "Pocket")
   local dots = {}
-  for k = 1, 6 do dots[k] = Theme:Rect(pocket, "text", "ARTWORK") end
+  for k = 1, 6 do dots[k] = Theme:Rect(pocket, "overlay", "ARTWORK") end
   ns.PixelJob(pocket, function(s)
     local d, sp = ns.PX(s, 4), ns.PX(s, 2)
     local gw, gh = 3 * d + 2 * sp, 2 * d + sp
@@ -239,14 +287,14 @@ function Bags:Build()
   gaugeFill:SetPoint("TOPLEFT", gaugeBg, "TOPLEFT")
   self.gaugeBg, self.gaugeFill = gaugeBg, gaugeFill
 
-  local content = CreateFrame("Frame", nil, f)
-  self.content = content
+  local content = self.content
 
   local gridBg = Theme:Rect(f, "panel", "BACKGROUND")
   gridBg:SetDrawLayer("BACKGROUND", 1)
   self.gridBg = gridBg
 
   local money = Theme:Label(f, 16, "text")
+  Theme:Money(money)
   money:SetPoint("BOTTOMRIGHT", -PAD, 6)
   self.money = money
   ns.AttachGoldTooltip(money, f)
@@ -408,12 +456,31 @@ function Bags:Taken(bag)
   return num - (select(1, C_Container.GetContainerNumFreeSlots(bag)) or 0)
 end
 
+function Bags:RepaintHeader()
+  for _, b in ipairs({ self.closeBtn, self.gearBtn, self.bagsToggle, self.bankBtn,
+                       self.pocketBtn, self.sellBtn, self.sortBtn }) do
+    if b and b.Repaint then b:Repaint() end
+  end
+  if self.sortBtn and self.sortBtn.icon then
+    self.sortBtn.icon:SetVertexColor(Theme:C("overlay"))
+  end
+  if self.bagsToggle and self.bagsToggle.icon then
+    self.bagsToggle.icon:SetVertexColor(Theme:IconTint())
+  end
+  if self.bankBtn and self.bankBtn.icon then
+    self.bankBtn.icon:SetVertexColor(Theme:IconTint())
+  end
+end
+
 function Bags:Restyle()
   self.styleGen = (self.styleGen or 0) + 1
   if self.frame and self.frame:IsShown() then self:Layout() end
 end
 
 function Bags:Layout()
+  self:Build()
+  if not (self.frame and self.content and self.gaugeBg and self.gaugeFill
+          and self.gridBg and self.money and self.reagentLabel) then return end
   local cols = self.cols
   self:AnchorHeader()
   local size, gap, step = ns.GridMetrics(self.frame, self.iconSize, self.gap)
@@ -422,14 +489,17 @@ function Bags:Layout()
   self.byKey = {}
   self.fontPath = ns.Fonts:Current()
   if self.title then self.title:SetFont(self.fontPath, 15, "") end
-  if self.money then self.money:SetFont(self.fontPath, 16, "") end
+  if self.money then
+    self.money:SetFont(self.fontPath, 16, Theme:IsLight() and ns.OutlineFlags() or "")
+    Theme:Money(self.money)
+  end
   if self.reagentLabel then self.reagentLabel:SetFont(self.fontPath, 11, "") end
   if self.slotText then self.slotText:SetFont(self.fontPath, 12, "") end
   if self.search then
     self.search:SetFont(self.fontPath, 13, "")
     if self.search.Hint then self.search.Hint:SetFont(self.fontPath, 13, "") end
   end
-  if self.charTag then self.charTag.Text:SetFont(self.fontPath, 12, ""); self:UpdateCharTag() end
+  if self.charTag then self.charTag.Text:SetFont(self.fontPath, 12, ns.OutlineFlags()); self:UpdateCharTag() end
   if self.frame and self.frame.wpeBar then self.frame.wpeBar:Fonts(self.fontPath, 11) end
 
   self.recentH = ns.Recent and ns.Recent:Apply(self, PAD, self:BaseTop(), size, gap) or 0
@@ -611,7 +681,7 @@ function ns.FormatMoney(money, goldOnly, deep)
   if cp > 0 or #parts == 0 then parts[#parts + 1] = coinSeg(cp, "c", deep) end
   return table.concat(parts, " ")
 end
-function Bags:FormatMoney() return ns.FormatMoney(GetMoney()) end
+function Bags:FormatMoney() return ns.FormatMoney(GetMoney(), nil, Theme:IsLight()) end
 
 function ns.FormatGold(copper, deep)
   return coinSeg(ns.FormatNumber(math.floor((copper or 0) / 10000)), "g", deep)
@@ -1119,6 +1189,17 @@ end
 
 function Bags:UpdateDirty()
   if not (self.frame and self.frame:IsShown()) then self.dirty = {}; return end
+  self:Build()
+  if not (self.content and self.gaugeBg and self.gaugeFill and self.gridBg
+          and self.money and self.reagentLabel) then
+    self.dirty = {}
+    return
+  end
+  if not self.byKey then
+    self.dirty = {}
+    self:Layout()
+    return
+  end
   if next(self.dirty) then ns.Vault:Capture("bags", self.dirty) end
   if self.snap then self.dirty = {}; return end
   local total, used = 0, 0

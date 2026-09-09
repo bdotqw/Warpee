@@ -69,20 +69,38 @@ function ns.CreateCharTag(parent, height, dir)
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
   ns.SnapBox(b, nil, height or 22)
   ns.PixelBackdrop(b)
-  b:SetBackdropColor(Theme:C("deep"))
-  b:SetBackdropBorderColor(Theme:C("stroke"))
-  Theme:Track(b, function(x)
-    x:SetBackdropColor(Theme:C("deep")); x:SetBackdropBorderColor(Theme:C("stroke"))
-  end)
+  local bgKey = "panel"
+  b.wpeInkKey = "text"
 
   local side = (dir == "left" or dir == "right")
   local caret = ns.ArrowGlyph(b, side and dir or "down", side and 11 or 8)
   b.caret = caret
 
-  local fs = Theme:Label(b, 12, "dim")
+  local fs = Theme:Label(b, 12, "text")
   fs:SetJustifyH("LEFT")
-  Theme:Shadow(fs)
+  fs:SetFont(ns.Fonts:Current(), 12, ns.OutlineFlags())
   b.Text = fs
+  local function paintText(s)
+    local p = s:GetParent()
+    local col = p and p.wpeClassColor
+    if col then s:SetTextColor(col.r, col.g, col.b)
+    else s:SetTextColor(Theme:C((p and p.wpeInkKey) or "text")) end
+  end
+  b.TextPaint = paintText
+  paintText(fs)
+  Theme:Track(fs, paintText)
+
+  local function repaint(s)
+    local hot = s.wpeHot and s:IsEnabled()
+    s:SetBackdropColor(Theme:C(hot and "panelHi" or bgKey))
+    s:SetBackdropBorderColor(Theme:C(hot and "accent" or "stroke"))
+    s.caret:SetTint(hot and "accent" or (s:IsEnabled() and "dim" or "faint"))
+    if s.TextPaint then s.TextPaint(s.Text) end
+  end
+  b.Repaint = repaint
+  b:SetMotionScriptsWhileDisabled(true)
+  repaint(b)
+  Theme:Track(b, repaint)
 
   if dir == "left" then
     caret:SetPoint("LEFT", PADX, 0)
@@ -93,18 +111,14 @@ function ns.CreateCharTag(parent, height, dir)
     caret:SetPoint("RIGHT", -PADX, 0)
     fs:SetPoint("RIGHT", caret, "LEFT", -GAP, 0)
   end
-  local function caretColor(k) b.caret:SetTint(k) end
-  b:SetMotionScriptsWhileDisabled(true)
   b:SetScript("OnEnter", function(s)
     if not s:IsEnabled() then return end
-    s:SetBackdropColor(Theme:C("panelHi"))
-    s:SetBackdropBorderColor(Theme:C("accent"))
-    caretColor("accent")
+    s.wpeHot = true
+    s:Repaint()
   end)
   b:SetScript("OnLeave", function(s)
-    s:SetBackdropColor(Theme:C("panel"))
-    s:SetBackdropBorderColor(Theme:C("stroke"))
-    caretColor(s:IsEnabled() and "dim" or "faint")
+    s.wpeHot = nil
+    s:Repaint()
   end)
   return b
 end
@@ -113,7 +127,8 @@ function ns.PaintCharTag(b, name, class)
   if not b then return end
   b.Text:SetText(name or "?")
   local col = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
-  if col then b.Text:SetTextColor(col.r, col.g, col.b) else b.Text:SetTextColor(Theme:C("text")) end
+  b.wpeClassColor = col
+  if col then b.Text:SetTextColor(col.r, col.g, col.b) else b.Text:SetTextColor(Theme:C(b.wpeInkKey or "text")) end
   local caret = math.ceil((b.caret and b.caret:GetWidth()) or 8)
   if caret <= 0 then caret = 8 end
   local extra = 8 + 6 + 8 + caret + 2
@@ -292,7 +307,7 @@ function ns.ApplyWindowLock()
   end
 end
 
-function ns.CreateButton(parent, text, width, height, template)
+function ns.CreateButton(parent, text, width, height, template, dark)
   local b
   if template then
     local ok, made = pcall(CreateFrame, "Button", nil, parent, "BackdropTemplate," .. template)
@@ -304,17 +319,25 @@ function ns.CreateButton(parent, text, width, height, template)
   ns.SnapBox(b, width or 78, height or 22)
   if b.SetMotionScriptsWhileDisabled then b:SetMotionScriptsWhileDisabled(true) end
   ns.PixelBackdrop(b)
-  b:SetBackdropColor(Theme:C("panel"))
-  b:SetBackdropBorderColor(Theme:C("stroke"))
-  Theme:Track(b, function(s)
-    s:SetBackdropColor(Theme:C("panel"))
-    s:SetBackdropBorderColor(Theme:C(s.offDuty and "strokeSoft" or "stroke"))
-    if s.Text then s.Text:SetTextColor(Theme:C(s.offDuty and "faint" or "text")) end
-  end)
-  local fs = Theme:Label(b, 12, "text")
+  local lightInk = dark == true or dark == "icon"
+  local function repaint(s)
+    local hot = s.wpeHot and not s.offDuty
+    local bg = hot and "panelHi" or "panel"
+    local ink = hot and "accent" or (s.offDuty and "faint" or (lightInk and "overlay" or "text"))
+    s:SetBackdropColor(Theme:C(bg))
+    s:SetBackdropBorderColor(Theme:C(hot and "accent" or (s.offDuty and "strokeSoft" or "stroke")))
+    if s.Text then s.Text:SetTextColor(Theme:C(ink)) end
+    if s.wpeIconPaint then s.wpeIconPaint(s) end
+  end
+  b.Repaint = repaint
+  repaint(b)
+  Theme:Track(b, repaint)
+  local fs = Theme:Label(b, 12, lightInk and "overlay" or "text")
   Theme:Track(fs, function(s)
     local p = s:GetParent()
-    s:SetTextColor(Theme:C((p and p.offDuty) and "faint" or "text"))
+    local hot = p and p.wpeHot and not p.offDuty
+    local key = hot and "accent" or ((p and p.offDuty) and "faint" or (lightInk and "overlay" or "text"))
+    s:SetTextColor(Theme:C(key))
   end)
   fs:SetPoint("CENTER")
   fs:SetText(text)
@@ -322,15 +345,12 @@ function ns.CreateButton(parent, text, width, height, template)
   local hook = template and b.HookScript or b.SetScript
   hook(b, "OnEnter", function(s)
     if s.offDuty then return end
-    s:SetBackdropColor(Theme:C("panelHi"))
-    s:SetBackdropBorderColor(Theme:C("accent"))
-    s.Text:SetTextColor(Theme:C("accent"))
+    s.wpeHot = true
+    s:Repaint()
   end)
   hook(b, "OnLeave", function(s)
-    if s.offDuty then return end
-    s:SetBackdropColor(Theme:C("panel"))
-    s:SetBackdropBorderColor(Theme:C("stroke"))
-    s.Text:SetTextColor(Theme:C("text"))
+    s.wpeHot = nil
+    s:Repaint()
   end)
   return b
 end
@@ -340,14 +360,13 @@ function ns.SetButtonEnabled(b, on)
   on = on and true or false
   b.offDuty = not on
   b:SetEnabled(on)
-  b:SetBackdropColor(Theme:C("panel"))
-  b:SetBackdropBorderColor(Theme:C(on and "stroke" or "strokeSoft"))
-  b.Text:SetTextColor(Theme:C(on and "text" or "faint"))
+  b:Repaint()
 end
 
-function ns.CreateGlyphButton(parent, glyph, size)
-  local b = ns.CreateButton(parent, glyph, size or 22, size or 22)
+function ns.CreateGlyphButton(parent, glyph, size, dark)
+  local b = ns.CreateButton(parent, glyph, size or 22, size or 22, nil, dark)
   b.Text:SetFont(ns.Fonts:Current(), math.max(16, math.floor((size or 22) * 0.74)), "")
+  b:Repaint()
   return b
 end
 
@@ -470,6 +489,7 @@ function ns.CreateSearchBox(parent, onChanged, hintKey)
   box:SetBackdropBorderColor(Theme:C("stroke"))
   Theme:Track(box, function(s)
     s:SetBackdropColor(Theme:C(Theme:IsLight() and "slot" or "bg"))
+    s:SetTextColor(Theme:C("text"))
     if not s:HasFocus() then s:SetBackdropBorderColor(Theme:C("stroke")) end
   end)
   box:SetFont(ns.Fonts:Current(), 13, "")

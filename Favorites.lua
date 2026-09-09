@@ -19,11 +19,6 @@ function Fav:Enabled()
   return not (WarpeeDB and WarpeeDB.favShow == false)
 end
 
-function Fav:Count()
-  local n = math.floor(tonumber(WarpeeDB and WarpeeDB.favCount) or 6)
-  return math.max(0, math.min(14, n))
-end
-
 function Fav:List()
   WarpeeDB.favorites = WarpeeDB.favorites or {}
   local k = charKey()
@@ -367,8 +362,7 @@ function Fav:Apply(bags, x, top, size, gap)
   self.label:Show()
 
   local cols = bags.cols or 14
-  local want = self:Count()
-  local n = math.min((want <= 0) and cols or math.min(want, cols), MAX_SLOTS)
+  local n = math.min(cols, MAX_SLOTS)
   if not self.warmed then self:Warm() end
   local rowY = top + LABEL_H + LABEL_GAP
   local list = self:List()

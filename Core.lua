@@ -245,7 +245,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.iconZoom = tonumber(WarpeeDB.iconZoom) or 1
     WarpeeDB.borderWidth = tonumber(WarpeeDB.borderWidth) or 1
     WarpeeDB.gridAlpha = tonumber(WarpeeDB.gridAlpha) or 0
-    if WarpeeDB.highContrast == nil then WarpeeDB.highContrast = false end
+    WarpeeDB.highContrast = nil
     WarpeeDB.bgAlpha = nil
     if WarpeeDB.slotStyle == "quality" then WarpeeDB.slotStyle = "tile" end
     if WarpeeDB.slotStyle == "frost" then WarpeeDB.slotStyle = "tile" end
@@ -257,7 +257,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.showGauge == nil then WarpeeDB.showGauge = false end
     if WarpeeDB.favShow == nil then WarpeeDB.favShow = true end
     if WarpeeDB.recentShow == nil then WarpeeDB.recentShow = true end
-    WarpeeDB.favCount = tonumber(WarpeeDB.favCount) or 0
+    WarpeeDB.favCount = nil
     WarpeeDB.favorites = WarpeeDB.favorites or {}
     if WarpeeDB.goldLetters == nil then
       WarpeeDB.goldLetters = WarpeeDB.goldMode == nil or WarpeeDB.goldMode == "letters"

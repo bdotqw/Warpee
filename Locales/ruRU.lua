@@ -65,7 +65,6 @@ local STRINGS = {
   ["Money"] = "Деньги",
   ["Search"] = "Поиск",
   ["Markers"] = "Метки",
-  ["Slot look"] = "Вид ячейки",
   ["Bags grid"] = "Сетка сумок",
   ["Bank and Warband grid"] = "Сетка банка и банка отряда",
   ["Badges"] = "Значки",
@@ -166,12 +165,6 @@ local STRINGS = {
   ["Fill grid upwards"] = "Ряды снизу вверх",
   ["Slot background"] = "Фон ячейки",
   ["Plate opacity"] = "Плотность подложки",
-  ["Brightness"] = "Яркость",
-  ["Light"] = "Светлые",
-  ["Dark"] = "Тёмные",
-  ["High contrast"] = "Максимальный контраст",
-  ["Maximum readability: pure text and stronger borders on any theme."] =
-    "Максимальная читаемость: чистый текст и усиленные рамки на любой теме.",
   ["Bank slots per row"] = "Ячеек в ряду (банк)",
   ["Warband slots per row"] = "Ячеек в ряду (банк отряда)",
   ["Size of one slot in the bags."] = "Размер одной ячейки в сумках.",
@@ -193,8 +186,6 @@ local STRINGS = {
     "Что находится за иконкой. «Прозрачный» — сквозь ячейку видна подложка, «Подсветка» — ячейка чуть светлее фона, «Заливка» — фон полностью закрыт.",
   ["The plate behind the slots. Transparent slots show it through every cell, and the gaps show it at any Spacing above 0."] =
     "Подложка за ячейками. Через прозрачные ячейки она видна целиком, а в промежутках — при любом отступе больше 0.",
-  ["Lifts panels, slots and borders out of the dark. For dim screens, glare, or whenever the themes feel too dark."] =
-    "Поднимает панели, слоты и рамки из темноты. Для тусклых экранов, бликов и случаев, когда темы кажутся слишком тёмными.",
   ["The bank keeps its own width and icon size, apart from the bags."] =
     "У банка своя ширина и свой размер иконок, отдельно от сумок.",
   ["One icon size for both bank tabs."] = "Один размер иконок для обеих вкладок банка.",
@@ -331,6 +322,7 @@ local STRINGS = {
   ["Save"] = "Сохранить",
   ["Cancel"] = "Отмена",
   ["Tab name"] = "Имя вкладки",
+  ["Icon ID / item link"] = "ID иконки / ссылка на предмет",
   ["Item link"] = "Ссылка на предмет",
   ["Right-click to edit"] = "ПКМ — изменить",
   ["Buy tab"] = "Купить",
@@ -402,7 +394,6 @@ local STRINGS = {
   ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =
     "Маленькое окно с ячейками-закладками рядом с сумками, открывается кнопкой-сеткой в шапке. Перетащите предмет в ячейку, и она будет держать его, куда бы он ни переехал в сумках. Перетаскивание ячейки на ячейку меняет их местами, Ctrl + ЛКМ освобождает ячейку.",
   ["Favorite slots"] = "Ячейки избранного",
-  ["How many slots"] = "Сколько ячеек",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
     "Ряд ячеек над сеткой, всегда на виду. Перетащите предмет в ячейку, чтобы держать его под рукой; Ctrl + ЛКМ освобождает ячейку.",
   ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =

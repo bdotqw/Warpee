@@ -54,7 +54,6 @@ local STRINGS = {
   ["Money"] = "Geld",
   ["Search"] = "Suche",
   ["Markers"] = "Markierungen",
-  ["Slot look"] = "Aussehen der Plätze",
   ["Bags grid"] = "Taschenraster",
   ["Bank and Warband grid"] = "Raster für Bank und Kriegsmeute",
   ["Badges"] = "Abzeichen",
@@ -155,12 +154,6 @@ local STRINGS = {
   ["Fill grid upwards"] = "Raster von unten füllen",
   ["Slot background"] = "Platzhintergrund",
   ["Plate opacity"] = "Deckkraft der Unterlage",
-  ["Brightness"] = "Helligkeit",
-  ["Light"] = "Hell",
-  ["Dark"] = "Dunkel",
-  ["High contrast"] = "Hoher Kontrast",
-  ["Maximum readability: pure text and stronger borders on any theme."] =
-    "Maximale Lesbarkeit: reiner Text und stärkere Rahmen auf jedem Theme.",
   ["Bank slots per row"] = "Bankplätze pro Reihe",
   ["Warband slots per row"] = "Kriegsmeutenplätze pro Reihe",
   ["Size of one slot in the bags."] = "Größe eines Platzes in den Taschen.",
@@ -182,8 +175,6 @@ local STRINGS = {
     "Was hinter jedem Symbol liegt. »Transparent« lässt die Unterlage durchscheinen, »Aufgehellt« hebt den Platz leicht hervor, »Deckend« schließt ihn ganz ab.",
   ["The plate behind the slots. Transparent slots show it through every cell, and the gaps show it at any Spacing above 0."] =
     "Die Unterlage hinter den Plätzen. Bei transparenten Plätzen scheint sie durch jedes Feld, in den Zwischenräumen ab Abstand 1.",
-  ["Lifts panels, slots and borders out of the dark. For dim screens, glare, or whenever the themes feel too dark."] =
-    "Hebt Paneele, Plätze und Rahmen aus dem Dunkel. Für dunkle Bildschirme, Blendeffekte und alle, denen die Themes zu dunkel sind.",
   ["The bank keeps its own width and icon size, apart from the bags."] =
     "Die Bank hat ihre eigene Breite und Symbolgröße, unabhängig von den Taschen.",
   ["One icon size for both bank tabs."] = "Eine Symbolgröße für Bank und Kriegsmeute.",
@@ -320,6 +311,7 @@ local STRINGS = {
   ["Save"] = "Speichern",
   ["Cancel"] = "Abbrechen",
   ["Tab name"] = "Fachname",
+  ["Icon ID / item link"] = "Icon-ID / Gegenstandslink",
   ["Item link"] = "Gegenstandslink",
   ["Right-click to edit"] = "Rechtsklick: bearbeiten",
   ["Buy tab"] = "Fach kaufen",
@@ -391,7 +383,6 @@ local STRINGS = {
   ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =
     "Ein kleines Fenster mit Merkfeldern neben den Taschen, geöffnet über die Gitterschaltfläche in der Kopfzeile. Zieh einen Gegenstand in ein Feld, und das Feld behält ihn, wohin er in den Taschen auch wandert. Ein Feld auf ein anderes gezogen tauscht beide, Strg + Linksklick leert eines.",
   ["Favorite slots"] = "Favoritenplätze",
-  ["How many slots"] = "Anzahl der Plätze",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
     "Eine Reihe Plätze über dem Raster, immer im Blick. Zieht einen Gegenstand darauf, um ihn mit einem Klick zu nutzen; Strg + Linksklick leert einen Platz.",
   ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =

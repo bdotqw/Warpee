@@ -58,7 +58,6 @@ local STRINGS = {
   ["Money"] = "Dinheiro",
   ["Search"] = "Busca",
   ["Markers"] = "Marcadores",
-  ["Slot look"] = "Aparência dos espaços",
   ["Bags grid"] = "Grade das bolsas",
   ["Bank and Warband grid"] = "Grade do banco e do Bando de Guerra",
   ["Badges"] = "Emblemas",
@@ -156,12 +155,6 @@ local STRINGS = {
   ["Fill grid upwards"] = "Preencher a grade de baixo para cima",
   ["Slot background"] = "Fundo dos espaços",
   ["Plate opacity"] = "Opacidade do fundo",
-  ["Brightness"] = "Brilho",
-  ["Light"] = "Claros",
-  ["Dark"] = "Escuros",
-  ["High contrast"] = "Alto contraste",
-  ["Maximum readability: pure text and stronger borders on any theme."] =
-    "Máxima legibilidade: texto nítido e bordas mais fortes em qualquer tema.",
   ["Bank slots per row"] = "Espaços por linha (banco)",
   ["Warband slots per row"] = "Espaços por linha (Bando de Guerra)",
   ["Size of one slot in the bags."] = "Tamanho de um espaço nas bolsas.",
@@ -183,8 +176,6 @@ local STRINGS = {
     "O que aparece atrás de cada ícone. Transparente mostra o fundo, Realçado destaca o espaço e Sólido o fecha.",
   ["The plate behind the slots. Transparent slots show it through every cell, and the gaps show it at any Spacing above 0."] =
     "O fundo atrás dos espaços. Ele aparece através dos espaços transparentes e nos vãos quando o espaçamento é maior que 0.",
-  ["Lifts panels, slots and borders out of the dark. For dim screens, glare, or whenever the themes feel too dark."] =
-    "Clareia painéis, espaços e bordas. Útil em telas escuras, com reflexos ou quando os temas parecem escuros demais.",
   ["The bank keeps its own width and icon size, apart from the bags."] =
     "O banco mantém largura e tamanho de ícones próprios, separados das bolsas.",
   ["One icon size for both bank tabs."] = "Um tamanho de ícone para as duas abas do banco.",
@@ -321,6 +312,7 @@ local STRINGS = {
   ["Save"] = "Salvar",
   ["Cancel"] = "Cancelar",
   ["Tab name"] = "Nome da aba",
+  ["Icon ID / item link"] = "ID do ícone / link do item",
   ["Item link"] = "Link do item",
   ["Right-click to edit"] = "Clique direito para editar",
   ["Buy tab"] = "Comprar aba",
@@ -392,7 +384,6 @@ local STRINGS = {
   ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =
     "Uma pequena janela de células de atalho ao lado das bolsas, aberta pelo botão de grade no cabeçalho. Arraste um item para uma célula e ela o mantém, onde quer que ele se mova nas bolsas. Arraste uma célula sobre outra para trocá-las; Ctrl + clique esquerdo esvazia uma célula.",
   ["Favorite slots"] = "Espaços favoritos",
-  ["How many slots"] = "Quantidade de espaços",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
     "Uma linha de espaços acima da grade, sempre à vista. Arraste um item para um espaço para mantê-lo a um clique; Ctrl + clique esquerdo limpa o espaço.",
   ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =

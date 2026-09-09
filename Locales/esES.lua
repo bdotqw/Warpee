@@ -62,7 +62,6 @@ local STRINGS = {
   ["Money"] = "Dinero",
   ["Search"] = "Búsqueda",
   ["Markers"] = "Marcadores",
-  ["Slot look"] = "Aspecto de los espacios",
   ["Bags grid"] = "Cuadrícula de las bolsas",
   ["Bank and Warband grid"] = "Cuadrícula del banco y la banda guerrera",
   ["Badges"] = "Distintivos",
@@ -163,12 +162,6 @@ local STRINGS = {
   ["Fill grid upwards"] = "Filas de abajo arriba",
   ["Slot background"] = "Fondo de los espacios",
   ["Plate opacity"] = "Opacidad del fondo",
-  ["Brightness"] = "Brillo",
-  ["Light"] = "Claros",
-  ["Dark"] = "Oscuros",
-  ["High contrast"] = "Contraste alto",
-  ["Maximum readability: pure text and stronger borders on any theme."] =
-    "Legibilidad máxima: texto puro y bordes más marcados en cualquier tema.",
   ["Bank slots per row"] = "Espacios por fila (banco)",
   ["Warband slots per row"] = "Espacios por fila (banda guerrera)",
   ["Size of one slot in the bags."] = "Tamaño de un espacio en las bolsas.",
@@ -190,8 +183,6 @@ local STRINGS = {
     "Lo que hay detrás de cada icono. «Transparente» deja ver el fondo, «Aclarado» resalta un poco el espacio, «Opaco» lo cierra del todo.",
   ["The plate behind the slots. Transparent slots show it through every cell, and the gaps show it at any Spacing above 0."] =
     "El fondo que hay detrás de los espacios. Con espacios transparentes se ve en cada casilla, y en los huecos con cualquier espaciado mayor que 0.",
-  ["Lifts panels, slots and borders out of the dark. For dim screens, glare, or whenever the themes feel too dark."] =
-    "Aclara los paneles, espacios y bordes. Para pantallas tenues, reflejos o siempre que los temas parezcan demasiado oscuros.",
   ["The bank keeps its own width and icon size, apart from the bags."] =
     "El banco mantiene su propio ancho y su propio tamaño de iconos, aparte de las bolsas.",
   ["One icon size for both bank tabs."] = "Un solo tamaño de iconos para las dos pestañas del banco.",
@@ -328,6 +319,7 @@ local STRINGS = {
   ["Save"] = "Guardar",
   ["Cancel"] = "Cancelar",
   ["Tab name"] = "Nombre de pestaña",
+  ["Icon ID / item link"] = "ID de icono / enlace de objeto",
   ["Item link"] = "Enlace de objeto",
   ["Right-click to edit"] = "Clic derecho: editar",
   ["Buy tab"] = "Comprar pestaña",
@@ -399,7 +391,6 @@ local STRINGS = {
   ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =
     "Una pequeña ventana de casillas marcadas junto a las bolsas, abierta con el botón de rejilla de la cabecera. Arrastra un objeto a una casilla y la casilla lo mantiene, dondequiera que se mueva en tus bolsas. Arrastrar una casilla sobre otra las intercambia, y Ctrl + clic izquierdo vacía una.",
   ["Favorite slots"] = "Espacios favoritos",
-  ["How many slots"] = "Cuántos espacios",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
     "Una fila de espacios sobre la cuadrícula, siempre a la vista. Arrastra un objeto a uno de ellos para tenerlo a un clic; Ctrl + clic izquierdo vacía un espacio.",
   ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =
