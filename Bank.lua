@@ -1028,6 +1028,7 @@ function View:SaveTabEdit()
   local name = ""
   if self.tabEditName then name = self.tabEditName:GetText() or "" end
   if name == "" then name = e.name or "" end
+  if self.tabEditLink then self:TakeTabIcon(self.tabEditLink:GetText()) end
   local bt = bankTypeFor(e.mode)
   if bt and C_Bank and C_Bank.UpdateBankTabSettings and not InCombatLockdown() then
     pcall(C_Bank.UpdateBankTabSettings, bt, e.bag, name, e.icon or TAB_FALLBACK_ICON, e.flags or 0)
