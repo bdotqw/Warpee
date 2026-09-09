@@ -916,6 +916,10 @@ function View:BuildTabEdit()
   end)
   link:SetScript("OnEditFocusLost", function(s) s:SetText("") end)
   self.tabEditLink = link
+  link.Hint:SetText("")
+  local linkCap = Theme:Label(f, 11, "dim")
+  linkCap:SetText("Icon ID / item link")
+  self.tabEditLinkCap = linkCap
 
   local save = ns.CreateButton(f, ns.L["Save"], 80, 22)
   ns.LocalText(save, "Save")
@@ -936,7 +940,10 @@ function View:BuildTabEdit()
     b:Show()
   end
   local rows = math.ceil(#self.tabEditBtns / EDIT_COLS)
-  local linkTop = gridTop + rows * EDIT_SIZE + (rows - 1) * EDIT_GAP + 8
+  local capTop = gridTop + rows * EDIT_SIZE + (rows - 1) * EDIT_GAP + 8
+  self.tabEditLinkCap:ClearAllPoints()
+  ns.SnapPoint(self.tabEditLinkCap, "TOPLEFT", f, "TOPLEFT", EDIT_PAD, -capTop)
+  local linkTop = capTop + 14
   link:ClearAllPoints()
   ns.SnapPoint(link, "TOPLEFT", f, "TOPLEFT", EDIT_PAD, -linkTop)
   ns.SnapPoint(link, "TOPRIGHT", f, "TOPRIGHT", -EDIT_PAD, -linkTop)
@@ -978,6 +985,7 @@ function View:OpenTabEdit(anchor, bag)
   if self.tabEditName.Hint then self.tabEditName.Hint:SetFont(path, 13, "") end
   self.tabEditLink:SetFont(path, 13, "")
   if self.tabEditLink.Hint then self.tabEditLink.Hint:SetFont(path, 13, "") end
+  self.tabEditLinkCap:SetFont(path, 11, "")
   self.tabEditSave.Text:SetFont(path, 12, "")
   self.tabEditCancel.Text:SetFont(path, 12, "")
   self.tabEditName:SetText(self.tabEdit.name or "")
