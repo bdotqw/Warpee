@@ -463,7 +463,6 @@ function Pocket:Build()
         Pocket:DropID(s.wpeID)
       elseif Pocket:AddID(s.wpeID) then
         if ns.ItemSound then ns.ItemSound("pickup") end
-        end
       end
     end)
     local ic = b:CreateTexture(nil, "ARTWORK")
