@@ -814,6 +814,18 @@ local TAB_ICONS = {
   [[Interface\Icons\INV_Ore_FelIron]],
   [[Interface\Icons\INV_Misc_Map_01]],
   [[Interface\Icons\INV_Misc_QuestionMark]],
+  [[Interface\Icons\INV_Misc_Bag_09]],
+  [[Interface\Icons\INV_Misc_Bag_10]],
+  [[Interface\Icons\INV_Misc_Bag_11]],
+  [[Interface\Icons\INV_Misc_Coin_01]],
+  [[Interface\Icons\INV_Misc_Coin_02]],
+  [[Interface\Icons\INV_Misc_Gem_Amethyst_01]],
+  [[Interface\Icons\INV_Misc_Gem_Amethyst_03]],
+  [[Interface\Icons\INV_Alchemy_Elixir_01]],
+  [[Interface\Icons\INV_Alchemy_Elixir_02]],
+  [[Interface\Icons\INV_Ore_Copper_01]],
+  [[Interface\Icons\INV_Fabric_Wool_01]],
+  [[Interface\Icons\INV_Scroll_02]],
 }
 local EDIT_W, EDIT_PAD = 220, 10
 local EDIT_COLS, EDIT_SIZE, EDIT_GAP = 6, 30, 4
@@ -890,7 +902,7 @@ function View:BuildTabEdit()
     self.tabEditBtns[i] = b
   end
 
-  local link = ns.CreateSearchBox(f, nil, "Item link")
+  local link = ns.CreateSearchBox(f, nil, "Icon ID / item link")
   link.wpeLinkID = true
   link:SetHeight(22)
   link:SetScript("OnEnterPressed", function(s)
@@ -980,11 +992,18 @@ function View:TakeTabIcon(text)
   local e = self.tabEdit
   if not e then return end
   local s = tostring(text or "")
-  local id = tonumber(s:match("item:(%d+)")) or tonumber(s:match("%d+"))
-  if not (id and C_Item and C_Item.GetItemIconByID) then return end
-  local ok, tex = pcall(C_Item.GetItemIconByID, id)
-  if ok and tex then
-    e.icon = tex
+  local item = tonumber(s:match("item:(%d+)"))
+  if item and C_Item and C_Item.GetItemIconByID then
+    local ok, tex = pcall(C_Item.GetItemIconByID, item)
+    if ok and tex then
+      e.icon = tex
+      self:PaintTabEdit()
+    end
+    return
+  end
+  local fid = tonumber(s:match("^%s*(%d+)%s*$"))
+  if fid and fid > 0 then
+    e.icon = fid
     self:PaintTabEdit()
   end
 end
