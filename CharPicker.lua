@@ -99,8 +99,8 @@ function Picker:Row(i)
   line:SetPoint("BOTTOMRIGHT", 0, 0)
   line:Hide()
   r.line = line
-  r:SetScript("OnEnter", function(s) if s.kind == "char" then s.bg:Show() end end)
-  r:SetScript("OnLeave", function(s) s.bg:Hide() end)
+  r:SetScript("OnEnter", function(s) if s.kind == "char" then s.bg:SetAlpha(1); s.bg:Show() end end)
+  r:SetScript("OnLeave", function(s) if s.kind == "char" then s.bg:SetAlpha(0.45); s.bg:Show() else s.bg:Hide() end end)
   r:SetScript("OnClick", function(s, button)
     if s.kind ~= "char" or not s.key then return end
     if button == "RightButton" then
@@ -160,7 +160,8 @@ function Picker:CharRow(n, y, e, path)
   else r.Text:SetTextColor(Theme:C("overlay")) end
   r:SetAlpha(e.hidden and 0.4 or 1)
   r.dot:SetShown(e.key == self.currentKey)
-  r.bg:Hide()
+  r.bg:SetAlpha(0.45)
+  r.bg:Show()
   r:Show()
   return math.ceil(r.Text:GetStringWidth()) + 24
 end
