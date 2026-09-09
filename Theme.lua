@@ -556,13 +556,6 @@ if UIParent.SetIgnoreParentScale then
   hooksecurefunc(UIParent, "SetIgnoreParentScale", function() ns.ScaleChanged() end)
 end
 
-local LIFT = { bg = true, panel = true, panelHi = true, slot = true, stroke = true, strokeSoft = true, emptyLine = true }
-function Theme:Brightness()
-  local v = WarpeeDB and tonumber(WarpeeDB.brightness) or 0
-  if v < 0 then return 0 end
-  if v > 0.3 then return 0.3 end
-  return v
-end
 function Theme:HighContrast()
   return WarpeeDB and WarpeeDB.highContrast and true or false
 end
@@ -583,12 +576,6 @@ end
 function Theme:C(name)
   local c = self.colors[name]
   local r, g, b, a = c[1], c[2], c[3], c[4]
-  local lift = self:Brightness()
-  if lift > 0 and LIFT[name] then
-    r = math.min(1, r + lift)
-    g = math.min(1, g + lift)
-    b = math.min(1, b + lift)
-  end
   if self:HighContrast() then r, g, b = hcShift(self, name, r, g, b) end
   return r, g, b, a
 end
@@ -608,12 +595,6 @@ end
 function Theme:Hex(name)
   local c = self.colors[name]
   local r, g, b = c[1], c[2], c[3]
-  local lift = self:Brightness()
-  if lift > 0 and LIFT[name] then
-    r = math.min(1, r + lift)
-    g = math.min(1, g + lift)
-    b = math.min(1, b + lift)
-  end
   if self:HighContrast() then r, g, b = hcShift(self, name, r, g, b) end
   return string.format("%02x%02x%02x", r * 255 + 0.5, g * 255 + 0.5, b * 255 + 0.5)
 end

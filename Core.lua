@@ -243,7 +243,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.iconZoom = tonumber(WarpeeDB.iconZoom) or 1
     WarpeeDB.borderWidth = tonumber(WarpeeDB.borderWidth) or 1
     WarpeeDB.gridAlpha = tonumber(WarpeeDB.gridAlpha) or 0
-    WarpeeDB.brightness = tonumber(WarpeeDB.brightness) or 0
+    WarpeeDB.brightness = nil
     if WarpeeDB.highContrast == nil then WarpeeDB.highContrast = false end
     WarpeeDB.bgAlpha = nil
     if WarpeeDB.slotStyle == "quality" then WarpeeDB.slotStyle = "tile" end
