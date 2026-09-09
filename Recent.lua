@@ -10,6 +10,7 @@ local MAX_SLOTS = 24
 local SETTLE = 5
 
 local cells, seq, known, got = {}, {}, {}, {}
+local missed, guidMiss = {}, {}
 local locBag, locSlot = {}, {}
 local poor = {}
 local counter = 0
@@ -162,8 +163,16 @@ local function prune(counts)
     local key = cells[i]
     local here = key and (type(key) == "string" and guidNow[key] or counts[key])
     if key and (not here or poor[key]) then
-      seq[key], got[key] = nil, nil
-      cells[i] = nil
+      local m = (missed[key] or 0) + 1
+      if m >= 3 or poor[key] then
+        seq[key], got[key] = nil, nil
+        missed[key] = nil
+        cells[i] = nil
+      else
+        missed[key] = m
+      end
+    elseif key then
+      missed[key] = nil
     end
   end
 end
@@ -235,10 +244,23 @@ local function detect()
     return
   end
   for id in pairs(known) do
-    if not counts[id] and not equipped(id) then known[id] = nil end
+    if not counts[id] and not equipped(id) then
+      local m = (missed[id] or 0) + 1
+      if m >= 3 then known[id] = nil; missed[id] = nil
+      else missed[id] = m end
+    else
+      missed[id] = nil
+    end
   end
   prune(counts)
-  wipe(guidHad)
+  for g in pairs(guidHad) do
+    if guidNow[g] then guidMiss[g] = nil
+    else
+      local m = (guidMiss[g] or 0) + 1
+      if m >= 3 then guidHad[g] = nil; guidMiss[g] = nil
+      else guidMiss[g] = m end
+    end
+  end
   for g in pairs(guidNow) do guidHad[g] = true end
 end
 
