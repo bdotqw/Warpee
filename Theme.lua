@@ -491,27 +491,9 @@ if UIParent.SetIgnoreParentScale then
   hooksecurefunc(UIParent, "SetIgnoreParentScale", function() ns.ScaleChanged() end)
 end
 
-function Theme:HighContrast()
-  return WarpeeDB and WarpeeDB.highContrast and true or false
-end
-local HC_TEXT = { text = true }
-local HC_PUSH = { dim = true, faint = true, stroke = true, strokeSoft = true, emptyLine = true }
-local function hcShift(self, name, r, g, b)
-  if HC_TEXT[name] then
-    if self:IsLight() then return 0, 0, 0 end
-    return 1, 1, 1
-  end
-  if HC_PUSH[name] then
-    local d = self:IsLight() and -0.10 or 0.10
-    local function sh(v) v = v + d; if v < 0 then return 0 end; if v > 1 then return 1 end; return v end
-    return sh(r), sh(g), sh(b)
-  end
-  return r, g, b
-end
 function Theme:C(name)
   local c = self.colors[name]
   local r, g, b, a = c[1], c[2], c[3], c[4]
-  if self:HighContrast() then r, g, b = hcShift(self, name, r, g, b) end
   return r, g, b, a
 end
 
@@ -530,7 +512,6 @@ end
 function Theme:Hex(name)
   local c = self.colors[name]
   local r, g, b = c[1], c[2], c[3]
-  if self:HighContrast() then r, g, b = hcShift(self, name, r, g, b) end
   return string.format("%02x%02x%02x", r * 255 + 0.5, g * 255 + 0.5, b * 255 + 0.5)
 end
 
@@ -672,6 +653,18 @@ function Theme:Shadow(fs, dark)
   paint(fs)
   track(fs, paint)
   return fs
+end
+
+function Theme:Money(fs)
+  if not fs then return end
+  if self:IsLight() then
+    fs:SetTextColor(1, 1, 1)
+    fs:SetShadowColor(0, 0, 0, 0.85)
+    fs:SetShadowOffset(1, -1)
+  else
+    fs:SetTextColor(self:C("text"))
+    fs:SetShadowColor(0, 0, 0, 0)
+  end
 end
 
 local TIP_BG   = [[Interface\Tooltips\UI-Tooltip-Background]]
