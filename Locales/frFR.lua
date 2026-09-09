@@ -373,6 +373,7 @@ local STRINGS = {
   ["A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
     "Une rangée au-dessus des favoris contenant ce qui est arrivé dans vos sacs pendant cette session, hors objets gris. Chaque arrivée prend la première case libre, le plus ancien disparaît quand la rangée est pleine, et la rangée se vide à la déconnexion ou après un rechargement.",
   ["POCKET"] = "POCHE",
+  ["FANNY PACK"] = "SAC BANANE",
   ["Pocket"] = "Poche",
   ["Pocket window"] = "Fenêtre de poche",
   ["Pocket rows"] = "Lignes de la poche",

@@ -368,6 +368,7 @@ local STRINGS = {
   ["A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
     "Una fila sobre los favoritos con lo que ha entrado en tus bolsas en esta sesión, salvo los objetos grises. Cada objeto nuevo ocupa la primera casilla libre, el más antiguo sale cuando la fila se llena, y la fila se vacía al salir o al recargar la interfaz.",
   ["POCKET"] = "BOLSILLO",
+  ["FANNY PACK"] = "RIÑONERA",
   ["Pocket"] = "Bolsillo",
   ["Pocket window"] = "Ventana del bolsillo",
   ["Pocket rows"] = "Filas del bolsillo",

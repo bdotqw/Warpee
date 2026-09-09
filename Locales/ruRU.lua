@@ -371,6 +371,7 @@ local STRINGS = {
   ["A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
     "Ряд над избранным, в котором лежит то, что попало в сумки за эту сессию, кроме серых предметов. Каждое поступление занимает первую свободную ячейку, при переполнении уходит самое старое, а при выходе из игры или перезагрузке интерфейса ряд очищается.",
   ["POCKET"] = "КАРМАН",
+  ["FANNY PACK"] = "БАРСЕТКА",
   ["Pocket"] = "Карман",
   ["Pocket window"] = "Окно кармана",
   ["Pocket rows"] = "Рядов в кармане",

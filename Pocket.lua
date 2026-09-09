@@ -78,6 +78,16 @@ function Pocket:Count()
   return self:Cols() * self:Rows()
 end
 
+local function paintTitle(w)
+  local t = w and w.title
+  if not t then return end
+  local k = Pocket:Cols() >= 8 and "FANNY PACK" or "POCKET"
+  if w.titleKey ~= k then
+    w.titleKey = k
+    ns.LocalText(t, k)
+  end
+end
+
 function Pocket:List()
   WarpeeDB.pocket = WarpeeDB.pocket or {}
   local k = charKey()
@@ -378,8 +388,8 @@ function Pocket:Build()
   ns.PixelJob(w, function(s) ns.AlignToScreen(s) end, "align")
 
   local title = Theme:Title(w, 14, "accent")
-  ns.LocalText(title, "POCKET")
   self.title = title
+  paintTitle(w)
 
   local close = ns.CreateGlyphButton(w, "×")
   close:SetScript("OnClick", function() Pocket:Close() end)
@@ -572,6 +582,7 @@ function Pocket:Layout()
   local mid = (band or head) / 2 + Theme:TitleDrop()
   local path = ns.Fonts:Current()
   self.title:SetFont(path, 14, "")
+  paintTitle(w)
   self.title:ClearAllPoints()
   ns.SnapPoint(self.title, "LEFT", w, "TOPLEFT", PAD, -mid)
   self.closeBtn:ClearAllPoints()

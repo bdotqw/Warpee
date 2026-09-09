@@ -360,6 +360,7 @@ local STRINGS = {
   ["A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
     "Eine Reihe über den Favoriten mit dem, was in dieser Sitzung in die Taschen kam, ohne graue Gegenstände. Jeder Neuzugang belegt die erste freie Zelle, bei voller Reihe fällt der älteste Eintrag heraus, und beim Abmelden oder Neuladen wird die Reihe geleert.",
   ["POCKET"] = "ABLAGE",
+  ["FANNY PACK"] = "BAUCHTASCHE",
   ["Pocket"] = "Ablage",
   ["Pocket window"] = "Ablagefenster",
   ["Pocket rows"] = "Zeilen der Ablage",
