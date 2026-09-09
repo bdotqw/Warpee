@@ -1165,6 +1165,7 @@ local function pathUsable(path)
       local late = judgePath(path)
       if late ~= nil then
         pathOK[path] = late
+        if ns.AdoptFontWish then ns.AdoptFontWish() end
         if ns.Fonts.Refresh then ns.Fonts:Refresh() end
         if ns.CloseDropdown then pcall(ns.CloseDropdown) end
       end
@@ -1223,6 +1224,7 @@ local function hasScript(script, path)
       local late = judgeScript(script, path)
       if late ~= nil then
         scriptOK[script][path] = late
+        if ns.AdoptFontWish then ns.AdoptFontWish() end
         if ns.Fonts.Refresh then ns.Fonts:Refresh() end
         if ns.CloseDropdown then pcall(ns.CloseDropdown) end
       end

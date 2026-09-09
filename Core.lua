@@ -590,14 +590,38 @@ SlashCmdList["WARPEE"] = function()
 end
 
 local slugOK
+local SLUG_OFF = { ruRU = true, zhCN = true, zhTW = true, koKR = true }
 function ns.OutlineFlags()
   if slugOK == nil then
     slugOK = false
-    local probe = UIParent and UIParent:CreateFontString()
-    if probe then
-      pcall(probe.SetFont, probe, ns.Fonts:Current(), 12, "OUTLINE|SLUG")
-      slugOK = probe:GetFont() ~= nil
+    if not SLUG_OFF[GetLocale and GetLocale() or ""] then
+      local probe = UIParent and UIParent:CreateFontString()
+      if probe then
+        pcall(probe.SetFont, probe, ns.Fonts:Current(), 12, "OUTLINE, SLUG")
+        slugOK = probe:GetFont() ~= nil
+      end
     end
   end
-  return slugOK and "OUTLINE|SLUG" or "OUTLINE"
+  return slugOK and "OUTLINE, SLUG" or "OUTLINE"
+end
+
+function ns.AdoptFontWish()
+  local db = WarpeeDB
+  if not (db and db.fontWish and ns.Fonts) then return false end
+  if ns.Fonts:Has(db.fontWish) and ns.Fonts:Usable(db.fontWish) then
+    db.font = db.fontWish
+    db.fontWish = nil
+    if ns.Bags then ns.Bags.font = db.font end
+    return true
+  end
+  return false
+end
+
+do
+  local f = CreateFrame("Frame")
+  f:RegisterEvent("PLAYER_LOGIN")
+  f:SetScript("OnEvent", function()
+    if ns.Fonts and ns.Fonts.Settle then ns.Fonts:Settle() end
+    if ns.Fonts then ns.Fonts:Refresh() end
+  end)
 end
