@@ -131,10 +131,9 @@ Theme.THEMES = {
     faint = { 0.560, 0.560, 0.560, 1.000 }, emptyLine = { 0.480, 0.300, 0.220, 1.000 },
     azure = { 0.250, 0.850, 1.000, 1.000 }, reagent = { 0.350, 0.850, 0.550, 1.000 } },
 }
-Theme.THEME_ORDER = { "midnight", "blizzard", "blizzardflat",
-                      "nightbloom", "void", "nord",
-                      "abyss", "blood", "forest",
-                      "harbor", "velvet", "meadow", "reef", "magma" }
+Theme.THEME_ORDER = { "blizzard", "blizzardflat", "midnight", "nightbloom",
+                      "void", "nord", "harbor", "abyss", "forest",
+                      "velvet", "meadow", "reef", "magma", "blood" }
 Theme.LIGHT = {}
 
 function Theme:IsLight()
