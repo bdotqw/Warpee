@@ -917,6 +917,7 @@ function View:BuildTabEdit()
   link:SetScript("OnEditFocusLost", function(s) s:SetText("") end)
   self.tabEditLink = link
   link.Hint:SetText("")
+  link.Hint:SetAlpha(0)
   local linkCap = Theme:Label(f, 11, "dim")
   ns.LocalText(linkCap, "Icon ID / item link")
   self.tabEditLinkCap = linkCap
