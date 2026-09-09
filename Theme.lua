@@ -856,7 +856,10 @@ function Theme:RefreshArt(frame)
     local cache = frame.wpeArts
     if cache then
       for key, other in pairs(cache) do
-        if other and key ~= self.skin then other:Hide() end
+        if other and key ~= self.skin then
+          other:Hide()
+          if other.wpeEdge and other.wpeEdge.Hide then other.wpeEdge:Hide() end
+        end
       end
     end
     local art = buildArt(frame, self.skin, def)
@@ -892,6 +895,7 @@ function Theme:RefreshArt(frame)
       end
       if not def.body and art.Center then art.Center:SetAlpha(a) end
       tintEdge(art, def)
+      if art.wpeEdge and art.wpeEdge.Show then art.wpeEdge:Show() end
       art:Show()
     end
     frame.wpeArt = art
@@ -901,7 +905,10 @@ function Theme:RefreshArt(frame)
   local cache = frame.wpeArts
   if cache then
     for _, other in pairs(cache) do
-      if other then other:Hide() end
+      if other then
+        other:Hide()
+        if other.wpeEdge and other.wpeEdge.Hide then other.wpeEdge:Hide() end
+      end
     end
   end
   frame.wpeArt = nil
