@@ -21,7 +21,8 @@ function Picker:Build()
 
   local m = CreateFrame("Frame", "WarpeeCharPicker", UIParent, "BackdropTemplate")
   m:Hide()
-  Theme:Panel(m, "deep", "deep")
+  local bgKey = Theme:IsLight() and "bg" or "deep"
+  Theme:Panel(m, bgKey, bgKey)
   m:SetFrameStrata("FULLSCREEN_DIALOG")
   Theme:WindowArt(m)
   m:EnableMouse(true)
@@ -152,7 +153,7 @@ function Picker:CharRow(n, y, e, path)
   r.Text:ClearAllPoints()
   r.Text:SetPoint("LEFT", 8, 0)
   r.Text:SetPoint("RIGHT", -8, 0)
-  r.Text:SetFont(path, 14, "")
+  r.Text:SetFont(path, 14, "OUTLINE")
   local col = classColor(e.class)
   r.Text:SetText(e.name)
   if col then r.Text:SetTextColor(col.r, col.g, col.b)
@@ -166,6 +167,9 @@ end
 
 function Picker:Paint(keepScroll)
   if not self.frame then return end
+  local k = Theme:IsLight() and "bg" or "deep"
+  self.frame:SetBackdropColor(Theme:C(k))
+  self.frame:SetBackdropBorderColor(Theme:C(k))
   local scroll = keepScroll and self.sf:GetVerticalScroll() or 0
   local path = fontPath()
   local list = ns.Vault:WithOwner(ns.Vault:Chars(self.showHidden, self.mode))
