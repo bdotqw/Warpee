@@ -11,7 +11,7 @@ local LABEL_H, LABEL_GAP, SPLIT = 13, 4, 10
 local BOX_H, BOX_GAP = 22, 8
 local MAX_COLS, MAX_ROWS = 8, 6
 local PICK_MAX, PICK_COLS = 64, 8
-local PICK_SIZE, PICK_GAP, PICK_PAD = 36, 4, 10
+local PICK_SIZE, PICK_GAP, PICK_PAD = 36, 8, 12
 
 local function pickTier(id)
   if not (id and C_TradeSkillUI) then return nil end
