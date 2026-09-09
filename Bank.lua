@@ -918,7 +918,7 @@ function View:BuildTabEdit()
   self.tabEditLink = link
   link.Hint:SetText("")
   local linkCap = Theme:Label(f, 11, "dim")
-  linkCap:SetText("Icon ID / item link")
+  ns.LocalText(linkCap, "Icon ID / item link")
   self.tabEditLinkCap = linkCap
 
   local save = ns.CreateButton(f, ns.L["Save"], 80, 22)
