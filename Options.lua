@@ -1113,7 +1113,7 @@ function factories.chars(parent, spec)
       local cc = e.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
       c.wpeClassColor = cc
       c.Text:SetText(e.name)
-      c.Text:SetFont(path, math.max(7, BASE_FONT - 2), "OUTLINE")
+      c.Text:SetFont(path, math.max(7, BASE_FONT - 2), ns.OutlineFlags())
       c:Paint()
       c:Show()
       col = col + 1
@@ -1139,7 +1139,7 @@ function factories.chars(parent, spec)
       c:SetPoint("TOPLEFT", 0, -y)
       c.wpeClassColor = nil
       c.Text:SetText(L["Warband bank"])
-      c.Text:SetFont(path, math.max(7, BASE_FONT - 2), "OUTLINE")
+      c.Text:SetFont(path, math.max(7, BASE_FONT - 2), ns.OutlineFlags())
       c:Paint()
       c:Show()
       y = y + CHAR_CELL_H

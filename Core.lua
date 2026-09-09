@@ -588,3 +588,16 @@ SLASH_WARPEE2 = "/wpe"
 SlashCmdList["WARPEE"] = function()
   if ns.Options then ns.Options:Toggle() end
 end
+
+local slugOK
+function ns.OutlineFlags()
+  if slugOK == nil then
+    slugOK = false
+    local probe = UIParent and UIParent:CreateFontString()
+    if probe then
+      pcall(probe.SetFont, probe, ns.Fonts:Current(), 12, "OUTLINE|SLUG")
+      slugOK = probe:GetFont() ~= nil
+    end
+  end
+  return slugOK and "OUTLINE|SLUG" or "OUTLINE"
+end
