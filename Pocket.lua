@@ -78,12 +78,12 @@ function Pocket:Count()
   return self:Cols() * self:Rows()
 end
 
-local function paintTitle(w)
-  local t = w and w.title
+local function paintTitle()
+  local t = Pocket.title
   if not t then return end
   local k = Pocket:Cols() >= 8 and "FANNY PACK" or "POCKET"
-  if w.titleKey ~= k then
-    w.titleKey = k
+  if Pocket.titleKey ~= k then
+    Pocket.titleKey = k
     ns.LocalText(t, k)
   end
 end
@@ -389,7 +389,7 @@ function Pocket:Build()
 
   local title = Theme:Title(w, 14, "accent")
   self.title = title
-  paintTitle(w)
+  paintTitle()
 
   local close = ns.CreateGlyphButton(w, "×")
   close:SetScript("OnClick", function() Pocket:Close() end)
@@ -582,7 +582,7 @@ function Pocket:Layout()
   local mid = (band or head) / 2 + Theme:TitleDrop()
   local path = ns.Fonts:Current()
   self.title:SetFont(path, 14, "")
-  paintTitle(w)
+  paintTitle()
   self.title:ClearAllPoints()
   ns.SnapPoint(self.title, "LEFT", w, "TOPLEFT", PAD, -mid)
   self.closeBtn:ClearAllPoints()
