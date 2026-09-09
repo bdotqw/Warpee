@@ -145,6 +145,7 @@ local STRINGS = {
   ["Auction house"] = "Casa d'Aste",
   ["Trade"] = "Commercia",
   ["Guild bank"] = "Banca di Gilda",
+  ["Guild / Yours"] = "Gilda / Tuo",
   ["Professions"] = "Professioni",
   ["Bank slot size"] = "Dimensione scomparti banca",
   ["Slot size"] = "Dimensione scomparti",

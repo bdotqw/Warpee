@@ -150,6 +150,7 @@ local STRINGS = {
   ["Auction house"] = "Casa de subastas",
   ["Trade"] = "Comercio",
   ["Guild bank"] = "Banco de hermandad",
+  ["Guild / Yours"] = "Hermandad / Tuyo",
   ["Professions"] = "Profesiones",
   ["Bank slot size"] = "Tamaño de los espacios del banco",
   ["Slot size"] = "Tamaño de los espacios",

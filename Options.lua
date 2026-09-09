@@ -2000,7 +2000,7 @@ function V.repGet() return WarpeeDB.vendorRepair and true or false end
 function V.repSet(v) WarpeeDB.vendorRepair = v and true or false end
 V.REPAIR_BY = { "player", "guild", "both" }
 V.REPAIR_LABELS = { player = "Your gold", guild = "Guild bank",
-                    both = "Guild / yours" }
+                    both = "Guild / Yours" }
 function V.repByGet() return WarpeeDB.vendorRepairBy or "player" end
 function V.repBySet(v) WarpeeDB.vendorRepairBy = v or "player" end
 function V.relicGet() return WarpeeDB.vendorRelics ~= false end
@@ -2041,7 +2041,7 @@ local VENDOR_PAGE = {
     desc = "Repair at merchants who offer it. Others are left alone, with no message." },
   { type = "select", name = "Pay with", col = 3, of = 3, get = V.repByGet, set = V.repBySet,
     keys = function() return V.REPAIR_BY end,
-    label = function(k) return V.REPAIR_LABELS[k] or k end,
+    label = function(k) return T(V.REPAIR_LABELS[k] or k) end,
     disabled = function() return not V.repGet() end,
     desc = "Where the repair money comes from. The guild bank is used only if your withdraw limit covers the whole bill." },
   { type = "header", name = "The coin button",

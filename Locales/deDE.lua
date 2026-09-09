@@ -142,6 +142,7 @@ local STRINGS = {
   ["Auction house"] = "Auktionshaus",
   ["Trade"] = "Handel",
   ["Guild bank"] = "Gildenbank",
+  ["Guild / Yours"] = "Gilde / Eigenes",
   ["Professions"] = "Berufe",
   ["Bank slot size"] = "Platzgröße der Bank",
   ["Slot size"] = "Platzgröße",
