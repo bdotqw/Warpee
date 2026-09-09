@@ -624,9 +624,11 @@ function ns.FitOverlays(b)
       t:ClearAllPoints()
       t:SetPoint("TOPLEFT", b, "TOPLEFT", -3, 2)
       t:SetAtlas(art, true)
+      t:SetAlpha(ns.SearchBadgeAlpha(b))
       return
     end
     fitToIcon(t, ic)
+    t:SetAlpha(ns.SearchBadgeAlpha(b))
   end
   fit(b.IconOverlay or _G[nm .. "IconOverlay"])
   fit(b.IconOverlay2 or _G[nm .. "IconOverlay2"])
@@ -1316,6 +1318,10 @@ function ns.ApplySearchToButton(b, filters, blocked)
   paintBadgeAlpha(b, b.NewItemTexture)
   paintBadgeAlpha(b, b.BattlepayItemTexture)
   paintBadgeAlpha(b, b.cdText)
+  local nm = b:GetName() or ""
+  paintBadgeAlpha(b, b.IconOverlay or _G[nm .. "IconOverlay"])
+  paintBadgeAlpha(b, b.IconOverlay2 or _G[nm .. "IconOverlay2"])
+  paintBadgeAlpha(b, b.ProfessionQualityOverlay or _G[nm .. "ProfessionQualityOverlay"])
 end
 
 function ns.UpdateItemLock(b)
