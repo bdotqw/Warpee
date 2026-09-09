@@ -13,6 +13,20 @@ local MAX_COLS, MAX_ROWS = 8, 6
 local PICK_MAX, PICK_COLS = 64, 8
 local PICK_SIZE, PICK_GAP, PICK_PAD = 36, 4, 10
 
+local function pickTier(id)
+  if not (id and C_TradeSkillUI and C_TradeSkillUI.GetItemCraftedQualityByItemInfo) then return nil end
+  local ok, q = pcall(C_TradeSkillUI.GetItemCraftedQualityByItemInfo, id)
+  q = (ok and q) or nil
+  if not q then
+    local rg = C_TradeSkillUI.GetItemReagentQualityByItemInfo
+    if rg then ok, q = pcall(rg, id); q = (ok and q) or nil end
+  end
+  if type(q) ~= "number" or q < 1 then return nil end
+  local atlas = ("Professions-Icon-Quality-Tier%d-Inv"):format(q)
+  if C_Texture and C_Texture.GetAtlasInfo and not C_Texture.GetAtlasInfo(atlas) then return nil end
+  return atlas
+end
+
 local POCKET_PICKS = {
   272195, -- Vantus Rune: Tides
   243734, -- Thalassian Phoenix Oil
@@ -455,6 +469,10 @@ function Pocket:Build()
     ic:SetPoint("BOTTOMRIGHT", -1, 1)
     ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     b.icon = ic
+    local tier = b:CreateTexture(nil, "OVERLAY")
+    tier:SetPoint("TOPLEFT", b, "TOPLEFT", -3, 2)
+    tier:Hide()
+    b.tier = tier
     b:Hide()
     self.pickBtns[i] = b
   end
@@ -740,6 +758,8 @@ function Pocket:PickPaint()
     b:SetBackdropColor(Theme:C("slot"))
     b:SetBackdropBorderColor(Theme:C(pinned and "gone" or "emptyLine"))
     b.icon:SetDesaturated(pinned)
+    local atlas = pickTier(id)
+    if atlas then b.tier:SetAtlas(atlas, true); b.tier:Show() else b.tier:Hide() end
     b:Show()
   end
   for i = n + 1, PICK_MAX do self.pickBtns[i]:Hide() end
