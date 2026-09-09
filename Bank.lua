@@ -977,7 +977,6 @@ function View:BuildTabEdit()
     s:SetText("")
     s:ClearFocus()
   end)
-  link:SetScript("OnEditFocusLost", function(s) s:SetText("") end)
   self.tabEditLink = link
   link.Hint:SetText("")
   link.Hint:SetAlpha(0)
