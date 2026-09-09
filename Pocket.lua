@@ -419,7 +419,7 @@ function Pocket:Build()
     b:SetBackdropColor(Theme:C("slot"))
     b:SetBackdropBorderColor(Theme:C("emptyLine"))
     local function pickBorder(s)
-      s:SetBackdropBorderColor(Theme:C(s.wpePinned and "gone" or "emptyLine"))
+      s:SetBackdropBorderColor(Theme:C(s.wpePinned and "accent" or "emptyLine"))
     end
     Theme:Track(b, function(s)
       s:SetBackdropColor(Theme:C("slot"))
@@ -428,7 +428,7 @@ function Pocket:Build()
     b:RegisterForClicks("LeftButtonUp")
     b:SetScript("OnEnter", function(s)
       s:SetBackdropColor(Theme:C("panelHi"))
-      s:SetBackdropBorderColor(Theme:C(s.wpePinned and "gone" or "accent"))
+      s:SetBackdropBorderColor(Theme:C("accent"))
       GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
       if s.wpeID then
         GameTooltip:SetItemByID(s.wpeID)
@@ -459,6 +459,14 @@ function Pocket:Build()
     tier:SetPoint("TOPLEFT", b, "TOPLEFT", -3, 2)
     tier:Hide()
     b.tier = tier
+    local tick = b:CreateTexture(nil, "OVERLAY", nil, 1)
+    tick:SetTexture([[Interface\Buttons\UI-CheckBox-Check]])
+    tick:SetSize(12, 12)
+    tick:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -2, 2)
+    tick:SetVertexColor(Theme:C("accent"))
+    Theme:Track(tick, function(s) s:SetVertexColor(Theme:C("accent")) end)
+    tick:Hide()
+    b.tick = tick
     b:Hide()
     self.pickBtns[i] = b
   end
@@ -742,10 +750,11 @@ function Pocket:PickPaint()
     end
     b.wpePinned = pinned
     b:SetBackdropColor(Theme:C("slot"))
-    b:SetBackdropBorderColor(Theme:C(pinned and "gone" or "emptyLine"))
-    b.icon:SetDesaturated(pinned)
+    b:SetBackdropBorderColor(Theme:C(pinned and "accent" or "emptyLine"))
+    b.icon:SetDesaturated(false)
     local atlas = ns.PinTier(id)
     if atlas then b.tier:SetAtlas(atlas, true); b.tier:Show() else b.tier:Hide() end
+    if b.tick then b.tick:SetShown(pinned and true or false) end
     b:Show()
   end
   for i = n + 1, PICK_MAX do self.pickBtns[i]:Hide() end
