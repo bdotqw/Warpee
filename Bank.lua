@@ -872,6 +872,7 @@ function View:BuildTabEdit()
     ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     ic:SetTexture(TAB_ICONS[i])
     b.wpeIconPath = TAB_ICONS[i]
+    b.wpeIconID = (GetFileIDFromPath and GetFileIDFromPath(TAB_ICONS[i])) or TAB_ICONS[i]
     b:RegisterForClicks("LeftButtonUp")
     b:SetScript("OnEnter", function(s)
       s:SetBackdropColor(Theme:C("panelHi"))
@@ -882,7 +883,7 @@ function View:BuildTabEdit()
       pick(s)
     end)
     b:SetScript("OnClick", function(s)
-      if self.tabEdit then self.tabEdit.icon = s.wpeIconPath end
+      if self.tabEdit then self.tabEdit.icon = s.wpeIconID end
       self:PaintTabEdit()
     end)
     b:Hide()
@@ -942,7 +943,7 @@ function View:PaintTabEdit()
   self.tabEditTitle:SetText(e.name or "")
   self.tabEditPrev:SetTexture(e.icon or TAB_FALLBACK_ICON)
   for _, b in ipairs(self.tabEditBtns) do
-    b.wpeOn = (b.wpeIconPath == e.icon) or nil
+    b.wpeOn = (b.wpeIconID == e.icon) or nil
     b:SetBackdropBorderColor(Theme:C(b.wpeOn and "accent" or "emptyLine"))
   end
 end
