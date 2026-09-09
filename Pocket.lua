@@ -459,14 +459,6 @@ function Pocket:Build()
     tier:SetPoint("TOPLEFT", b, "TOPLEFT", -3, 2)
     tier:Hide()
     b.tier = tier
-    local tick = b:CreateTexture(nil, "OVERLAY", nil, 1)
-    tick:SetTexture([[Interface\Buttons\UI-CheckBox-Check]])
-    tick:SetSize(12, 12)
-    tick:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -2, 2)
-    tick:SetVertexColor(Theme:C("accent"))
-    Theme:Track(tick, function(s) s:SetVertexColor(Theme:C("accent")) end)
-    tick:Hide()
-    b.tick = tick
     b:Hide()
     self.pickBtns[i] = b
   end
@@ -751,10 +743,10 @@ function Pocket:PickPaint()
     b.wpePinned = pinned
     b:SetBackdropColor(Theme:C("slot"))
     b:SetBackdropBorderColor(Theme:C(pinned and "accent" or "emptyLine"))
-    b.icon:SetDesaturated(false)
+    b.icon:SetDesaturated(pinned)
+    b.icon:SetAlpha(pinned and 0.55 or 1)
     local atlas = ns.PinTier(id)
     if atlas then b.tier:SetAtlas(atlas, true); b.tier:Show() else b.tier:Hide() end
-    if b.tick then b.tick:SetShown(pinned and true or false) end
     b:Show()
   end
   for i = n + 1, PICK_MAX do self.pickBtns[i]:Hide() end
