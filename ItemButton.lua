@@ -300,6 +300,8 @@ function ns.SetRarityRing(b, r, g, bl, a)
   b.iT:SetColorTexture(r, g, bl, a); b.iB:SetColorTexture(r, g, bl, a)
   b.iL:SetColorTexture(r, g, bl, a); b.iR:SetColorTexture(r, g, bl, a)
   b.iT:Show(); b.iB:Show(); b.iL:Show(); b.iR:Show()
+  local ra = b.searchMiss and SEARCH_BADGE_DIM or a
+  b.iT:SetAlpha(ra); b.iB:SetAlpha(ra); b.iL:SetAlpha(ra); b.iR:SetAlpha(ra)
 end
 
 function ns.IsWarbound(bagID, slot, loc, bound)
@@ -1301,6 +1303,8 @@ function ns.ApplySearchToButton(b, filters, blocked)
   if b.iT then
     b.iT:SetDesaturated(miss); b.iB:SetDesaturated(miss)
     b.iL:SetDesaturated(miss); b.iR:SetDesaturated(miss)
+    local ra = miss and SEARCH_BADGE_DIM or (b.ringA or 1)
+    b.iT:SetAlpha(ra); b.iB:SetAlpha(ra); b.iL:SetAlpha(ra); b.iR:SetAlpha(ra)
   end
   paintBadgeAlpha(b, b.Count or _G[(b:GetName() or "") .. "Count"], "count")
   paintBadgeAlpha(b, b.ilvl, "ilvl")
