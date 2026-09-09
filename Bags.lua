@@ -654,7 +654,8 @@ local COIN_ICON = {
 }
 local COIN_HEX = { g = "ffd700", s = "c7c7cf", c = "eda55f" }
 
-local function whiteNum(str, deep)
+local function whiteNum(str, deep, plain)
+  if plain then return "|cffffffff" .. str .. "|r" end
   return "|cff" .. Theme:Hex(deep and "overlay" or "text") .. str .. "|r"
 end
 
@@ -664,27 +665,27 @@ local function coinUnit(letter)
   return sp .. "|cff" .. COIN_HEX[letter] .. ns.CoinLetter(letter) .. "|r"
 end
 
-local function coinSeg(num, letter, deep)
-  return whiteNum(num, deep) .. coinUnit(letter)
+local function coinSeg(num, letter, deep, plain)
+  return whiteNum(num, deep, plain) .. coinUnit(letter)
 end
 
-function ns.FormatMoney(money, goldOnly, deep)
+function ns.FormatMoney(money, goldOnly, deep, plain)
   money = money or 0
   local g = math.floor(money / 10000)
   if goldOnly == nil then goldOnly = Bags.goldOnly end
-  if goldOnly then return coinSeg(ns.FormatNumber(g), "g", deep) end
+  if goldOnly then return coinSeg(ns.FormatNumber(g), "g", deep, plain) end
   local sv = math.floor((money % 10000) / 100)
   local cp = money % 100
   local parts = {}
-  if g  > 0 then parts[#parts + 1] = coinSeg(ns.FormatNumber(g), "g", deep) end
-  if sv > 0 then parts[#parts + 1] = coinSeg(sv, "s", deep) end
-  if cp > 0 or #parts == 0 then parts[#parts + 1] = coinSeg(cp, "c", deep) end
+  if g  > 0 then parts[#parts + 1] = coinSeg(ns.FormatNumber(g), "g", deep, plain) end
+  if sv > 0 then parts[#parts + 1] = coinSeg(sv, "s", deep, plain) end
+  if cp > 0 or #parts == 0 then parts[#parts + 1] = coinSeg(cp, "c", deep, plain) end
   return table.concat(parts, " ")
 end
 function Bags:FormatMoney() return ns.FormatMoney(GetMoney(), nil, Theme:IsLight()) end
 
-function ns.FormatGold(copper, deep)
-  return coinSeg(ns.FormatNumber(math.floor((copper or 0) / 10000)), "g", deep)
+function ns.FormatGold(copper, deep, plain)
+  return coinSeg(ns.FormatNumber(math.floor((copper or 0) / 10000)), "g", deep, plain)
 end
 
 function Bags:UpdateBagBar()

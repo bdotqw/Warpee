@@ -267,7 +267,7 @@ local function finish()
   pump:Hide()
   ev:UnregisterEvent("BAG_UPDATE_DELAYED")
   if stuck > 0 then
-    print("|cffd9a85fWarpee|r " .. (L["%d items could not be sold and stayed in the bags"]):format(stuck))
+    print("|cffd9a85fWarpee|r |cffffffff" .. (L["%d items could not be sold and stayed in the bags"]):format(stuck) .. "|r")
   end
   if open then Vendor:Repair() end
 end
@@ -374,8 +374,8 @@ function Vendor:Repair()
   if not by then return end
   RepairAllItems(guild)
   self.repaired = true
-  print("|cffd9a85fWarpee|r " .. (L["repaired for %s from %s"])
-        :format(ns.FormatGold(cost), by))
+  print("|cffd9a85fWarpee|r |cffffffff" .. (L["repaired for %s from %s"])
+        :format(ns.FormatGold(cost, nil, true), by) .. "|r")
 end
 ev:RegisterEvent("MERCHANT_SHOW")
 ev:RegisterEvent("MERCHANT_CLOSED")

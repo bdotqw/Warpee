@@ -324,8 +324,8 @@ function Pocket:AddID(id, pin)
   id = tonumber(id)
   if not id then return false end
   if not pin and ns.GearID(id) then
-    print("|cffd9a85fWarpee|r "
-      .. (ns.L["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] or ""))
+    print("|cffd9a85fWarpee|r |cffffffff"
+      .. (ns.L["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] or "") .. "|r")
     return false
   end
   local list = self:List()
