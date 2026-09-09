@@ -846,6 +846,13 @@ local function dressEdge(art, def)
   return edge
 end
 
+local function hideTitleBits(title)
+  if not (title and title.GetRegions) then return end
+  for _, r in ipairs({ title:GetRegions() }) do
+    if r and r.Hide and r.SetTexture then r:Hide() end
+  end
+end
+
 local function buildArt(frame, key, def)
   local cache = frame.wpeArts
   if not cache then cache = {}; frame.wpeArts = cache end
@@ -868,6 +875,7 @@ local function buildArt(frame, key, def)
   local title = art.TitleContainer
   if title then
     if title.TitleText then title.TitleText:SetText("") end
+    hideTitleBits(title)
     if title.SetAlpha then title:SetAlpha(1) end
   end
   if def.body then
@@ -1056,6 +1064,7 @@ function Theme:Panel(frame, bgKey, strokeKey)
       if art then
         local tb = art.TitleBg
         if tb and tb.Hide then tb:Hide() end
+        hideTitleBits(art.TitleContainer)
         if art.Bg then
           x:SetBackdrop(nil)
         else
