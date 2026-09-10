@@ -48,7 +48,6 @@ local WINDOWS = {
   { key = "bankPos",   get = function() return ns.Bank and ns.Bank.frame end },
   { key = "bagWinPos", get = function() return ns.Bags and ns.Bags.bagWindow end },
   { key = "pocketPos", get = function() return ns.Pocket and ns.Pocket.frame end },
-  { key = "optPos",    get = function() return ns.Options and ns.Options.frame end },
 }
 
 -- A window the user has never dragged has no saved position, so a profile captured then

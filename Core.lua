@@ -35,7 +35,7 @@ local DEFAULTS = {
   badge = {}, optSections = {},
   autoOpen = { auction = false, bank = true, mail = true, trade = true,
                vendor = true, guildbank = true, professions = false },
-  bagWinPos = NONE, optPos = NONE, pocketPos = NONE, pos = NONE, bankPos = NONE,
+  bagWinPos = NONE, pocketPos = NONE, pos = NONE, bankPos = NONE,
 }
 
 local function copyDeep(v)
@@ -129,7 +129,6 @@ function ns.ApplyAll()
   end
   if WarpeeDB.bagWinPos and Bags.bagWindow then ns.PlaceWindow(Bags.bagWindow, "bagWinPos") end
   if WarpeeDB.pocketPos and ns.Pocket and ns.Pocket.frame then ns.PlaceWindow(ns.Pocket.frame, "pocketPos") end
-  if WarpeeDB.optPos and ns.Options and ns.Options.frame then ns.PlaceWindow(ns.Options.frame, "optPos") end
   Bags:Warm()
   if ns.Fav then ns.Fav:Warm() end
   if ns.Pocket then
