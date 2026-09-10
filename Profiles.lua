@@ -564,10 +564,20 @@ function P:ApplySkin()
     f.closeBtn:ClearAllPoints()
     ns.SnapPoint(f.closeBtn, "TOPRIGHT", f, "TOPRIGHT", -7, -(7 + shift))
   end
+  local head = f.row1 and f.row1[1]
+  if head then
+    head:ClearAllPoints()
+    ns.SnapPoint(head, "TOPLEFT", f, "TOPLEFT", PAD, -(NAME_TOP + shift))
+  end
   if f.nameBox then
     f.nameBox:ClearAllPoints()
-    ns.SnapPoint(f.nameBox, "TOPLEFT", f, "TOPLEFT", PAD, -(NAME_TOP + shift))
-    ns.SnapPoint(f.nameBox, "TOPRIGHT", f, "TOPRIGHT", -PAD, -(NAME_TOP + shift))
+    if head then
+      ns.SnapPoint(f.nameBox, "TOPLEFT", head, "BOTTOMLEFT", 0, -6)
+    else
+      ns.SnapPoint(f.nameBox, "TOPLEFT", f, "TOPLEFT", PAD, -(NAME_TOP + shift))
+    end
+    ns.SnapPoint(f.nameBox, "TOPRIGHT", f, "TOPRIGHT", -PAD,
+                 -(NAME_TOP + ROW_H + 6 + shift))
   end
   if f.dd then
     f.dd:ClearAllPoints()
