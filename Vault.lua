@@ -7,6 +7,7 @@ local ownerKey
 local boxCache = {}
 local countCache = {}
 local gearByLink = {}
+local idByLink = {}
 local lastMode, lastBag, lastSlots
 local migrated
 
@@ -58,7 +59,15 @@ local function invalidate()
   wipe(boxCache)
   wipe(countCache)
   wipe(gearByLink)
+  wipe(idByLink)
   lastMode, lastBag, lastSlots = nil, nil, nil
+end
+
+-- The item counts alone, for the case that moves them without moving anything else: a bag
+-- update on our own character. Rebuilding the box or the anchor memos with it would throw
+-- away answers that do not come from live container state.
+function Vault:Stale()
+  wipe(countCache)
 end
 
 Vault.view = { bank = nil, bags = nil }
@@ -264,7 +273,13 @@ end
 local function packSlot(bag, slot, info)
   local d = { c = info.stackCount, q = info.quality, l = info.hyperlink }
   if info.isBound then d.b = true end
-  if d.l and isGear(d.l) then d.v, d.w = gearFacts(bag, slot, info.isBound) end
+  -- The warbound flag is written for every piece of gear, false included. "No w at all" has
+  -- to keep meaning "written before the flag existed", and a reader can only tell those two
+  -- apart while a fresh record always carries the key.
+  if d.l and isGear(d.l) then
+    local lvl, wue = gearFacts(bag, slot, info.isBound)
+    d.v, d.w = lvl, wue and true or false
+  end
   return d
 end
 
@@ -316,9 +331,17 @@ function Vault:WarbandMoney()
   return v and v.warband and v.warband.money or nil
 end
 
+-- A pattern match and a short string per stored slot, over every character's bags and bank
+-- plus the warband: one hover that misses the count cache walked thousands of records and
+-- matched every hyperlink on the way. The answer for a link never changes, and the table is
+-- emptied with the count cache it belongs to.
 local function linkID(link)
   if not link then return nil end
-  return tonumber(link:match("item:(%d+)"))
+  local id = idByLink[link]
+  if id ~= nil then return id or nil end
+  id = tonumber(link:match("item:(%d+)"))
+  idByLink[link] = id or false
+  return id
 end
 
 local function countIn(sub, itemID)
@@ -348,12 +371,12 @@ function Vault:ItemCounts(itemID)
     local seen = false
     for key, c in pairs(v.chars) do
       if type(c) == "table" then
-        local bags = countIn(c.inv, itemID)
+        -- The live count stands in for our own bags, so their stored copy is not read: the
+        -- walk over it was thrown away every time this ran with GetItemCount available.
+        local own = (key == ownKey)
+        local bags = (own and live ~= nil) and live or countIn(c.inv, itemID)
         local bank = countIn(c.bank, itemID)
-        if key == ownKey then
-          seen = true
-          if live then bags = live end
-        end
+        if own then seen = true end
         local sum = bags + bank
         if sum > 0 then
           list[#list + 1] = { key = key, name = key:match("^(.-)%-") or key, class = c.class,

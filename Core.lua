@@ -516,7 +516,13 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if ns.Profiles and ns.Profiles.Migrate then ns.Profiles:Migrate() end
   elseif event == "BAG_UPDATE" then
     if not Bags.warmed then Bags:Warm() end
-    if ns.IsPlayerBag(a1) then Bags.dirty[a1] = true end
+    if ns.IsPlayerBag(a1) then
+      Bags.dirty[a1] = true
+      -- The counts in the tooltip read our own bags live but are cached per character, and
+      -- with the window shut nothing captures, so the own row kept the number it was filled
+      -- with. A buy, a loot or a deposit moves the item and not one of our windows.
+      ns.Vault:Stale()
+    end
     if ns.Bank and ns.IsBankContainer and ns.IsBankContainer(a1) then ns.Bank:QueueRefresh(a1) end
   elseif event == "BAG_UPDATE_DELAYED" then
     if Bags.sorting then Bags:SortSettle() else Bags:UpdateDirty() end

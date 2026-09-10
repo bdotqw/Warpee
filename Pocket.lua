@@ -893,6 +893,14 @@ end
 local function defaultKey()
   if not WarpeeDB or WarpeeDB.pocketBind then return end
   if InCombatLockdown() then return end
+  -- A pocket that is switched off gets no key and no line about one. Its header button is
+  -- hidden with it, so a binding would sit on the player's keys doing nothing, and the line
+  -- would describe a window that never opens. The mark is still set: there is nothing here
+  -- to say later.
+  if not ns.Pocket:Enabled() then
+    WarpeeDB.pocketBind = true
+    return
+  end
   if not (GetBindingKey and GetBindingAction and SetBinding and SaveBindings) then return end
   local key = GetBindingKey("WARPEE_POCKET")
   if not key then

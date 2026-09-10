@@ -166,9 +166,8 @@ end
 local function refundable(bag, slot)
   local get = C_Container.GetContainerItemPurchaseInfo
   if not get then return false end
-  local a, _, c = get(bag, slot, false)
-  local secs = (type(a) == "table" and a.refundSeconds) or c
-  return (tonumber(secs) or 0) > 0
+  local info = get(bag, slot, false)
+  return (type(info) == "table" and (tonumber(info.refundSeconds) or 0) > 0) and true or false
 end
 function Vendor:Ilvl()
   return tonumber(WarpeeDB and WarpeeDB.vendorIlvl) or 0
@@ -283,8 +282,10 @@ local function sendOne(it)
   -- of them stops the pass and the next one picks the item up again. An item on the
   -- cursor is what CursorHasItem reports; a spell or an enchant that has not picked its
   -- target yet leaves the cursor empty, and only GetCursorInfo and ItemTargeting see it.
+  -- The second return says the call was never made, which is not the same as an item the
+  -- merchant refused: the pump counts a pass of refusals, but not a pass of these.
   if InCombatLockdown() or CursorHasItem() or GetCursorInfo() or ns.ItemTargeting() then
-    return false
+    return false, true
   end
   local key = ("%d:%d:%d"):format(it.id or 0, it.bag, it.slot)
   local n = run.tries[key] or 0
@@ -301,18 +302,23 @@ end
 
 pump:SetScript("OnUpdate", function(self)
   if not (run and run.queue) then self:Hide(); return end
+  local held = false
   while run.qi <= #run.queue and run.qsent < Vendor.batch do
     local it = run.queue[run.qi]
     run.qi = run.qi + 1
-    if sendOne(it) then run.qsent = run.qsent + 1 end
+    local ok, blocked = sendOne(it)
+    if ok then run.qsent = run.qsent + 1
+    elseif blocked then held = true end
   end
   local sent = run.qsent
   run.queue, run.qi, run.qsent = nil, nil, nil
   self:Hide()
-  if sent == 0 then
+  if sent == 0 and not held then
+    -- Four passes that reached the merchant and sold nothing end the run. A pass that never
+    -- reached it is not one of them, and counting it ended the whole run on a raid pull.
     run.idle = (run.idle or 0) + 1
     if run.idle >= 4 then finish(); return end
-  else
+  elseif sent > 0 then
     run.idle = 0
   end
   local mark = gen
@@ -323,7 +329,18 @@ end)
 
 function Vendor:Pass()
   gen = gen + 1
+  local mark = gen
   if not open then finish(); return end
+  -- Nothing is queued while the call would be refused. A pull that starts mid-sale, an item
+  -- held on the cursor or a spell waiting for its target is not this run failing, so the pass
+  -- is not counted against the sixty it is allowed and the timer simply comes back. Counting
+  -- them ended the run after a minute of combat with the junk still unsold and no word about it.
+  if InCombatLockdown() or CursorHasItem() or GetCursorInfo() or ns.ItemTargeting() then
+    C_Timer.After(1, function()
+      if run and gen == mark then Vendor:Pass() end
+    end)
+    return
+  end
   local list = self:Scan(run and run.junk)
   local count = #list
   if not run then
@@ -332,7 +349,6 @@ function Vendor:Pass()
   if count == 0 then finish(); return end
   run.passes = run.passes + 1
   if run.passes > 60 then finish(); return end
-  if CursorHasItem() then ClearCursor() end
   ev:RegisterEvent("BAG_UPDATE_DELAYED")
   run.queue, run.qi, run.qsent = list, 1, 0
   pump:Show()

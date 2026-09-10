@@ -920,11 +920,6 @@ function Theme:HeaderBand(frame, height)
     return
   end
   local a = (self.colors.bg and self.colors.bg[4]) or 1
-  if frame.wpeNoBand and def.bareHeader then
-    if frame.wpeBand then frame.wpeBand:Hide() end
-    if frame.wpeBandLine then frame.wpeBandLine:Hide() end
-    return 30 + Theme:TopInset()
-  end
   local band = frame.wpeBand
   if not band or band:GetParent() ~= art then
     band = art:CreateTexture(nil, "BACKGROUND", nil, 3)

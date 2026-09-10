@@ -108,7 +108,6 @@ function Bags:Build()
   end
 
   local f = CreateFrame("Frame", "WarpeeFrame", UIParent, "BackdropTemplate")
-  f.wpeNoBand = true
   Theme:Panel(f, "bg", "stroke")
   f:SetClampedToScreen(true)
   f:SetMovable(true)
@@ -319,7 +318,6 @@ function Bags:BuildBagWindow()
   if self.bagWindow then return self.bagWindow end
   local BPAD = 12
   local w = CreateFrame("Frame", "WarpeeBagsWindow", UIParent, "BackdropTemplate")
-  w.wpeNoBand = true
   Theme:Panel(w, "bg", "stroke")
   Theme:WindowArt(w)
   w:SetFrameStrata("DIALOG")

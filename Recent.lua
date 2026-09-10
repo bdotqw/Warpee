@@ -10,12 +10,13 @@ local MAX_SLOTS = 24
 local SETTLE = 5
 
 local cells, seq, known, got = {}, {}, {}, {}
-local missed, guidMiss = {}, {}
+local missed, guidMiss, cellMiss = {}, {}, {}
 local locBag, locSlot = {}, {}
 local poor = {}
 local counter = 0
 local primed = nil
 local guidNow, guidHad, everWorn = {}, {}, {}
+local wornN = 0
 local ILOC
 
 local function itemGuid(bag, slot)
@@ -163,16 +164,19 @@ local function prune(counts)
     local key = cells[i]
     local here = key and (type(key) == "string" and guidNow[key] or counts[key])
     if key and (not here or poor[key]) then
-      local m = (missed[key] or 0) + 1
+      -- Its own counter, not the one the known-item pass keeps: the two run over the same
+      -- cell keys, so sharing it spent the forgiveness twice as fast on exactly the items
+      -- the row is showing.
+      local m = (cellMiss[key] or 0) + 1
       if m >= 3 or poor[key] then
         seq[key], got[key] = nil, nil
-        missed[key] = nil
+        cellMiss[key] = nil
         cells[i] = nil
       else
-        missed[key] = m
+        cellMiss[key] = m
       end
     elseif key then
-      missed[key] = nil
+      cellMiss[key] = nil
     end
   end
 end
@@ -195,7 +199,15 @@ local function bodyDiff()
       shedAt[was] = GetTime()
     end
     local g = itemGuid(nil, s)
-    if g then everWorn[g] = true end
+    if g and not everWorn[g] then
+      -- One entry per item ever seen equipped, and it has to last the whole session: an
+      -- equipped item is not in the bags, so its guid leaves guidNow and this table is the
+      -- only thing that stops it being offered as recent loot when it is swapped back. The
+      -- cap is set high enough that a session of set swaps never reaches it.
+      if wornN >= 4096 then wipe(everWorn); wornN = 0 end
+      everWorn[g] = true
+      wornN = wornN + 1
+    end
   end
 end
 
@@ -264,18 +276,6 @@ local function detect()
   for g in pairs(guidNow) do guidHad[g] = true end
 end
 
-local function makeGhost(parent)
-  local g = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-  ns.PixelBackdrop(g)
-  g:SetBackdropColor(Theme:C("slot"))
-  g:SetBackdropBorderColor(Theme:C("emptyLine"))
-  Theme:Track(g, function(s)
-    s:SetBackdropColor(Theme:C("slot"))
-    s:SetBackdropBorderColor(Theme:C("emptyLine"))
-  end)
-  return g
-end
-
 -- The cells are container slot buttons, so they are built here, out of combat, and a
 -- redraw only moves and re-ids them after that. A button made during a fight is
 -- tainted for good. The row keeps the right button for using the item and leaves the
@@ -296,7 +296,9 @@ function Rec:Warm()
       self.slots[i] = b
     end
     if not self.ghosts[i] then
-      local g = makeGhost(frame)
+      local g = ns.SlotGhost(frame)
+      g.plus:Hide()
+      g.icon:Hide()
       ns.RecMark(g)
       g:Hide()
       self.ghosts[i] = g

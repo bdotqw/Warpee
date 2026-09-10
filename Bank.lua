@@ -138,14 +138,19 @@ function View:Label(st, i, color)
   return l
 end
 
+-- The three grid numbers come from DEFAULTS like everything else the panel shows. The
+-- literals are only there for the moment before Core.lua has loaded, and for a save that
+-- somehow lost a key. They used to disagree with DEFAULTS, so the panel said 40 where the
+-- grid read 36.
 function View:CellSize()
-  return (WarpeeDB and WarpeeDB.bankIconSize) or 40
+  return (WarpeeDB and WarpeeDB.bankIconSize) or (ns.DEFAULTS and ns.DEFAULTS.bankIconSize) or 36
 end
 
 function View:Cols(mode)
-  if not WarpeeDB then return 24 end
-  if (mode or self.mode) == "warband" then return WarpeeDB.warbandCols or 24 end
-  return WarpeeDB.bankCols or 24
+  local d = ns.DEFAULTS
+  local wb = (mode or self.mode) == "warband"
+  local n = WarpeeDB and (wb and WarpeeDB.warbandCols or WarpeeDB.bankCols)
+  return n or (d and (wb and d.warbandCols or d.bankCols)) or (wb and 26 or 28)
 end
 function View:FontSize() return 13 end
 function View:HeaderH() return math.max(58, headerH(self:FontSize()) + 24) + Theme:TopInset() end
@@ -161,7 +166,6 @@ end
 function View:Build()
   if self.frame then return self.frame end
   local f = CreateFrame("Frame", "WarpeeBankFrame", UIParent, "BackdropTemplate")
-  f.wpeNoBand = true
   f:Hide()
   Theme:Panel(f, "bg", "stroke")
   f:SetClampedToScreen(true); f:SetMovable(true); f:EnableMouse(true)

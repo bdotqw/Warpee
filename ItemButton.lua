@@ -873,6 +873,15 @@ local function bindType(link, itemID)
   return bt
 end
 
+-- Warbound until equipped, told apart from plain account binding. ns.IsLinkWarbound answers
+-- yes to both, so the plain account binds are subtracted. Only a reader holding a record that
+-- predates the stored flag needs this: the badge asks the same question on the screen.
+function ns.IsWueGear(link, itemID)
+  if not link then return false end
+  if accountBind(bindType(link, itemID)) then return false end
+  return ns.IsLinkWarbound(link) and true or false
+end
+
 -- The three abbreviations are looked up rather than spelled out, so a locale can shorten
 -- them its own way. Nothing ships the keys yet, and ns.L hands back the key itself when a
 -- table has none, so today every client still draws BoE, WuE and BoA.
@@ -1297,7 +1306,13 @@ function ns.PaintVaultButton(b, d, bagID)
     ns.MarkQuestItem(b, classID == Enum.ItemClass.Questitem)
     ns.MarkJunk(b, q)
     ns.MarkBlocked(b, (C_Item.GetItemInfoInstant(link)))
-    ns.MarkBind(b, ns.BindLabel(link, itemID, d.b, d.w), q)
+    -- A record written before the flag existed carries no w, and reading that as "not
+    -- warbound until equipped" is what turns such a piece into a green BoE badge. The strict
+    -- question is asked instead: warbound on the link and not plain account binding. Only the
+    -- records that predate the flag pay for it, since a fresh capture writes the answer.
+    local vaultWue = d.w
+    if vaultWue == nil then vaultWue = ns.IsWueGear(link, itemID) end
+    ns.MarkBind(b, ns.BindLabel(link, itemID, d.b, vaultWue), q)
     ns.MarkOutfit(b, nil)
   else
     clearOverlays(b)
