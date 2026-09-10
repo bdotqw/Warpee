@@ -1,0 +1,425 @@
+local addonName, ns = ...
+
+local Theme = ns.Theme
+
+local P = {}
+ns.Profiles = P
+
+local RESERVED = "Default"
+local LIST = "profiles"
+local SELECTED = "profile"
+local PREFIX = "!WPE1!"
+local SCHEMA = 1
+local MAX_NAME = 40
+local FALLBACK_NAME = "Imported"
+
+local function trim(s)
+  s = tostring(s or "")
+  s = s:gsub("^%s+", ""):gsub("%s+$", "")
+  if #s > MAX_NAME then s = s:sub(1, MAX_NAME) end
+  return s
+end
+
+function P:Names()
+  local out = {}
+  local t = WarpeeDB and WarpeeDB[LIST]
+  if t then
+    for k in pairs(t) do out[#out + 1] = k end
+    table.sort(out)
+  end
+  return out
+end
+
+function P:List()
+  local out = { RESERVED }
+  local n = self:Names()
+  for i = 1, #n do out[#out + 1] = n[i] end
+  return out
+end
+
+function P:Active()
+  local n = WarpeeDB and WarpeeDB[SELECTED]
+  if n and WarpeeDB[LIST] and WarpeeDB[LIST][n] then return n end
+  return RESERVED
+end
+
+function P:Snapshot()
+  local out = {}
+  if not WarpeeDB then return out end
+  for k in pairs(ns.DEFAULTS) do
+    local v = WarpeeDB[k]
+    if v ~= nil then out[k] = ns.CopyDeep(v) end
+  end
+  return out
+end
+
+function P:Store(name)
+  name = trim(name)
+  if name == "" or name == RESERVED then return false end
+  WarpeeDB[LIST] = WarpeeDB[LIST] or {}
+  WarpeeDB[LIST][name] = self:Snapshot()
+  return true
+end
+
+function P:StoreEmpty(name)
+  name = trim(name)
+  if name == "" or name == RESERVED then return false end
+  WarpeeDB[LIST] = WarpeeDB[LIST] or {}
+  WarpeeDB[LIST][name] = {}
+  return true
+end
+
+function P:Delete(name)
+  if not (WarpeeDB and WarpeeDB[LIST] and WarpeeDB[LIST][name]) then return false end
+  if name == self:Active() then return false end
+  WarpeeDB[LIST][name] = nil
+  return true
+end
+
+function P:Rename(old, new)
+  old, new = trim(old), trim(new)
+  if old == "" or new == "" or old == new or new == RESERVED then return false end
+  local t = WarpeeDB and WarpeeDB[LIST]
+  if not (t and t[old]) then return false end
+  if t[new] then return false end
+  t[new] = t[old]
+  t[old] = nil
+  if WarpeeDB[SELECTED] == old then WarpeeDB[SELECTED] = new end
+  return true
+end
+
+function P:Apply(name)
+  if not WarpeeDB then return false end
+  if name == RESERVED then
+    ns.WipeConfig(WarpeeDB)
+    WarpeeDB[SELECTED] = nil
+    ns.FillComputed(WarpeeDB)
+    return true
+  end
+  local t = WarpeeDB[LIST] and WarpeeDB[LIST][name]
+  if not t then return false end
+  ns.WipeConfig(WarpeeDB)
+  for k, v in pairs(t) do
+    if ns.DEFAULTS[k] ~= nil then WarpeeDB[k] = ns.CopyDeep(v) end
+  end
+  WarpeeDB[SELECTED] = name
+  ns.FillComputed(WarpeeDB)
+  return true
+end
+
+function P:Reset()
+  return self:Apply(RESERVED)
+end
+
+local function codec()
+  local C = C_EncodingUtil
+  if not (C and C.SerializeCBOR and C.EncodeBase64) then return nil end
+  local M = Enum and Enum.CompressionMethod
+  if not (M and M.Deflate) then return nil end
+  return C, M.Deflate, Enum.CompressionLevel and Enum.CompressionLevel.OptimizeForSize
+end
+
+local function packPayload(env)
+  local C, method, level = codec()
+  if not C then return "" end
+  local ok, ser = pcall(C.SerializeCBOR, env)
+  if not ok or not ser then return "" end
+  local ok2, comp
+  if level then
+    ok2, comp = pcall(C.CompressString, ser, method, level)
+  else
+    ok2, comp = pcall(C.CompressString, ser, method)
+  end
+  if not ok2 or not comp then return "" end
+  local ok3, enc = pcall(C.EncodeBase64, comp)
+  if not ok3 or not enc then return "" end
+  return enc
+end
+
+local function unpackPayload(enc)
+  local C, method = codec()
+  if not C then return nil, "Unsupported client" end
+  local ok, dec = pcall(C.DecodeBase64, enc)
+  if not ok or not dec then return nil, "Damaged string" end
+  local ok2, raw = pcall(C.DecompressString, dec, method)
+  if not ok2 or not raw then return nil, "Damaged string" end
+  local ok3, env = pcall(C.DeserializeCBOR, raw)
+  if not ok3 or type(env) ~= "table" then return nil, "Damaged string" end
+  return env
+end
+
+local function upgrade(data, schema)
+  schema = tonumber(schema) or 1
+  if schema > SCHEMA then return nil end
+  return data
+end
+
+function P:Export(name)
+  name = name or self:Active()
+  local data
+  if name == RESERVED then
+    data = self:Snapshot()
+  else
+    data = WarpeeDB and WarpeeDB[LIST] and WarpeeDB[LIST][name]
+  end
+  if type(data) ~= "table" then return "" end
+  return PREFIX .. packPayload({ _v = SCHEMA, _n = name, d = data })
+end
+
+function P:Import(str, name)
+  if type(str) ~= "string" then return false, "Empty string" end
+  str = str:gsub("^%s+", ""):gsub("%s+$", "")
+  if str == "" then return false, "Empty string" end
+  if str:sub(1, #PREFIX) ~= PREFIX then return false, "Not a profile string" end
+  local env, err = unpackPayload(str:sub(#PREFIX + 1))
+  if not env then return false, err end
+  if not env.d or type(env.d) ~= "table" then return false, "Not a profile" end
+  local data = upgrade(env.d, env._v)
+  if not data then return false, "From a newer version" end
+  name = trim(name)
+  if name == "" then name = trim(env._n) end
+  if name == "" or name == RESERVED then name = FALLBACK_NAME end
+  local clean = {}
+  for k, v in pairs(data) do
+    if ns.DEFAULTS[k] ~= nil then clean[k] = v end
+  end
+  WarpeeDB[LIST] = WarpeeDB[LIST] or {}
+  WarpeeDB[LIST][name] = clean
+  self:Apply(name)
+  return true, name
+end
+
+local API = {}
+ns.API = API
+
+function API:ImportProfile(str, key)
+  return ns.Profiles:Import(str, key)
+end
+
+function API:ExportProfile(key)
+  return ns.Profiles:Export(key)
+end
+
+function API:ApplyProfile(key)
+  if not ns.Profiles:Apply(trim(key)) then return false, "Unknown profile" end
+  return true
+end
+
+function API:ResetProfile()
+  ns.Profiles:Reset()
+  return true
+end
+
+function API:GetProfiles()
+  return ns.Profiles:List()
+end
+
+function API:GetActiveProfile()
+  return ns.Profiles:Active()
+end
+
+_G.WarpeeAPI = API
+
+local PAD = 12
+local PANEL_W = 450
+local ROW_H = 22
+local ROWS_MAX = 8
+local LIST_TOP = 96
+local STR_H = 92
+local BUTTON_TOP = LIST_TOP + ROWS_MAX * (ROW_H + 3) + 8
+local STR_TOP = BUTTON_TOP + ROW_H + 8
+local PANEL_H = STR_TOP + STR_H + PAD
+
+local function T(s)
+  if type(s) ~= "string" or s == "" then return s end
+  return ns.L[s]
+end
+
+local function say(msg)
+  print("|cffd9a85fWarpee|r |cffffffff" .. msg .. "|r")
+end
+
+local function reloadSoon()
+  say(T("The interface reloads to apply the profile"))
+  C_Timer.After(0.8, function() ReloadUI() end)
+end
+
+local function makeButton(parent, text, w, onClick)
+  local b = ns.CreateButton(parent, T(text), w, ROW_H)
+  b:SetScript("OnClick", onClick)
+  return b
+end
+
+local function autoButton(parent, text, onClick)
+  local b = makeButton(parent, text, 80, onClick)
+  b:SetWidth(math.max(58, b.Text:GetStringWidth() + 18))
+  return b
+end
+
+local function paintRow(b)
+  if not b.Text then return end
+  if b.sel then
+    b:SetBackdropBorderColor(Theme:C("accent"))
+    b.Text:SetTextColor(Theme:C("accent"))
+  else
+    b:SetBackdropBorderColor(Theme:C("stroke"))
+    b.Text:SetTextColor(Theme:C("text"))
+  end
+end
+
+function P:Paint()
+  local f = self.panel
+  if not f then return end
+  local names = self:List()
+  local active = self:Active()
+  for i = 1, ROWS_MAX do
+    local b = f.rows[i]
+    local name = names[i]
+    if name then
+      b.wpeName = name
+      b.Text:SetText(name == RESERVED and T("Default") or name)
+      b.sel = (name == active)
+      b:Show()
+      paintRow(b)
+    else
+      b.wpeName = nil
+      b:Hide()
+    end
+  end
+end
+
+function P:SwitchTo(name)
+  if name == self:Active() then return end
+  if not self:Apply(name) then say(T("Unknown profile")) return end
+  reloadSoon()
+end
+
+function P:BuildPanel()
+  if self.panel then return self.panel end
+  local f = CreateFrame("Frame", "WarpeeProfilesFrame", UIParent, "BackdropTemplate")
+  Theme:Panel(f, "bg", "stroke")
+  Theme:Window(f)
+  f:SetFrameStrata("DIALOG")
+  f:SetClampedToScreen(true)
+  f:EnableMouse(true)
+  f:SetPoint("CENTER", UIParent, "CENTER", 220, 0)
+  f:Hide()
+  ns.EscClose(f)
+  self.panel = f
+
+  local title = Theme:Title(f, 15, "accent")
+  ns.LocalText(title, "Profiles")
+  title:SetPoint("TOPLEFT", PAD, -10)
+
+  local close = ns.CreateGlyphButton(f, "×", 22)
+  close:SetPoint("TOPRIGHT", -7, -7)
+  close:SetScript("OnClick", function() f:Hide() end)
+
+  local nameBox = ns.CreateSearchBox(f, nil, "Profile name")
+  nameBox:SetPoint("TOPLEFT", PAD, -38)
+  nameBox:SetPoint("TOPRIGHT", -PAD, -38)
+  f.nameBox = nameBox
+
+  local addCopy = autoButton(f, "Add from current", function()
+    local n = nameBox:GetText()
+    if not P:Store(n) then say(T("Name a new profile")) return end
+    P:Apply(trim(n))
+    reloadSoon()
+  end)
+  addCopy:SetPoint("TOPLEFT", nameBox, "BOTTOMLEFT", 0, -6)
+
+  local addEmpty = autoButton(f, "Add empty", function()
+    local n = nameBox:GetText()
+    if not P:StoreEmpty(n) then say(T("Name a new profile")) return end
+    P:Apply(trim(n))
+    reloadSoon()
+  end)
+  addEmpty:SetPoint("LEFT", addCopy, "RIGHT", 6, 0)
+
+  local del = autoButton(f, "Delete", function()
+    local n = P:Active()
+    if n == RESERVED then say(T("Cannot delete the default profile")) return end
+    P:Reset()
+    if not P:Delete(n) then say(T("Cannot delete the active profile")) return end
+    reloadSoon()
+  end)
+  del:SetPoint("LEFT", addEmpty, "RIGHT", 6, 0)
+
+  local ren = autoButton(f, "Rename", function()
+    local n = trim(nameBox:GetText())
+    if n == "" then say(T("Name a new profile")) return end
+    if not P:Rename(P:Active(), n) then say(T("That name is taken")) return end
+    P:Paint()
+  end)
+  ren:SetPoint("LEFT", del, "RIGHT", 6, 0)
+
+  f.rows = {}
+  for i = 1, ROWS_MAX do
+    local b = ns.CreateButton(f, "", PANEL_W - PAD * 2, ROW_H)
+    b:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(LIST_TOP + (i - 1) * (ROW_H + 3)))
+    b:Hide()
+    b:SetScript("OnClick", function(s)
+      if s.wpeName then P:SwitchTo(s.wpeName) end
+    end)
+    Theme:Track(b, function(s) paintRow(s) end)
+    f.rows[i] = b
+  end
+  f:SetSize(PANEL_W, PANEL_H)
+
+  local exp = autoButton(f, "Export", function()
+    local s = P:Export(P:Active())
+    if s == "" then say(T("Nothing to export")) return end
+    f.str:SetText(s)
+    f.str:SetFocus()
+    f.str:HighlightText()
+    say(T("Copied, press Ctrl and C"))
+  end)
+  exp:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -BUTTON_TOP)
+
+  local imp = autoButton(f, "Import", function()
+    local ok, res = P:Import(f.str:GetText(), nameBox:GetText())
+    if not ok then say(T(res)) return end
+    say(res)
+    reloadSoon()
+  end)
+  imp:SetPoint("LEFT", exp, "RIGHT", 6, 0)
+
+  local reset = autoButton(f, "Reset to default", function()
+    P:Reset()
+    reloadSoon()
+  end)
+  reset:SetPoint("LEFT", imp, "RIGHT", 6, 0)
+
+  local str = CreateFrame("EditBox", nil, f, "BackdropTemplate")
+  str:SetMultiLine(true)
+  str:SetAutoFocus(false)
+  str:SetFont(ns.Fonts:Current(), 11, "")
+  str:SetTextColor(Theme:C("text"))
+  ns.PixelBackdrop(str)
+  str:SetBackdropColor(Theme:C(Theme:IsLight() and "slot" or "bg"))
+  str:SetBackdropBorderColor(Theme:C("stroke"))
+  str:SetTextInsets(6, 6, 4, 4)
+  str:SetPoint("TOPLEFT", exp, "BOTTOMLEFT", 0, -8)
+  str:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -PAD, PAD)
+  str:SetScript("OnEscapePressed", function(s) s:ClearFocus() end)
+  Theme:Track(str, function(s)
+    s:SetBackdropColor(Theme:C(Theme:IsLight() and "slot" or "bg"))
+    s:SetTextColor(Theme:C("text"))
+  end)
+  f.str = str
+
+  self:Paint()
+  return f
+end
+
+function P:Toggle()
+  local f = self:BuildPanel()
+  if f:IsShown() then
+    f:Hide()
+  else
+    self:Paint()
+    f:Show()
+    ns.Theme:Raise(f)
+  end
+end
+

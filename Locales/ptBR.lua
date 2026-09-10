@@ -405,6 +405,31 @@ local STRINGS = {
   ["Delete mode"] = "Modo de exclusão",
   ["Alt-click an item in your bags while this tab is open."] =
     "Alt + clique em um item nas bolsas enquanto esta aba estiver aberta.",
+  ["Profiles"] = "Perfis",
+  ["Default"] = "Padrão",
+  ["Profile name"] = "Nome do perfil",
+  ["Add from current"] = "Criar a partir do atual",
+  ["Add empty"] = "Criar vazio",
+  ["Delete"] = "Excluir",
+  ["Rename"] = "Renomear",
+  ["Export"] = "Exportar",
+  ["Import"] = "Importar",
+  ["Reset to default"] = "Restaurar padrão",
+  ["The interface reloads to apply the profile"] =
+    "A interface será recarregada para aplicar o perfil",
+  ["Copied, press Ctrl and C"] = "Pressione Ctrl e C para copiar",
+  ["Name a new profile"] = "Dê um nome ao perfil",
+  ["Cannot delete the default profile"] = "Não é possível excluir o perfil padrão",
+  ["Cannot delete the active profile"] = "Não é possível excluir o perfil ativo",
+  ["That name is taken"] = "Esse nome já está em uso",
+  ["Nothing to export"] = "Nada para exportar",
+  ["Unknown profile"] = "Perfil desconhecido",
+  ["Empty string"] = "Código vazio",
+  ["Not a profile string"] = "Não é um código de perfil",
+  ["Damaged string"] = "Código danificado",
+  ["Not a profile"] = "Não é um perfil",
+  ["From a newer version"] = "De uma versão mais recente",
+  ["Unsupported client"] = "Cliente não suportado",
 }
 
 ns.AddLocale("ptBR", "Portuguese", {

@@ -2265,6 +2265,13 @@ function Options:Build()
   track(close.Text, 2)
   self.closeBtn = close
 
+  local prof = ns.CreateButton(f, T("Profiles"), 76, 22)
+  track(prof.Text, -1)
+  prof:SetWidth(math.max(64, prof.Text:GetStringWidth() + 20))
+  ns.SnapPoint(prof, "RIGHT", close, "LEFT", -6, -3)
+  prof:SetScript("OnClick", function() ns.Profiles:Toggle() end)
+  self.profilesBtn = prof
+
   local line = Theme:Rect(f, "strokeSoft", "ARTWORK")
   ns.PixelLine(line, 1)
   line:SetPoint("TOPLEFT", PAD, -HEADER_H)

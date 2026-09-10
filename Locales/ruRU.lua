@@ -415,6 +415,31 @@ local STRINGS = {
   ["Delete mode"] = "Режим удаления",
   ["Alt-click an item in your bags while this tab is open."] =
     "Alt + ЛКМ по предмету в сумках, пока открыта эта вкладка.",
+  ["Profiles"] = "Профили",
+  ["Default"] = "По умолчанию",
+  ["Profile name"] = "Имя профиля",
+  ["Add from current"] = "Создать из текущего",
+  ["Add empty"] = "Создать пустой",
+  ["Delete"] = "Удалить",
+  ["Rename"] = "Переименовать",
+  ["Export"] = "Экспорт",
+  ["Import"] = "Импорт",
+  ["Reset to default"] = "Сбросить настройки",
+  ["The interface reloads to apply the profile"] =
+    "Интерфейс перезагрузится, чтобы применить профиль",
+  ["Copied, press Ctrl and C"] = "Нажмите Ctrl и C, чтобы скопировать",
+  ["Name a new profile"] = "Введите имя профиля",
+  ["Cannot delete the default profile"] = "Профиль по умолчанию удалить нельзя",
+  ["Cannot delete the active profile"] = "Активный профиль удалить нельзя",
+  ["That name is taken"] = "Такое имя уже занято",
+  ["Nothing to export"] = "Нечего экспортировать",
+  ["Unknown profile"] = "Неизвестный профиль",
+  ["Empty string"] = "Пустая строка",
+  ["Not a profile string"] = "Это не строка профиля",
+  ["Damaged string"] = "Повреждённая строка",
+  ["Not a profile"] = "Это не профиль",
+  ["From a newer version"] = "Из более новой версии",
+  ["Unsupported client"] = "Клиент не поддерживается",
 }
 
 ns.AddLocale("ruRU", "Russian", {

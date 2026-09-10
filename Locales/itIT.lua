@@ -407,7 +407,33 @@ local STRINGS = {
   ["Delete mode"] = "Modalità eliminazione",
   ["Alt-click an item in your bags while this tab is open."] =
     "Alt + clic su un oggetto nelle borse mentre questa scheda è aperta.",
+  ["Profiles"] = "Profili",
+  ["Default"] = "Predefinito",
+  ["Profile name"] = "Nome del profilo",
+  ["Add from current"] = "Crea da quello attuale",
+  ["Add empty"] = "Crea vuoto",
+  ["Delete"] = "Elimina",
+  ["Rename"] = "Rinomina",
+  ["Export"] = "Esporta",
+  ["Import"] = "Importa",
+  ["Reset to default"] = "Ripristina predefiniti",
+  ["The interface reloads to apply the profile"] =
+    "L'interfaccia si ricaricherà per applicare il profilo",
+  ["Copied, press Ctrl and C"] = "Premi Ctrl e C per copiare",
+  ["Name a new profile"] = "Dai un nome al profilo",
+  ["Cannot delete the default profile"] = "Impossibile eliminare il profilo predefinito",
+  ["Cannot delete the active profile"] = "Impossibile eliminare il profilo attivo",
+  ["That name is taken"] = "Questo nome è già in uso",
+  ["Nothing to export"] = "Niente da esportare",
+  ["Unknown profile"] = "Profilo sconosciuto",
+  ["Empty string"] = "Codice vuoto",
+  ["Not a profile string"] = "Non è un codice profilo",
+  ["Damaged string"] = "Codice danneggiato",
+  ["Not a profile"] = "Non è un profilo",
+  ["From a newer version"] = "Da una versione più recente",
+  ["Unsupported client"] = "Client non supportato",
 }
+
 
 ns.AddLocale("itIT", "Italian", {
   coin = { g = "o", s = "a", c = "r" },

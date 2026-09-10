@@ -36,4 +36,5 @@ CharPicker.lua
 Bank.lua
 GuildBank.lua
 Options.lua
+Profiles.lua
 Core.lua
