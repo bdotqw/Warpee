@@ -61,7 +61,6 @@ local STRINGS = {
   ["Vendor"] = "Marchand",
   ["Characters"] = "Personnages",
   ["Look"] = "Apparence",
-  ["Windows"] = "Fenêtres",
   ["Money"] = "Argent",
   ["Search"] = "Recherche",
   ["Markers"] = "Marqueurs",
@@ -270,7 +269,6 @@ local STRINGS = {
   ["Keep warbound"] = "Garder les liés au bataillon",
   ["Keep socketed or enchanted"] = "Garder les objets sertis ou enchantés",
   ["Your gold"] = "Votre or",
-  ["Guild / yours"] = "Guilde / le vôtre",
   ["These start when a merchant window opens, with no click from you."] =
     "Se déclenche tout seul à l'ouverture de la fenêtre du marchand, sans aucun clic de votre part.",
   ["Everything below is sold by the coin in the bags header, unless you switch on automatic selling."] =
@@ -328,7 +326,6 @@ local STRINGS = {
   ["Cancel"] = "Annuler",
   ["Tab name"] = "Nom de l'onglet",
   ["Icon ID / item link"] = "ID d'icône / lien d'objet",
-  ["Item link"] = "Lien d'objet",
   ["Right-click to edit"] = "Clic droit : modifier",
   ["Buy tab"] = "Acheter un onglet",
   ["Buy tab · %s"] = "Acheter un onglet · %s",
@@ -406,9 +403,6 @@ local STRINGS = {
   ["Favorite slots"] = "Emplacements favoris",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
     "Une rangée d'emplacements au-dessus de la grille, toujours visible. Glissez un objet dessus pour le garder à portée de clic ; Ctrl + clic gauche libère un emplacement.",
-  ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =
-    "Jamais plus large que la grille. À zéro, la rangée fait toute la largeur de la grille.",
-  ["As the grid"] = "Comme la grille",
   ["Drag an item here to keep it one click away"] =
     "Glissez un objet ici pour l'avoir à portée de clic",
   ["Ctrl + left click clears the slot"] = "Ctrl + clic gauche libère l'emplacement",

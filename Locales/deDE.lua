@@ -50,7 +50,6 @@ local STRINGS = {
   ["Vendor"] = "Händler",
   ["Characters"] = "Charaktere",
   ["Look"] = "Aussehen",
-  ["Windows"] = "Fenster",
   ["Money"] = "Geld",
   ["Search"] = "Suche",
   ["Markers"] = "Markierungen",
@@ -259,7 +258,6 @@ local STRINGS = {
   ["Keep warbound"] = "Kriegsmeutengebundenes behalten",
   ["Keep socketed or enchanted"] = "Mit Sockel/Verzauberung behalten",
   ["Your gold"] = "Eigenes Gold",
-  ["Guild / yours"] = "Gilde / eigenes",
   ["These start when a merchant window opens, with no click from you."] =
     "Läuft von selbst, sobald das Händlerfenster aufgeht, ohne Klick von Euch.",
   ["Everything below is sold by the coin in the bags header, unless you switch on automatic selling."] =
@@ -317,7 +315,6 @@ local STRINGS = {
   ["Cancel"] = "Abbrechen",
   ["Tab name"] = "Fachname",
   ["Icon ID / item link"] = "Icon-ID / Gegenstandslink",
-  ["Item link"] = "Gegenstandslink",
   ["Right-click to edit"] = "Rechtsklick: bearbeiten",
   ["Buy tab"] = "Fach kaufen",
   ["Buy tab · %s"] = "Fach kaufen · %s",
@@ -393,9 +390,6 @@ local STRINGS = {
   ["Favorite slots"] = "Favoritenplätze",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
     "Eine Reihe Plätze über dem Raster, immer im Blick. Zieht einen Gegenstand darauf, um ihn mit einem Klick zu nutzen; Strg + Linksklick leert einen Platz.",
-  ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =
-    "Nie mehr, als das Raster breit ist. Bei 0 ist die Reihe so breit wie das Raster.",
-  ["As the grid"] = "Wie das Raster",
   ["Drag an item here to keep it one click away"] =
     "Zieht einen Gegenstand hierher, um ihn mit einem Klick zu nutzen",
   ["Ctrl + left click clears the slot"] = "Strg + Linksklick leert den Platz",

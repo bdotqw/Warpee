@@ -53,7 +53,6 @@ local STRINGS = {
   ["Vendor"] = "Mercante",
   ["Characters"] = "Personaggi",
   ["Look"] = "Aspetto",
-  ["Windows"] = "Finestre",
   ["Money"] = "Denaro",
   ["Search"] = "Ricerca",
   ["Markers"] = "Indicatori",
@@ -130,7 +129,7 @@ local STRINGS = {
     "Barra nell'intestazione delle borse che indica quanto sono piene.",
   ["Takes the Warpee button off the minimap."] = "Rimuove il pulsante di Warpee dalla minimappa.",
   ["Grouping for printed amounts. Short abbreviates to K and M."] =
-    "Raggruppamento delle cifre nelle somme. Il formato breve usa K e M.",
+    "Raggruppamento delle cifre nelle somme. Il formato breve usa mila, mln e mld.",
   ["Show gold only, hide silver and copper."] = "Mostra solo l'oro e nasconde argento e rame.",
   ["On = g/s/c letters. Off = coin icons."] = "Attivo: lettere o/a/r. Disattivo: icone delle monete.",
   ["Empty the search box when the window closes, so it opens unfiltered next time."] =
@@ -262,7 +261,6 @@ local STRINGS = {
   ["Keep warbound"] = "Conserva i vincolati alla Brigata",
   ["Keep socketed or enchanted"] = "Conserva gli oggetti incastonati o incantati",
   ["Your gold"] = "Il tuo oro",
-  ["Guild / yours"] = "Gilda / personale",
   ["These start when a merchant window opens, with no click from you."] =
     "Queste azioni iniziano automaticamente all'apertura della finestra di un mercante.",
   ["Everything below is sold by the coin in the bags header, unless you switch on automatic selling."] =
@@ -297,7 +295,7 @@ local STRINGS = {
   ["Commas (5,000,000)"] = "Virgole (5,000,000)",
   ["Dots (5.000.000)"] = "Punti (5.000.000)",
   ["Spaces (5 000 000)"] = "Spazi (5 000 000)",
-  ["Short (5M, 284.4K)"] = "Breve (5 M, 284,4 K)",
+  ["Short (5M, 284.4K)"] = "Breve (5 mln, 284,4 mila)",
   ["%d of %d"] = "%d di %d",
   ["1 item"] = "1 oggetto",
   ["%d items"] = "%d oggetti",
@@ -320,7 +318,6 @@ local STRINGS = {
   ["Cancel"] = "Annulla",
   ["Tab name"] = "Nome scheda",
   ["Icon ID / item link"] = "ID icona / collegamento oggetto",
-  ["Item link"] = "Collegamento oggetto",
   ["Right-click to edit"] = "Clic destro per modificare",
   ["Buy tab"] = "Acquista scheda",
   ["Buy tab · %s"] = "Acquista scheda · %s",
@@ -396,9 +393,6 @@ local STRINGS = {
   ["Favorite slots"] = "Scomparti preferiti",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
     "Una riga di scomparti sopra la griglia, sempre visibile. Trascina un oggetto su uno scomparto per tenerlo a portata di clic; Ctrl + clic sinistro lo svuota.",
-  ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =
-    "Mai più larga della griglia. Zero mantiene la riga larga quanto la griglia.",
-  ["As the grid"] = "Come la griglia",
   ["Drag an item here to keep it one click away"] =
     "Trascina qui un oggetto per tenerlo a portata di clic",
   ["Ctrl + left click clears the slot"] = "Ctrl + clic sinistro svuota lo scomparto",

@@ -58,7 +58,6 @@ local STRINGS = {
   ["Vendor"] = "Mercader",
   ["Characters"] = "Personajes",
   ["Look"] = "Aspecto",
-  ["Windows"] = "Ventanas",
   ["Money"] = "Dinero",
   ["Search"] = "Búsqueda",
   ["Markers"] = "Marcadores",
@@ -267,7 +266,6 @@ local STRINGS = {
   ["Keep warbound"] = "Guardar ligados a la banda",
   ["Keep socketed or enchanted"] = "Guardar los engarzados o encantados",
   ["Your gold"] = "Tu oro",
-  ["Guild / yours"] = "Hermandad / tuyo",
   ["These start when a merchant window opens, with no click from you."] =
     "Se pone en marcha solo al abrirse la ventana del mercader, sin que pulses nada.",
   ["Everything below is sold by the coin in the bags header, unless you switch on automatic selling."] =
@@ -325,7 +323,6 @@ local STRINGS = {
   ["Cancel"] = "Cancelar",
   ["Tab name"] = "Nombre de pestaña",
   ["Icon ID / item link"] = "ID de icono / enlace de objeto",
-  ["Item link"] = "Enlace de objeto",
   ["Right-click to edit"] = "Clic derecho: editar",
   ["Buy tab"] = "Comprar pestaña",
   ["Buy tab · %s"] = "Comprar pestaña · %s",
@@ -401,9 +398,6 @@ local STRINGS = {
   ["Favorite slots"] = "Espacios favoritos",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
     "Una fila de espacios sobre la cuadrícula, siempre a la vista. Arrastra un objeto a uno de ellos para tenerlo a un clic; Ctrl + clic izquierdo vacía un espacio.",
-  ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =
-    "Nunca más ancha que la cuadrícula. Con cero, la fila ocupa todo el ancho de la cuadrícula.",
-  ["As the grid"] = "Como la cuadrícula",
   ["Drag an item here to keep it one click away"] =
     "Arrastra un objeto aquí para tenerlo a un clic",
   ["Ctrl + left click clears the slot"] = "Ctrl + clic izquierdo vacía el espacio",

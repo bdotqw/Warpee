@@ -61,7 +61,6 @@ local STRINGS = {
   ["Vendor"] = "Торговец",
   ["Characters"] = "Персонажи",
   ["Look"] = "Вид",
-  ["Windows"] = "Окна",
   ["Money"] = "Деньги",
   ["Search"] = "Поиск",
   ["Markers"] = "Метки",
@@ -270,7 +269,6 @@ local STRINGS = {
   ["Keep warbound"] = "Оставлять привязанное к отряду",
   ["Keep socketed or enchanted"] = "Оставлять с камнями и чарами",
   ["Your gold"] = "Своё золото",
-  ["Guild / yours"] = "Гильдия / свои",
   ["These start when a merchant window opens, with no click from you."] =
     "Запускается само при открытии окна торговца, без нажатия кнопок.",
   ["Everything below is sold by the coin in the bags header, unless you switch on automatic selling."] =
@@ -328,7 +326,6 @@ local STRINGS = {
   ["Cancel"] = "Отмена",
   ["Tab name"] = "Имя вкладки",
   ["Icon ID / item link"] = "ID иконки / ссылка на предмет",
-  ["Item link"] = "Ссылка на предмет",
   ["Right-click to edit"] = "ПКМ — изменить",
   ["Buy tab"] = "Купить",
   ["Buy tab · %s"] = "Купить · %s",
@@ -404,9 +401,6 @@ local STRINGS = {
   ["Favorite slots"] = "Ячейки избранного",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
     "Ряд ячеек над сеткой, всегда на виду. Перетащите предмет в ячейку, чтобы держать его под рукой; Ctrl + ЛКМ освобождает ячейку.",
-  ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =
-    "Не больше, чем ширина сетки. Ноль — во всю ширину сетки.",
-  ["As the grid"] = "Как сетка",
   ["Drag an item here to keep it one click away"] =
     "Перетащите сюда предмет, чтобы использовать его в один клик",
   ["Ctrl + left click clears the slot"] = "Ctrl + ЛКМ освобождает ячейку",

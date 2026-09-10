@@ -54,7 +54,6 @@ local STRINGS = {
   ["Vendor"] = "Comerciante",
   ["Characters"] = "Personagens",
   ["Look"] = "Aparência",
-  ["Windows"] = "Janelas",
   ["Money"] = "Dinheiro",
   ["Search"] = "Busca",
   ["Markers"] = "Marcadores",
@@ -260,7 +259,6 @@ local STRINGS = {
   ["Keep warbound"] = "Manter BaSE",
   ["Keep socketed or enchanted"] = "Manter itens com engaste ou encantamento",
   ["Your gold"] = "Seu ouro",
-  ["Guild / yours"] = "Guilda / seu",
   ["These start when a merchant window opens, with no click from you."] =
     "Estas ações começam automaticamente quando a janela de um comerciante é aberta.",
   ["Everything below is sold by the coin in the bags header, unless you switch on automatic selling."] =
@@ -318,7 +316,6 @@ local STRINGS = {
   ["Cancel"] = "Cancelar",
   ["Tab name"] = "Nome da aba",
   ["Icon ID / item link"] = "ID do ícone / link do item",
-  ["Item link"] = "Link do item",
   ["Right-click to edit"] = "Clique direito para editar",
   ["Buy tab"] = "Comprar aba",
   ["Buy tab · %s"] = "Comprar aba · %s",
@@ -394,9 +391,6 @@ local STRINGS = {
   ["Favorite slots"] = "Espaços favoritos",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
     "Uma linha de espaços acima da grade, sempre à vista. Arraste um item para um espaço para mantê-lo a um clique; Ctrl + clique esquerdo limpa o espaço.",
-  ["Never more than the grid is wide. Zero keeps the row as wide as the grid."] =
-    "Nunca mais larga que a grade. Zero mantém a linha com a mesma largura da grade.",
-  ["As the grid"] = "Como a grade",
   ["Drag an item here to keep it one click away"] =
     "Arraste um item para cá para mantê-lo a um clique",
   ["Ctrl + left click clears the slot"] = "Ctrl + clique esquerdo limpa o espaço",
