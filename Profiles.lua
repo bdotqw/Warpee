@@ -348,10 +348,12 @@ function P:BuildPanel()
   local title = Theme:Title(f, 15, "accent")
   ns.LocalText(title, "Profiles")
   title:SetPoint("TOPLEFT", PAD, -10)
+  f.title = title
 
   local close = ns.CreateGlyphButton(f, "×", 22)
   close:SetPoint("TOPRIGHT", -7, -7)
   close:SetScript("OnClick", function() f:Hide() end)
+  f.closeBtn = close
 
   local nameBox = ns.CreateSearchBox(f, nil, "Profile name")
   nameBox:SetPoint("TOPLEFT", PAD, -NAME_TOP)
@@ -458,6 +460,7 @@ function P:BuildPanel()
   f.autoBtns = { dup, fresh, ren, del, exp, imp }
   f:SetHeight(PANEL_H)
   self:Reflow()
+  self:ApplySkin()
 
   return f
 end
@@ -476,6 +479,38 @@ function P:Reflow()
   self:Paint()
 end
 
+function P:Place()
+  local f = self.panel
+  if not f then return end
+  local lift = f.wpeLift or 0
+  local opts = ns.Options and ns.Options.frame
+  f:ClearAllPoints()
+  if opts and opts:IsShown() then
+    f:SetPoint("TOPLEFT", opts, "TOPRIGHT", 8, lift)
+  else
+    f:SetPoint("CENTER", UIParent, "CENTER", 0, lift)
+  end
+end
+
+-- The blizzard art draws its band lower than the plain themes do, so the title and the
+-- close button drop by the skin's title drop while the window itself rises by the same
+-- amount: the pair stays level with every other theme and the body keeps its room.
+function P:ApplySkin()
+  local f = self.panel
+  if not f then return end
+  local drop = Theme:TitleDrop()
+  f.wpeLift = drop
+  if f.title then
+    f.title:ClearAllPoints()
+    ns.SnapPoint(f.title, "TOPLEFT", f, "TOPLEFT", PAD, -(10 + drop))
+  end
+  if f.closeBtn then
+    f.closeBtn:ClearAllPoints()
+    ns.SnapPoint(f.closeBtn, "TOPRIGHT", f, "TOPRIGHT", -7, -(7 + drop))
+  end
+  if f:IsShown() then self:Place() end
+end
+
 function P:Toggle()
   local f = self:BuildPanel()
   if f:IsShown() then
@@ -483,13 +518,7 @@ function P:Toggle()
     return
   end
   self:Paint()
-  local opts = ns.Options and ns.Options.frame
-  f:ClearAllPoints()
-  if opts and opts:IsShown() then
-    f:SetPoint("TOPLEFT", opts, "TOPRIGHT", 8, 0)
-  else
-    f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-  end
+  self:Place()
   f:Show()
   ns.Theme:Raise(f)
 end

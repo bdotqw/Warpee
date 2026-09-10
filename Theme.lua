@@ -516,6 +516,7 @@ function Theme:Restyle(name)
   if ns.Bank and ns.Bank.Restyle then ns.Bank:Restyle() end
   local P = ns.CharPicker
   if P and P.frame and P.frame:IsShown() and P.Paint then P:Paint(true) end
+  if ns.Profiles and ns.Profiles.ApplySkin then ns.Profiles:ApplySkin() end
   self:ApplyGridAlpha()
   if ns.Options and ns.Options.ReflowPages then ns.Options:ReflowPages() end
 end
