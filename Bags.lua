@@ -37,7 +37,10 @@ end
 
 function Bags:BaseTop() return HEADER + 4 + Theme:TopInset() - self:HeadShift() end
 
-function Bags:TopOffset() return self:BaseTop() + (self.recentH or 0) + (self.favH or 0) + ((self.favH or 0) > 0 and 18 or 0) end
+function Bags:TopOffset()
+  local rows = (self.recentH or 0) + (self.favH or 0)
+  return self:BaseTop() + rows + (rows > 0 and 18 or 0)
+end
 
 function Bags:FlowHeader()
   if not self.frame then return end
