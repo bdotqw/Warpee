@@ -132,7 +132,12 @@ function ns.PaintCharTag(b, name, class)
   local caret = math.ceil((b.caret and b.caret:GetWidth()) or 8)
   if caret <= 0 then caret = 8 end
   local extra = 8 + 6 + 8 + caret + 2
-  b:SetWidth(math.max(78, math.ceil(b.Text:GetStringWidth()) + extra))
+  local w = math.max(78, math.ceil(b.Text:GetStringWidth()) + extra)
+  -- The width is measured, so it is put on the pixel grid here and handed to the box job as
+  -- well: the job is what re-fits it when the ui scale moves, and a measured width set raw
+  -- leaves one border of the tag between two physical pixels.
+  b.wpeBoxW = w
+  b:SetWidth(ns.SnapValue(b, w))
 end
 
 function ns.WindowsLocked()
@@ -370,7 +375,11 @@ end
 
 function ns.CreateGlyphButton(parent, glyph, size, dark)
   local b = ns.CreateButton(parent, glyph, size or 22, size or 22, nil, dark)
-  b.Text:SetFont(ns.Fonts:Current(), math.max(16, math.floor((size or 22) * 0.74)), "")
+  -- A font object rather than a raw SetFont. SetFont detaches a string from the font system,
+  -- and nothing fonted that way is reached by a later font change: these buttons are made
+  -- once, so a font picked in the settings used to arrive for them only after a reload. The
+  -- Repaint on the next line hands back the colour that SetFontObject clears.
+  b.Text:SetFontObject(ns.Fonts:Object(math.max(16, math.floor((size or 22) * 0.74))))
   b:Repaint()
   return b
 end

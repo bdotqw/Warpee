@@ -1253,8 +1253,10 @@ local function hookMedia()
   if ok then mediaHooked = true end
 end
 
--- The stored name is left alone. It can name a font another addon has not registered yet,
--- and dropping it here would lose the player's pick over a file that appears a moment later.
+-- The stored name is kept when it can still be drawn. It can name a font another addon has
+-- not registered yet, and dropping it then would lose the player's pick over a file that
+-- appears a moment later. A name that is retired, or that our own shipped font declares it
+-- cannot draw on this client's language, is dropped: those two will not come back.
 function ns.Fonts:Settle()
   local db = WarpeeDB
   if not db then return end

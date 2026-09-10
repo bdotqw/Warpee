@@ -238,7 +238,12 @@ function P:Export(name)
     if name ~= RESERVED then return "" end
     data = self:Capture()
   end
-  return PREFIX .. packPayload({ _v = SCHEMA, _n = name, d = data })
+  local body = packPayload({ _v = SCHEMA, _n = name, d = data })
+  -- A codec that refuses is not a profile that came out empty. Both used to answer with the
+  -- prefix and nothing after it, which reads as a code and fails on the other end as a
+  -- damaged one; the empty string is what the panel already takes as "nothing to copy".
+  if body == "" then return "" end
+  return PREFIX .. body
 end
 
 function P:Import(str, name)
@@ -255,9 +260,14 @@ function P:Import(str, name)
   name = trim(name)
   if name == "" then name = trim(env._n) end
   if name == "" or name == RESERVED then name = FALLBACK_NAME end
+  -- The name of a key is not enough to let its value through. A code from outside can carry a
+  -- number where the default is a table, and the login path then dies inside fillComputed
+  -- before the grid is built. A value of the wrong shape is dropped here, where it arrives,
+  -- rather than saved and read back on the next login.
   local clean = {}
   for k, v in pairs(data) do
-    if ns.DEFAULTS[k] ~= nil then clean[k] = v end
+    local d = ns.DEFAULTS[k]
+    if d ~= nil and type(v) == type(d) then clean[k] = ns.CopyDeep(v) end
   end
   WarpeeDB[LIST] = WarpeeDB[LIST] or {}
   WarpeeDB[LIST][name] = clean

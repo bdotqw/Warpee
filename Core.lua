@@ -78,9 +78,24 @@ ns.DEFAULTS = DEFAULTS
 ns.CopyDeep = copyDeep
 ns.WipeConfig = wipeConfig
 
+-- Every value is checked against the shape DEFAULTS declares for its key, and anything that
+-- does not match is put back to the factory value. A profile code written outside the addon
+-- can carry a number under a key whose default is a table, and the login path died on it
+-- inside fillComputed, before the bags grid was built: no bags, no bank, and the broken value
+-- saved for good, since nothing else in the pipeline reads it back.
+function ns.NormalizeConfig(db)
+  if not db then return end
+  for k, v in pairs(DEFAULTS) do
+    if v ~= NONE and db[k] ~= nil and type(db[k]) ~= type(v) then
+      db[k] = copyDeep(v)
+    end
+  end
+end
+
 local function fillComputed(db)
   local curExp = LE_EXPANSION_LEVEL_CURRENT
                  or (GetExpansionLevel and GetExpansionLevel()) or 0
+  ns.NormalizeConfig(db)
   if db.vendorTokenExp then
     for i = 0, curExp do
       if db.vendorTokenExp[i] == nil then
