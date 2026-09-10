@@ -327,12 +327,6 @@ local function tintButton(b, inkKey)
   paint(b)
 end
 
-local function rowWidth(list)
-  local w = 0
-  for i = 1, #list do w = w + list[i]:GetWidth() end
-  return w + (#list - 1) * GAP
-end
-
 function P:Paint()
   local f = self.panel
   if not f then return end
@@ -417,6 +411,7 @@ function P:BuildPanel()
   dd:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -DD_TOP)
   local arrow = ns.ArrowGlyph(dd, "down", 11)
   arrow:SetPoint("RIGHT", dd, "RIGHT", -8, 0)
+  f.ddArrow = arrow
   tintButton(dd, "accent")
   dd:SetScript("OnClick", function(s)
     if not ns.OpenDropdown then return end
@@ -506,7 +501,6 @@ function P:BuildPanel()
   f.row1 = { dup, fresh }
   f.row2 = { ren, del }
   f.row3 = { exp, imp }
-  f.autoBtns = { dup, fresh, ren, del }
   f:SetHeight(PANEL_H)
   self:Reflow()
   self:ApplySkin()
@@ -517,19 +511,20 @@ end
 function P:Reflow()
   local f = self.panel
   if not f then return end
-  for i = 1, #f.autoBtns do
-    local b = f.autoBtns[i]
-    b:SetWidth(math.max(58, b.Text:GetStringWidth() + 18))
-  end
+  local rows = { f.row1, f.row2, f.row3 }
   local need = 0
-  for i = 1, #f.row3 do
-    need = math.max(need, f.row3[i].Text:GetStringWidth() + 18)
+  for _, row in ipairs(rows) do
+    for i = 1, #row do
+      need = math.max(need, row[i].Text:GetStringWidth() + 18)
+    end
   end
-  local W = math.max(rowWidth(f.row1), rowWidth(f.row2), need * 2 + GAP, MIN_W) + PAD * 2
+  local W = math.max(need * 2 + GAP, MIN_W) + PAD * 2
   f:SetWidth(W)
   local content = W - PAD * 2
   local half = math.floor((content - GAP) / 2)
-  for i = 1, #f.row3 do f.row3[i]:SetWidth(half) end
+  for _, row in ipairs(rows) do
+    for i = 1, #row do row[i]:SetWidth(half) end
+  end
   f.dd:SetWidth(content)
   f.str:SetWidth(content)
   self:Paint()
@@ -579,6 +574,7 @@ function P:ApplySkin()
     ns.SnapPoint(f.nameBox, "TOPRIGHT", f, "TOPRIGHT", -PAD,
                  -(NAME_TOP + ROW_H + 6 + shift))
   end
+  if f.ddArrow then f.ddArrow:SetTint("accent") end
   if f.dd then
     f.dd:ClearAllPoints()
     ns.SnapPoint(f.dd, "TOPLEFT", f, "TOPLEFT", PAD, -(DD_TOP + shift))
