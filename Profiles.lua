@@ -230,14 +230,13 @@ _G.WarpeeAPI = API
 
 local PAD = 12
 local ROW_H = 22
-local ROW_STEP = ROW_H + 3
 local NAME_TOP = 38
-local LIST_TOP = 100
-local ROWS_MAX = 8
+local DD_TOP = 100
 local STR_H = 24
 local MIN_W = 340
 local GAP = 6
 local ZONE_GAP = 16
+local PANEL_H = 234
 
 local function T(s)
   if type(s) ~= "string" or s == "" then return s end
@@ -267,28 +266,14 @@ local function rowWidth(list)
   return w + (#list - 1) * GAP
 end
 
-local function paintRow(b, applied)
-  if not b.Text then return end
-  if applied then
-    b:SetBackdropBorderColor(Theme:C("accent"))
-    b:SetBackdropColor(Theme:C("panelHi"))
-    b.Text:SetTextColor(Theme:C("accent"))
-  elseif b.sel then
-    b:SetBackdropBorderColor(Theme:C("accent"))
-    b:SetBackdropColor(Theme:C("panel"))
-    b.Text:SetTextColor(Theme:C("text"))
-  else
-    b:SetBackdropBorderColor(Theme:C("stroke"))
-    b:SetBackdropColor(Theme:C("panel"))
-    b.Text:SetTextColor(Theme:C("text"))
+function P:Paint()
+  local f = self.panel
+  if not f then return end
+  local active = self:Active()
+  f.dd.Text:SetText(active == RESERVED and T("Default") or active)
+  if ns.SetButtonEnabled then
+    ns.SetButtonEnabled(f.delBtn, active ~= RESERVED)
   end
-end
-
-local function panelHeight(shown)
-  return LIST_TOP + shown * ROW_STEP
-       + 8 + ROW_H
-       + ZONE_GAP + ROW_H
-       + 8 + STR_H + PAD
 end
 
 function P:Has(name)
@@ -301,52 +286,8 @@ function P:Select(name)
   self:Paint()
 end
 
-function P:Paint()
-  local f = self.panel
-  if not f then return end
-  local names = self:List()
-  if not self:Has(self.sel) then self.sel = self:Active() end
-  local active = self:Active()
-  local shown = 1
-  for i = 1, ROWS_MAX do
-    local b = f.rows[i]
-    local name = names[i]
-    if name then
-      b.wpeName = name
-      b.Text:SetText(name == RESERVED and T("Default") or name)
-      b.sel = (name == self.sel)
-      b:Show()
-      paintRow(b, name == active)
-      shown = i
-    else
-      b.wpeName = nil
-      b:Hide()
-    end
-  end
-  f.actions:ClearAllPoints()
-  f.actions:SetPoint("TOPLEFT", f.rows[shown], "BOTTOMLEFT", 0, -8)
-  if ns.SetButtonEnabled then
-    ns.SetButtonEnabled(f.applyBtn, self.sel ~= active)
-    ns.SetButtonEnabled(f.delBtn, self.sel ~= RESERVED)
-  end
-  local exp = f.expBtn
-  exp:ClearAllPoints()
-  exp:SetPoint("TOPLEFT", f.actions, "BOTTOMLEFT", 0, -ZONE_GAP)
-  local str = f.str
-  str:ClearAllPoints()
-  str:SetPoint("TOPLEFT", exp, "BOTTOMLEFT", 0, -8)
-  str:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -PAD, PAD)
-  f:SetHeight(panelHeight(shown))
-end
-
-function P:ApplySel()
-  if not self.sel then return end
-  self:ApplyLive(self.sel)
-end
-
 function P:BuildPanel()
   if self.panel then return self.panel end
-  self.sel = self:Active()
   local f = CreateFrame("Frame", "WarpeeProfilesFrame", UIParent, "BackdropTemplate")
   Theme:Panel(f, "bg", "stroke")
   Theme:Window(f)
@@ -381,74 +322,75 @@ function P:BuildPanel()
   local dup = autoButton(f, "Duplicate current", function()
     local n = trim(nameBox:GetText())
     if not P:Store(n) then say(T("Enter a profile name")) return end
-    P:Select(n)
+    P:ApplyLive(n)
     say(T("Created %s"):format(n))
+    P:Paint()
   end)
   dup:SetPoint("TOPLEFT", nameBox, "BOTTOMLEFT", 0, -6)
 
   local fresh = autoButton(f, "Create empty", function()
     local n = trim(nameBox:GetText())
     if not P:StoreEmpty(n) then say(T("Enter a profile name")) return end
-    P:Select(n)
+    P:ApplyLive(n)
     say(T("Created %s"):format(n))
+    P:Paint()
   end)
   fresh:SetPoint("LEFT", dup, "RIGHT", GAP, 0)
 
-  f.rows = {}
-  for i = 1, ROWS_MAX do
-    local b = ns.CreateButton(f, "", MIN_W - PAD * 2, ROW_H)
-    b:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(LIST_TOP + (i - 1) * ROW_STEP))
-    b:Hide()
-    b:SetScript("OnClick", function(s)
-      if s.wpeName then P:Select(s.wpeName) end
-    end)
-    Theme:Track(b, function(s) paintRow(s, s.wpeName == P:Active()) end)
-    f.rows[i] = b
-  end
-
-  local apply = autoButton(f, "Apply", function() P:ApplySel() end)
-  f.applyBtn = apply
-  f.actions = apply
+  local dd = ns.CreateButton(f, "", MIN_W - PAD * 2, ROW_H)
+  dd.Text:ClearAllPoints()
+  dd.Text:SetPoint("LEFT", dd, "LEFT", 8, 0)
+  dd.Text:SetPoint("RIGHT", dd, "RIGHT", -22, 0)
+  dd.Text:SetJustifyH("LEFT")
+  dd:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -DD_TOP)
+  local arrow = ns.ArrowGlyph(dd, "down", 9)
+  arrow:SetPoint("RIGHT", dd, "RIGHT", -8, 0)
+  dd:SetScript("OnClick", function(s)
+    if not ns.OpenDropdown then return end
+    ns.OpenDropdown(s, {
+      get = function() return P:Active() end,
+      set = function(name) P:ApplyLive(name) end,
+      keys = function() return P:List() end,
+      label = function(k) return k == RESERVED and T("Default") or k end,
+    }, function() P:Paint() end)
+  end)
+  f.dd = dd
 
   local ren = autoButton(f, "Rename", function()
     local n = trim(nameBox:GetText())
     if n == "" then say(T("Enter a profile name")) return end
-    if not P:Rename(P.sel, n) then say(T("That name is taken")) return end
-    P:Select(n)
+    if not P:Rename(P:Active(), n) then say(T("That name is taken")) return end
+    P:Paint()
   end)
-  ren:SetPoint("LEFT", apply, "RIGHT", GAP, 0)
+  ren:SetPoint("TOPLEFT", dd, "BOTTOMLEFT", 0, -8)
 
   local del = autoButton(f, "Delete", function()
-    if P.sel == RESERVED then say(T("Cannot delete the default profile")) return end
+    local active = P:Active()
+    if active == RESERVED then return end
     StaticPopupDialogs["WARPEE_DEL_PROFILE"].text = T("Delete profile %s?")
-    StaticPopup_Show("WARPEE_DEL_PROFILE", P.sel, nil, P.sel)
+    StaticPopup_Show("WARPEE_DEL_PROFILE", active, nil, active)
   end)
   del:SetPoint("LEFT", ren, "RIGHT", GAP, 0)
   f.delBtn = del
 
   local exp = autoButton(f, "Export", function()
-    local text = P:Export(P.sel)
+    local active = P:Active()
+    local text = P:Export(active)
     if text == "" then say(T("Nothing to export")) return end
     f.str:SetText(text)
     f.str:SetFocus()
     f.str:HighlightText()
-    say(T("Exported %s, press Ctrl and C to copy"):format(P.sel))
+    say(T("Exported %s, press Ctrl and C to copy"):format(active))
   end)
-  f.expBtn = exp
+  exp:SetPoint("TOPLEFT", ren, "BOTTOMLEFT", 0, -ZONE_GAP)
 
   local imp = autoButton(f, "Import", function()
     local ok, res = P:Import(f.str:GetText(), nameBox:GetText())
     if not ok then say(T(res)) return end
-    P:Select(res)
     say(T("Imported %s"):format(res))
+    P:Paint()
   end)
   imp:SetPoint("LEFT", exp, "RIGHT", GAP, 0)
-
-  local reset = autoButton(f, "Reset to default", function()
-    P:ApplyLive(RESERVED)
-    P:Select(RESERVED)
-  end)
-  reset:SetPoint("LEFT", imp, "RIGHT", GAP, 0)
 
   local str = CreateFrame("EditBox", nil, f, "BackdropTemplate")
   str:SetAutoFocus(false)
@@ -467,9 +409,10 @@ function P:BuildPanel()
   f.str = str
 
   f.row1 = { dup, fresh }
-  f.row2 = { apply, ren, del }
-  f.row3 = { exp, imp, reset }
-  f.autoBtns = { dup, fresh, apply, ren, del, exp, imp, reset }
+  f.row2 = { ren, del }
+  f.row3 = { exp, imp }
+  f.autoBtns = { dup, fresh, ren, del, exp, imp }
+  f:SetHeight(PANEL_H)
   self:Reflow()
 
   return f
@@ -484,8 +427,8 @@ function P:Reflow()
   end
   local W = math.max(rowWidth(f.row1), rowWidth(f.row2), rowWidth(f.row3), MIN_W) + PAD * 2
   f:SetWidth(W)
+  f.dd:SetWidth(W - PAD * 2)
   f.str:SetWidth(W - PAD * 2)
-  for i = 1, ROWS_MAX do f.rows[i]:SetWidth(W - PAD * 2) end
   self:Paint()
 end
 
@@ -495,7 +438,6 @@ function P:Toggle()
     f:Hide()
     return
   end
-  self.sel = self:Active()
   self:Paint()
   local opts = ns.Options and ns.Options.frame
   f:ClearAllPoints()
@@ -519,7 +461,6 @@ StaticPopupDialogs["WARPEE_DEL_PROFILE"] = {
   OnAccept = function(_, name)
     if name == ns.Profiles:Active() then ns.Profiles:ApplyLive(RESERVED) end
     if not ns.Profiles:Delete(name) then return end
-    ns.Profiles.sel = ns.Profiles:Active()
     ns.Profiles:Paint()
   end,
 }

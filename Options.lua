@@ -386,6 +386,8 @@ local function openDropdown(anchor, spec, onPick)
   m:Show()
 end
 
+ns.OpenDropdown = openDropdown
+
 local function caretGroup(parent, dir)
   return ns.ArrowGlyph(parent, dir, dir == "down" and 10 or 12)
 end
