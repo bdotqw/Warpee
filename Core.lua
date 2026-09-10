@@ -9,6 +9,75 @@ local PICKS = {
   vendorRepairBy = { def = "player", ok = { player = true, guild = true, both = true } },
 }
 
+local NONE = {}
+local DEFAULTS = {
+  cols = 16, gap = 2, iconSize = 40, slotStyle = "flat", theme = "blizzard",
+  iconZoom = 1, borderWidth = 1, gridAlpha = 0, showGauge = false,
+  favShow = true, recentShow = true,
+  qualityColorIlvl = false, qualityBorder = true, mergeReagents = false,
+  reagentTop = false, hideReagents = false,
+  pocketShow = true, pocketWithBags = true, pocketRows = 5, pocketCols = 6,
+  pocketIconSize = NONE,
+  revFill = false, fillUp = false, questMarks = true, newItemGlow = false,
+  reagentTint = true, unusableBorder = true,
+  goldFormat = "short", goldLetters = true, goldOnly = true,
+  vendorIlvl = 100, vendorIlvlMin = 10, vendorConsum = false, vendorAuto = false,
+  vendorTokens = false, vendorTokenExp = {},
+  vendorKeepBoE = true, vendorKeepWarband = true, vendorKeepGems = true,
+  vendorGrey = false, vendorRelics = true,
+  vendorRepair = false, vendorRepairBy = "player",
+  hideMinimapIcon = false, tipCounts = true, tipBank = true, tipWarband = true,
+  keepBags = true, keepBank = true, keepWarband = true,
+  searchClear = true, searchLink = true, minimapAngle = 2.2,
+  bankCols = 28, warbandCols = 26, bankIconSize = 36,
+  hideMoveFields = false, badgeSolo = false, lockWindows = false,
+  badge = {}, optSections = {},
+  autoOpen = { auction = false, bank = true, mail = true, trade = true,
+               vendor = true, guildbank = true, professions = false },
+  bagWinPos = NONE, optPos = NONE, pocketPos = NONE,
+}
+
+local function copyDeep(v)
+  if type(v) ~= "table" then return v end
+  local out = {}
+  for k, x in pairs(v) do out[k] = copyDeep(x) end
+  return out
+end
+
+local NUMERIC = { "iconZoom", "borderWidth", "gridAlpha", "pocketRows", "pocketCols",
+                  "vendorIlvl", "vendorIlvlMin", "minimapAngle" }
+
+local function fillDefaults(db)
+  for k, v in pairs(DEFAULTS) do
+    if db[k] == nil and v ~= NONE then db[k] = copyDeep(v) end
+  end
+end
+
+local function wipeConfig(db)
+  for k, v in pairs(DEFAULTS) do
+    if v == NONE then db[k] = nil else db[k] = copyDeep(v) end
+  end
+end
+
+ns.DEFAULTS = DEFAULTS
+ns.CopyDeep = copyDeep
+ns.WipeConfig = wipeConfig
+
+local function fillComputed(db)
+  local curExp = LE_EXPANSION_LEVEL_CURRENT
+                 or (GetExpansionLevel and GetExpansionLevel()) or 0
+  if db.vendorTokenExp then
+    for i = 0, curExp do
+      if db.vendorTokenExp[i] == nil then
+        db.vendorTokenExp[i] = (i <= 6)
+      end
+    end
+  end
+  ns.BadgeMigrate(db, db.badge)
+end
+
+ns.FillComputed = fillComputed
+
 local function repaintItems()
   ns.ClearItemPaint()
   if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
@@ -235,30 +304,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     local fresh = (WarpeeDB == nil)
     WarpeeDB = WarpeeDB or {}
     if fresh then WarpeeDB.pocketShow = false end
-    WarpeeDB.cols = WarpeeDB.cols or 16
-    WarpeeDB.gap = WarpeeDB.gap or 2
-    WarpeeDB.iconSize = WarpeeDB.iconSize or 40
-    WarpeeDB.slotStyle = WarpeeDB.slotStyle or "flat"
-    WarpeeDB.theme = WarpeeDB.theme or "blizzard"
-    if not ns.Theme.THEMES[WarpeeDB.theme] then WarpeeDB.theme = "blizzard" end
-    ns.Theme:Apply(WarpeeDB.theme)
-    WarpeeDB.iconZoom = tonumber(WarpeeDB.iconZoom) or 1
-    WarpeeDB.borderWidth = tonumber(WarpeeDB.borderWidth) or 1
-    WarpeeDB.gridAlpha = tonumber(WarpeeDB.gridAlpha) or 0
-    WarpeeDB.highContrast = nil
-    WarpeeDB.bgAlpha = nil
-    if WarpeeDB.slotStyle == "quality" then WarpeeDB.slotStyle = "tile" end
-    if WarpeeDB.slotStyle == "frost" then WarpeeDB.slotStyle = "tile" end
-    if WarpeeDB.slotStyle == "ridged" or WarpeeDB.slotStyle == "marble"
-       or WarpeeDB.slotStyle == "parchment" or WarpeeDB.slotStyle == "stone" then
-      WarpeeDB.slotStyle = "deep"
-    end
-    if WarpeeDB.slotStyle == "tile" then WarpeeDB.slotStyle = "deep" end
-    if WarpeeDB.showGauge == nil then WarpeeDB.showGauge = false end
-    if WarpeeDB.favShow == nil then WarpeeDB.favShow = true end
-    if WarpeeDB.recentShow == nil then WarpeeDB.recentShow = true end
-    WarpeeDB.favCount = nil
-    WarpeeDB.favorites = WarpeeDB.favorites or {}
+
     if WarpeeDB.goldLetters == nil then
       WarpeeDB.goldLetters = WarpeeDB.goldMode == nil or WarpeeDB.goldMode == "letters"
     end
@@ -266,75 +312,52 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
       WarpeeDB.goldOnly = WarpeeDB.goldMode == nil or WarpeeDB.goldMode == "gold"
     end
     WarpeeDB.goldMode = nil
+
+    fillDefaults(WarpeeDB)
+    for i = 1, #NUMERIC do
+      local k = NUMERIC[i]
+      if WarpeeDB[k] ~= nil then WarpeeDB[k] = tonumber(WarpeeDB[k]) or DEFAULTS[k] end
+    end
+
+    if not ns.Theme.THEMES[WarpeeDB.theme] then WarpeeDB.theme = "blizzard" end
+    ns.Theme:Apply(WarpeeDB.theme)
+
+    if WarpeeDB.slotStyle == "quality" then WarpeeDB.slotStyle = "tile" end
+    if WarpeeDB.slotStyle == "frost" then WarpeeDB.slotStyle = "tile" end
+    if WarpeeDB.slotStyle == "ridged" or WarpeeDB.slotStyle == "marble"
+       or WarpeeDB.slotStyle == "parchment" or WarpeeDB.slotStyle == "stone" then
+      WarpeeDB.slotStyle = "deep"
+    end
+    if WarpeeDB.slotStyle == "tile" then WarpeeDB.slotStyle = "deep" end
+
     if not WarpeeDB.fontMigrated then
       WarpeeDB.fontMigrated = true
       if ns.Fonts:Usable(ns.Fonts.DEFAULT) then WarpeeDB.font = ns.Fonts.DEFAULT end
     end
     ns.Fonts:Settle()
-    WarpeeDB.badge = WarpeeDB.badge or {}
-    ns.BadgeMigrate(WarpeeDB, WarpeeDB.badge)
+    fillComputed(WarpeeDB)
     if WarpeeDB.junkIcon == false then WarpeeDB.badge.junk.on = false end
+
+    WarpeeDB.favorites = WarpeeDB.favorites or {}
+    WarpeeDB.vendorBlack = WarpeeDB.vendorBlack or {}
+
+    WarpeeDB.highContrast = nil
+    WarpeeDB.bgAlpha = nil
+    WarpeeDB.favCount = nil
     WarpeeDB.junkIcon = nil
+    WarpeeDB.pocketKeyDone = nil
+    WarpeeDB.unusable = nil
     WarpeeDB.ilvlSize, WarpeeDB.ilvlAnchor = nil, nil
     WarpeeDB.ilvlX, WarpeeDB.ilvlY = nil, nil
     WarpeeDB.countSize, WarpeeDB.countAnchor = nil, nil
     WarpeeDB.countX, WarpeeDB.countY = nil, nil
-    if WarpeeDB.qualityColorIlvl == nil then WarpeeDB.qualityColorIlvl = false end
-    if WarpeeDB.qualityBorder == nil then WarpeeDB.qualityBorder = true end
-    if WarpeeDB.mergeReagents == nil then WarpeeDB.mergeReagents = false end
-    if WarpeeDB.reagentTop == nil then WarpeeDB.reagentTop = false end
-    if WarpeeDB.hideReagents == nil then WarpeeDB.hideReagents = false end
-    WarpeeDB.pocketKeyDone = nil
-    if WarpeeDB.pocketShow == nil then WarpeeDB.pocketShow = true end
-    if WarpeeDB.pocketWithBags == nil then WarpeeDB.pocketWithBags = true end
-    WarpeeDB.pocketRows = tonumber(WarpeeDB.pocketRows) or 5
-    WarpeeDB.pocketCols = tonumber(WarpeeDB.pocketCols) or 6
-    if WarpeeDB.revFill == nil then WarpeeDB.revFill = false end
-    if WarpeeDB.fillUp == nil then WarpeeDB.fillUp = false end
-    if WarpeeDB.questMarks == nil then WarpeeDB.questMarks = true end
-    if WarpeeDB.newItemGlow == nil then WarpeeDB.newItemGlow = false end
-    if WarpeeDB.reagentTint == nil then WarpeeDB.reagentTint = true end
-    if WarpeeDB.unusableBorder == nil then WarpeeDB.unusableBorder = true end
-    WarpeeDB.goldFormat = WarpeeDB.goldFormat or "short"
-    WarpeeDB.vendorIlvl = tonumber(WarpeeDB.vendorIlvl) or 100
-    WarpeeDB.vendorIlvlMin = tonumber(WarpeeDB.vendorIlvlMin) or 10
-    WarpeeDB.vendorBlack = WarpeeDB.vendorBlack or {}
-    if WarpeeDB.vendorConsum == nil then WarpeeDB.vendorConsum = false end
-    if WarpeeDB.vendorAuto == nil then WarpeeDB.vendorAuto = false end
-    if WarpeeDB.vendorTokens == nil then WarpeeDB.vendorTokens = false end
-    local curExp = LE_EXPANSION_LEVEL_CURRENT
-                   or (GetExpansionLevel and GetExpansionLevel()) or 0
-    WarpeeDB.vendorTokenExp = WarpeeDB.vendorTokenExp or {}
-    for i = 0, curExp do
-      if WarpeeDB.vendorTokenExp[i] == nil then
-        WarpeeDB.vendorTokenExp[i] = (i <= 6)
-      end
-    end
-    if WarpeeDB.vendorKeepBoE == nil then WarpeeDB.vendorKeepBoE = true end
-    if WarpeeDB.vendorKeepWarbound == nil then WarpeeDB.vendorKeepWarbound = true end
-    if WarpeeDB.vendorKeepGems == nil then WarpeeDB.vendorKeepGems = true end
-    if WarpeeDB.vendorGrey == nil then WarpeeDB.vendorGrey = false end
-    if WarpeeDB.vendorRelics == nil then WarpeeDB.vendorRelics = true end
-    if WarpeeDB.vendorRepair == nil then WarpeeDB.vendorRepair = false end
-    WarpeeDB.vendorRepairBy = WarpeeDB.vendorRepairBy or "player"
     WarpeeDB.vendorKeepMog, WarpeeDB.vendorKeepFresh = nil, nil
-    WarpeeDB.optSections = WarpeeDB.optSections or {}
-    if WarpeeDB.hideMinimapIcon == nil then WarpeeDB.hideMinimapIcon = false end
-    if WarpeeDB.tipCounts == nil then WarpeeDB.tipCounts = true end
-    if WarpeeDB.tipBank == nil then WarpeeDB.tipBank = true end
-    if WarpeeDB.tipWarband == nil then WarpeeDB.tipWarband = true end
-    if WarpeeDB.keepBags == nil then WarpeeDB.keepBags = true end
-    if WarpeeDB.keepBank == nil then WarpeeDB.keepBank = true end
-    if WarpeeDB.keepWarband == nil then WarpeeDB.keepWarband = true end
+    WarpeeDB.bankSlotStyle = nil
+    WarpeeDB.bankFontSize, WarpeeDB.bankCustomSize, WarpeeDB.hideBlizzBank = nil, nil, nil
+    WarpeeDB.warbandCustomSize, WarpeeDB.warbandIconSize = nil, nil
+    WarpeeDB.bankPool = nil
     if WarpeeDB.locale == "auto" then WarpeeDB.locale = nil end
-    WarpeeDB.unusable = nil
-    if WarpeeDB.searchClear == nil then WarpeeDB.searchClear = true end
-    if WarpeeDB.searchLink == nil then WarpeeDB.searchLink = true end
-    WarpeeDB.minimapAngle = tonumber(WarpeeDB.minimapAngle) or 2.2
-    if WarpeeDB.autoOpen == nil then
-      WarpeeDB.autoOpen = { auction = false, bank = true, mail = true, trade = true,
-                            vendor = true, guildbank = true, professions = false }
-    end
+
     for key, pick in pairs(PICKS) do
       if WarpeeDB[key] ~= nil and not pick.ok[WarpeeDB[key]] then
         WarpeeDB[key] = pick.def
@@ -369,14 +392,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if ns.Pocket then ns.Pocket:Warm() end
     ns.Theme:ApplyGridAlpha()
     HookBagToggles()
-    WarpeeDB.bankCols = WarpeeDB.bankCols or 28
-    WarpeeDB.warbandCols = WarpeeDB.warbandCols or 26
     WarpeeDB.bankTabSel = WarpeeDB.bankTabSel or {}
-    WarpeeDB.bankIconSize = WarpeeDB.bankIconSize or 36
-    WarpeeDB.bankSlotStyle = nil
-    WarpeeDB.bankFontSize, WarpeeDB.bankCustomSize, WarpeeDB.hideBlizzBank = nil, nil, nil
-    WarpeeDB.warbandCustomSize, WarpeeDB.warbandIconSize = nil, nil
-    WarpeeDB.bankPool = nil
     if ns.Bank then ns.Bank:HideBlizzard() end
     if ns.ApplyLocaleText then ns.ApplyLocaleText() end
     if ns.ApplyMinimapIcon then ns.ApplyMinimapIcon() end
