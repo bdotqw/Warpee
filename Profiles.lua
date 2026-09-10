@@ -94,6 +94,7 @@ function P:Apply(name)
     ns.WipeConfig(WarpeeDB)
     WarpeeDB[SELECTED] = nil
     ns.FillComputed(WarpeeDB)
+    ns.SanitizeConfig(WarpeeDB)
     return true
   end
   local t = WarpeeDB[LIST] and WarpeeDB[LIST][name]
@@ -104,11 +105,18 @@ function P:Apply(name)
   end
   WarpeeDB[SELECTED] = name
   ns.FillComputed(WarpeeDB)
+  ns.SanitizeConfig(WarpeeDB)
+  return true
+end
+
+function P:ApplyLive(name)
+  if not self:Apply(name) then return false end
+  if ns.Ready then ns.ApplyAll() end
   return true
 end
 
 function P:Reset()
-  return self:Apply(RESERVED)
+  return self:ApplyLive(RESERVED)
 end
 
 local function codec()
@@ -138,13 +146,13 @@ end
 
 local function unpackPayload(enc)
   local C, method = codec()
-  if not C then return nil, "Unsupported client" end
+  if not C then return nil, "Not supported on this client" end
   local ok, dec = pcall(C.DecodeBase64, enc)
-  if not ok or not dec then return nil, "Damaged string" end
+  if not ok or not dec then return nil, "Damaged profile code" end
   local ok2, raw = pcall(C.DecompressString, dec, method)
-  if not ok2 or not raw then return nil, "Damaged string" end
+  if not ok2 or not raw then return nil, "Damaged profile code" end
   local ok3, env = pcall(C.DeserializeCBOR, raw)
-  if not ok3 or type(env) ~= "table" then return nil, "Damaged string" end
+  if not ok3 or type(env) ~= "table" then return nil, "Damaged profile code" end
   return env
 end
 
@@ -167,15 +175,15 @@ function P:Export(name)
 end
 
 function P:Import(str, name)
-  if type(str) ~= "string" then return false, "Empty string" end
+  if type(str) ~= "string" then return false, "Nothing to import" end
   str = str:gsub("^%s+", ""):gsub("%s+$", "")
-  if str == "" then return false, "Empty string" end
-  if str:sub(1, #PREFIX) ~= PREFIX then return false, "Not a profile string" end
+  if str == "" then return false, "Nothing to import" end
+  if str:sub(1, #PREFIX) ~= PREFIX then return false, "Not a profile code" end
   local env, err = unpackPayload(str:sub(#PREFIX + 1))
   if not env then return false, err end
-  if not env.d or type(env.d) ~= "table" then return false, "Not a profile" end
+  if not env.d or type(env.d) ~= "table" then return false, "Not a profile code" end
   local data = upgrade(env.d, env._v)
-  if not data then return false, "From a newer version" end
+  if not data then return false, "Saved by a newer version" end
   name = trim(name)
   if name == "" then name = trim(env._n) end
   if name == "" or name == RESERVED then name = FALLBACK_NAME end
@@ -185,7 +193,7 @@ function P:Import(str, name)
   end
   WarpeeDB[LIST] = WarpeeDB[LIST] or {}
   WarpeeDB[LIST][name] = clean
-  self:Apply(name)
+  self:ApplyLive(name)
   return true, name
 end
 
@@ -201,12 +209,12 @@ function API:ExportProfile(key)
 end
 
 function API:ApplyProfile(key)
-  if not ns.Profiles:Apply(trim(key)) then return false, "Unknown profile" end
+  if not ns.Profiles:ApplyLive(trim(key)) then return false, "Unknown profile" end
   return true
 end
 
 function API:ResetProfile()
-  ns.Profiles:Reset()
+  ns.Profiles:ApplyLive(RESERVED)
   return true
 end
 
@@ -237,11 +245,6 @@ end
 
 local function say(msg)
   print("|cffd9a85fWarpee|r |cffffffff" .. msg .. "|r")
-end
-
-local function reloadSoon()
-  say(T("The interface reloads to apply the profile"))
-  C_Timer.After(0.8, function() ReloadUI() end)
 end
 
 local function makeButton(parent, text, w, onClick)
@@ -290,8 +293,7 @@ end
 
 function P:SwitchTo(name)
   if name == self:Active() then return end
-  if not self:Apply(name) then say(T("Unknown profile")) return end
-  reloadSoon()
+  if not self:ApplyLive(name) then say(T("Unknown profile")) return end
 end
 
 function P:BuildPanel()
@@ -320,34 +322,31 @@ function P:BuildPanel()
   nameBox:SetPoint("TOPRIGHT", -PAD, -38)
   f.nameBox = nameBox
 
-  local addCopy = autoButton(f, "Add from current", function()
+  local addCopy = autoButton(f, "Duplicate current", function()
     local n = nameBox:GetText()
-    if not P:Store(n) then say(T("Name a new profile")) return end
-    P:Apply(trim(n))
-    reloadSoon()
+    if not P:Store(n) then say(T("Enter a profile name")) return end
+    P:ApplyLive(trim(n))
   end)
   addCopy:SetPoint("TOPLEFT", nameBox, "BOTTOMLEFT", 0, -6)
 
-  local addEmpty = autoButton(f, "Add empty", function()
+  local addEmpty = autoButton(f, "Create empty", function()
     local n = nameBox:GetText()
-    if not P:StoreEmpty(n) then say(T("Name a new profile")) return end
-    P:Apply(trim(n))
-    reloadSoon()
+    if not P:StoreEmpty(n) then say(T("Enter a profile name")) return end
+    P:ApplyLive(trim(n))
   end)
   addEmpty:SetPoint("LEFT", addCopy, "RIGHT", 6, 0)
 
   local del = autoButton(f, "Delete", function()
     local n = P:Active()
     if n == RESERVED then say(T("Cannot delete the default profile")) return end
-    P:Reset()
+    P:ApplyLive(RESERVED)
     if not P:Delete(n) then say(T("Cannot delete the active profile")) return end
-    reloadSoon()
   end)
   del:SetPoint("LEFT", addEmpty, "RIGHT", 6, 0)
 
   local ren = autoButton(f, "Rename", function()
     local n = trim(nameBox:GetText())
-    if n == "" then say(T("Name a new profile")) return end
+    if n == "" then say(T("Enter a profile name")) return end
     if not P:Rename(P:Active(), n) then say(T("That name is taken")) return end
     P:Paint()
   end)
@@ -372,7 +371,7 @@ function P:BuildPanel()
     f.str:SetText(s)
     f.str:SetFocus()
     f.str:HighlightText()
-    say(T("Copied, press Ctrl and C"))
+    say(T("Press Ctrl and C to copy"))
   end)
   exp:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -BUTTON_TOP)
 
@@ -380,13 +379,11 @@ function P:BuildPanel()
     local ok, res = P:Import(f.str:GetText(), nameBox:GetText())
     if not ok then say(T(res)) return end
     say(res)
-    reloadSoon()
   end)
   imp:SetPoint("LEFT", exp, "RIGHT", 6, 0)
 
   local reset = autoButton(f, "Reset to default", function()
-    P:Reset()
-    reloadSoon()
+    P:ApplyLive(RESERVED)
   end)
   reset:SetPoint("LEFT", imp, "RIGHT", 6, 0)
 

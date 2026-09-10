@@ -12,6 +12,7 @@ local PICKS = {
 local NONE = {}
 local DEFAULTS = {
   cols = 16, gap = 2, iconSize = 40, slotStyle = "flat", theme = "blizzard",
+  font = ns.Fonts.DEFAULT,
   iconZoom = 1, borderWidth = 1, gridAlpha = 0, showGauge = false,
   favShow = true, recentShow = true,
   qualityColorIlvl = false, qualityBorder = true, mergeReagents = false,
@@ -77,6 +78,70 @@ local function fillComputed(db)
 end
 
 ns.FillComputed = fillComputed
+
+local function sanitizeConfig(db)
+  if not ns.Theme.THEMES[db.theme] then db.theme = "blizzard" end
+  for key, pick in pairs(PICKS) do
+    if db[key] ~= nil and not pick.ok[db[key]] then
+      db[key] = pick.def
+    end
+  end
+end
+
+ns.SanitizeConfig = sanitizeConfig
+
+function ns.PushConfig()
+  Bags.cols = WarpeeDB.cols
+  Bags.gap = WarpeeDB.gap
+  Bags.iconSize = WarpeeDB.iconSize
+  Bags.slotStyle = WarpeeDB.slotStyle
+  Bags.iconZoom = WarpeeDB.iconZoom
+  Bags.borderWidth = WarpeeDB.borderWidth
+  Bags.goldLetters = WarpeeDB.goldLetters
+  Bags.goldOnly = WarpeeDB.goldOnly
+  Bags.font = WarpeeDB.font
+  Bags.showGauge = WarpeeDB.showGauge
+  Bags.badge = WarpeeDB.badge
+  Bags.qualityColorIlvl = WarpeeDB.qualityColorIlvl
+  Bags.qualityBorder    = WarpeeDB.qualityBorder
+  Bags.mergeReagents    = WarpeeDB.mergeReagents
+  Bags.reagentTop       = WarpeeDB.reagentTop
+  Bags.hideReagents     = WarpeeDB.hideReagents
+  Bags.revFill          = WarpeeDB.revFill
+  Bags.fillUp           = WarpeeDB.fillUp
+  Bags.questMarks       = WarpeeDB.questMarks
+  Bags.newItemGlow      = WarpeeDB.newItemGlow
+  Bags.reagentTint      = WarpeeDB.reagentTint
+  Bags.unusableBorder   = WarpeeDB.unusableBorder
+end
+
+function ns.ApplyAll()
+  ns.PushConfig()
+  ns.Fonts:Settle()
+  ns.Fonts:Refresh()
+  ns.Theme:Restyle(WarpeeDB.theme)
+  Bags:Build()
+  Bags:RestorePos()
+  Bags:Warm()
+  if ns.Fav then ns.Fav:Warm() end
+  if ns.Pocket then
+    ns.Pocket:Warm()
+    if ns.Pocket.Apply then ns.Pocket:Apply() end
+  end
+  if ns.Bank and ns.Bank.Refresh then ns.Bank:Refresh() end
+  if ns.GuildBankSkin and ns.GuildBankSkin.Restyle then ns.GuildBankSkin:Restyle() end
+  local picker = ns.CharPicker
+  if picker and picker.frame and picker.frame:IsShown() and picker.Paint then
+    picker:Paint(true)
+  end
+  if ns.Options then
+    if ns.Options.ReflowPages then ns.Options:ReflowPages() end
+    if ns.Options.ApplyFont then ns.Options:ApplyFont() end
+  end
+  if ns.ApplyLocaleText then ns.ApplyLocaleText() end
+  if ns.ApplyMinimapIcon then ns.ApplyMinimapIcon() end
+  if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
+end
 
 local function repaintItems()
   ns.ClearItemPaint()
@@ -358,33 +423,8 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.bankPool = nil
     if WarpeeDB.locale == "auto" then WarpeeDB.locale = nil end
 
-    for key, pick in pairs(PICKS) do
-      if WarpeeDB[key] ~= nil and not pick.ok[WarpeeDB[key]] then
-        WarpeeDB[key] = pick.def
-      end
-    end
-    Bags.cols = WarpeeDB.cols
-    Bags.gap = WarpeeDB.gap
-    Bags.iconSize = WarpeeDB.iconSize
-    Bags.slotStyle = WarpeeDB.slotStyle
-    Bags.iconZoom = WarpeeDB.iconZoom
-    Bags.borderWidth = WarpeeDB.borderWidth
-    Bags.goldLetters = WarpeeDB.goldLetters
-    Bags.goldOnly = WarpeeDB.goldOnly
-    Bags.font = WarpeeDB.font
-    Bags.showGauge = WarpeeDB.showGauge
-    Bags.badge = WarpeeDB.badge
-    Bags.qualityColorIlvl = WarpeeDB.qualityColorIlvl
-    Bags.qualityBorder    = WarpeeDB.qualityBorder
-    Bags.mergeReagents    = WarpeeDB.mergeReagents
-    Bags.reagentTop       = WarpeeDB.reagentTop
-    Bags.hideReagents     = WarpeeDB.hideReagents
-    Bags.revFill          = WarpeeDB.revFill
-    Bags.fillUp           = WarpeeDB.fillUp
-    Bags.questMarks       = WarpeeDB.questMarks
-    Bags.newItemGlow      = WarpeeDB.newItemGlow
-    Bags.reagentTint      = WarpeeDB.reagentTint
-    Bags.unusableBorder   = WarpeeDB.unusableBorder
+    sanitizeConfig(WarpeeDB)
+    ns.PushConfig()
     Bags:Build()
     Bags:RestorePos()
     Bags:Warm()
@@ -407,6 +447,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
         pcall(C_CVar.SetCVarBitfield, "closedInfoFrames", LE_FRAME_TUTORIAL_EQUIP_REAGENT_BAG, true)
       end
     end
+    ns.Ready = true
   elseif event == "BAG_UPDATE" then
     if not Bags.warmed then Bags:Warm() end
     if ns.IsPlayerBag(a1) then Bags.dirty[a1] = true end
