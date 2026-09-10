@@ -14,6 +14,9 @@ local WIN_W, WIN_H = 700, 700
 local PAD = 18
 local HEADER_H = 42
 local TAB_H = 30
+local TAB_GAP = 5
+local TAB_PAD = 22
+local TAB_MIN_W = 70
 local BASE_FONT = 15
 local ROW_GAP = 10
 local SCROLL_W = 8
@@ -2185,9 +2188,7 @@ function Options:ApplyFont()
     e.fs:SetFont(path, math.max(7, BASE_FONT + e.delta), "")
   end
   local function measure()
-    for _, tab in ipairs(self.tabs) do
-      tab:SetWidth(math.max(70, tab.Text:GetStringWidth() + 22))
-    end
+    self:LayoutTabs()
     if self.profilesBtn then
       self.profilesBtn:SetWidth(math.max(64, self.profilesBtn.Text:GetStringWidth() + 20))
     end
@@ -2203,18 +2204,8 @@ end
 function Options:ReflowPages()
   if not self.areas then return end
   if self.tabs then
-    local prev
     for i, tab in ipairs(self.tabs) do
       tab.Text:SetText(T(PAGES[i].name))
-      tab:SetWidth(math.max(70, tab.Text:GetStringWidth() + 22))
-      tab:ClearAllPoints()
-      if prev then
-        tab:SetPoint("TOPLEFT", prev, "TOPRIGHT", 5, 0)
-      else
-        ns.SnapPoint(tab, "TOPLEFT", self.frame, "TOPLEFT", PAD,
-          -(HEADER_H + 7 + Theme:TopInset()))
-      end
-      prev = tab
       paintTab(tab)
     end
   end
@@ -2290,19 +2281,11 @@ function Options:Build()
   self.headLine = line
 
   self.tabs, self.areas = {}, {}
-  local prev
   for i, pageDef in ipairs(PAGES) do
     local tab = ns.CreateButton(f, T(pageDef.name), 90, TAB_H)
     track(tab.Text, -1)
-    tab:SetWidth(math.max(70, tab.Text:GetStringWidth() + 22))
-    if prev then
-      tab:SetPoint("TOPLEFT", prev, "TOPRIGHT", 5, 0)
-    else
-      tab:SetPoint("TOPLEFT", PAD, -(HEADER_H + 7))
-    end
     tab:HookScript("OnLeave", paintTab)
     tab:SetScript("OnClick", function() self:Select(i) end)
-    prev = tab
     self.tabs[i] = tab
 
     local area = makeScrollArea(f, pageDef.list)
@@ -2317,6 +2300,48 @@ function Options:Build()
   self:AnchorHeader()
   self:Select(1)
   return f
+end
+
+-- The tabs used to sit at their own width and end wherever the last label did, which left
+-- the rest of the row empty. They now take an equal share of it, and a locale whose longest
+-- label needs more than a share keeps the labels' own widths with the leftover room spread
+-- between them, so the row reaches the window edge either way.
+function Options:LayoutTabs()
+  local f, tabs = self.frame, self.tabs
+  local n = tabs and #tabs or 0
+  if not f or n == 0 then return end
+  local content = (f:GetWidth() or WIN_W) - PAD * 2
+  local even = math.floor((content - (n - 1) * TAB_GAP) / n)
+  local widths, widest, total = {}, 0, 0
+  for i = 1, n do
+    local w = math.max(TAB_MIN_W, tabs[i].Text:GetStringWidth() + TAB_PAD)
+    widths[i] = w
+    if w > widest then widest = w end
+  end
+  if widest <= even then
+    for i = 1, n do widths[i] = even end
+  end
+  for i = 1, n do total = total + widths[i] end
+  local slack = content - (total + (n - 1) * TAB_GAP)
+  if slack > 0 then
+    local share = math.floor(slack / n)
+    local rest = slack - share * n
+    for i = 1, n do
+      widths[i] = widths[i] + share + (i <= rest and 1 or 0)
+    end
+  end
+  local prev
+  for i = 1, n do
+    local t = tabs[i]
+    t:ClearAllPoints()
+    if prev then
+      ns.SnapPoint(t, "TOPLEFT", prev, "TOPRIGHT", TAB_GAP, 0)
+    else
+      ns.SnapPoint(t, "TOPLEFT", f, "TOPLEFT", PAD, -(HEADER_H + 7 + Theme:TopInset()))
+    end
+    t:SetWidth(widths[i])
+    prev = t
+  end
 end
 
 function Options:AnchorHeader()
@@ -2336,11 +2361,7 @@ function Options:AnchorHeader()
     self.headLine:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(HEADER_H + top))
     self.headLine:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -(HEADER_H + top))
   end
-  local first = self.tabs and self.tabs[1]
-  if first then
-    first:ClearAllPoints()
-    ns.SnapPoint(first, "TOPLEFT", f, "TOPLEFT", PAD, -(HEADER_H + 7 + top))
-  end
+  self:LayoutTabs()
   for _, area in ipairs(self.areas or {}) do
     area:ClearAllPoints()
     area:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(HEADER_H + TAB_H + 14 + top))
