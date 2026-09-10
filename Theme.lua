@@ -1029,6 +1029,13 @@ local function clientFont()
   if type(p) == "string" and p ~= "" then return p end
   return GAME_FONT
 end
+
+-- The client draws its own interface with this font, so it renders this client's language by
+-- definition. Probing it can only reject the one font a player is certain to be able to read,
+-- and a rejected default is a default the factory reset has no way to put back.
+local function certainFont(path)
+  return path == clientFont()
+end
 local SCRIPTS = {
   latin1 = {
     chars = { "ß", "ä", "ö", "ü", "ç", "é", "à", "ñ", "ó", "ã", "ì", "ÿ" },
@@ -1253,7 +1260,9 @@ needFilter = function(names)
   local out = {}
   for _, n in ipairs(names) do
     local p = rawPath(n)
-    if (not need or hasScript(need, p)) and hasScript("punct", p) then out[#out + 1] = n end
+    if certainFont(p) or ((not need or hasScript(need, p)) and hasScript("punct", p)) then
+      out[#out + 1] = n
+    end
   end
   return (#out > 0) and out or names
 end
@@ -1276,6 +1285,7 @@ end
 function ns.Fonts:Usable(name)
   local p = rawPath(name)
   if not pathUsable(p) then return false end
+  if certainFont(p) then return true end
   local need = self:Need()
   if need and not hasScript(need, p) then return false end
   if not hasScript("punct", p) then return false end

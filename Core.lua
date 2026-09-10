@@ -58,6 +58,9 @@ local function wipeConfig(db)
   for k, v in pairs(DEFAULTS) do
     if v == NONE then db[k] = nil else db[k] = copyDeep(v) end
   end
+  -- Settle prefers a wish over the font it was handed, so a wipe that left one behind would
+  -- hand the restored font straight back to the choice it replaced.
+  db.fontWish = nil
 end
 
 ns.DEFAULTS = DEFAULTS
