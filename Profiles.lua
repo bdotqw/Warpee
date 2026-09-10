@@ -80,16 +80,18 @@ end
 
 function P:Store(name)
   name = trim(name)
-  if name == "" or name == RESERVED then return false end
+  if not WarpeeDB or name == "" or name == RESERVED then return false end
   WarpeeDB[LIST] = WarpeeDB[LIST] or {}
+  if WarpeeDB[LIST][name] then return false end
   WarpeeDB[LIST][name] = self:Capture()
   return true
 end
 
 function P:StoreEmpty(name)
   name = trim(name)
-  if name == "" or name == RESERVED then return false end
+  if not WarpeeDB or name == "" or name == RESERVED then return false end
   WarpeeDB[LIST] = WarpeeDB[LIST] or {}
+  if WarpeeDB[LIST][name] then return false end
   WarpeeDB[LIST][name] = {}
   return true
 end
@@ -240,6 +242,7 @@ function P:Export(name)
 end
 
 function P:Import(str, name)
+  if not ns.Ready then return false, "Not ready" end
   if type(str) ~= "string" then return false, "Nothing to import" end
   str = str:gsub("^%s+", ""):gsub("%s+$", "")
   if str == "" then return false, "Nothing to import" end
