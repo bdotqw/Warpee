@@ -160,6 +160,7 @@ bg.def = function() return ns.BADGE[bg.sel] or ns.BADGES[1] end
 bg.bump = function()
   Bags.styleGen = (Bags.styleGen or 0) + 1
   if bg.repaint then bg.repaint() end
+  if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
   relayout()
 end
 bg.soloGet = function() return WarpeeDB.badgeSolo and true or false end
@@ -356,6 +357,7 @@ local function openDropdown(anchor, spec, onPick)
       r:SetScript("OnClick", function()
         closeDropdown()
         spec.set(key)
+        if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
         if onPick then onPick() end
       end)
     end
@@ -849,6 +851,7 @@ local function cycle(spec, dir)
   idx = idx + dir
   if idx < 1 then idx = #keys elseif idx > #keys then idx = 1 end
   spec.set(keys[idx])
+  if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
 end
 
 function factories.select(parent, spec)
@@ -2226,6 +2229,7 @@ end
 
 function Options:Refresh()
   for _, row in ipairs(rows) do row.Refresh() end
+  if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
 end
 
 function Options:Build()

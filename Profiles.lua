@@ -115,6 +115,16 @@ function P:ApplyLive(name)
   return true
 end
 
+function P:SyncActive()
+  if not WarpeeDB then return false end
+  local active = self:Active()
+  if active == RESERVED then return false end
+  local t = WarpeeDB[LIST]
+  if not (t and t[active]) then return false end
+  t[active] = self:Snapshot()
+  return true
+end
+
 function P:Reset()
   return self:ApplyLive(RESERVED)
 end
@@ -352,7 +362,10 @@ function P:BuildPanel()
       set = function(name) P:ApplyLive(name) end,
       keys = function() return P:List() end,
       label = function(k) return k == RESERVED and T("Default") or k end,
-    }, function() P:Paint() end)
+    }, function()
+      P:Paint()
+      if ns.Options and ns.Options.Refresh then ns.Options:Refresh() end
+    end)
   end)
   f.dd = dd
 
