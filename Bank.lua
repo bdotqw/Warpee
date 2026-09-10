@@ -1590,7 +1590,10 @@ function View:Restyle()
 end
 
 function View:Place()
-  ns.PlaceWindow(self.frame, "bankPos", { p = "CENTER", rp = "CENTER", x = 220, y = 40 })
+  if (WarpeeDB and WarpeeDB.bankPos) or not self.placed then
+    ns.PlaceWindow(self.frame, "bankPos", { p = "CENTER", rp = "CENTER", x = 220, y = 40 })
+  end
+  self.placed = true
 end
 
 function View:OnBankOpened()
