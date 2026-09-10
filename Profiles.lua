@@ -268,13 +268,14 @@ _G.WarpeeAPI = API
 
 local PAD = 12
 local ROW_H = 22
+local DD_H = 26
 local NAME_TOP = 38
-local DD_TOP = 100
+local DD_TOP = 108
 local STR_H = 24
 local MIN_W = 340
 local GAP = 6
-local ZONE_GAP = 16
-local PANEL_H = 234
+local ZONE_GAP = 20
+local PANEL_H = 250
 local PANEL_HEADER_EXTRA = 14
 
 local function T(s)
@@ -297,6 +298,33 @@ local function autoButton(parent, text, onClick)
   local b = makeButton(parent, text, onClick)
   b:SetWidth(math.max(58, b.Text:GetStringWidth() + 18))
   return b
+end
+
+-- CreateButton paints itself through Theme:Track, and that registry keeps one callback
+-- per object, so registering another would replace the hover and disabled states.
+-- Rebuilding the paint here keeps both and only swaps the ink the button rests in.
+local function tintButton(b, inkKey)
+  if not b then return end
+  local function paint(s)
+    local hot = s.wpeHot and not s.offDuty
+    local fade = s.offDuty
+    s:SetBackdropColor(Theme:C(hot and "panelHi" or "panel"))
+    s:SetBackdropBorderColor(Theme:C(fade and "strokeSoft" or (hot and "accent" or "stroke")))
+    if s.Text then
+      s.Text:SetTextColor(Theme:C(fade and "faint" or (hot and "accent" or inkKey)))
+    end
+    if s.wpeIconPaint then s.wpeIconPaint(s) end
+  end
+  b.Repaint = paint
+  Theme:Track(b, paint)
+  if b.Text then
+    Theme:Track(b.Text, function(s)
+      local p = s:GetParent()
+      local hot = p and p.wpeHot and not p.offDuty
+      s:SetTextColor(Theme:C((p and p.offDuty) and "faint" or (hot and "accent" or inkKey)))
+    end)
+  end
+  paint(b)
 end
 
 local function rowWidth(list)
@@ -378,14 +406,15 @@ function P:BuildPanel()
   end)
   fresh:SetPoint("LEFT", dup, "RIGHT", GAP, 0)
 
-  local dd = ns.CreateButton(f, "", MIN_W - PAD * 2, ROW_H)
+  local dd = ns.CreateButton(f, "", MIN_W - PAD * 2, DD_H)
   dd.Text:ClearAllPoints()
   dd.Text:SetPoint("LEFT", dd, "LEFT", 8, 0)
-  dd.Text:SetPoint("RIGHT", dd, "RIGHT", -22, 0)
+  dd.Text:SetPoint("RIGHT", dd, "RIGHT", -26, 0)
   dd.Text:SetJustifyH("LEFT")
   dd:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -DD_TOP)
-  local arrow = ns.ArrowGlyph(dd, "down", 9)
+  local arrow = ns.ArrowGlyph(dd, "down", 11)
   arrow:SetPoint("RIGHT", dd, "RIGHT", -8, 0)
+  tintButton(dd, "accent")
   dd:SetScript("OnClick", function(s)
     if not ns.OpenDropdown then return end
     ns.OpenDropdown(s, {
@@ -415,6 +444,11 @@ function P:BuildPanel()
     StaticPopup_Show("WARPEE_DEL_PROFILE", active, nil, active)
   end)
   del:SetPoint("LEFT", ren, "RIGHT", GAP, 0)
+  tintButton(del, "gaugeHi")
+  ns.AddTip(del, function()
+    if P:Active() ~= RESERVED then return nil end
+    return T("Cannot delete the default profile")
+  end, "top")
   f.delBtn = del
 
   local exp = autoButton(f, "Export", function()
@@ -435,6 +469,8 @@ function P:BuildPanel()
     P:Paint()
   end)
   imp:SetPoint("LEFT", exp, "RIGHT", GAP, 0)
+  tintButton(exp, "dim")
+  tintButton(imp, "dim")
 
   local str = CreateFrame("EditBox", nil, f, "BackdropTemplate")
   str:SetAutoFocus(false)
@@ -454,10 +490,19 @@ function P:BuildPanel()
   end)
   f.str = str
 
+  local hint = Theme:Label(str, 11, "dim")
+  ns.LocalText(hint, "Profile code")
+  hint:SetPoint("LEFT", str, "LEFT", 7, 0)
+  local function refreshHint(s) hint:SetShown(s:GetText() == "") end
+  str:SetScript("OnTextChanged", refreshHint)
+  str:SetScript("OnEditFocusLost", function(s) refreshHint(s) end)
+  refreshHint(str)
+  f.strHint = hint
+
   f.row1 = { dup, fresh }
   f.row2 = { ren, del }
   f.row3 = { exp, imp }
-  f.autoBtns = { dup, fresh, ren, del, exp, imp }
+  f.autoBtns = { dup, fresh, ren, del }
   f:SetHeight(PANEL_H)
   self:Reflow()
   self:ApplySkin()
@@ -472,10 +517,17 @@ function P:Reflow()
     local b = f.autoBtns[i]
     b:SetWidth(math.max(58, b.Text:GetStringWidth() + 18))
   end
-  local W = math.max(rowWidth(f.row1), rowWidth(f.row2), rowWidth(f.row3), MIN_W) + PAD * 2
+  local need = 0
+  for i = 1, #f.row3 do
+    need = math.max(need, f.row3[i].Text:GetStringWidth() + 18)
+  end
+  local W = math.max(rowWidth(f.row1), rowWidth(f.row2), need * 2 + GAP, MIN_W) + PAD * 2
   f:SetWidth(W)
-  f.dd:SetWidth(W - PAD * 2)
-  f.str:SetWidth(W - PAD * 2)
+  local content = W - PAD * 2
+  local half = math.floor((content - GAP) / 2)
+  for i = 1, #f.row3 do f.row3[i]:SetWidth(half) end
+  f.dd:SetWidth(content)
+  f.str:SetWidth(content)
   self:Paint()
 end
 
