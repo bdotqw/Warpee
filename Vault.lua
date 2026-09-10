@@ -6,6 +6,7 @@ ns.Vault = Vault
 local ownerKey
 local boxCache = {}
 local countCache = {}
+local gearByLink = {}
 local lastMode, lastBag, lastSlots
 local migrated
 
@@ -56,6 +57,7 @@ end
 local function invalidate()
   wipe(boxCache)
   wipe(countCache)
+  wipe(gearByLink)
   lastMode, lastBag, lastSlots = nil, nil, nil
 end
 
@@ -250,7 +252,6 @@ local function gearFacts(bag, slot, bound)
   return C_Item.GetCurrentItemLevel(scanLoc), wue
 end
 
-local gearByLink = {}
 local function isGear(link)
   local hit = gearByLink[link]
   if hit ~= nil then return hit end
