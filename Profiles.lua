@@ -246,7 +246,8 @@ local function say(msg)
 end
 
 local function makeButton(parent, text, h, onClick)
-  local b = ns.CreateButton(parent, T(text), 80, h or ROW_H)
+  local b = ns.CreateButton(parent, "", 80, h or ROW_H)
+  ns.LocalText(b.Text, text)
   b:SetScript("OnClick", onClick)
   return b
 end
@@ -427,14 +428,26 @@ function P:BuildPanel()
   end)
   f.str = str
 
-  local contentW = math.max(rowWidth({ addCopy, addEmpty, del, ren }),
-                            rowWidth({ exp, imp, reset }), MIN_W)
-  local W = contentW + PAD * 2
-  f:SetSize(W, panelHeight(1))
-  str:SetWidth(W - PAD * 2)
-  for i = 1, ROWS_MAX do f.rows[i]:SetWidth(W - PAD * 2) end
+  f.row1 = { addCopy, addEmpty, del, ren }
+  f.row2 = { exp, imp, reset }
+  f.autoBtns = { addCopy, addEmpty, del, ren, exp, imp, reset }
+  self:Reflow()
 
   return f
+end
+
+function P:Reflow()
+  local f = self.panel
+  if not f then return end
+  for i = 1, #f.autoBtns do
+    local b = f.autoBtns[i]
+    b:SetWidth(math.max(58, b.Text:GetStringWidth() + 18))
+  end
+  local W = math.max(rowWidth(f.row1), rowWidth(f.row2), MIN_W) + PAD * 2
+  f:SetWidth(W)
+  f.str:SetWidth(W - PAD * 2)
+  for i = 1, ROWS_MAX do f.rows[i]:SetWidth(W - PAD * 2) end
+  self:Paint()
 end
 
 function P:Toggle()

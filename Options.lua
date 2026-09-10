@@ -2183,6 +2183,9 @@ function Options:ApplyFont()
     for _, tab in ipairs(self.tabs) do
       tab:SetWidth(math.max(70, tab.Text:GetStringWidth() + 22))
     end
+    if self.profilesBtn then
+      self.profilesBtn:SetWidth(math.max(64, self.profilesBtn.Text:GetStringWidth() + 20))
+    end
     for i, area in ipairs(self.areas) do
       area.page.Relayout()
       area:PaintBar()
@@ -2265,7 +2268,8 @@ function Options:Build()
   track(close.Text, 2)
   self.closeBtn = close
 
-  local prof = ns.CreateButton(f, T("Profiles"), 76, 28)
+  local prof = ns.CreateButton(f, "", 76, 28)
+  ns.LocalText(prof.Text, "Profiles")
   track(prof.Text, -1)
   prof:SetWidth(math.max(64, prof.Text:GetStringWidth() + 20))
   ns.SnapPoint(prof, "RIGHT", close, "LEFT", -6, 0)

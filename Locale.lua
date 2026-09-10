@@ -58,6 +58,7 @@ function ns.ApplyLocaleText()
   if ns.Bank and ns.Bank.frame and ns.Bank.frame:IsShown() and ns.Bank.Refresh then
     ns.Bank:Refresh()
   end
+  if ns.Profiles and ns.Profiles.Reflow then ns.Profiles:Reflow() end
 end
 
 local function supported(code)
