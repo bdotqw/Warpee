@@ -24,7 +24,9 @@ function P:Names()
   local out = {}
   local t = WarpeeDB and WarpeeDB[LIST]
   if t then
-    for k in pairs(t) do out[#out + 1] = k end
+    for k in pairs(t) do
+      if k ~= RESERVED then out[#out + 1] = k end
+    end
     table.sort(out)
   end
   return out
@@ -93,6 +95,7 @@ function P:StoreEmpty(name)
 end
 
 function P:Delete(name)
+  if name == RESERVED then return false end
   if not (WarpeeDB and WarpeeDB[LIST] and WarpeeDB[LIST][name]) then return false end
   if name == self:Active() then return false end
   WarpeeDB[LIST][name] = nil
@@ -101,7 +104,8 @@ end
 
 function P:Rename(old, new)
   old, new = trim(old), trim(new)
-  if old == "" or new == "" or old == new or new == RESERVED then return false end
+  if old == "" or new == "" or old == new then return false end
+  if old == RESERVED or new == RESERVED then return false end
   local t = WarpeeDB and WarpeeDB[LIST]
   if not (t and t[old]) then return false end
   if t[new] then return false end
@@ -113,20 +117,15 @@ end
 
 function P:Apply(name)
   if not WarpeeDB then return false end
-  if name == RESERVED then
-    ns.WipeConfig(WarpeeDB)
-    WarpeeDB[SELECTED] = nil
-    ns.FillComputed(WarpeeDB)
-    ns.SanitizeConfig(WarpeeDB)
-    return true
-  end
   local t = WarpeeDB[LIST] and WarpeeDB[LIST][name]
-  if not t then return false end
+  if name ~= RESERVED and not t then return false end
   ns.WipeConfig(WarpeeDB)
-  for k, v in pairs(t) do
-    if ns.DEFAULTS[k] ~= nil then WarpeeDB[k] = ns.CopyDeep(v) end
+  if t then
+    for k, v in pairs(t) do
+      if ns.DEFAULTS[k] ~= nil then WarpeeDB[k] = ns.CopyDeep(v) end
+    end
   end
-  WarpeeDB[SELECTED] = name
+  WarpeeDB[SELECTED] = name ~= RESERVED and name or nil
   ns.FillComputed(WarpeeDB)
   ns.SanitizeConfig(WarpeeDB)
   return true
@@ -145,16 +144,46 @@ end
 
 function P:SyncActive()
   if ns.Applying or not WarpeeDB then return false end
-  local active = self:Active()
-  if active == RESERVED then return false end
   local t = WarpeeDB[LIST]
-  if not (t and t[active]) then return false end
-  t[active] = self:Capture()
+  if not t then return false end
+  t[self:Active()] = self:Capture()
   return true
 end
 
-function P:Reset()
-  return self:ApplyLive(RESERVED)
+function P:ResetActive()
+  if not WarpeeDB then return false end
+  local active = self:Active()
+  ns.WipeConfig(WarpeeDB)
+  ns.FillComputed(WarpeeDB)
+  ns.SanitizeConfig(WarpeeDB)
+  if ns.Ready then
+    ns.Applying = true
+    local ok, err = pcall(ns.ApplyAll)
+    ns.Applying = false
+    if not ok then error(err, 0) end
+  end
+  WarpeeDB[LIST] = WarpeeDB[LIST] or {}
+  WarpeeDB[LIST][active] = self:Capture()
+  return true
+end
+
+-- A save written before the default profile was stored keeps its values in the live config
+-- and has no copy to switch back to. Capture that live config as the default when it is the
+-- profile in use, and seed it from the factory values otherwise, since what was active then
+-- was a named profile.
+function P:Migrate()
+  if not WarpeeDB then return false end
+  local t = WarpeeDB[LIST]
+  if t and t[RESERVED] then return false end
+  local seed = {}
+  if self:Active() == RESERVED then
+    seed = self:Capture()
+  else
+    ns.WipeConfig(seed)
+  end
+  WarpeeDB[LIST] = t or {}
+  WarpeeDB[LIST][RESERVED] = seed
+  return true
 end
 
 local function codec()
@@ -202,13 +231,11 @@ end
 
 function P:Export(name)
   name = name or self:Active()
-  local data
-  if name == RESERVED then
+  local data = WarpeeDB and WarpeeDB[LIST] and WarpeeDB[LIST][name]
+  if type(data) ~= "table" then
+    if name ~= RESERVED then return "" end
     data = self:Capture()
-  else
-    data = WarpeeDB and WarpeeDB[LIST] and WarpeeDB[LIST][name]
   end
-  if type(data) ~= "table" then return "" end
   return PREFIX .. packPayload({ _v = SCHEMA, _n = name, d = data })
 end
 
@@ -252,8 +279,7 @@ function API:ApplyProfile(key)
 end
 
 function API:ResetProfile()
-  ns.Profiles:ApplyLive(RESERVED)
-  return true
+  return ns.Profiles:ResetActive()
 end
 
 function API:GetProfiles()
@@ -279,7 +305,7 @@ local SHARE_GAP = 16
 local CODE_GAP = 8
 local FIELD_TOP = DD_TOP + DD_H + FIELD_GAP
 local PANEL_H = FIELD_TOP + ROW_H + ROW_GAP + ROW_H + SHARE_GAP
-              + ROW_H + CODE_GAP + STR_H + PAD
+              + ROW_H + SHARE_GAP + ROW_H + CODE_GAP + STR_H + PAD
 local PANEL_HEADER_EXTRA = 14
 
 local function T(s)
@@ -339,6 +365,7 @@ function P:Paint()
   f.dd.Text:SetText(active == RESERVED and T("Default") or active)
   if ns.SetButtonEnabled then
     ns.SetButtonEnabled(f.delBtn, active ~= RESERVED)
+    ns.SetButtonEnabled(f.renBtn, active ~= RESERVED)
   end
 end
 
@@ -387,7 +414,8 @@ function P:BuildPanel()
 
   local dup = autoButton(f, "Duplicate current", function()
     local n = trim(nameBox:GetText())
-    if not P:Store(n) then say(T("Enter a profile name")) return end
+    if n == "" then say(T("Enter a profile name")) return end
+    if not P:Store(n) then say(T("That name is taken")) return end
     nameBox:SetText("")
     P:ApplyLive(n)
     say(T("Created %s"):format(n))
@@ -396,7 +424,8 @@ function P:BuildPanel()
 
   local fresh = autoButton(f, "Create empty", function()
     local n = trim(nameBox:GetText())
-    if not P:StoreEmpty(n) then say(T("Enter a profile name")) return end
+    if n == "" then say(T("Enter a profile name")) return end
+    if not P:StoreEmpty(n) then say(T("That name is taken")) return end
     nameBox:SetText("")
     P:ApplyLive(n)
     say(T("Created %s"):format(n))
@@ -447,12 +476,19 @@ function P:BuildPanel()
   f.delBtn = delX
 
   local ren = autoButton(f, "Rename", function()
+    local cur = P:Active()
+    if cur == RESERVED then return end
     local n = trim(nameBox:GetText())
     if n == "" then say(T("Enter a profile name")) return end
-    if not P:Rename(P:Active(), n) then say(T("That name is taken")) return end
+    if not P:Rename(cur, n) then say(T("That name is taken")) return end
     nameBox:SetText("")
     P:Paint()
   end)
+  ns.AddTip(ren, function()
+    if P:Active() ~= RESERVED then return nil end
+    return T("Cannot rename the default profile")
+  end, "top")
+  f.renBtn = ren
 
   nameBox:SetPoint("TOPLEFT", dd, "BOTTOMLEFT", 0, -FIELD_GAP)
   nameBox:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -FIELD_TOP)
@@ -481,6 +517,15 @@ function P:BuildPanel()
   tintButton(exp, "dim")
   tintButton(imp, "dim")
 
+  local reset = autoButton(f, "Reset to defaults", function()
+    local active = P:Active()
+    StaticPopupDialogs["WARPEE_RESET_PROFILE"].text = T("Reset profile %s?")
+    StaticPopup_Show("WARPEE_RESET_PROFILE",
+                     active == RESERVED and T("Default") or active, nil, active)
+  end)
+  reset:SetPoint("TOPLEFT", exp, "BOTTOMLEFT", 0, -SHARE_GAP)
+  tintButton(reset, "dim")
+
   local str = CreateFrame("EditBox", nil, f, "BackdropTemplate")
   str:SetAutoFocus(false)
   str:SetFont(ns.Fonts:Current(), 11, "")
@@ -490,7 +535,7 @@ function P:BuildPanel()
   str:SetBackdropColor(Theme:C(Theme:IsLight() and "slot" or "bg"))
   str:SetBackdropBorderColor(Theme:C("stroke"))
   str:SetTextInsets(6, 6, 4, 4)
-  str:SetPoint("TOPLEFT", exp, "BOTTOMLEFT", 0, -CODE_GAP)
+  str:SetPoint("TOPLEFT", reset, "BOTTOMLEFT", 0, -CODE_GAP)
   str:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -PAD, PAD)
   str:SetScript("OnEscapePressed", function(s) s:ClearFocus() end)
   Theme:Track(str, function(s)
@@ -510,6 +555,7 @@ function P:BuildPanel()
 
   f.row1 = { ren, dup, fresh }
   f.row2 = { exp, imp }
+  f.row3 = { reset }
   f:SetHeight(PANEL_H)
   self:Reflow()
   self:ApplySkin()
@@ -520,7 +566,7 @@ end
 function P:Reflow()
   local f = self.panel
   if not f then return end
-  local rows = { f.row1, f.row2 }
+  local rows = { f.row1, f.row2, f.row3 }
   local need, widest = 0, 1
   for _, row in ipairs(rows) do
     widest = math.max(widest, #row)
@@ -596,6 +642,22 @@ function P:Toggle()
   f:Show()
   ns.Theme:Raise(f)
 end
+
+StaticPopupDialogs["WARPEE_RESET_PROFILE"] = {
+  text = "Reset profile %s?",
+  button1 = _G.OKAY or "OK",
+  button2 = _G.CANCEL or "Cancel",
+  timeout = 0,
+  whileDead = true,
+  hideOnEscape = true,
+  showAlert = true,
+  OnAccept = function(_, name)
+    if not ns.Profiles:ResetActive() then return end
+    ns.Profiles:Paint()
+    if ns.Options and ns.Options.Refresh then ns.Options:Refresh() end
+    say(T("Reset %s"):format(name == RESERVED and T("Default") or name))
+  end,
+}
 
 StaticPopupDialogs["WARPEE_DEL_PROFILE"] = {
   text = "Delete profile %s?",

@@ -455,6 +455,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
       end
     end
     ns.Ready = true
+    if ns.Profiles and ns.Profiles.Migrate then ns.Profiles:Migrate() end
   elseif event == "BAG_UPDATE" then
     if not Bags.warmed then Bags:Warm() end
     if ns.IsPlayerBag(a1) then Bags.dirty[a1] = true end
