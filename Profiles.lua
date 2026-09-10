@@ -51,7 +51,7 @@ local WINDOWS = {
   { key = "optPos",    get = function() return ns.Options and ns.Options.frame end },
 }
 
--- A window the user has never dragged has no saved position, so a snapshot taken then
+-- A window the user has never dragged has no saved position, so a profile captured then
 -- would carry no opinion about it and the window would keep whatever place the previous
 -- profile left behind. Reading the live spot instead pins every window into every
 -- profile, and GetLeft/GetBottom are UIParent based whichever way the frame is anchored.
@@ -63,7 +63,7 @@ local function livePos(frame)
            x = ns.SnapValue(frame, l), y = ns.SnapValue(frame, b) }
 end
 
-function P:Snapshot()
+function P:Capture()
   local out = {}
   if not WarpeeDB then return out end
   for k in pairs(ns.DEFAULTS) do
@@ -81,7 +81,7 @@ function P:Store(name)
   name = trim(name)
   if name == "" or name == RESERVED then return false end
   WarpeeDB[LIST] = WarpeeDB[LIST] or {}
-  WarpeeDB[LIST][name] = self:Snapshot()
+  WarpeeDB[LIST][name] = self:Capture()
   return true
 end
 
@@ -150,7 +150,7 @@ function P:SyncActive()
   if active == RESERVED then return false end
   local t = WarpeeDB[LIST]
   if not (t and t[active]) then return false end
-  t[active] = self:Snapshot()
+  t[active] = self:Capture()
   return true
 end
 
@@ -205,7 +205,7 @@ function P:Export(name)
   name = name or self:Active()
   local data
   if name == RESERVED then
-    data = self:Snapshot()
+    data = self:Capture()
   else
     data = WarpeeDB and WarpeeDB[LIST] and WarpeeDB[LIST][name]
   end
