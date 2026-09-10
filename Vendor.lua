@@ -322,12 +322,8 @@ function Vendor:Pass()
   if not open then finish(); return end
   local list = self:Scan(run and run.junk)
   local count = #list
-  if run then
-    if not run.started then run.started, run.base = true, count end
-    run.left = count
-  else
-    run = { base = count, left = count, passes = 0, money = GetMoney(),
-            tries = {}, dead = {}, started = true }
+  if not run then
+    run = { passes = 0, tries = {}, dead = {} }
   end
   if count == 0 then finish(); return end
   run.passes = run.passes + 1
@@ -340,8 +336,7 @@ end
 
 function Vendor:Sell(junkOnly)
   if not open or run then return end
-  run = { base = 0, left = 0, passes = 0, money = GetMoney(),
-          tries = {}, dead = {}, junk = junkOnly and true or false }
+  run = { passes = 0, tries = {}, dead = {}, junk = junkOnly and true or false }
   self:Pass()
 end
 
