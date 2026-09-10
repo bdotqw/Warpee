@@ -2265,10 +2265,10 @@ function Options:Build()
   track(close.Text, 2)
   self.closeBtn = close
 
-  local prof = ns.CreateButton(f, T("Profiles"), 76, 22)
+  local prof = ns.CreateButton(f, T("Profiles"), 76, 28)
   track(prof.Text, -1)
   prof:SetWidth(math.max(64, prof.Text:GetStringWidth() + 20))
-  ns.SnapPoint(prof, "RIGHT", close, "LEFT", -6, -3)
+  ns.SnapPoint(prof, "RIGHT", close, "LEFT", -6, 0)
   prof:SetScript("OnClick", function() ns.Profiles:Toggle() end)
   self.profilesBtn = prof
 
@@ -2357,6 +2357,7 @@ end
 
 function Options:Close()
   closeDropdown()
+  if ns.Profiles and ns.Profiles.panel then ns.Profiles.panel:Hide() end
   if self.frame then self.frame:Hide() end
 end
 

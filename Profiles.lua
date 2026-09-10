@@ -229,14 +229,12 @@ end
 _G.WarpeeAPI = API
 
 local PAD = 12
-local PANEL_W = 450
 local ROW_H = 22
-local ROWS_MAX = 8
 local LIST_TOP = 96
-local STR_H = 92
-local BUTTON_TOP = LIST_TOP + ROWS_MAX * (ROW_H + 3) + 8
-local STR_TOP = BUTTON_TOP + ROW_H + 8
-local PANEL_H = STR_TOP + STR_H + PAD
+local ROWS_MAX = 8
+local STR_H = 24
+local MIN_W = 320
+local GAP = 6
 
 local function T(s)
   if type(s) ~= "string" or s == "" then return s end
@@ -247,16 +245,22 @@ local function say(msg)
   print("|cffd9a85fWarpee|r |cffffffff" .. msg .. "|r")
 end
 
-local function makeButton(parent, text, w, onClick)
-  local b = ns.CreateButton(parent, T(text), w, ROW_H)
+local function makeButton(parent, text, h, onClick)
+  local b = ns.CreateButton(parent, T(text), 80, h or ROW_H)
   b:SetScript("OnClick", onClick)
   return b
 end
 
 local function autoButton(parent, text, onClick)
-  local b = makeButton(parent, text, 80, onClick)
+  local b = makeButton(parent, text, ROW_H, onClick)
   b:SetWidth(math.max(58, b.Text:GetStringWidth() + 18))
   return b
+end
+
+local function rowWidth(list)
+  local w = 0
+  for i = 1, #list do w = w + list[i]:GetWidth() end
+  return w + (#list - 1) * GAP
 end
 
 local function paintRow(b)
@@ -270,11 +274,16 @@ local function paintRow(b)
   end
 end
 
+local function panelHeight(shown)
+  return LIST_TOP + shown * (ROW_H + 3) + 8 + ROW_H + 8 + STR_H + PAD
+end
+
 function P:Paint()
   local f = self.panel
   if not f then return end
   local names = self:List()
   local active = self:Active()
+  local shown = 1
   for i = 1, ROWS_MAX do
     local b = f.rows[i]
     local name = names[i]
@@ -284,11 +293,15 @@ function P:Paint()
       b.sel = (name == active)
       b:Show()
       paintRow(b)
+      shown = i
     else
       b.wpeName = nil
       b:Hide()
     end
   end
+  f.actions:ClearAllPoints()
+  f.actions:SetPoint("TOPLEFT", f.rows[shown], "BOTTOMLEFT", 0, -8)
+  f:SetHeight(panelHeight(shown))
 end
 
 function P:SwitchTo(name)
@@ -304,7 +317,14 @@ function P:BuildPanel()
   f:SetFrameStrata("DIALOG")
   f:SetClampedToScreen(true)
   f:EnableMouse(true)
-  f:SetPoint("CENTER", UIParent, "CENTER", 220, 0)
+  f:SetMovable(true)
+  f:RegisterForDrag("LeftButton")
+  f:SetScript("OnDragStart", function(s) ns.DragStart(s) end)
+  f:SetScript("OnDragStop", function(s)
+    if not s.wpeMoving then return end
+    s.wpeMoving = nil
+    s:StopMovingOrSizing()
+  end)
   f:Hide()
   ns.EscClose(f)
   self.panel = f
@@ -334,15 +354,16 @@ function P:BuildPanel()
     if not P:StoreEmpty(n) then say(T("Enter a profile name")) return end
     P:ApplyLive(trim(n))
   end)
-  addEmpty:SetPoint("LEFT", addCopy, "RIGHT", 6, 0)
+  addEmpty:SetPoint("LEFT", addCopy, "RIGHT", GAP, 0)
 
   local del = autoButton(f, "Delete", function()
     local n = P:Active()
     if n == RESERVED then say(T("Cannot delete the default profile")) return end
     P:ApplyLive(RESERVED)
     if not P:Delete(n) then say(T("Cannot delete the active profile")) return end
+    P:Paint()
   end)
-  del:SetPoint("LEFT", addEmpty, "RIGHT", 6, 0)
+  del:SetPoint("LEFT", addEmpty, "RIGHT", GAP, 0)
 
   local ren = autoButton(f, "Rename", function()
     local n = trim(nameBox:GetText())
@@ -350,11 +371,11 @@ function P:BuildPanel()
     if not P:Rename(P:Active(), n) then say(T("That name is taken")) return end
     P:Paint()
   end)
-  ren:SetPoint("LEFT", del, "RIGHT", 6, 0)
+  ren:SetPoint("LEFT", del, "RIGHT", GAP, 0)
 
   f.rows = {}
   for i = 1, ROWS_MAX do
-    local b = ns.CreateButton(f, "", PANEL_W - PAD * 2, ROW_H)
+    local b = ns.CreateButton(f, "", MIN_W - PAD * 2, ROW_H)
     b:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(LIST_TOP + (i - 1) * (ROW_H + 3)))
     b:Hide()
     b:SetScript("OnClick", function(s)
@@ -363,41 +384,42 @@ function P:BuildPanel()
     Theme:Track(b, function(s) paintRow(s) end)
     f.rows[i] = b
   end
-  f:SetSize(PANEL_W, PANEL_H)
 
   local exp = autoButton(f, "Export", function()
-    local s = P:Export(P:Active())
-    if s == "" then say(T("Nothing to export")) return end
-    f.str:SetText(s)
+    local text = P:Export(P:Active())
+    if text == "" then say(T("Nothing to export")) return end
+    f.str:SetText(text)
     f.str:SetFocus()
     f.str:HighlightText()
     say(T("Press Ctrl and C to copy"))
   end)
-  exp:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -BUTTON_TOP)
+  exp:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -LIST_TOP)
+  f.actions = exp
 
   local imp = autoButton(f, "Import", function()
     local ok, res = P:Import(f.str:GetText(), nameBox:GetText())
     if not ok then say(T(res)) return end
     say(res)
+    P:Paint()
   end)
-  imp:SetPoint("LEFT", exp, "RIGHT", 6, 0)
+  imp:SetPoint("LEFT", exp, "RIGHT", GAP, 0)
 
   local reset = autoButton(f, "Reset to default", function()
     P:ApplyLive(RESERVED)
+    P:Paint()
   end)
-  reset:SetPoint("LEFT", imp, "RIGHT", 6, 0)
+  reset:SetPoint("LEFT", imp, "RIGHT", GAP, 0)
 
   local str = CreateFrame("EditBox", nil, f, "BackdropTemplate")
-  str:SetMultiLine(true)
   str:SetAutoFocus(false)
   str:SetFont(ns.Fonts:Current(), 11, "")
   str:SetTextColor(Theme:C("text"))
+  str:SetHeight(STR_H)
   ns.PixelBackdrop(str)
   str:SetBackdropColor(Theme:C(Theme:IsLight() and "slot" or "bg"))
   str:SetBackdropBorderColor(Theme:C("stroke"))
   str:SetTextInsets(6, 6, 4, 4)
   str:SetPoint("TOPLEFT", exp, "BOTTOMLEFT", 0, -8)
-  str:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -PAD, PAD)
   str:SetScript("OnEscapePressed", function(s) s:ClearFocus() end)
   Theme:Track(str, function(s)
     s:SetBackdropColor(Theme:C(Theme:IsLight() and "slot" or "bg"))
@@ -405,7 +427,13 @@ function P:BuildPanel()
   end)
   f.str = str
 
-  self:Paint()
+  local contentW = math.max(rowWidth({ addCopy, addEmpty, del, ren }),
+                            rowWidth({ exp, imp, reset }), MIN_W)
+  local W = contentW + PAD * 2
+  f:SetSize(W, panelHeight(1))
+  str:SetWidth(W - PAD * 2)
+  for i = 1, ROWS_MAX do f.rows[i]:SetWidth(W - PAD * 2) end
+
   return f
 end
 
@@ -413,10 +441,16 @@ function P:Toggle()
   local f = self:BuildPanel()
   if f:IsShown() then
     f:Hide()
-  else
-    self:Paint()
-    f:Show()
-    ns.Theme:Raise(f)
+    return
   end
+  self:Paint()
+  local opts = ns.Options and ns.Options.frame
+  f:ClearAllPoints()
+  if opts and opts:IsShown() then
+    f:SetPoint("TOPLEFT", opts, "TOPRIGHT", 8, 0)
+  else
+    f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+  end
+  f:Show()
+  ns.Theme:Raise(f)
 end
-
