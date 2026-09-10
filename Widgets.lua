@@ -198,17 +198,21 @@ function ns.Rebase(frame, dbKey)
   l, b = ns.SnapValue(frame, l), ns.SnapValue(frame, b)
   local w = frame:GetWidth() or 0
   local sw = UIParent:GetWidth() or 0
+  -- Layout also calls this after a resize, and the window is still standing where the
+  -- previous profile left it at that point. Saving that would overwrite the position
+  -- the profile switch has just loaded, before ApplyAll gets to place the window.
+  local save = WarpeeDB and not ns.Applying
   frame:ClearAllPoints()
   if sw > 0 and (l + w * 0.5) > sw * 0.5 then
     frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", ns.SnapValue(frame, l + w - sw), b)
     ns.AlignToScreen(frame)
     local _, _, _, rx, ry = frame:GetPoint()
-    if WarpeeDB then WarpeeDB[dbKey] = { p = "BOTTOMRIGHT", rp = "BOTTOMRIGHT", x = rx or 0, y = ry or b } end
+    if save then WarpeeDB[dbKey] = { p = "BOTTOMRIGHT", rp = "BOTTOMRIGHT", x = rx or 0, y = ry or b } end
   else
     frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", l, b)
     ns.AlignToScreen(frame)
     local _, _, _, lx, ly = frame:GetPoint()
-    if WarpeeDB then WarpeeDB[dbKey] = { p = "BOTTOMLEFT", rp = "BOTTOMLEFT", x = lx or l, y = ly or b } end
+    if save then WarpeeDB[dbKey] = { p = "BOTTOMLEFT", rp = "BOTTOMLEFT", x = lx or l, y = ly or b } end
   end
   if frame.wpeBar then frame.wpeBar:Refresh() end
   if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end

@@ -43,12 +43,36 @@ function P:Active()
   return RESERVED
 end
 
+local WINDOWS = {
+  { key = "pos",       get = function() return ns.Bags and ns.Bags.frame end },
+  { key = "bankPos",   get = function() return ns.Bank and ns.Bank.frame end },
+  { key = "bagWinPos", get = function() return ns.Bags and ns.Bags.bagWindow end },
+  { key = "pocketPos", get = function() return ns.Pocket and ns.Pocket.frame end },
+  { key = "optPos",    get = function() return ns.Options and ns.Options.frame end },
+}
+
+-- A window the user has never dragged has no saved position, so a snapshot taken then
+-- would carry no opinion about it and the window would keep whatever place the previous
+-- profile left behind. Reading the live spot instead pins every window into every
+-- profile, and GetLeft/GetBottom are UIParent based whichever way the frame is anchored.
+local function livePos(frame)
+  if not frame then return nil end
+  local l, b = frame:GetLeft(), frame:GetBottom()
+  if not (l and b) then return nil end
+  return { p = "BOTTOMLEFT", rp = "BOTTOMLEFT",
+           x = ns.SnapValue(frame, l), y = ns.SnapValue(frame, b) }
+end
+
 function P:Snapshot()
   local out = {}
   if not WarpeeDB then return out end
   for k in pairs(ns.DEFAULTS) do
     local v = WarpeeDB[k]
     if v ~= nil then out[k] = ns.CopyDeep(v) end
+  end
+  for i = 1, #WINDOWS do
+    local w = WINDOWS[i]
+    if out[w.key] == nil then out[w.key] = livePos(w.get()) end
   end
   return out
 end

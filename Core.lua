@@ -121,8 +121,12 @@ function ns.ApplyAll()
   ns.Fonts:Refresh()
   ns.Theme:Restyle(WarpeeDB.theme)
   Bags:Build()
-  if WarpeeDB.pos then Bags:RestorePos() end
-  if WarpeeDB.bankPos and ns.Bank and ns.Bank.frame then ns.PlaceWindow(ns.Bank.frame, "bankPos") end
+  -- Placed unconditionally: a profile that carries no position for a window has to land
+  -- it on that window's own default, not leave it where the previous profile put it.
+  Bags:RestorePos()
+  if ns.Bank and ns.Bank.frame then
+    ns.PlaceWindow(ns.Bank.frame, "bankPos", { p = "CENTER", rp = "CENTER", x = 220, y = 40 })
+  end
   if WarpeeDB.bagWinPos and Bags.bagWindow then ns.PlaceWindow(Bags.bagWindow, "bagWinPos") end
   if WarpeeDB.pocketPos and ns.Pocket and ns.Pocket.frame then ns.PlaceWindow(ns.Pocket.frame, "pocketPos") end
   if WarpeeDB.optPos and ns.Options and ns.Options.frame then ns.PlaceWindow(ns.Options.frame, "optPos") end
