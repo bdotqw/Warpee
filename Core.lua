@@ -24,7 +24,7 @@ local DEFAULTS = {
   goldFormat = "short", goldLetters = true, goldOnly = true,
   vendorIlvl = 100, vendorIlvlMin = 10, vendorConsum = false, vendorAuto = false,
   vendorTokens = false, vendorTokenExp = {},
-  vendorKeepBoE = true, vendorKeepWarband = true, vendorKeepGems = true,
+  vendorKeepBoE = true, vendorKeepWarbound = true, vendorKeepGems = true,
   vendorGrey = true, vendorRelics = true,
   vendorRepair = true, vendorRepairBy = "player",
   hideMinimapIcon = false, tipCounts = true, tipBank = true, tipWarband = true,
@@ -174,6 +174,16 @@ local function repaintSoon()
   repaintQ = true
   C_Timer.After(0.05, function()
     repaintQ = nil
+    repaintItems()
+  end)
+end
+
+local repaintLate
+local function repaintLater()
+  if repaintLate then return end
+  repaintLate = true
+  C_Timer.After(0.5, function()
+    repaintLate = nil
     repaintItems()
   end)
 end
@@ -414,10 +424,6 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     end
     if WarpeeDB.slotStyle == "tile" then WarpeeDB.slotStyle = "deep" end
 
-    if not WarpeeDB.fontMigrated then
-      WarpeeDB.fontMigrated = true
-      WarpeeDB.font = ns.Fonts.DEFAULT
-    end
     ns.Fonts:Settle()
     fillComputed(WarpeeDB)
     if WarpeeDB.junkIcon == false then WarpeeDB.badge.junk.on = false end
@@ -436,6 +442,8 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.qualityAnchor, WarpeeDB.qualityScale = nil, nil
     WarpeeDB.countSize, WarpeeDB.countAnchor = nil, nil
     WarpeeDB.countX, WarpeeDB.countY = nil, nil
+    WarpeeDB.fontMigrated = nil
+    WarpeeDB.vendorKeepWarband = nil
     WarpeeDB.vendorKeepMog, WarpeeDB.vendorKeepFresh = nil, nil
     WarpeeDB.bankSlotStyle = nil
     WarpeeDB.bankFontSize, WarpeeDB.bankCustomSize, WarpeeDB.hideBlizzBank = nil, nil, nil
@@ -499,7 +507,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     repaintSoon()
   elseif event == "ITEM_CHANGED" then
     repaintSoon()
-    C_Timer.After(0.5, repaintItems)
+    repaintLater()
   elseif event == "EQUIPMENT_SETS_CHANGED" or event == "EQUIPMENT_SWAP_FINISHED"
       or event == "PLAYER_EQUIPMENT_CHANGED" then
     ns.Sets:Dirty()
