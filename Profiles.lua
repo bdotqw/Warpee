@@ -384,27 +384,30 @@ function P:BuildPanel()
   f.closeBtn = close
 
   local nameBox = ns.CreateSearchBox(f, nil, "Profile name")
-  nameBox:SetPoint("TOPLEFT", PAD, -NAME_TOP)
-  nameBox:SetPoint("TOPRIGHT", -PAD, -NAME_TOP)
   f.nameBox = nameBox
 
   local dup = autoButton(f, "Duplicate current", function()
     local n = trim(nameBox:GetText())
     if not P:Store(n) then say(T("Enter a profile name")) return end
+    nameBox:SetText("")
     P:ApplyLive(n)
     say(T("Created %s"):format(n))
     P:Paint()
   end)
-  dup:SetPoint("TOPLEFT", nameBox, "BOTTOMLEFT", 0, -6)
+  dup:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -NAME_TOP)
 
   local fresh = autoButton(f, "Create empty", function()
     local n = trim(nameBox:GetText())
     if not P:StoreEmpty(n) then say(T("Enter a profile name")) return end
+    nameBox:SetText("")
     P:ApplyLive(n)
     say(T("Created %s"):format(n))
     P:Paint()
   end)
   fresh:SetPoint("LEFT", dup, "RIGHT", GAP, 0)
+
+  nameBox:SetPoint("TOPLEFT", dup, "BOTTOMLEFT", 0, -6)
+  nameBox:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -(NAME_TOP + ROW_H + 6))
 
   local dd = ns.CreateButton(f, "", MIN_W - PAD * 2, DD_H)
   dd.Text:ClearAllPoints()
@@ -433,6 +436,7 @@ function P:BuildPanel()
     local n = trim(nameBox:GetText())
     if n == "" then say(T("Enter a profile name")) return end
     if not P:Rename(P:Active(), n) then say(T("That name is taken")) return end
+    nameBox:SetText("")
     P:Paint()
   end)
   ren:SetPoint("TOPLEFT", dd, "BOTTOMLEFT", 0, -8)
