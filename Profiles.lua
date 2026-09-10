@@ -111,12 +111,17 @@ end
 
 function P:ApplyLive(name)
   if not self:Apply(name) then return false end
-  if ns.Ready then ns.ApplyAll() end
+  if ns.Ready then
+    ns.Applying = true
+    local ok, err = pcall(ns.ApplyAll)
+    ns.Applying = false
+    if not ok then error(err, 0) end
+  end
   return true
 end
 
 function P:SyncActive()
-  if not WarpeeDB then return false end
+  if ns.Applying or not WarpeeDB then return false end
   local active = self:Active()
   if active == RESERVED then return false end
   local t = WarpeeDB[LIST]
