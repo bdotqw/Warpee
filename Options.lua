@@ -1758,7 +1758,7 @@ local GENERAL_PAGE = {
     get = gridAlphaGet, set = gridAlphaSet,
     desc = "The plate behind the slots. Transparent slots show it through every cell, and the gaps show it at any Spacing above 0." },
   { type = "select", name = "Font", get = fontGet,
-    set = function(v) WarpeeDB.fontWish = nil; fontSet(v); Options:ApplyFont() end,
+    set = function(v) fontSet(v); Options:ApplyFont() end,
     keys = fontKeys, label = function(k) return k end,
     desc = "Used for every label Warpee draws. Other addons can add to this list." },
   { type = "header", name = "Money" },

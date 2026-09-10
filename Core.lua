@@ -58,9 +58,6 @@ local function wipeConfig(db)
   for k, v in pairs(DEFAULTS) do
     if v == NONE then db[k] = nil else db[k] = copyDeep(v) end
   end
-  -- Settle prefers a wish over the font it was handed, so a wipe that left one behind would
-  -- hand the restored font straight back to the choice it replaced.
-  db.fontWish = nil
 end
 
 ns.DEFAULTS = DEFAULTS
@@ -407,7 +404,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
 
     if not WarpeeDB.fontMigrated then
       WarpeeDB.fontMigrated = true
-      if ns.Fonts:Usable(ns.Fonts.DEFAULT) then WarpeeDB.font = ns.Fonts.DEFAULT end
+      WarpeeDB.font = ns.Fonts.DEFAULT
     end
     ns.Fonts:Settle()
     fillComputed(WarpeeDB)
@@ -673,18 +670,6 @@ function ns.OutlineFlags()
     end
   end
   return slugOK and "OUTLINE, SLUG" or "OUTLINE"
-end
-
-function ns.AdoptFontWish()
-  local db = WarpeeDB
-  if not (db and db.fontWish and ns.Fonts) then return false end
-  if ns.Fonts:Has(db.fontWish) and ns.Fonts:Usable(db.fontWish) then
-    db.font = db.fontWish
-    db.fontWish = nil
-    if ns.Bags then ns.Bags.font = db.font end
-    return true
-  end
-  return false
 end
 
 do

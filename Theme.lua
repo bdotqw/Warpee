@@ -1030,36 +1030,21 @@ local function clientFont()
   return GAME_FONT
 end
 
--- The client draws its own interface with this font, so it renders this client's language by
--- definition. Probing it can only reject the one font a player is certain to be able to read,
--- and a rejected default is a default the factory reset has no way to put back.
-local function certainFont(path)
-  return path == clientFont()
-end
 local SCRIPTS = {
   latin1 = {
     chars = { "ß", "ä", "ö", "ü", "ç", "é", "à", "ñ", "ó", "ã", "ì", "ÿ" },
-    fonts = { [[Fonts\FRIZQT__.TTF]], [[Fonts\ARIALN.TTF]], [[Fonts\FRIZQT___CYR.TTF]] },
   },
   cyrillic = {
     chars = { "Ш", "Г", "ш", "г", "Ё", "ъ" },
-    fonts = { [[Fonts\FRIZQT___CYR.TTF]], [[Fonts\ARIALN.TTF]], [[Fonts\NIM_____.ttf]] },
   },
   hangul = {
     chars = { "가", "한", "글", "자", "요" },
-    fonts = { [[Fonts\2002.TTF]], [[Fonts\2002B.TTF]], [[Fonts\K_Pagetext.TTF]] },
   },
   hanS = {
     chars = { "的", "是", "我", "你", "好" },
-    fonts = { [[Fonts\ARHei.TTF]], [[Fonts\ARKai_T.TTF]], [[Fonts\ARKai_C.TTF]] },
   },
   hanT = {
     chars = { "們", "個", "這", "沒", "麼" },
-    fonts = { [[Fonts\bHEI00M.ttf]], [[Fonts\bLEI00D.ttf]], [[Fonts\bKAI00M.ttf]], [[Fonts\ARKai_T.TTF]] },
-  },
-  punct = {
-    chars = { "×", "·", "«", "»", "—", "–", "¿" },
-    fonts = {},
   },
 }
 local NEEDS = {
@@ -1068,18 +1053,14 @@ local NEEDS = {
   zhCN = "hanS", zhTW = "hanT",
 }
 
-local DECLARED, scriptOK, scriptPick, judging = {}, {}, {}, {}
+local DECLARED, scriptOK, judging = {}, {}, {}
 for k in pairs(SCRIPTS) do
   DECLARED[k], scriptOK[k], judging[k] = {}, {}, {}
 end
 
 local SHIPPED = {
-  { name = "Manrope Bold",         file = "ManropeBold.ttf",        has = { latin1 = true, cyrillic = true } },
   { name = "Rubik Bold",           file = "RubikBold.ttf",          has = { latin1 = true, cyrillic = true } },
-  { name = "Oswald",               file = "Oswald.ttf",             has = { latin1 = true, cyrillic = true } },
   { name = "Russo One",            file = "RussoOne.ttf",           has = { latin1 = true, cyrillic = true } },
-  { name = "Archivo",              file = "Archivo.ttf",            has = { latin1 = true } },
-  { name = "Fira Sans Condensed",  file = "FiraSansCondensed.ttf",  has = { latin1 = true, cyrillic = true } },
 }
 local BUILTIN = {
   { name = "Arial Narrow",  path = [[Fonts\ARIALN.TTF]] },
@@ -1091,7 +1072,6 @@ for i = #SHIPPED, 1, -1 do
   local p = MEDIA .. SHIPPED[i].file
   local has = SHIPPED[i].has
   for k in pairs(SCRIPTS) do DECLARED[k][p] = has[k] and true or false end
-  DECLARED.punct[p] = true
   table.insert(BUILTIN, 1, { name = SHIPPED[i].name, path = p })
 end
 local function LSM() return _G.LibStub and _G.LibStub("LibSharedMedia-3.0", true) or nil end
@@ -1165,9 +1145,7 @@ local function pathUsable(path)
       local late = judgePath(path)
       if late ~= nil then
         pathOK[path] = late
-        if ns.AdoptFontWish then ns.AdoptFontWish() end
         if ns.Fonts.Refresh then ns.Fonts:Refresh() end
-        if ns.CloseDropdown then pcall(ns.CloseDropdown) end
       end
     end)
   end
@@ -1222,28 +1200,10 @@ local function hasScript(script, path)
     C_Timer.After(0, function()
       judging[script][path] = nil
       local late = judgeScript(script, path)
-      if late ~= nil then
-        scriptOK[script][path] = late
-        if ns.AdoptFontWish then ns.AdoptFontWish() end
-        if ns.Fonts.Refresh then ns.Fonts:Refresh() end
-        if ns.CloseDropdown then pcall(ns.CloseDropdown) end
-      end
+      if late ~= nil then scriptOK[script][path] = late end
     end)
   end
   return false
-end
-
-local function scriptFont(script)
-  local pick = scriptPick[script]
-  if pick then return pick end
-  local own = clientFont()
-  local set = SCRIPTS[script]
-  if not set then return own end
-  if hasScript(script, own) then scriptPick[script] = own; return own end
-  for _, path in ipairs(set.fonts) do
-    if hasScript(script, path) then scriptPick[script] = path; return path end
-  end
-  return own
 end
 
 function ns.Fonts:Need()
@@ -1255,63 +1215,56 @@ function ns.Fonts:Covers(script, path)
   return hasScript(script, path) and true or false
 end
 
+-- The list used to be cut by the glyph probe. A font that has not been loaded yet cannot be
+-- measured, and that came back as a refusal, so a font another addon registered could drop
+-- out of the list for the rest of the session. Only the coverage our own fonts declare leaves
+-- one out now, and every other font is offered as it is.
 needFilter = function(names)
   local need = ns.Fonts:Need()
+  if not need then return names end
   local out = {}
   for _, n in ipairs(names) do
-    local p = rawPath(n)
-    if certainFont(p) or ((not need or hasScript(need, p)) and hasScript("punct", p)) then
-      out[#out + 1] = n
-    end
+    if DECLARED[need][rawPath(n)] ~= false then out[#out + 1] = n end
   end
   return (#out > 0) and out or names
 end
 
+-- A name is drawn as it is. Nothing swaps a font behind the player's back, so the name in
+-- the list and the text on screen stay the same thing. The client font is used only when the
+-- file is not there at all, which is a fact and not a guess about its glyphs.
 function ns.Fonts:Path(name)
   local p = rawPath(name)
-  if not pathUsable(p) then p = clientFont() end
-  local need = self:Need()
-  if need and not hasScript(need, p) then return scriptFont(need) end
-  if not hasScript("punct", p) then return need and scriptFont(need) or clientFont() end
+  if not pathUsable(p) then return clientFont() end
   return p
 end
 
-function ns.Fonts:Has(name)
-  if not name then return false end
-  for _, n in ipairs(self:List()) do if n == name then return true end end
-  return false
+-- A shipped font that has been dropped leaves a name that draws the client font while the
+-- list no longer offers it, and a save or a profile can still be holding it.
+local RETIRED = { ["Manrope Bold"] = true, ["Oswald"] = true,
+                  ["Archivo"] = true, ["Fira Sans Condensed"] = true }
+
+-- Another addon registers its fonts at whatever point in the login it likes, and a name
+-- that resolved to the client font before that would stay wrong for the whole session. The
+-- hook is attached once from Settle, which every login path reaches after ADDON_LOADED.
+local mediaHooked = false
+local function hookMedia()
+  if mediaHooked then return end
+  local lsm = LSM()
+  if not (lsm and lsm.RegisterCallback) then return end
+  mediaHooked = true
+  lsm:RegisterCallback(ns.Fonts, "LibSharedMedia_Registered", function(_, kind)
+    if kind == "font" then ns.Fonts:Refresh() end
+  end)
 end
 
-function ns.Fonts:Usable(name)
-  local p = rawPath(name)
-  if not pathUsable(p) then return false end
-  if certainFont(p) then return true end
-  local need = self:Need()
-  if need and not hasScript(need, p) then return false end
-  if not hasScript("punct", p) then return false end
-  return true
-end
-
-function ns.Fonts:Fallback()
-  if self:Usable(self.DEFAULT) then return self.DEFAULT end
-  for _, n in ipairs(self:List()) do
-    if self:Usable(n) then return n end
-  end
-  return self.DEFAULT
-end
-
+-- The stored name is left alone. It can name a font another addon has not registered yet,
+-- and dropping it here would lose the player's pick over a file that appears a moment later.
 function ns.Fonts:Settle()
   local db = WarpeeDB
   if not db then return end
-  local wish = db.fontWish or db.font or self.DEFAULT
-  if self:Has(wish) and self:Usable(wish) then
-    db.font, db.fontWish = wish, nil
-  else
-    db.fontWish = wish
-    if not (self:Has(db.font) and self:Usable(db.font)) then
-      db.font = self:Fallback()
-    end
-  end
+  hookMedia()
+  if RETIRED[db.font] then db.font = nil end
+  db.font = db.font or self.DEFAULT
   if ns.Bags then ns.Bags.font = db.font end
   self.active = nil
   return db.font
