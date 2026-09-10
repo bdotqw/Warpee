@@ -277,11 +277,15 @@ local function sendOne(it)
   -- not. Using is protected, so without this guard a run that outlives the window
   -- would report the addon for calling a forbidden function.
   if not (open and MerchantFrame and MerchantFrame:IsShown()) then return false end
-  -- The same call from inside combat, or with an item held on the cursor, is refused
-  -- the same way and poisons every container until a reload. A pull while shopping or
-  -- an enchant picked mid run lands here, so both stop the pass and the next one
-  -- picks the item up again.
-  if InCombatLockdown() or CursorHasItem() then return false end
+  -- The same call from inside combat, or with the cursor carrying anything, is refused
+  -- the same way and poisons every container until a reload. A pull while shopping, an
+  -- item held on the cursor or an enchant waiting for its target all land here, so any
+  -- of them stops the pass and the next one picks the item up again. An item on the
+  -- cursor is what CursorHasItem reports; a spell or an enchant that has not picked its
+  -- target yet leaves the cursor empty, and only GetCursorInfo and ItemTargeting see it.
+  if InCombatLockdown() or CursorHasItem() or GetCursorInfo() or ns.ItemTargeting() then
+    return false
+  end
   local key = ("%d:%d:%d"):format(it.id or 0, it.bag, it.slot)
   local n = run.tries[key] or 0
   if n >= MAX_TRIES then
