@@ -1108,8 +1108,21 @@ function ns.UpdateItemButton(b)
     end
   end
   local mark = keystoneMark(link)
-  if b.link == link and b.wpeCount == count and b.wpeMark == mark then return b.itemName end
-  b.link, b.wpeCount, b.wpeMark = link, count, mark
+  -- The quest marker is read before the guard rather than after it. The bags rebuild every
+  -- cell on a layout, but the bank repaints one only when its plan moved, so a quest taken
+  -- or dropped while the bank was shut used to keep the marker the cell already had. The
+  -- feature gate stays around the read, so a user who turned markers off pays nothing.
+  local qi
+  if ns.Bags.questMarks and C_Container.GetContainerItemQuestInfo then
+    qi = C_Container.GetContainerItemQuestInfo(bagID, slot)
+  end
+  local qkey = qi and ((qi.questID or 0) .. (qi.isQuestItem and "|q" or "|")
+                       .. (qi.isActive and "|a" or "|")) or false
+  if b.link == link and b.wpeCount == count and b.wpeMark == mark
+     and b.wpeQuestKey == qkey then
+    return b.itemName
+  end
+  b.link, b.wpeCount, b.wpeMark, b.wpeQuestKey = link, count, mark, qkey
   if not info then
     SetItemButtonTexture(b, nil)
     SetItemButtonCount(b, 0)
@@ -1187,7 +1200,6 @@ function ns.UpdateItemButton(b)
   ns.FitOverlays(b)
   ns.ApplyIconZoom(b)
   if ns.Bags.questMarks and C_Container.GetContainerItemQuestInfo then
-    local qi = C_Container.GetContainerItemQuestInfo(bagID, slot)
     ns.MarkQuestItem(b, qi and qi.isQuestItem, qi and qi.questID, qi and qi.isActive)
   else
     ns.MarkQuestItem(b)

@@ -102,7 +102,6 @@ end
 local MEMBER, OWNER = {}, {}
 for _, id in ipairs(BANK_MAIN) do MEMBER[id] = true; OWNER[id] = "bank" end
 for _, id in ipairs(WARBAND) do MEMBER[id] = true; OWNER[id] = "warband" end
-if ns.reagentBank then MEMBER[ns.reagentBank] = true; OWNER[ns.reagentBank] = "bank" end
 function ns.IsBankContainer(id) return MEMBER[id] == true end
 
 local function stepFor(size, gap) return size + gap end
@@ -153,19 +152,9 @@ function View:HeaderH() return math.max(58, headerH(self:FontSize()) + 24) + The
 function View:FooterH() return footerH(self:FontSize()) end
 
 function View:Sections(mode)
+  -- The separate reagent section is gone with ns.reagentBank: it was drawn on the client
+  -- that had no bank tabs, and no client that can load this addon is that one.
   if mode == "warband" then return { { ids = WARBAND } } end
-  if not BANK_TABS_MODE and ns.reagentBank then
-    if Bags.mergeReagents then
-      local ids = { }
-      for _, id in ipairs(BANK_MAIN) do ids[#ids + 1] = id end
-      ids[#ids + 1] = ns.reagentBank
-      return { { ids = ids } }
-    end
-    local main = { ids = BANK_MAIN }
-    local reag = { ids = { ns.reagentBank }, label = "REAGENTS", color = "reagent" }
-    if Bags.reagentTop then return { reag, main } end
-    return { main, reag }
-  end
   return { { ids = BANK_MAIN } }
 end
 
@@ -538,6 +527,10 @@ end
 --     button hung on one of our frames dies on a nil call inside the game own template.
 --     Move the whole tab system instead and only anchor the button, since SetPoint may
 --     cross the frame hierarchy freely while parenting may not.
+--     PinBlizzTabs is the one call that writes SetParent on a tab button and it is not
+--     this: it puts the button back on the tab system it came from, and the pool parents
+--     every button there already, so the branch never fires. It exists for the client
+--     that parents one somewhere else, and putting it back is the repair, not the fault.
 --   * call BankFrame:Hide(). That fires BANKFRAME_CLOSED and ends the banker session.
 --   * press a tab button for the user with Click(). A press we make is our own execution, so
 --     the type it sets is just as tainted as if we had written it by hand.
@@ -792,7 +785,6 @@ function View:RefreshStrip()
     else
       if m and m.icon then ic:SetTexture(m.icon) else ic:SetTexture(TAB_FALLBACK_ICON) end
       if m and m.name and m.name ~= "" then b.wpeTip = m.name
-      elseif e.bag == ns.reagentBank then b.wpeTip = ns.L["REAGENTS"]
       else b.wpeTip = (ns.L["Tab %d"]):format(i - 1) end
     end
     b.wpeBag = e.bag
@@ -1013,7 +1005,9 @@ function View:PaintTabEdit()
   local e = self.tabEdit
   local f = self.tabEditFrame
   if not (e and f) then return end
-  self.tabEditTitle:SetText(e.name or "")
+  -- A tab nobody has named draws its tooltip label instead, so the editor is never a blank
+  -- box: the placeholder is for reading, and it is not what the save writes back.
+  self.tabEditTitle:SetText((e.name ~= "" and e.name) or e.label or "")
   self.tabEditPrev:SetTexture(e.icon or TAB_FALLBACK_ICON)
   for _, b in ipairs(self.tabEditBtns) do
     b.wpeOn = (b.wpeIconID == e.icon) or nil
@@ -1026,12 +1020,17 @@ function View:OpenTabEdit(anchor, bag)
   if InCombatLockdown() then return end
   local f = self:BuildTabEdit()
   local meta = self:LiveTabMeta(self.mode) or {}
-  local m = meta[bag] or {}
+  local raw = meta[bag]
+  local m = raw or {}
   self.tabEdit = {
     bag = bag, mode = self.mode,
+    -- Whether the game answered for this tab at all. Without it the icon and the deposit
+    -- flags below are ours, not the tab's, and save has nothing to write back.
+    live = raw and true or false,
     icon = m.icon or TAB_FALLBACK_ICON,
     flags = m.depositFlags or 0,
-    name = anchor.wpeTip,
+    name = m.name or "",
+    label = anchor.wpeTip,
   }
   local path = ns.Fonts:Current()
   self.tabEditTitle:SetFont(path, 14, "")
@@ -1074,15 +1073,26 @@ function View:SaveTabEdit()
   local e = self.tabEdit
   local f = self.tabEditFrame
   if not e then if f then f:Hide() end return end
+  if self.tabEditLink then self:TakeTabIcon(self.tabEditLink:GetText()) end
+  -- An editor that opened without the game's own read of this tab holds our placeholders in
+  -- its icon and its deposit flags, and the name box may be empty because the tab really has
+  -- no name. Writing that back would name the tab after the placeholder and wipe its
+  -- auto-deposit filters, so nothing is written and the window stays up instead.
+  if not (e.live and not InCombatLockdown()) then return end
+  local bt = bankTypeFor(e.mode)
+  if not (bt and C_Bank and C_Bank.UpdateBankTabSettings) then f:Hide(); return end
   local name = ""
   if self.tabEditName then name = self.tabEditName:GetText() or "" end
-  if name == "" then name = e.name or "" end
-  if self.tabEditLink then self:TakeTabIcon(self.tabEditLink:GetText()) end
-  local bt = bankTypeFor(e.mode)
-  if bt and C_Bank and C_Bank.UpdateBankTabSettings and not InCombatLockdown() then
-    pcall(C_Bank.UpdateBankTabSettings, bt, e.bag, name, e.icon or TAB_FALLBACK_ICON, e.flags or 0)
+  -- The game hands the icon out as a file id but its own caller passes the texture path, so
+  -- the number is resolved back to a path here. A path can never be harmed by this.
+  local icon = e.icon or TAB_FALLBACK_ICON
+  if type(icon) == "number" and C_Texture and C_Texture.GetFilenameFromFileDataID then
+    local got, p = pcall(C_Texture.GetFilenameFromFileDataID, icon)
+    if got and type(p) == "string" then icon = p end
   end
-  if f then f:Hide() end
+  if pcall(C_Bank.UpdateBankTabSettings, bt, e.bag, name, icon, e.flags or 0) then
+    f:Hide()
+  end
 end
 
 function View:Activate(mode)
@@ -1179,7 +1189,7 @@ function View:Plan(st, size, cols, gap)
         li = li + 1
         local lbl = self:Label(st, li, sec.color)
         lbl:ClearAllPoints()
-        lbl:SetText(sec.label)
+        lbl:SetText(ns.L[sec.label])
         lbl:SetPoint("TOPLEFT", st.content, "TOPLEFT", 2, -(bottom + 6))
         lbl:Show()
       elseif bottom > 0 then
@@ -1330,6 +1340,10 @@ function View:Layout()
   self:AnchorHeader()
   self:LayoutMode(self.cur, "fill")
   self:RefreshStrip()
+  -- A cell that takes the early return keeps whatever cooldown it last drew, and a bank
+  -- that reopens on the same size and the same tab repaints nothing. The rows outside the
+  -- bank each re-arm themselves on show for the same reason.
+  self:Cooldowns()
 end
 
 function View:Resize(st)
@@ -1365,7 +1379,7 @@ function View:UpdateMeta()
 end
 
 function View:Sort()
-  local bt = bankTypeFor(self.mode)
+  local bt = bankTypeFor(self:BlizzMode() or self.mode)
   if not bankLive(self, bt) then return end
   if C_Bank and C_Bank.FetchNumPurchasedBankTabs then
     local ok, tabs = pcall(C_Bank.FetchNumPurchasedBankTabs, bt)
@@ -1373,6 +1387,15 @@ function View:Sort()
   end
   if PlaySound and SOUNDKIT and SOUNDKIT.UI_BAG_SORTING_01 then
     PlaySound(SOUNDKIT.UI_BAG_SORTING_01)
+  end
+  -- The game's own cleanup button asks before it rearranges a bank that has tabs, and this
+  -- glyph sits four pixels from the settings gear: one slip would rewrite every tab with no
+  -- way back. The same question, then the same call, and the popup reads the bank type off
+  -- the game itself, which is the type asked for here too.
+  if GetCVarBool and GetCVarBool("bankConfirmTabCleanUp")
+     and StaticPopupSpecial_Show and BankCleanUpConfirmationPopup then
+    StaticPopupSpecial_Show(BankCleanUpConfirmationPopup)
+    return
   end
   if C_Container.SortBank then
     C_Container.SortBank(bt)
@@ -1555,6 +1578,16 @@ function View:RefreshQuests()
       ns.UpdateItemButton(b)
       ns.ApplySearchToButton(b, self.filters)
     end
+  end
+end
+
+function View:Cooldowns()
+  if self.snap then return end
+  local st = self.cur
+  if not (st and self.frame and self.frame:IsShown()) then return end
+  for i = 1, (st.shown or 0) do
+    local b = st.pool[i]
+    if b and b.link and b.holder:IsVisible() then ns.UpdateCooldown(b) end
   end
 end
 
