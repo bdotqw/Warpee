@@ -2,8 +2,15 @@ local addonName, ns = ...
 local Bags = ns.Bags
 local L = ns.L
 
+-- The slot styles the addon used to ship are folded into the ones it ships now, in one
+-- place, so the login migration, a config sanitize and a profile that arrives with an old
+-- value all land on the same style.
+local SLOT_RENAMES = { quality = "deep", frost = "deep", ridged = "deep", marble = "deep",
+                       parchment = "deep", stone = "deep", tile = "deep" }
+
 local PICKS = {
-  slotStyle      = { def = "flat", ok = { flat = true, plate = true, deep = true } },
+  slotStyle      = { def = "plate", ok = { flat = true, plate = true, deep = true },
+                     map = SLOT_RENAMES },
   goldFormat     = { def = "short",
                      ok = { commas = true, dots = true, spaces = true, short = true } },
   vendorRepairBy = { def = "player", ok = { player = true, guild = true, both = true } },
@@ -32,14 +39,9 @@ local DEFAULTS = {
   searchClear = true, searchLink = true, minimapAngle = 2.2,
   bankCols = 28, warbandCols = 26, bankIconSize = 36,
   hideMoveFields = false, badgeSolo = false, lockWindows = false,
-  badge = {
-    ilvl    = { a = "right",  c = "BOTTOMRIGHT", x = 0,  y = 0,  s = 13,   on = true },
-    count   = { a = "right",  c = "BOTTOMRIGHT", x = 0,  y = 0,  s = 13,   on = true },
-    blocked = {                c = "TOPRIGHT",    x = -1, y = -1, s = 0.6,  on = true },
-    bind    = { a = "center", c = "TOPLEFT",     x = 17, y = -2, s = 12,   on = true },
-    junk    = {                c = "TOPLEFT",     x = 1,  y = -1, s = 0.42, on = true },
-    outfit  = { a = "left",   c = "TOPLEFT",     x = 2,  y = -2, s = 10,   k = 4, on = true },
-  },
+  -- Straight out of the badge table in ItemButton.lua, which draws them and feeds the
+  -- panel preview from the same numbers. A second copy here is how the two drifted.
+  badge = ns.BadgeDefaults(),
   optSections = { interface = false, bankgrid = false, badges = true, autoopen = false,
                   tokenexp = false, arrange = true, pocketsize = true },
   autoOpen = { auction = true, bank = true, mail = true, trade = true,
@@ -94,8 +96,11 @@ ns.FillComputed = fillComputed
 local function sanitizeConfig(db)
   if not ns.Theme.THEMES[db.theme] then db.theme = "blizzard" end
   for key, pick in pairs(PICKS) do
-    if db[key] ~= nil and not pick.ok[db[key]] then
-      db[key] = pick.def
+    local v = db[key]
+    if v ~= nil then
+      local to = pick.map and pick.map[v]
+      if to then v, db[key] = to, to end
+      if not pick.ok[v] then db[key] = pick.def end
     end
   end
 end
@@ -195,7 +200,7 @@ function ns.Toggle(show)
     Bags:RestorePos()
     f:Show()
     ns.Theme:Raise(f)
-    Bags:Layout()
+    Bags:Layout(true)
     -- The pocket follows the bags on a hand press only. An auto open from the auction
     -- house, the mail or a merchant has just pushed the pocket aside, and opening the
     -- bags on top would undo that; ns.autoOpened is set before this runs, so it marks
@@ -261,11 +266,13 @@ end
 local autoOpenBags, autoCloseBags
 
 local function HookBagToggles()
-  -- The one global the addon owns. ToggleAllBags runs from a keybind, from the bag
-  -- button, or from another addon, never inside a path that goes on to a protected
-  -- call. Hooking it instead let the game build and update all of its own container
-  -- frames on every open, and left its idea of whether bags are open disagreeing with
-  -- ours, so a press could close what it should have opened.
+  -- The one game global the addon replaces. Other names of ours reach _G as well
+  -- (WarpeeDB, the slash commands, the font objects CreateFont needs), but this is the
+  -- only function of the game's we assign over. ToggleAllBags runs from a keybind, from
+  -- the bag button, or from another addon, never inside a path that goes on to a
+  -- protected call. Hooking it instead let the game build and update all of its own
+  -- container frames on every open, and left its idea of whether bags are open
+  -- disagreeing with ours, so a press could close what it should have opened.
   ToggleAllBags = function() ns.Toggle() end
   hideBlizzBags()
   -- The game opens its own bags beside a window on its own: the mail calls this family
@@ -322,16 +329,26 @@ function autoOpenBags(key)
   if ns.Pocket then ns.Pocket:Close(true) end
   local f = Bags.frame
   if f and not f:IsShown() then
-    ns.autoOpened = key
+    -- Every window that asked is remembered, not only the first: the bank and a merchant
+    -- can be on screen together, and closing either one must not take the bags away while
+    -- the other is still open. Bags the player opened himself are not in the set at all,
+    -- so nothing closes those behind his back.
+    local set = ns.autoOpened
+    if not set then set = {}; ns.autoOpened = set end
+    set[key] = true
     ns.Toggle(true)
+  elseif ns.autoOpened then
+    ns.autoOpened[key] = true
   end
 end
 
 function autoCloseBags(key)
-  if ns.autoOpened and (not key or ns.autoOpened == key) then
-    ns.autoOpened = nil
-    ns.Toggle(false)
-  end
+  local set = ns.autoOpened
+  if not set then return end
+  if key then set[key] = nil end
+  if next(set) then return end
+  ns.autoOpened = nil
+  ns.Toggle(false)
 end
 
 local INTERACT_KEY
@@ -348,6 +365,29 @@ local function interactKey(t)
     }
   end
   return INTERACT_KEY[t]
+end
+
+-- The quest mark is read off the game on every repaint, and a repaint only reaches a cell
+-- that thinks its contents changed. The bag and bank grids get a pass of their own, but the
+-- three pinned rows keep their link, so a mark that moved while they were on screen would
+-- stay as it was. Clearing the link is what makes them look again.
+local function refreshQuestRows()
+  for _, row in ipairs({ ns.Fav, ns.Recent, ns.Pocket }) do
+    if row then
+      for _, field in ipairs({ "slots", "recSlots" }) do
+        local t = row[field]
+        if t then
+          for _, b in pairs(t) do
+            if b and ns.SyncQuestMark(b) then
+              b.link = nil
+              ns.UpdateItemButton(b)
+              if Bags.ApplyToButton then Bags:ApplyToButton(b) end
+            end
+          end
+        end
+      end
+    end
+  end
 end
 
 local ev = CreateFrame("Frame")
@@ -368,7 +408,8 @@ for _, e in ipairs({ "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CH
                      "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED", "ACCOUNT_MONEY",
                      "TRADE_SKILL_SHOW", "TRADE_SKILL_CLOSE",
                      "UI_SCALE_CHANGED", "DISPLAY_SIZE_CHANGED", "CVAR_UPDATE",
-                     "PLAYER_REGEN_ENABLED",
+                     "PLAYER_REGEN_ENABLED", "PLAYER_ENTERING_WORLD",
+                     "UPDATE_FACTION", "PLAYER_SPECIALIZATION_CHANGED", "PVP_RATING_UPDATE",
                      "EQUIPMENT_SETS_CHANGED", "EQUIPMENT_SWAP_FINISHED",
                      "PLAYER_EQUIPMENT_CHANGED",
                      "PLAYER_INTERACTION_MANAGER_FRAME_SHOW",
@@ -416,13 +457,9 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if not ns.Theme.THEMES[WarpeeDB.theme] then WarpeeDB.theme = "blizzard" end
     ns.Theme:Apply(WarpeeDB.theme)
 
-    if WarpeeDB.slotStyle == "quality" then WarpeeDB.slotStyle = "tile" end
-    if WarpeeDB.slotStyle == "frost" then WarpeeDB.slotStyle = "tile" end
-    if WarpeeDB.slotStyle == "ridged" or WarpeeDB.slotStyle == "marble"
-       or WarpeeDB.slotStyle == "parchment" or WarpeeDB.slotStyle == "stone" then
-      WarpeeDB.slotStyle = "deep"
+    if WarpeeDB.slotStyle and SLOT_RENAMES[WarpeeDB.slotStyle] then
+      WarpeeDB.slotStyle = SLOT_RENAMES[WarpeeDB.slotStyle]
     end
-    if WarpeeDB.slotStyle == "tile" then WarpeeDB.slotStyle = "deep" end
 
     ns.Fonts:Settle()
     fillComputed(WarpeeDB)
@@ -491,7 +528,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
   elseif event == "ITEM_LOCK_CHANGED" then
     if not Bags.sorting and not Bags.snap and Bags.frame and Bags.frame:IsShown()
        and a2 and Bags.byKey then
-      local b = Bags.byKey[a1 .. ":" .. a2]
+      local b = Bags.byKey[a1 * 1000 + a2]
       if b then ns.UpdateItemLock(b) end
     end
   elseif event == "BAG_NEW_ITEMS_UPDATED" then
@@ -501,10 +538,18 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if event == "QUEST_ACCEPTED" or a1 == "player" then
       Bags:RefreshQuests()
       if ns.Bank then ns.Bank:RefreshQuests() end
+      refreshQuestRows()
     end
-  elseif event == "PLAYER_LEVEL_UP" or event == "SKILL_LINES_CHANGED" then
+  elseif event == "PLAYER_LEVEL_UP" or event == "SKILL_LINES_CHANGED"
+      or event == "UPDATE_FACTION" or event == "PLAYER_SPECIALIZATION_CHANGED"
+      or event == "PVP_RATING_UPDATE" then
+    -- All four move the same verdicts: a level opens gear, a reputation or an arena rating
+    -- closes it, and a spec change swaps which of it an item is built for. The red edge
+    -- would otherwise keep saying no after the requirement has been met.
     ns.ClearUnusableCache()
     repaintSoon()
+  elseif event == "PLAYER_ENTERING_WORLD" then
+    ns.ClearUnusableCache()
   elseif event == "ITEM_CHANGED" then
     repaintSoon()
     repaintLater()

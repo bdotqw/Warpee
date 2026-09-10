@@ -125,6 +125,11 @@ function Bags:Build()
   Theme:Window(f, "WarpeeFrame")
   Theme:HeaderBand(f)
   f:SetScript("OnHide", function()
+    -- However the window went away, the auto open is over: the cross, Esc, the bag key
+    -- and the game's own sync all land here. Leaving the mark up made the next hand
+    -- opened window read as an auto open, so it did not pull the pocket with it, and a
+    -- merchant closing later shut a window the player had opened himself.
+    ns.autoOpened = nil
     ns.ClearSearch(Bags.search)
     if ns.CharPicker then ns.CharPicker:Close() end
     if Bags.bagWindow then Bags.bagWindow:Hide() end
@@ -465,7 +470,7 @@ function Bags:Restyle()
   if self.frame and self.frame:IsShown() then self:Layout() end
 end
 
-function Bags:Layout()
+function Bags:Layout(capture)
   self:Build()
   if not (self.frame and self.content and self.gaugeBg and self.gaugeFill
           and self.gridBg and self.money and self.reagentLabel) then return end
@@ -475,6 +480,7 @@ function Bags:Layout()
   self.pxSize, self.pxGap = size, gap
   local i, used, total = 0, 0, 0
   self.byKey = {}
+  self.bagSlots = self.bagSlots or {}
   self.fontPath = ns.Fonts:Current()
   if self.title then self.title:SetFont(self.fontPath, 15, "") end
   if self.money then
@@ -501,28 +507,38 @@ function Bags:Layout()
     local b = self:Acquire(i)
     if not b then return end
     local h = b.holder
-    if not self.snap then
-      h:SetID(bag)
-      b:SetID(slot)
-      b.wpeBagID = bag
+    -- Same memo the bank window keeps: the anchor parent is made once and never
+    -- recreated, so a cell that has not moved does not need its id, its size or its
+    -- point written again. Only the content is repainted either way.
+    if b.wpeBag ~= bag or b.wpeSlot ~= slot then
+      if not self.snap then
+        h:SetID(bag)
+        b:SetID(slot)
+        b.wpeBagID = bag
+      end
+      b.wpeBag, b.wpeSlot = bag, slot
     end
-    ns.SnapSize(h, size, size)
+    if b.wpeSize ~= size then ns.SnapSize(h, size, size); b.wpeSize = size end
+    if b.wpeX ~= x or b.wpeY ~= y then
+      h:ClearAllPoints()
+      ns.SnapPoint(h, "TOPLEFT", self.content, "TOPLEFT", x, y)
+      b.wpeX, b.wpeY = x, y
+    end
     b.link = nil
-    h:ClearAllPoints()
-    ns.SnapPoint(h, "TOPLEFT", self.content, "TOPLEFT", x, y)
     h:Show(); b:Show()
     if self.snap then
       ns.PaintVaultButton(b, ns.Vault:Slot("bags", bag, slot), bag)
     else
       ns.UpdateItemButton(b)
     end
-    self.byKey[bag .. ":" .. slot] = b
+    self.byKey[bag * 1000 + slot] = b
   end
 
   local n = 0
   local hide = self.hideReagents and true or false
   local merge = (not hide) and self.mergeReagents and true or false
   local rnum = self:Slots(ns.reagentBag)
+  self.bagSlots[ns.reagentBag] = rnum
   local split = (not hide) and (not merge) and rnum > 0
   local mainCount = merge and rnum or 0
   for _, bag in ipairs(ns.playerBags) do mainCount = mainCount + self:Slots(bag) end
@@ -543,6 +559,7 @@ function Bags:Layout()
 
   for _, bag in ipairs(ns.playerBags) do
     local num = self:Slots(bag)
+    self.bagSlots[bag] = num
     for slot = 1, num do
       n = n + 1
       place(bag, slot, cellXY(n, mainCount, mainRows, mainTop))
@@ -582,7 +599,10 @@ function Bags:Layout()
     self.pocketBtn:SetShown((ns.Pocket and ns.Pocket:Enabled()) and true or false)
   end
   self:VendorState()
-  if not self.snap then ns.Vault:Capture("bags") end
+  -- The snapshot is the one thing here that costs a scan of every bag, and a plain
+  -- repaint cannot change it: same cells, same contents, same picture. Only the points
+  -- that open the window or move what is in it ask for the capture.
+  if capture and not self.snap then ns.Vault:Capture("bags") end
   self:BrowseState()
   self.shown, self.used, self.total = i, used, total
   self:Resize(contentH)
@@ -705,6 +725,15 @@ end
 
 function Bags:HighlightBag(bagID)
   if self.snap then return end
+  -- A bag the grid is not showing has no cell to light up, and fading the rest with
+  -- nothing highlighted only blanks the window: a reagent bag with reagents hidden, or a
+  -- bag slot with nothing in it. Nothing is dimmed unless something is lit.
+  local hit = false
+  for j = 1, (self.shown or 0) do
+    local b = self.pool[j]
+    if b and b.wpeBagID == bagID then hit = true; break end
+  end
+  if not hit then return end
   self.hlBag = bagID
   for j = 1, (self.shown or 0) do
     local b = self.pool[j]
@@ -764,7 +793,7 @@ function Bags:SelectChar(key)
   if not ns.Vault:SetView("bags", key) then return end
   self.snap = (ns.Vault:ViewKey("bags") ~= ns.Vault:Owner()) or nil
   self:UpdateCharTag()
-  if self.frame and self.frame:IsShown() then self:Layout() end
+  if self.frame and self.frame:IsShown() then self:Layout(true) end
 end
 
 function Bags:VendorState()
@@ -1045,7 +1074,7 @@ function ns.MetaWarbound(m)
     if not m.isGear then
       m.wb = false
     elseif m.bag then
-      m.wb = ns.IsWarbound(m.bag, m.slot, m.loc, m.bound) and true or false
+      m.wb = ns.IsWarbound(m.bag, m.slot, m.loc, m.bound, m.link) and true or false
     else
       m.wb = ns.IsLinkWarbound(m.link) and true or false
     end
@@ -1163,28 +1192,34 @@ function Bags:UpdateDirty()
   end
   if not self.byKey then
     self.dirty = {}
-    self:Layout()
+    self:Layout(true)
     return
   end
   if next(self.dirty) then ns.Vault:Capture("bags", self.dirty) end
   if self.snap then self.dirty = {}; return end
-  local total, used = 0, 0
+  -- A cell that moved needs the grid rebuilt, and the swap that caused it is usually two
+  -- bags of the same size: the total alone says nothing, so every bag is compared. The
+  -- counts are read in the loop that was already running.
+  local total, used, moved = 0, 0, false
+  local have = self.bagSlots or {}
   for _, bag in ipairs(ns.playerBags) do
     local num = C_Container.GetContainerNumSlots(bag) or 0
     total = total + num
     used = used + (num - (select(1, C_Container.GetContainerNumFreeSlots(bag)) or 0))
+    if have[bag] ~= num then moved = true end
   end
-  local rnum = C_Container.GetContainerNumSlots(ns.reagentBag)
-  if rnum and rnum > 0 then
+  local rnum = C_Container.GetContainerNumSlots(ns.reagentBag) or 0
+  if have[ns.reagentBag] ~= rnum then moved = true end
+  if rnum > 0 then
     total = total + rnum
     used = used + (rnum - (select(1, C_Container.GetContainerNumFreeSlots(ns.reagentBag)) or 0))
   end
-  if total ~= self.total then self.dirty = {}; self:Layout(); return end
+  if moved or total ~= self.total then self.dirty = {}; self:Layout(true); return end
   self.used = used
   for bag in pairs(self.dirty) do
     local num = C_Container.GetContainerNumSlots(bag) or 0
     for slot = 1, num do
-      local b = self.byKey[bag .. ":" .. slot]
+      local b = self.byKey[bag * 1000 + slot]
       if b then ns.UpdateItemButton(b); self:ApplyToButton(b) end
     end
   end
@@ -1216,5 +1251,5 @@ end
 
 function Bags:Refresh()
   self:Build()
-  if self.frame:IsShown() then self:Layout() end
+  if self.frame:IsShown() then self:Layout(true) end
 end

@@ -28,8 +28,14 @@ end
 local unusableCache = {}
 local warboundCache = {}
 
+-- Everything here answers "what does this item look like right now", so it goes together:
+-- a level, a reputation, a rating or a spec change can move any of these verdicts and none
+-- of the caches can tell on its own which one it was. This is the only path that clears
+-- them, so it is also what keeps them from growing for a whole session.
 function ns.ClearUnusableCache()
   wipe(unusableCache)
+  wipe(warboundCache)
+  ns.ClearWarboundMeta()
 end
 
 local function knownVerdict(link)

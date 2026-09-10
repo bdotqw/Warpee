@@ -24,17 +24,36 @@ end
 -- the wrong ring, the unenchanted one or the lower track. The durable part of the item
 -- string is the id, the enchant, the gems, the suffix and the bonus ids; the level, the
 -- spec and the unique field drift on their own and are left out.
+-- Drawing one pinned cell asks for the same key five times over, and the answer is a pure
+-- function of the pin, so the parse and the sort are worth a table. The pin string cannot
+-- change under an entry, so nothing here ever goes stale; the cap is only there so a long
+-- session cannot grow the table forever.
+local keyCache, keyN = {}, 0
+
 function ns.ItemKey(pin)
-  if type(pin) == "number" then return tostring(pin) end
-  local s = ns.ItemStub(pin)
-  if not s then return nil end
-  local f = {}
-  for v in (s .. ":"):gmatch("([^:]*):") do f[#f + 1] = v end
-  local bon = {}
-  for i = 1, (tonumber(f[14]) or 0) do bon[i] = f[14 + i] or "" end
-  table.sort(bon)
-  return table.concat({ f[2] or "", f[3] or "", f[4] or "", f[5] or "", f[6] or "",
-                        f[7] or "", f[8] or "", table.concat(bon, ",") }, ":")
+  local hit = keyCache[pin]
+  if hit then return hit end
+  local k
+  if type(pin) == "number" then
+    k = tostring(pin)
+  else
+    local s = ns.ItemStub(pin)
+    if s then
+      local f = {}
+      for v in (s .. ":"):gmatch("([^:]*):") do f[#f + 1] = v end
+      local bon = {}
+      for i = 1, (tonumber(f[14]) or 0) do bon[i] = f[14 + i] or "" end
+      table.sort(bon)
+      k = table.concat({ f[2] or "", f[3] or "", f[4] or "", f[5] or "", f[6] or "",
+                         f[7] or "", f[8] or "", table.concat(bon, ",") }, ":")
+    end
+  end
+  if k then
+    if keyN >= 4096 then wipe(keyCache); keyN = 0 end
+    if keyCache[pin] == nil then keyN = keyN + 1 end
+    keyCache[pin] = k
+  end
+  return k
 end
 
 local SLOT_STYLES = {
@@ -304,15 +323,32 @@ function ns.SetRarityRing(b, r, g, bl, a)
   b.iT:SetAlpha(ra); b.iB:SetAlpha(ra); b.iL:SetAlpha(ra); b.iR:SetAlpha(ra)
 end
 
-function ns.IsWarbound(bagID, slot, loc, bound)
+-- The tooltip build is the expensive half of this and the answer only moves when the item
+-- gets bound, so the verdict is kept here, keyed on the item and on whether it is bound.
+-- It cannot live on the cell meta: every repaint throws the meta's copy away, and while a
+-- "warbound" search token sits in the box, every layout of the bags asked again per cell.
+local wbMeta = {}
+
+function ns.ClearWarboundMeta()
+  wipe(wbMeta)
+end
+
+function ns.IsWarbound(bagID, slot, loc, bound, link)
   if not bound and loc and C_Item.DoesItemExist(loc) and C_Item.IsBoundToAccountUntilEquip
      and C_Item.IsBoundToAccountUntilEquip(loc) then
     return true
   end
+  local key = link and (bound and (link .. "\1") or link) or nil
+  local hit = key and wbMeta[key]
+  if hit ~= nil then return hit end
+  local bad = false
   if C_TooltipInfo and C_TooltipInfo.GetBagItem then
-    return ns.WarboundTooltip(C_TooltipInfo.GetBagItem(bagID, slot))
+    bad = ns.WarboundTooltip(C_TooltipInfo.GetBagItem(bagID, slot)) and true or false
   end
-  return false
+  -- A slot whose item data has not landed scans as a plain item, so only a verdict read
+  -- off a loaded item is worth keeping.
+  if key and loc and C_Item.DoesItemExist(loc) then wbMeta[key] = bad end
+  return bad
 end
 
 -- Empty cells of the recent rows look exactly like the grid, and the row label alone
@@ -352,8 +388,16 @@ end
 -- button made from that template:
 --   create it while InCombatLockdown() is true. Warm a pool out of combat instead.
 --   SetScript any handler on it, or on its Cooldown child. HookScript only.
---   write a field the game's own item button owns: bagID, slotID, count, icon,
---     IconOverlay, IconOverlay2, SplitStack, or a mixin method. Use wpe* names.
+--   write a field the game's own item button owns. The template hands out plenty of them
+--     by parentKey: Count, Stock, icon, IconOverlay, IconOverlay2, IconBorder,
+--     IconQuestTexture, NormalTexture, HighlightTexture, Cooldown, JunkIcon, UpgradeIcon,
+--     searchOverlay, ItemContextOverlay, flash, ExtendedSlot, plus its mixin methods and
+--     the fields the game writes on the button itself, bagID, slotID and SplitStack among
+--     them. Read the template xml for the patch you are writing for before you add a
+--     name; that list is not complete and is not meant as a checklist.
+--     Our own names sit beside them and are safe: holder, bg, cd, cdText, hl, ilvl, bind,
+--     outfit, junk, blocked, searchMiss, styleGen, loc, link, meta, itemName, view,
+--     and anything under the wpe prefix. Never a name that could belong to the template.
 --     emptyBackgroundAtlas is the one sanctioned exception: it is the template's own
 --     knob for the empty-slot watermark, only insecure paint code reads it, and there
 --     is no other way to switch that watermark off.
@@ -453,17 +497,23 @@ local function cellOf(b)
   return (b.view and b.view.iconSize) or ns.Bags.iconSize or 37
 end
 
+-- The placement and the size columns here are the factory values themselves, not a second
+-- opinion about them: Core.lua builds DEFAULTS.badge out of ns.BadgeDefaults(), the panel
+-- draws its preview from the same rows, and ns.BadgeMigrate back-fills a partial saved
+-- table from them. They used to be a copy that had drifted, so a profile created before a
+-- badge key existed got one placement for that key and a freshly installed profile got
+-- another for the same badge. Change a number here and every one of those paths moves.
 local BADGES = {
-  { key = "ilvl",   n = "Item level",  p = "447",  c = "BOTTOMRIGHT", x = 1, y = 5, s = 14,
+  { key = "ilvl",   n = "Item level",  p = "447",  c = "BOTTOMRIGHT", x = 0,  y = 0,  s = 13,
     a = "right",
     t = "Item level on gear, and a keystone's level." },
-  { key = "count",  n = "Stack count", p = "1000", c = "BOTTOMRIGHT", x = 1, y = 5, s = 14,
+  { key = "count",  n = "Stack count", p = "1000", c = "BOTTOMRIGHT", x = 0,  y = 0,  s = 13,
     a = "right",
     t = "How many items the stack holds." },
-  { key = "bind",   n = "Binding",     p = "BoE",  c = "TOPLEFT",    x = 2, y = -2, s = 12,
-    a = "left",
+  { key = "bind",   n = "Binding",     p = "BoE",  c = "TOPLEFT",     x = 17, y = -2, s = 12,
+    a = "center",
     t = "BoE while unbound, WuE for warbound until equipped, BoA for account bound." },
-  { key = "outfit", n = "Gear set",    p = "Myth", c = "BOTTOMLEFT", x = 10, y = -4, s = 10,
+  { key = "outfit", n = "Gear set",    p = "Myth", c = "TOPLEFT",     x = 2,  y = -2, s = 10,
     k = 4, a = "left",
     t = "The equipment set the item belongs to, cut to a few letters." },
   { key = "junk",    n = "Junk coin",   tex = true,
@@ -553,7 +603,7 @@ function ns.BadgeSample(key)
     local k = ns.Badge(key).k or d.k
     return utf8cut(ns.L["Mythical"], math.max(2, k))
   end
-  return d.p
+  return ns.L[d.p]
 end
 
 local function badgeObj(b, key)
@@ -702,13 +752,17 @@ ticker:SetScript("OnUpdate", function(self, elapsed)
     local left = (b.cdEnd or 0) - GetTime()
     if left > 0 then
       -- A cell whose window is closed keeps its place in the list, since the swirl runs off
-      -- the time it was given and the digits are read again the moment it comes back, but
-      -- nobody is looking at it, so it is not worth a font and a string every tick.
+      -- the time it was given, but nobody is looking at it: it is not worth a font and a
+      -- string every tick, and it is not a reason to keep the ticker running either. Its
+      -- digit is cleared so a reopened window never shows the number it had. Every row
+      -- re-arms on show, so the digit comes back the moment the cell is looked at again.
       if b:IsVisible() then
         cdFont(b)
         cdSay(b, fmtCooldown(left))
+        live = true
+      else
+        cdSay(b, "")
       end
-      live = true
     else
       ticking[b] = nil
       b.cdEnd = nil
@@ -819,13 +873,16 @@ local function bindType(link, itemID)
   return bt
 end
 
+-- The three abbreviations are looked up rather than spelled out, so a locale can shorten
+-- them its own way. Nothing ships the keys yet, and ns.L hands back the key itself when a
+-- table has none, so today every client still draws BoE, WuE and BoA.
 function ns.BindLabel(link, itemID, bound, wue)
   if not ns.Badge("bind").on then return nil end
-  if wue and not bound then return "WuE" end
+  if wue and not bound then return ns.L["WuE"] end
   local bt = bindType(link, itemID)
-  if accountBind(bt) then return "BoA" end
+  if accountBind(bt) then return ns.L["BoA"] end
   local E = Enum and Enum.ItemBind
-  if not bound and E and E.OnEquip and bt == E.OnEquip then return "BoE" end
+  if not bound and E and E.OnEquip and bt == E.OnEquip then return ns.L["BoE"] end
   return nil
 end
 
@@ -835,7 +892,7 @@ function ns.MarkBind(b, label, quality)
   if not label then fs:SetText(""); return end
   ns.SetOutlined(fs, ns.Badge("bind").s)
   fs:SetText(label)
-  if label == "BoE" and quality and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality] then
+  if label == ns.L["BoE"] and quality and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality] then
     local c = ITEM_QUALITY_COLORS[quality]
     fs:SetTextColor(c.r, c.g, c.b)
   else
@@ -1066,7 +1123,7 @@ function ns.UpdateItemButton(b)
     local nt = b:GetNormalTexture()
     if nt then nt:SetAlpha(0) end
     ns.SetSlotBorder(b, Theme:C("emptyLine"))
-    if ns.Bags.reagentTint and (bagID == ns.reagentBag or bagID == ns.reagentBank) then
+    if ns.Bags.reagentTint and bagID == ns.reagentBag then
       local r = Theme.colors.reagent
       ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
     else
@@ -1148,7 +1205,7 @@ function ns.UpdateItemButton(b)
   if ns.QuestMarked(b) then
     ns.SetRarityRing(b)
   elseif ns.Bags.reagentTint and not b.wpeNoReagent
-         and (b.wpeBagID == ns.reagentBag or b.wpeBagID == ns.reagentBank) then
+         and b.wpeBagID == ns.reagentBag then
     local r = Theme.colors.reagent
     ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
   elseif ns.Bags.unusableBorder and hl and ns.IsItemUnusable(bagID, slot, hl) then
@@ -1188,6 +1245,7 @@ function ns.UpdateItemButton(b)
     m.id = iItemID
     m.equipLoc = iEquipLoc
     m.bag, m.slot, m.loc, m.isGear = bagID, slot, loc, isGear
+    m.link = hl
     m.bound = info.isBound and true or false
     m.wb = nil
     m.exp = nil
@@ -1198,6 +1256,7 @@ function ns.UpdateItemButton(b)
   else
     b.meta = nil
     if b.bind then b.bind:SetText("") end
+    if b.outfit then b.outfit:SetText("") end
   end
   ns.UpdateCooldown(b)
   return b.itemName, true
@@ -1255,7 +1314,7 @@ function ns.PaintVaultButton(b, d, bagID)
   ns.SetSlotBorder(b, Theme:C("emptyLine"))
   if ns.QuestMarked(b) then
     ns.SetRarityRing(b)
-  elseif ns.Bags.reagentTint and bagID and (bagID == ns.reagentBank or bagID == ns.reagentBag) then
+  elseif ns.Bags.reagentTint and bagID == ns.reagentBag then
     local r = Theme.colors.reagent
     ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
   elseif link and ns.Bags.unusableBorder and ns.IsLinkUnusable(link) then
@@ -1281,7 +1340,7 @@ function ns.PaintVaultButton(b, d, bagID)
     m.bound = d.b and true or false
     m.wb = nil
     m.exp = nil
-    m.reagent = (bagID == ns.reagentBank) or classID == Enum.ItemClass.Tradegoods
+    m.reagent = classID == Enum.ItemClass.Tradegoods
                 or classID == Enum.ItemClass.Reagent
     m.keystone = link:find("keystone:", 1, true) ~= nil
     b.meta = m
