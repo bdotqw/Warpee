@@ -269,13 +269,18 @@ _G.WarpeeAPI = API
 local PAD = 12
 local ROW_H = 22
 local DD_H = 26
-local NAME_TOP = 38
-local DD_TOP = 108
 local STR_H = 24
 local MIN_W = 340
 local GAP = 6
-local ZONE_GAP = 20
-local PANEL_H = 250
+local DD_TOP = 38
+local RND_GAP = 8
+local NAME_GAP = 12
+local CREATE_GAP = 6
+local SHARE_GAP = 16
+local CODE_GAP = 8
+local NAME_TOP = DD_TOP + DD_H + RND_GAP + ROW_H + NAME_GAP
+local PANEL_H = NAME_TOP + ROW_H + CREATE_GAP + ROW_H + SHARE_GAP
+              + ROW_H + CODE_GAP + STR_H + PAD
 local PANEL_HEADER_EXTRA = 14
 
 local function T(s)
@@ -388,7 +393,6 @@ function P:BuildPanel()
     say(T("Created %s"):format(n))
     P:Paint()
   end)
-  dup:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -NAME_TOP)
 
   local fresh = autoButton(f, "Create empty", function()
     local n = trim(nameBox:GetText())
@@ -399,9 +403,6 @@ function P:BuildPanel()
     P:Paint()
   end)
   fresh:SetPoint("LEFT", dup, "RIGHT", GAP, 0)
-
-  nameBox:SetPoint("TOPLEFT", dup, "BOTTOMLEFT", 0, -6)
-  nameBox:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -(NAME_TOP + ROW_H + 6))
 
   local dd = ns.CreateButton(f, "", MIN_W - PAD * 2, DD_H)
   dd.Text:ClearAllPoints()
@@ -434,7 +435,7 @@ function P:BuildPanel()
     nameBox:SetText("")
     P:Paint()
   end)
-  ren:SetPoint("TOPLEFT", dd, "BOTTOMLEFT", 0, -8)
+  ren:SetPoint("TOPLEFT", dd, "BOTTOMLEFT", 0, -RND_GAP)
 
   local del = autoButton(f, "Delete", function()
     local active = P:Active()
@@ -450,6 +451,10 @@ function P:BuildPanel()
   end, "top")
   f.delBtn = del
 
+  nameBox:SetPoint("TOPLEFT", ren, "BOTTOMLEFT", 0, -NAME_GAP)
+  nameBox:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -NAME_TOP)
+  dup:SetPoint("TOPLEFT", nameBox, "BOTTOMLEFT", 0, -CREATE_GAP)
+
   local exp = autoButton(f, "Export", function()
     local active = P:Active()
     local text = P:Export(active)
@@ -459,7 +464,7 @@ function P:BuildPanel()
     f.str:HighlightText()
     say(T("Exported %s, press Ctrl and C to copy"):format(active))
   end)
-  exp:SetPoint("TOPLEFT", ren, "BOTTOMLEFT", 0, -ZONE_GAP)
+  exp:SetPoint("TOPLEFT", dup, "BOTTOMLEFT", 0, -SHARE_GAP)
 
   local imp = autoButton(f, "Import", function()
     local ok, res = P:Import(f.str:GetText(), nameBox:GetText())
@@ -480,7 +485,7 @@ function P:BuildPanel()
   str:SetBackdropColor(Theme:C(Theme:IsLight() and "slot" or "bg"))
   str:SetBackdropBorderColor(Theme:C("stroke"))
   str:SetTextInsets(6, 6, 4, 4)
-  str:SetPoint("TOPLEFT", exp, "BOTTOMLEFT", 0, -8)
+  str:SetPoint("TOPLEFT", exp, "BOTTOMLEFT", 0, -CODE_GAP)
   str:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -PAD, PAD)
   str:SetScript("OnEscapePressed", function(s) s:ClearFocus() end)
   Theme:Track(str, function(s)
@@ -559,25 +564,18 @@ function P:ApplySkin()
     f.closeBtn:ClearAllPoints()
     ns.SnapPoint(f.closeBtn, "TOPRIGHT", f, "TOPRIGHT", -7, -(7 + shift))
   end
-  local head = f.row1 and f.row1[1]
-  if head then
-    head:ClearAllPoints()
-    ns.SnapPoint(head, "TOPLEFT", f, "TOPLEFT", PAD, -(NAME_TOP + shift))
-  end
-  if f.nameBox then
-    f.nameBox:ClearAllPoints()
-    if head then
-      ns.SnapPoint(f.nameBox, "TOPLEFT", head, "BOTTOMLEFT", 0, -6)
-    else
-      ns.SnapPoint(f.nameBox, "TOPLEFT", f, "TOPLEFT", PAD, -(NAME_TOP + shift))
-    end
-    ns.SnapPoint(f.nameBox, "TOPRIGHT", f, "TOPRIGHT", -PAD,
-                 -(NAME_TOP + ROW_H + 6 + shift))
-  end
   if f.ddArrow then f.ddArrow:SetTint("accent") end
   if f.dd then
     f.dd:ClearAllPoints()
     ns.SnapPoint(f.dd, "TOPLEFT", f, "TOPLEFT", PAD, -(DD_TOP + shift))
+  end
+  if f.nameBox then
+    local ren = f.row2 and f.row2[1]
+    f.nameBox:ClearAllPoints()
+    if ren then
+      ns.SnapPoint(f.nameBox, "TOPLEFT", ren, "BOTTOMLEFT", 0, -NAME_GAP)
+    end
+    ns.SnapPoint(f.nameBox, "TOPRIGHT", f, "TOPRIGHT", -PAD, -(NAME_TOP + shift))
   end
   f:SetHeight(PANEL_H + shift)
   if f:IsShown() then self:Place() end
