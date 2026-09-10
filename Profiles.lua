@@ -276,6 +276,7 @@ local MIN_W = 340
 local GAP = 6
 local ZONE_GAP = 16
 local PANEL_H = 234
+local PANEL_HEADER_EXTRA = 14
 
 local function T(s)
   if type(s) ~= "string" or s == "" then return s end
@@ -482,32 +483,42 @@ end
 function P:Place()
   local f = self.panel
   if not f then return end
-  local lift = f.wpeLift or 0
   local opts = ns.Options and ns.Options.frame
   f:ClearAllPoints()
   if opts and opts:IsShown() then
-    f:SetPoint("TOPLEFT", opts, "TOPRIGHT", 8, lift)
+    f:SetPoint("TOPLEFT", opts, "TOPRIGHT", 8, 0)
   else
-    f:SetPoint("CENTER", UIParent, "CENTER", 0, lift)
+    f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
   end
 end
 
--- The blizzard art draws its band lower than the plain themes do, so the title and the
--- close button drop by the skin's title drop while the window itself rises by the same
--- amount: the pair stays level with every other theme and the body keeps its room.
+-- The blizzard art draws its band lower than the plain themes do, so the header block
+-- inside the panel moves down by the skin's title drop plus the panel's own extra. The
+-- window itself never rises: it opens level with the settings it hangs off, and only the
+-- body below grows, so the title and the close button sit inside that deeper band.
 function P:ApplySkin()
   local f = self.panel
   if not f then return end
   local drop = Theme:TitleDrop()
-  f.wpeLift = drop
+  local shift = drop > 0 and (drop + PANEL_HEADER_EXTRA) or 0
   if f.title then
     f.title:ClearAllPoints()
-    ns.SnapPoint(f.title, "TOPLEFT", f, "TOPLEFT", PAD, -(10 + drop))
+    ns.SnapPoint(f.title, "TOPLEFT", f, "TOPLEFT", PAD, -(10 + shift))
   end
   if f.closeBtn then
     f.closeBtn:ClearAllPoints()
-    ns.SnapPoint(f.closeBtn, "TOPRIGHT", f, "TOPRIGHT", -7, -(7 + drop))
+    ns.SnapPoint(f.closeBtn, "TOPRIGHT", f, "TOPRIGHT", -7, -(7 + shift))
   end
+  if f.nameBox then
+    f.nameBox:ClearAllPoints()
+    ns.SnapPoint(f.nameBox, "TOPLEFT", f, "TOPLEFT", PAD, -(NAME_TOP + shift))
+    ns.SnapPoint(f.nameBox, "TOPRIGHT", f, "TOPRIGHT", -PAD, -(NAME_TOP + shift))
+  end
+  if f.dd then
+    f.dd:ClearAllPoints()
+    ns.SnapPoint(f.dd, "TOPLEFT", f, "TOPLEFT", PAD, -(DD_TOP + shift))
+  end
+  f:SetHeight(PANEL_H + shift)
   if f:IsShown() then self:Place() end
 end
 
