@@ -269,7 +269,6 @@ _G.WarpeeAPI = API
 local PAD = 12
 local ROW_H = 22
 local DD_H = 26
-local XW = 22
 local STR_H = 24
 local MIN_W = 340
 local GAP = 6
@@ -428,7 +427,7 @@ function P:BuildPanel()
   end)
   f.dd = dd
 
-  local delX = ns.CreateGlyphButton(f, "×", XW)
+  local delX = ns.CreateGlyphButton(f, "×", DD_H)
   delX:SetPoint("LEFT", dd, "RIGHT", GAP, 0)
   delX:SetScript("OnClick", function()
     local active = P:Active()
@@ -532,7 +531,7 @@ function P:Reflow()
     local w = math.floor((content - (#row - 1) * GAP) / #row)
     for i = 1, #row do row[i]:SetWidth(w) end
   end
-  f.dd:SetWidth(content - XW - GAP)
+  f.dd:SetWidth(content - DD_H - GAP)
   f.str:SetWidth(content)
   self:Paint()
 end
