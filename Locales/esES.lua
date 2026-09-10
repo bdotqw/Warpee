@@ -435,6 +435,11 @@ local STRINGS = {
   ["Damaged profile code"] = "Código de perfil dañado",
   ["Saved by a newer version"] = "Guardado por una versión más reciente",
   ["Not supported on this client"] = "No compatible con este cliente",
+  ["Off"] = "Desactivado",
+  ["Invalid range"] = "Rango no válido",
+  ["ilvl %d-%d"] = "niv. objeto %d-%d",
+  ["ilvl %d+"] = "niv. objeto %d+",
+  ["ilvl <%d"] = "niv. objeto <%d",
 }
 
 ns.AddLocale("esES", "Spanish", {

@@ -430,6 +430,11 @@ local STRINGS = {
   ["Damaged profile code"] = "Codice profilo danneggiato",
   ["Saved by a newer version"] = "Salvato da una versione più recente",
   ["Not supported on this client"] = "Non supportato su questo client",
+  ["Off"] = "Disattivato",
+  ["Invalid range"] = "Intervallo non valido",
+  ["ilvl %d-%d"] = "liv. oggetto %d-%d",
+  ["ilvl %d+"] = "liv. oggetto %d+",
+  ["ilvl <%d"] = "liv. oggetto <%d",
 }
 
 ns.AddLocale("itIT", "Italian", {

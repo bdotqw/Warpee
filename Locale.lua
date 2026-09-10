@@ -61,6 +61,34 @@ function ns.ApplyLocaleText()
   if ns.Profiles and ns.Profiles.Reflow then ns.Profiles:Reflow() end
 end
 
+-- Section headers are set in capitals, and Lua 5.1 maps case for ascii alone: a German
+-- header came out "OBERFLäche" and every Russian one was left as written, since all its
+-- letters take two bytes. The three ranges the shipped locales need are folded here by
+-- hand, the way ns.SearchFold folds them the other way. A byte outside them is left alone,
+-- and a run that is not a valid pair never matches and comes back as it was.
+function ns.Upper(s)
+  if type(s) ~= "string" then return s end
+  local folded = s:gsub("[\194\195\208\209][\128-\191]", function(pair)
+    local a, b = pair:byte(1, 2)
+    if a == 195 then
+      -- Latin-1 supplement, less the multiplication sign. Sharp s has no one-byte capital
+      -- and is left as it is, the way the game's own capitals leave it.
+      if b >= 160 and b <= 190 and b ~= 183 then
+        return "\195" .. string.char(b - 32)
+      end
+    elseif a == 208 then
+      -- Cyrillic а through п, the low half of the alphabet.
+      if b >= 176 and b <= 191 then return "\208" .. string.char(b - 32) end
+    elseif a == 209 then
+      -- Cyrillic р through я, then ё on its own.
+      if b >= 128 and b <= 143 then return "\208" .. string.char(b + 32) end
+      if b == 145 then return "\208\129" end
+    end
+    return pair
+  end)
+  return folded:upper()
+end
+
 local function supported(code)
   if type(code) ~= "string" then return nil end
   code = ALIAS[code] or code

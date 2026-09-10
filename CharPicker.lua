@@ -138,7 +138,7 @@ function Picker:RealmRow(n, y, realm, path)
   h.Text:SetPoint("RIGHT", -6, 0)
   h.Text:SetFont(path, 12, "")
   h.Text:SetTextColor(Theme:C("faint"))
-  h.Text:SetText((realm or "?"):upper())
+  h.Text:SetText(ns.Upper(realm or "?"))
   h:Show()
 end
 

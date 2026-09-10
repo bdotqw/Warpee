@@ -427,6 +427,11 @@ local STRINGS = {
   ["Damaged profile code"] = "Beschädigter Profil-Code",
   ["Saved by a newer version"] = "Von einer neueren Version gespeichert",
   ["Not supported on this client"] = "Auf diesem Client nicht unterstützt",
+  ["Off"] = "Aus",
+  ["Invalid range"] = "Ungültiger Bereich",
+  ["ilvl %d-%d"] = "GS %d-%d",
+  ["ilvl %d+"] = "GS ab %d",
+  ["ilvl <%d"] = "GS unter %d",
 }
 
 ns.AddLocale("deDE", "German", {

@@ -438,6 +438,11 @@ local STRINGS = {
   ["Damaged profile code"] = "Повреждённый код профиля",
   ["Saved by a newer version"] = "Сохранён более новой версией",
   ["Not supported on this client"] = "Не поддерживается на этом клиенте",
+  ["Off"] = "Выкл.",
+  ["Invalid range"] = "Неверный диапазон",
+  ["ilvl %d-%d"] = "илвл %d-%d",
+  ["ilvl %d+"] = "илвл %d+",
+  ["ilvl <%d"] = "илвл <%d",
 }
 
 ns.AddLocale("ruRU", "Russian", {

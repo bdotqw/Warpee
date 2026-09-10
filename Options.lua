@@ -48,8 +48,13 @@ local function styleField(name)
   return get, set
 end
 
+-- Options.lua loads before Core.lua, so the factory table cannot be captured here: it is
+-- looked up when the getter runs. The literal left in each call is only a last resort, and
+-- the numbers the panel shows are the numbers DEFAULTS ships.
 local function dbField(name, default)
-  local get = function() return WarpeeDB[name] or default end
+  local get = function()
+    return WarpeeDB[name] or (ns.DEFAULTS and ns.DEFAULTS[name]) or default
+  end
   local set = function(v)
     WarpeeDB[name] = v
     if ns.Bank then ns.Bank:Refresh() end
@@ -141,8 +146,6 @@ end
 local rows = {}
 local factories = {}
 
-local SECTION_CLOSED = {}
-
 local bg = { sel = "ilvl" }
 bg.aligns = { "left", "right", "center" }
 bg.alignOff = { left = 0, center = 0.5, right = 1 }
@@ -230,7 +233,11 @@ local function sectionOpen(key)
       for _ in pairs(WarpeeDB and WarpeeDB.vendorBlack or {}) do return true end
       return false
     end
-    return not SECTION_CLOSED[key]
+    -- DEFAULTS.optSections carries every section key and the login path writes them all, so
+    -- this is only reached by a key it does not know, and a section nobody has an opinion
+    -- about starts open. The table that used to answer here said the opposite of DEFAULTS for
+    -- four of the seven keys and was never read.
+    return true
   end
   return v and true or false
 end
@@ -403,12 +410,12 @@ function factories.header(parent, spec)
   line:SetPoint("BOTTOMRIGHT", 0, 0)
   local fs = track(Theme:Label(row, BASE_FONT, "azure"), 0)
   fs:SetPoint("BOTTOMLEFT", spec.key and 22 or 0, 6)
-  fs:SetText(T(spec.name):upper())
+  fs:SetText(ns.Upper(T(spec.name)))
   if not spec.key then
     local plain = spec.state and track(Theme:Label(row, BASE_FONT - 3, "faint"), -3)
     if plain then plain:SetPoint("BOTTOMRIGHT", 0, 7) end
     row.Refresh = function()
-      fs:SetText(T(spec.name):upper())
+      fs:SetText(ns.Upper(T(spec.name)))
       if plain then plain:SetText((spec.state and spec.state()) or "") end
     end
     row.Refresh()
@@ -423,7 +430,7 @@ function factories.header(parent, spec)
   state:SetPoint("BOTTOMRIGHT", 0, 7)
 
   row.Refresh = function()
-    fs:SetText(T(spec.name):upper())
+    fs:SetText(ns.Upper(T(spec.name)))
     local on = sectionOpen(spec.key)
     down:SetShown(on)
     right:SetShown(not on)
@@ -811,7 +818,11 @@ function factories.range(parent, spec)
         sl.quiet = nil
         paint(now)
       end
-      Options:Refresh()
+      -- The value and the layout stay live, the row pass is coalesced. A drag is one step
+      -- per pixel and every one of them refreshed all six pages: about a hundred rows and a
+      -- profile capture each. One deferred pass does the same work once the slider is still.
+      -- OnMouseUp would be the wrong hook, since a programmatic SetValue never raises it.
+      Options:RefreshSoon()
     end
   end)
   s:SetScript("OnSizeChanged", function() paint(snap(s:GetValue())) end)
@@ -1113,7 +1124,7 @@ function factories.chars(parent, spec)
         h:ClearAllPoints()
         h:SetPoint("TOPLEFT", 0, -y)
         h:SetPoint("TOPRIGHT", 0, -y)
-        h.Text:SetText((realm or "?"):upper())
+        h.Text:SetText(ns.Upper(realm or "?"))
         h.Text:SetFont(path, math.max(7, BASE_FONT - 3), "")
         h:Show()
         y = y + CHAR_HEAD_H + 2
@@ -1141,7 +1152,7 @@ function factories.chars(parent, spec)
       h:ClearAllPoints()
       h:SetPoint("TOPLEFT", 0, -y)
       h:SetPoint("TOPRIGHT", 0, -y)
-      h.Text:SetText((L["Account"]):upper())
+      h.Text:SetText(ns.Upper(L["Account"]))
       h.Text:SetFont(path, math.max(7, BASE_FONT - 3), "")
       h:Show()
       y = y + CHAR_HEAD_H + 2
@@ -1727,9 +1738,9 @@ local function goldFmtGet() return WarpeeDB.goldFormat or "commas" end
 local function goldFmtSet(v) WarpeeDB.goldFormat = v; relayout() end
 local qColorGet, qColorSet   = styleField("qualityColorIlvl")
 local qBorderGet, qBorderSet = styleField("qualityBorder")
-local bankColsGet, bankColsSet = dbField("bankCols", 24)
-local wbColsGet, wbColsSet     = dbField("warbandCols", 24)
-local bankSizeGet, bankSizeSet = dbField("bankIconSize", 40)
+local bankColsGet, bankColsSet = dbField("bankCols")
+local wbColsGet, wbColsSet     = dbField("warbandCols")
+local bankSizeGet, bankSizeSet = dbField("bankIconSize")
 
 local function anchorKeys() return ANCHORS end
 local function anchorLabel(k) return ANCHOR_LABELS[k] or k end
@@ -1741,9 +1752,6 @@ local mailGet, mailSet = autoField("mail")
 local profGet, profSet = autoField("professions")
 local tradeGet, tradeSet = autoField("trade")
 local vendGet, vendSet = autoField("vendor")
-
-SECTION_CLOSED.autoopen = true
-SECTION_CLOSED.interface = true
 
 local GENERAL_PAGE = {
   { type = "header", name = "Look" },
@@ -1894,11 +1902,6 @@ local ITEMS_PAGE = {
   { type = "blacklist", section = "locked" },
 }
 
-SECTION_CLOSED.bankgrid = true
-SECTION_CLOSED.badges = true
-SECTION_CLOSED.arrange = true
-SECTION_CLOSED.pocketsize = true
-
 local GRID_PAGE = {
   { type = "header", name = "Bags grid" },
   { type = "range", name = "Slot size", min = 24, max = 56, step = 1, get = sizeGet, set = sizeSet,
@@ -2034,8 +2037,6 @@ function V.expName(i)
   return "Expansion " .. i
 end
 
-SECTION_CLOSED.tokenexp = true
-
 local VENDOR_PAGE = {
   { type = "header", name = "Runs on its own" },
   { type = "description",
@@ -2055,9 +2056,11 @@ local VENDOR_PAGE = {
       if max > 0 and min >= max then return L["Invalid range"] end
       if not V.autoGet() then return nil end
       local parts = {}
-      if min > 0 and max > 0 then parts[#parts + 1] = ("ilvl %d-%d"):format(min, max)
-      elseif min > 0 then parts[#parts + 1] = ("ilvl %d+"):format(min)
-      elseif max > 0 then parts[#parts + 1] = ("ilvl < %d"):format(max) end
+      -- Through L, like the line below, or the range reads in English inside a translated
+      -- header and the three keys have nowhere to be translated to.
+      if min > 0 and max > 0 then parts[#parts + 1] = (L["ilvl %d-%d"]):format(min, max)
+      elseif min > 0 then parts[#parts + 1] = (L["ilvl %d+"]):format(min)
+      elseif max > 0 then parts[#parts + 1] = (L["ilvl <%d"]):format(max) end
       if V.greyGet() then parts[#parts + 1] = T("Sell junk") end
       if V.relicGet() then parts[#parts + 1] = T("Legion relics") end
       if V.consumGet() then parts[#parts + 1] = T("Old consumables") end
@@ -2180,6 +2183,10 @@ function Options:Select(index)
 end
 
 function Options:ApplyFont()
+  -- The same guard ReflowPages opens with, and for the same reason: ns.ApplyAll calls both
+  -- of them, and an apply that runs before this window was ever built has no tabs or pages
+  -- to measure. Build's own ApplyFont puts the fonts on once there are.
+  if not (self.tabs and self.areas) then return end
   local path = ns.Fonts:Current()
   for _, e in ipairs(fonts) do
     e.fs:SetFont(path, math.max(7, BASE_FONT + e.delta), "")
@@ -2230,6 +2237,18 @@ end
 function Options:Refresh()
   for _, row in ipairs(rows) do row.Refresh() end
   if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
+end
+
+-- One row pass per frame at most, however many settings moved in it. The flag lives on the
+-- table rather than in a local: Options.lua is the file closest to the main-chunk limit, and
+-- the deferral costs a C_Timer, not a slot.
+function Options:RefreshSoon()
+  if self.refreshQ then return end
+  self.refreshQ = true
+  C_Timer.After(0, function()
+    self.refreshQ = nil
+    self:Refresh()
+  end)
 end
 
 function Options:Build()
