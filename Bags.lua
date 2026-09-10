@@ -460,22 +460,6 @@ function Bags:Taken(bag)
   return num - (select(1, C_Container.GetContainerNumFreeSlots(bag)) or 0)
 end
 
-function Bags:RepaintHeader()
-  for _, b in ipairs({ self.closeBtn, self.gearBtn, self.bagsToggle, self.bankBtn,
-                       self.pocketBtn, self.sellBtn, self.sortBtn }) do
-    if b and b.Repaint then b:Repaint() end
-  end
-  if self.sortBtn and self.sortBtn.icon then
-    self.sortBtn.icon:SetVertexColor(Theme:C("overlay"))
-  end
-  if self.bagsToggle and self.bagsToggle.icon then
-    self.bagsToggle.icon:SetVertexColor(Theme:IconTint())
-  end
-  if self.bankBtn and self.bankBtn.icon then
-    self.bankBtn.icon:SetVertexColor(Theme:IconTint())
-  end
-end
-
 function Bags:Restyle()
   self.styleGen = (self.styleGen or 0) + 1
   if self.frame and self.frame:IsShown() then self:Layout() end
@@ -744,29 +728,6 @@ function Bags:ClearBagHighlight()
       self:ApplyToButton(b)
     end
   end
-end
-
-function Bags:TryEquipBag(bag, slot)
-  if InCombatLockdown() then return false end
-  local info = C_Container.GetContainerItemInfo(bag, slot)
-  if not info or not info.hyperlink then return false end
-  if select(6, C_Item.GetItemInfoInstant(info.hyperlink)) ~= Enum.ItemClass.Container then return false end
-  local target, targetUsed
-  for _, bg in ipairs({ 1, 2, 3, 4 }) do
-    local num = C_Container.GetContainerNumSlots(bg)
-    if num == 0 then target = bg; break end
-    local free = select(1, C_Container.GetContainerNumFreeSlots(bg)) or 0
-    local used = num - free
-    if not targetUsed or used < targetUsed then targetUsed = used; target = bg end
-  end
-  if not target or target == bag then return false end
-  local inv = C_Container.ContainerIDToInventoryID(target)
-  ClearCursor()
-  C_Container.PickupContainerItem(bag, slot)
-  PutItemInBag(inv)
-  if CursorHasItem() then C_Container.PickupContainerItem(bag, slot) end
-  ClearCursor()
-  return true
 end
 
 function Bags:PlaceBagFromCursor(bagID)

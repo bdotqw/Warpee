@@ -115,7 +115,7 @@ ns.Bank = setmetatable({ state = {}, mode = "bank", query = "" }, View)
 function View:State(mode)
   local st = self.state[mode]
   if not st then
-    st = { mode = mode, pool = {}, vpool = {}, plan = {}, byKey = {}, dirty = {}, gen = {}, labels = {},
+    st = { mode = mode, pool = {}, vpool = {}, plan = {}, byKey = {}, dirty = {}, labels = {},
            planCount = 0, shown = 0, used = 0, total = 0, contentH = 0 }
     self.state[mode] = st
   end
@@ -1089,7 +1089,6 @@ function View:Activate(mode)
   local st = self:State(mode)
   local prev = self.cur
   if prev and prev ~= st then
-    self:Cancel(prev, "fill")
     prev.filling = nil
     if prev.content then prev.content:Hide() end
   end
@@ -1219,11 +1218,7 @@ function View:Plan(st, size, cols, gap)
   return n, bottom, used, total
 end
 
-function View:Cancel(st, tag)
-  st.gen[tag] = (st.gen[tag] or 0) + 1
-end
 function View:Drip(st, tag, list, count, each, done)
-  self:Cancel(st, tag)
   for i = 1, count do each(list[i], i) end
   if done then done() end
 end
@@ -1570,15 +1565,6 @@ function View:Repaint()
     st.paintKey = nil
   end
   self:Refresh()
-end
-
-function View:RepaintHeader()
-  for _, b in ipairs({ self.closeBtn, self.gearBtn, self.sortBtn }) do
-    if b and b.Repaint then b:Repaint() end
-  end
-  if self.sortBtn and self.sortBtn.icon then
-    self.sortBtn.icon:SetVertexColor(Theme:C("overlay"))
-  end
 end
 
 function View:Restyle()
