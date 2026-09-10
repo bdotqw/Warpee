@@ -232,12 +232,12 @@ local PAD = 12
 local ROW_H = 22
 local ROW_STEP = ROW_H + 3
 local NAME_TOP = 38
-local HEAD_TOP = 108
-local LIST_TOP = 130
+local LIST_TOP = 100
 local ROWS_MAX = 8
 local STR_H = 24
 local MIN_W = 340
 local GAP = 6
+local ZONE_GAP = 16
 
 local function T(s)
   if type(s) ~= "string" or s == "" then return s end
@@ -261,13 +261,6 @@ local function autoButton(parent, text, onClick)
   return b
 end
 
-local function sep(parent, rel, y)
-  local line = Theme:Rect(parent, "strokeSoft", "ARTWORK")
-  ns.PixelLine(line, 1)
-  ns.SnapPoint(line, "TOPLEFT", rel, "BOTTOMLEFT", 0, y)
-  return line
-end
-
 local function rowWidth(list)
   local w = 0
   for i = 1, #list do w = w + list[i]:GetWidth() end
@@ -276,20 +269,25 @@ end
 
 local function paintRow(b, applied)
   if not b.Text then return end
-  if b.sel then
+  if applied then
     b:SetBackdropBorderColor(Theme:C("accent"))
     b:SetBackdropColor(Theme:C("panelHi"))
+    b.Text:SetTextColor(Theme:C("accent"))
+  elseif b.sel then
+    b:SetBackdropBorderColor(Theme:C("accent"))
+    b:SetBackdropColor(Theme:C("panel"))
+    b.Text:SetTextColor(Theme:C("text"))
   else
     b:SetBackdropBorderColor(Theme:C("stroke"))
     b:SetBackdropColor(Theme:C("panel"))
+    b.Text:SetTextColor(Theme:C("text"))
   end
-  b.Text:SetTextColor(Theme:C(applied and "accent" or "text"))
 end
 
 local function panelHeight(shown)
   return LIST_TOP + shown * ROW_STEP
        + 8 + ROW_H
-       + 9 + ROW_H
+       + ZONE_GAP + ROW_H
        + 8 + STR_H + PAD
 end
 
@@ -325,9 +323,19 @@ function P:Paint()
       b:Hide()
     end
   end
-  f.applied:SetText(T("Applied: %s"):format(active == RESERVED and T("Default") or active))
   f.actions:ClearAllPoints()
   f.actions:SetPoint("TOPLEFT", f.rows[shown], "BOTTOMLEFT", 0, -8)
+  if ns.SetButtonEnabled then
+    ns.SetButtonEnabled(f.applyBtn, self.sel ~= active)
+    ns.SetButtonEnabled(f.delBtn, self.sel ~= RESERVED)
+  end
+  local exp = f.expBtn
+  exp:ClearAllPoints()
+  exp:SetPoint("TOPLEFT", f.actions, "BOTTOMLEFT", 0, -ZONE_GAP)
+  local str = f.str
+  str:ClearAllPoints()
+  str:SetPoint("TOPLEFT", exp, "BOTTOMLEFT", 0, -8)
+  str:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -PAD, PAD)
   f:SetHeight(panelHeight(shown))
 end
 
@@ -386,14 +394,6 @@ function P:BuildPanel()
   end)
   fresh:SetPoint("LEFT", dup, "RIGHT", GAP, 0)
 
-  local head = Theme:Label(f, 13, "dim")
-  ns.LocalText(head, "Profiles")
-  head:SetPoint("TOPLEFT", PAD, -HEAD_TOP)
-
-  local applied = Theme:Label(f, 13, "dim")
-  applied:SetPoint("TOPRIGHT", -PAD, -HEAD_TOP)
-  f.applied = applied
-
   f.rows = {}
   for i = 1, ROWS_MAX do
     local b = ns.CreateButton(f, "", MIN_W - PAD * 2, ROW_H)
@@ -407,7 +407,7 @@ function P:BuildPanel()
   end
 
   local apply = autoButton(f, "Apply", function() P:ApplySel() end)
-  apply:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -LIST_TOP)
+  f.applyBtn = apply
   f.actions = apply
 
   local ren = autoButton(f, "Rename", function()
@@ -424,9 +424,7 @@ function P:BuildPanel()
     StaticPopup_Show("WARPEE_DEL_PROFILE", P.sel, nil, P.sel)
   end)
   del:SetPoint("LEFT", ren, "RIGHT", GAP, 0)
-
-  local line1 = sep(f, nameBox, -8)
-  local line2 = sep(f, apply, -9)
+  f.delBtn = del
 
   local exp = autoButton(f, "Export", function()
     local text = P:Export(P.sel)
@@ -436,7 +434,7 @@ function P:BuildPanel()
     f.str:HighlightText()
     say(T("Exported %s, press Ctrl and C to copy"):format(P.sel))
   end)
-  exp:SetPoint("TOPLEFT", line2, "BOTTOMLEFT", 0, -8)
+  f.expBtn = exp
 
   local imp = autoButton(f, "Import", function()
     local ok, res = P:Import(f.str:GetText(), nameBox:GetText())
@@ -461,7 +459,6 @@ function P:BuildPanel()
   str:SetBackdropColor(Theme:C(Theme:IsLight() and "slot" or "bg"))
   str:SetBackdropBorderColor(Theme:C("stroke"))
   str:SetTextInsets(6, 6, 4, 4)
-  str:SetPoint("TOPLEFT", exp, "BOTTOMLEFT", 0, -8)
   str:SetScript("OnEscapePressed", function(s) s:ClearFocus() end)
   Theme:Track(str, function(s)
     s:SetBackdropColor(Theme:C(Theme:IsLight() and "slot" or "bg"))
@@ -472,7 +469,6 @@ function P:BuildPanel()
   f.row1 = { dup, fresh }
   f.row2 = { apply, ren, del }
   f.row3 = { exp, imp, reset }
-  f.seps = { line1, line2 }
   f.autoBtns = { dup, fresh, apply, ren, del, exp, imp, reset }
   self:Reflow()
 
@@ -489,7 +485,6 @@ function P:Reflow()
   local W = math.max(rowWidth(f.row1), rowWidth(f.row2), rowWidth(f.row3), MIN_W) + PAD * 2
   f:SetWidth(W)
   f.str:SetWidth(W - PAD * 2)
-  for i = 1, #f.seps do f.seps[i]:SetWidth(W - PAD * 2) end
   for i = 1, ROWS_MAX do f.rows[i]:SetWidth(W - PAD * 2) end
   self:Paint()
 end
