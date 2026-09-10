@@ -888,16 +888,34 @@ function WarpeePocketToggle()
   if ns.Pocket then ns.Pocket:Hotkey() end
 end
 
+-- The pocket used to take F7 outright. It takes the first free key of a short ladder now,
+-- and the one line it says on the way is built from the key it actually got.
 local function defaultKey()
   if not WarpeeDB or WarpeeDB.pocketBind then return end
   if InCombatLockdown() then return end
   if not (GetBindingKey and GetBindingAction and SetBinding and SaveBindings) then return end
-  if GetBindingKey("WARPEE_POCKET") then WarpeeDB.pocketBind = true; return end
-  if (GetBindingAction("F7") or "") ~= "" then WarpeeDB.pocketBind = true; return end
-  if SetBinding("F7", "WARPEE_POCKET") then
-    SaveBindings((GetCurrentBindingSet and GetCurrentBindingSet()) or 1)
-    WarpeeDB.pocketBind = true
+  local key = GetBindingKey("WARPEE_POCKET")
+  if not key then
+    if (GetBindingAction("SHIFT-B") or "") == "" then
+      key = "SHIFT-B"
+    elseif (GetBindingAction("F7") or "") == "" then
+      key = "F7"
+    end
+    if key then
+      SetBinding(key, "WARPEE_POCKET")
+      SaveBindings((GetCurrentBindingSet and GetCurrentBindingSet()) or 1)
+      if GetBindingKey("WARPEE_POCKET") ~= key then key = nil end
+    end
   end
+  local how
+  if key then
+    how = "Open it with " .. key .. " or the grid button in the header."
+  else
+    how = "Open it with the grid button in the header, or bind a key in the settings."
+  end
+  WarpeeDB.pocketBind = true
+  print("|cffd9a85fWarpee|r |cffffffff"
+    .. "The pocket is a small window of bookmark cells beside the bags. " .. how .. "|r")
 end
 
 local ev = CreateFrame("Frame")
