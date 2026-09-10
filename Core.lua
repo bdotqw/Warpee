@@ -433,6 +433,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.unusable = nil
     WarpeeDB.ilvlSize, WarpeeDB.ilvlAnchor = nil, nil
     WarpeeDB.ilvlX, WarpeeDB.ilvlY = nil, nil
+    WarpeeDB.qualityAnchor, WarpeeDB.qualityScale = nil, nil
     WarpeeDB.countSize, WarpeeDB.countAnchor = nil, nil
     WarpeeDB.countX, WarpeeDB.countY = nil, nil
     WarpeeDB.vendorKeepMog, WarpeeDB.vendorKeepFresh = nil, nil
