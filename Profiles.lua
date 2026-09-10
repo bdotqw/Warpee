@@ -409,7 +409,7 @@ function P:BuildPanel()
   close:SetScript("OnClick", function() f:Hide() end)
   f.closeBtn = close
 
-  local nameBox = ns.CreateSearchBox(f, nil, "Profile name")
+  local nameBox = ns.CreateSearchBox(f, nil, "New profile name")
   f.nameBox = nameBox
 
   local dup = autoButton(f, "Duplicate current", function()

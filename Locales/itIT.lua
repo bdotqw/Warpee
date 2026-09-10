@@ -409,7 +409,7 @@ local STRINGS = {
     "Alt + clic su un oggetto nelle borse mentre questa scheda è aperta.",
   ["Profiles"] = "Profili",
   ["Default"] = "Predefinito",
-  ["Profile name"] = "Nome del profilo",
+  ["New profile name"] = "Nuovo nome del profilo",
   ["Profile code"] = "Codice profilo",
   ["Duplicate current"] = "Duplica l'attuale",
   ["Create empty"] = "Crea vuoto",

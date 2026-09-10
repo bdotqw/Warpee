@@ -407,7 +407,7 @@ local STRINGS = {
     "Alt + clique em um item nas bolsas enquanto esta aba estiver aberta.",
   ["Profiles"] = "Perfis",
   ["Default"] = "Padrão",
-  ["Profile name"] = "Nome do perfil",
+  ["New profile name"] = "Novo nome do perfil",
   ["Profile code"] = "Código do perfil",
   ["Duplicate current"] = "Duplicar o atual",
   ["Create empty"] = "Criar vazio",

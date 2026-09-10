@@ -406,7 +406,7 @@ local STRINGS = {
     "Alt + Linksklick auf einen Gegenstand in den Taschen, während diese Seite offen ist.",
   ["Profiles"] = "Profile",
   ["Default"] = "Standard",
-  ["Profile name"] = "Profilname",
+  ["New profile name"] = "Neuer Profilname",
   ["Profile code"] = "Profil-Code",
   ["Duplicate current"] = "Aktuelles duplizieren",
   ["Create empty"] = "Leeres erstellen",

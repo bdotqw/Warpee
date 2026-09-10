@@ -419,7 +419,7 @@ local STRINGS = {
     "Alt + clic gauche sur un objet de vos sacs pendant que cette page est ouverte.",
   ["Profiles"] = "Profils",
   ["Default"] = "Par défaut",
-  ["Profile name"] = "Nom du profil",
+  ["New profile name"] = "Nouveau nom du profil",
   ["Profile code"] = "Code du profil",
   ["Duplicate current"] = "Dupliquer l'actuel",
   ["Create empty"] = "Créer vide",

@@ -414,7 +414,7 @@ local STRINGS = {
     "Alt + clic izquierdo en un objeto de tus bolsas mientras esta página está abierta.",
   ["Profiles"] = "Perfiles",
   ["Default"] = "Predeterminado",
-  ["Profile name"] = "Nombre del perfil",
+  ["New profile name"] = "Nuevo nombre del perfil",
   ["Profile code"] = "Código de perfil",
   ["Duplicate current"] = "Duplicar el actual",
   ["Create empty"] = "Crear vacío",

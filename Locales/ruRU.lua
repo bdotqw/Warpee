@@ -417,7 +417,7 @@ local STRINGS = {
     "Alt + ЛКМ по предмету в сумках, пока открыта эта вкладка.",
   ["Profiles"] = "Профили",
   ["Default"] = "По умолчанию",
-  ["Profile name"] = "Имя профиля",
+  ["New profile name"] = "Новое имя профиля",
   ["Profile code"] = "Код профиля",
   ["Duplicate current"] = "Дублировать текущий",
   ["Create empty"] = "Создать пустой",
