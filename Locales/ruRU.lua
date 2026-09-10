@@ -431,10 +431,10 @@ local STRINGS = {
   ["Enter a profile name"] = "Введите имя профиля",
   ["Cannot delete the default profile"] = "Профиль по умолчанию удалить нельзя",
   ["That name is taken"] = "Такое имя уже занято",
-  ["Created %s"] = "Создан профиль %s",
+  ["Created %s"] = "Профиль %s создан",
   ["Exported %s, press Ctrl and C to copy"] =
     "Профиль %s экспортирован, нажмите Ctrl и C, чтобы скопировать",
-  ["Imported %s"] = "Импортирован профиль %s",
+  ["Imported %s"] = "Профиль %s импортирован",
   ["Nothing to export"] = "Нечего экспортировать",
   ["Nothing to import"] = "Нечего импортировать",
   ["Unknown profile"] = "Неизвестный профиль",
