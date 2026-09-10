@@ -417,7 +417,11 @@ function P:BuildPanel()
     if not ns.OpenDropdown then return end
     ns.OpenDropdown(s, {
       get = function() return P:Active() end,
-      set = function(name) P:ApplyLive(name) end,
+      set = function(name)
+        -- Re-picking the entry that is already active would re-apply it, and for a profile
+        -- with no stored copy of its own, Default among them, that wipes back to factory.
+        if name ~= P:Active() then P:ApplyLive(name) end
+      end,
       keys = function() return P:List() end,
       label = function(k) return k == RESERVED and T("Default") or k end,
     }, function()
