@@ -5,18 +5,18 @@ Bag and bank windows for World of Warcraft (Midnight, 12.x). No categories, fast
 ## Features
 
 - **Bags in one window**, the character bank and the Warband bank as tabs in a second one, with no category sorting.
-- **11 themes**, recolored on the fly: mostly dark palettes, a Class theme that follows your class color, and two Blizzard skins built from the game's own panels.
+- **Fourteen themes**, recolored on the fly: dark palettes and two Blizzard skins built from the game's own panels.
 - **Guild bank skin** matching the rest of the addon; its contents are not saved.
 - **Snapshots** of other characters' bags and bank, behind a shared switcher popup.
 - **Favorites row**: drag an item in to keep it one click away, reorder the row by dragging, and read the total you carry on the square, every stack in every bag added up.
 - **Marks on the slots**, placed where you want them: item level, stack count, binding (BoE, WuE, BoA), gear set, a coin on junk and a padlock on locked items, each with its own corner, offset, size and growth direction, plus a countdown on anything on cooldown.
 - **Vendor sell** in one click: item level range in the options, grey junk, Legion relics, old consumables and raid tier tokens optional; BoE, warbound and socketed gear stay in the bags, and any item can be locked with alt-click.
 - **Item counts across every character** inside the Blizzard tooltip (bags / bank / Warband / total).
-- **Search filters** by quality, slot, item type, expansion and item level, in English, Russian, German, French or Spanish.
+- **Search filters** by quality, slot, item type, expansion and item level, in English, Russian, German, French, Spanish, Italian or Portuguese.
 - **Gold formats** (commas, dots, spaces, K/M) and a gold tooltip listing characters.
 - **X/Y bar** for placing windows exactly, plus a position lock.
-- **English, Russian, German, French and Spanish** interface text.
-- **Six bundled fonts**, two of them bold; anything registered with LibSharedMedia also shows up.
+- **English, Russian, German, French, Spanish, Italian and Portuguese** interface text.
+- **Two bundled fonts** (Rubik Bold, Russo One); anything registered with LibSharedMedia also shows up.
 
 ## Install
 
@@ -39,4 +39,4 @@ All rights reserved, in `LICENSE`. The bundled libraries and fonts keep their ow
 
 ## Fonts
 
-Manrope Bold, Rubik Bold, Oswald, Russo One, Archivo and Fira Sans Condensed are licensed under the SIL Open Font License; the copyright and license notices are embedded in each font file.
+Rubik Bold and Russo One are licensed under the SIL Open Font License; see Media/Fonts/OFL.txt for the full text.
