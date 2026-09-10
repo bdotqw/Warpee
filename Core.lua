@@ -121,7 +121,7 @@ function ns.ApplyAll()
   ns.Fonts:Refresh()
   ns.Theme:Restyle(WarpeeDB.theme)
   Bags:Build()
-  Bags:RestorePos()
+  if WarpeeDB.pos then Bags:RestorePos() end
   if WarpeeDB.bankPos and ns.Bank and ns.Bank.frame then ns.PlaceWindow(ns.Bank.frame, "bankPos") end
   if WarpeeDB.bagWinPos and Bags.bagWindow then ns.PlaceWindow(Bags.bagWindow, "bagWinPos") end
   if WarpeeDB.pocketPos and ns.Pocket and ns.Pocket.frame then ns.PlaceWindow(ns.Pocket.frame, "pocketPos") end
