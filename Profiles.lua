@@ -269,17 +269,17 @@ _G.WarpeeAPI = API
 local PAD = 12
 local ROW_H = 22
 local DD_H = 26
+local XW = 22
 local STR_H = 24
 local MIN_W = 340
 local GAP = 6
 local DD_TOP = 38
-local RND_GAP = 8
-local NAME_GAP = 12
-local CREATE_GAP = 6
+local FIELD_GAP = 12
+local ROW_GAP = 6
 local SHARE_GAP = 16
 local CODE_GAP = 8
-local NAME_TOP = DD_TOP + DD_H + RND_GAP + ROW_H + NAME_GAP
-local PANEL_H = NAME_TOP + ROW_H + CREATE_GAP + ROW_H + SHARE_GAP
+local FIELD_TOP = DD_TOP + DD_H + FIELD_GAP
+local PANEL_H = FIELD_TOP + ROW_H + ROW_GAP + ROW_H + SHARE_GAP
               + ROW_H + CODE_GAP + STR_H + PAD
 local PANEL_HEADER_EXTRA = 14
 
@@ -308,13 +308,14 @@ end
 -- CreateButton paints itself through Theme:Track, and that registry keeps one callback
 -- per object, so registering another would replace the hover and disabled states.
 -- Rebuilding the paint here keeps both and only swaps the ink the button rests in.
-local function tintButton(b, inkKey)
+local function tintButton(b, inkKey, edgeKey)
   if not b then return end
   local function paint(s)
     local hot = s.wpeHot and not s.offDuty
     local fade = s.offDuty
     s:SetBackdropColor(Theme:C(hot and "panelHi" or "panel"))
-    s:SetBackdropBorderColor(Theme:C(fade and "strokeSoft" or (hot and "accent" or "stroke")))
+    s:SetBackdropBorderColor(Theme:C(fade and "strokeSoft"
+                                     or (hot and "accent" or (edgeKey or "stroke"))))
     if s.Text then
       s.Text:SetTextColor(Theme:C(fade and "faint" or (hot and "accent" or inkKey)))
     end
@@ -402,7 +403,6 @@ function P:BuildPanel()
     say(T("Created %s"):format(n))
     P:Paint()
   end)
-  fresh:SetPoint("LEFT", dup, "RIGHT", GAP, 0)
 
   local dd = ns.CreateButton(f, "", MIN_W - PAD * 2, DD_H)
   dd.Text:ClearAllPoints()
@@ -428,6 +428,21 @@ function P:BuildPanel()
   end)
   f.dd = dd
 
+  local delX = ns.CreateGlyphButton(f, "×", XW)
+  delX:SetPoint("LEFT", dd, "RIGHT", GAP, 0)
+  delX:SetScript("OnClick", function()
+    local active = P:Active()
+    if active == RESERVED then return end
+    StaticPopupDialogs["WARPEE_DEL_PROFILE"].text = T("Delete profile %s?")
+    StaticPopup_Show("WARPEE_DEL_PROFILE", active, nil, active)
+  end)
+  tintButton(delX, "gaugeHi", "gaugeHi")
+  ns.AddTip(delX, function()
+    if P:Active() ~= RESERVED then return nil end
+    return T("Cannot delete the default profile")
+  end, "top")
+  f.delBtn = delX
+
   local ren = autoButton(f, "Rename", function()
     local n = trim(nameBox:GetText())
     if n == "" then say(T("Enter a profile name")) return end
@@ -435,25 +450,12 @@ function P:BuildPanel()
     nameBox:SetText("")
     P:Paint()
   end)
-  ren:SetPoint("TOPLEFT", dd, "BOTTOMLEFT", 0, -RND_GAP)
 
-  local del = autoButton(f, "Delete", function()
-    local active = P:Active()
-    if active == RESERVED then return end
-    StaticPopupDialogs["WARPEE_DEL_PROFILE"].text = T("Delete profile %s?")
-    StaticPopup_Show("WARPEE_DEL_PROFILE", active, nil, active)
-  end)
-  del:SetPoint("LEFT", ren, "RIGHT", GAP, 0)
-  tintButton(del, "gaugeHi")
-  ns.AddTip(del, function()
-    if P:Active() ~= RESERVED then return nil end
-    return T("Cannot delete the default profile")
-  end, "top")
-  f.delBtn = del
-
-  nameBox:SetPoint("TOPLEFT", ren, "BOTTOMLEFT", 0, -NAME_GAP)
-  nameBox:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -NAME_TOP)
-  dup:SetPoint("TOPLEFT", nameBox, "BOTTOMLEFT", 0, -CREATE_GAP)
+  nameBox:SetPoint("TOPLEFT", dd, "BOTTOMLEFT", 0, -FIELD_GAP)
+  nameBox:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -FIELD_TOP)
+  ren:SetPoint("TOPLEFT", nameBox, "BOTTOMLEFT", 0, -ROW_GAP)
+  dup:SetPoint("LEFT", ren, "RIGHT", GAP, 0)
+  fresh:SetPoint("LEFT", dup, "RIGHT", GAP, 0)
 
   local exp = autoButton(f, "Export", function()
     local active = P:Active()
@@ -464,7 +466,7 @@ function P:BuildPanel()
     f.str:HighlightText()
     say(T("Exported %s, press Ctrl and C to copy"):format(active))
   end)
-  exp:SetPoint("TOPLEFT", dup, "BOTTOMLEFT", 0, -SHARE_GAP)
+  exp:SetPoint("TOPLEFT", ren, "BOTTOMLEFT", 0, -SHARE_GAP)
 
   local imp = autoButton(f, "Import", function()
     local ok, res = P:Import(f.str:GetText(), nameBox:GetText())
@@ -503,9 +505,8 @@ function P:BuildPanel()
   refreshHint(str)
   f.strHint = hint
 
-  f.row1 = { dup, fresh }
-  f.row2 = { ren, del }
-  f.row3 = { exp, imp }
+  f.row1 = { ren, dup, fresh }
+  f.row2 = { exp, imp }
   f:SetHeight(PANEL_H)
   self:Reflow()
   self:ApplySkin()
@@ -516,21 +517,22 @@ end
 function P:Reflow()
   local f = self.panel
   if not f then return end
-  local rows = { f.row1, f.row2, f.row3 }
-  local need = 0
+  local rows = { f.row1, f.row2 }
+  local need, widest = 0, 1
   for _, row in ipairs(rows) do
+    widest = math.max(widest, #row)
     for i = 1, #row do
       need = math.max(need, row[i].Text:GetStringWidth() + 18)
     end
   end
-  local W = math.max(need * 2 + GAP, MIN_W) + PAD * 2
+  local W = math.max(need * widest + (widest - 1) * GAP, MIN_W) + PAD * 2
   f:SetWidth(W)
   local content = W - PAD * 2
-  local half = math.floor((content - GAP) / 2)
   for _, row in ipairs(rows) do
-    for i = 1, #row do row[i]:SetWidth(half) end
+    local w = math.floor((content - (#row - 1) * GAP) / #row)
+    for i = 1, #row do row[i]:SetWidth(w) end
   end
-  f.dd:SetWidth(content)
+  f.dd:SetWidth(content - XW - GAP)
   f.str:SetWidth(content)
   self:Paint()
 end
@@ -570,12 +572,11 @@ function P:ApplySkin()
     ns.SnapPoint(f.dd, "TOPLEFT", f, "TOPLEFT", PAD, -(DD_TOP + shift))
   end
   if f.nameBox then
-    local ren = f.row2 and f.row2[1]
     f.nameBox:ClearAllPoints()
-    if ren then
-      ns.SnapPoint(f.nameBox, "TOPLEFT", ren, "BOTTOMLEFT", 0, -NAME_GAP)
+    if f.dd then
+      ns.SnapPoint(f.nameBox, "TOPLEFT", f.dd, "BOTTOMLEFT", 0, -FIELD_GAP)
     end
-    ns.SnapPoint(f.nameBox, "TOPRIGHT", f, "TOPRIGHT", -PAD, -(NAME_TOP + shift))
+    ns.SnapPoint(f.nameBox, "TOPRIGHT", f, "TOPRIGHT", -PAD, -(FIELD_TOP + shift))
   end
   f:SetHeight(PANEL_H + shift)
   if f:IsShown() then self:Place() end
