@@ -1251,10 +1251,11 @@ local function hookMedia()
   if mediaHooked then return end
   local lsm = LSM()
   if not (lsm and lsm.RegisterCallback) then return end
-  mediaHooked = true
-  lsm:RegisterCallback(ns.Fonts, "LibSharedMedia_Registered", function(_, kind)
-    if kind == "font" then ns.Fonts:Refresh() end
-  end)
+  local ok = pcall(lsm.RegisterCallback, addonName, "LibSharedMedia_Registered",
+                   function(_, kind)
+                     if kind == "font" then ns.Fonts:Refresh() end
+                   end)
+  if ok then mediaHooked = true end
 end
 
 -- The stored name is left alone. It can name a font another addon has not registered yet,
