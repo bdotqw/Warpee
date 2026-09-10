@@ -211,6 +211,7 @@ function ns.Rebase(frame, dbKey)
     if WarpeeDB then WarpeeDB[dbKey] = { p = "BOTTOMLEFT", rp = "BOTTOMLEFT", x = lx or l, y = ly or b } end
   end
   if frame.wpeBar then frame.wpeBar:Refresh() end
+  if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
 end
 
 function ns.PlaceWindow(frame, dbKey, def)

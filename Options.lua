@@ -2248,6 +2248,7 @@ function Options:Build()
     s:StopMovingOrSizing()
     local p, rp, x, y = ns.SnapFrame(s)
     if p then WarpeeDB.optPos = { p = p, rp = rp, x = x, y = y } end
+    if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
   end)
   f:SetScript("OnMouseDown", function(s) Theme:Raise(s) end)
   Theme:Window(f, "WarpeeOptionsFrame")

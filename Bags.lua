@@ -326,6 +326,7 @@ function Bags:BuildBagWindow()
     s:StopMovingOrSizing()
     local pp, rp, x, y = ns.SnapFrame(s)
     if pp then WarpeeDB.bagWinPos = { p = pp, rp = rp, x = x, y = y } end
+    if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
   end)
   ns.EscClose(w)
 

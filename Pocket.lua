@@ -383,6 +383,7 @@ function Pocket:Build()
     s:StopMovingOrSizing()
     local pp, rp, x, y = ns.SnapFrame(s)
     if pp then WarpeeDB.pocketPos = { p = pp, rp = rp, x = x, y = y } end
+    if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
   end)
   ns.EscClose(w)
   ns.PixelJob(w, function(s) ns.AlignToScreen(s) end, "align")
