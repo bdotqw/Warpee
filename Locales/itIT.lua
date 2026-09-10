@@ -412,16 +412,21 @@ local STRINGS = {
   ["Profile name"] = "Nome del profilo",
   ["Duplicate current"] = "Duplica l'attuale",
   ["Create empty"] = "Crea vuoto",
-  ["Delete"] = "Elimina",
+  ["Apply"] = "Applica",
   ["Rename"] = "Rinomina",
+  ["Delete"] = "Elimina",
   ["Export"] = "Esporta",
   ["Import"] = "Importa",
   ["Reset to default"] = "Ripristina predefiniti",
-  ["Press Ctrl and C to copy"] = "Premi Ctrl e C per copiare",
+  ["Applied: %s"] = "Applicato: %s",
+  ["Delete profile %s?"] = "Eliminare il profilo %s?",
   ["Enter a profile name"] = "Inserisci un nome per il profilo",
   ["Cannot delete the default profile"] = "Impossibile eliminare il profilo predefinito",
-  ["Cannot delete the active profile"] = "Impossibile eliminare il profilo attivo",
   ["That name is taken"] = "Questo nome è già in uso",
+  ["Created %s"] = "Profilo %s creato",
+  ["Exported %s, press Ctrl and C to copy"] =
+    "Profilo %s esportato, premi Ctrl e C per copiare",
+  ["Imported %s"] = "Profilo %s importato",
   ["Nothing to export"] = "Niente da esportare",
   ["Nothing to import"] = "Niente da importare",
   ["Unknown profile"] = "Profilo sconosciuto",
@@ -430,7 +435,6 @@ local STRINGS = {
   ["Saved by a newer version"] = "Salvato da una versione più recente",
   ["Not supported on this client"] = "Non supportato su questo client",
 }
-
 
 ns.AddLocale("itIT", "Italian", {
   coin = { g = "o", s = "a", c = "r" },
