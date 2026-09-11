@@ -763,13 +763,13 @@ function Pocket:Layout()
   end
   self.max = n
   self:Cooldowns()
-  -- The arrows are the only way to move a pocket that is not being dragged, and they are also
-  -- what its lock hides, so the band under them is reserved only while they are up: a frozen
-  -- pocket stays as short as it always was.
+  -- The band under the arrows is reserved whether they are up or not. Locking a window is not
+  -- a resize: the pocket used to shrink by the band the moment it was pinned, so pinning it
+  -- moved everything in it. Only the arrows themselves come and go.
   local editable = not self:Locked()
   if self.nudge then self.nudge:SetShown(editable) end
   local foot = gridTop + (rows - 1) * step + size + BOX_GAP
-  ns.SnapSize(w, PAD * 2 + cols * step - gap, foot + (editable and NUDGE_BAND or PAD))
+  ns.SnapSize(w, PAD * 2 + cols * step - gap, foot + NUDGE_BAND)
   ns.AlignToScreen(w)
 end
 
