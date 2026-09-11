@@ -105,12 +105,8 @@ local STRINGS = {
   ["Portuguese"] = "Portugiesisch",
   ["Lock bags and bank"] = "Taschen und Bank fixieren",
   ["Lock the pocket"] = "Ablage fixieren",
-  ["Pocket X"] = "Ablage X",
-  ["Pocket Y"] = "Ablage Y",
   ["Keep the pocket where it is. Unlocked, the arrows along its bottom edge nudge it around."] =
     "Hält die Ablage an ihrem Platz. Ohne Fixierung lässt sie sich mit den Pfeilen am unteren Rand verschieben.",
-  ["Where the pocket sits on screen. The same numbers the other windows show along their bottom edge."] =
-    "Wo die Ablage auf dem Bildschirm sitzt. Dieselben Zahlen, die die anderen Fenster am unteren Rand zeigen.",
   ["Hide X/Y fields"] = "X/Y-Felder ausblenden",
   ["Capacity bar"] = "Füllstandsleiste",
   ["Hide minimap icon"] = "Minikartensymbol ausblenden",

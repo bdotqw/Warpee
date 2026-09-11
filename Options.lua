@@ -1722,27 +1722,6 @@ fav.pkLockSet = function(v)
   WarpeeDB.pocketLock = v and true or false
   if ns.Pocket then ns.Pocket:Apply() end
 end
--- The fields carry the same numbers the bags band shows, so a value typed here means what it
--- means there. A closed pocket has no rectangle to read, so ns.WindowCorner falls back to the
--- anchor it was left on rather than making the fields dead whenever the window is not up.
-fav.pkXGet = function()
-  local f = ns.Pocket and ns.Pocket.frame
-  if not f then return 0 end
-  local l = ns.WindowCorner(f, "pocketPos")
-  return math.floor((l or 0) + 0.5)
-end
-fav.pkXSet = function(v)
-  if ns.Pocket and ns.Pocket.frame then ns.MoveWindowTo(ns.Pocket.frame, "pocketPos", v, nil) end
-end
-fav.pkYGet = function()
-  local f = ns.Pocket and ns.Pocket.frame
-  if not f then return 0 end
-  local _, b = ns.WindowCorner(f, "pocketPos")
-  return math.floor((b or 0) + 0.5)
-end
-fav.pkYSet = function(v)
-  if ns.Pocket and ns.Pocket.frame then ns.MoveWindowTo(ns.Pocket.frame, "pocketPos", nil, v) end
-end
 fav.pkRowsGet = function() return ns.Pocket and ns.Pocket:Rows() or 5 end
 fav.pkRowsSet = function(v)
   WarpeeDB.pocketRows = tonumber(v) or 5
@@ -1863,13 +1842,6 @@ local POCKET_PAGE = {
     get = fav.pkLockGet, set = fav.pkLockSet,
     disabled = function() return not fav.pkGet() end,
     desc = "Keep the pocket where it is. Unlocked, the arrows along its bottom edge nudge it around." },
-  { type = "input", name = "Pocket X", col = 1, min = 0, max = 9999,
-    get = fav.pkXGet, set = fav.pkXSet,
-    disabled = function() return not fav.pkGet() end,
-    desc = "Where the pocket sits on screen. The same numbers the other windows show along their bottom edge." },
-  { type = "input", name = "Pocket Y", col = 2, min = 0, max = 9999,
-    get = fav.pkYGet, set = fav.pkYSet,
-    disabled = function() return not fav.pkGet() end },
   { type = "header", name = "Pocket size", key = "pocketsize" },
   { type = "range", name = "Pocket rows", min = 1, max = 6, step = 1, half = "left",
     section = "pocketsize",

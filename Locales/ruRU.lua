@@ -116,12 +116,8 @@ local STRINGS = {
   ["Portuguese"] = "Португальский",
   ["Lock bags and bank"] = "Закрепить сумки и банк",
   ["Lock the pocket"] = "Закрепить карман",
-  ["Pocket X"] = "Карман X",
-  ["Pocket Y"] = "Карман Y",
   ["Keep the pocket where it is. Unlocked, the arrows along its bottom edge nudge it around."] =
     "Держит карман на месте. Если отметку снять, двигать его можно стрелками у нижнего края.",
-  ["Where the pocket sits on screen. The same numbers the other windows show along their bottom edge."] =
-    "Где карман стоит на экране. Те же числа, что показывают другие окна у нижнего края.",
   ["Hide X/Y fields"] = "Скрыть поля X/Y",
   ["Capacity bar"] = "Полоса заполнения",
   ["Hide minimap icon"] = "Скрыть иконку у миникарты",

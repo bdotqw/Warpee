@@ -164,35 +164,8 @@ function ns.DragMove(frame)
   frame.wpeMoving = true
 end
 
--- A window that is not on screen may have no rectangle to read, and the settings can be opened
--- with that window closed. What is saved for it answers instead. It is stored as a corner plus
--- an offset, which is what keeps a window in place across a screen resize, so turning it back
--- into an absolute corner is the only way to speak the same numbers the X/Y band shows.
-local function storedCorner(frame, pos)
-  if not pos then return nil end
-  local sw = UIParent:GetWidth() or 0
-  local sh = UIParent:GetHeight() or 0
-  local w, h = frame:GetWidth() or 0, frame:GetHeight() or 0
-  local p, x, y = pos.p, pos.x or 0, pos.y or 0
-  if p == "BOTTOMLEFT" then return x, y end
-  if p == "BOTTOMRIGHT" then return sw + x - w, y end
-  if p == "TOPLEFT" then return x, sh + y - h end
-  if p == "TOPRIGHT" then return sw + x - w, sh + y - h end
-  if p == "LEFT" then return x, sh * 0.5 + y - h * 0.5 end
-  if p == "RIGHT" then return sw + x - w, sh * 0.5 + y - h * 0.5 end
-  if p == "TOP" then return sw * 0.5 + x - w * 0.5, sh + y - h end
-  if p == "BOTTOM" then return sw * 0.5 + x - w * 0.5, y end
-  return sw * 0.5 + x - w * 0.5, sh * 0.5 + y - h * 0.5
-end
-
-function ns.WindowCorner(frame, dbKey)
-  local l, b = frame:GetLeft(), frame:GetBottom()
-  if l and b then return l, b end
-  return storedCorner(frame, WarpeeDB and WarpeeDB[dbKey])
-end
-
 function ns.MoveWindowTo(frame, dbKey, nx, ny)
-  local l, b = ns.WindowCorner(frame, dbKey)
+  local l, b = frame:GetLeft(), frame:GetBottom()
   if not (l and b) then return end
   frame:ClearAllPoints()
   frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT",
@@ -201,7 +174,7 @@ function ns.MoveWindowTo(frame, dbKey, nx, ny)
 end
 
 function ns.NudgeWindow(frame, dbKey, dx, dy)
-  local l, b = ns.WindowCorner(frame, dbKey)
+  local l, b = frame:GetLeft(), frame:GetBottom()
   if not (l and b) then return end
   ns.MoveWindowTo(frame, dbKey, math.floor(l + 0.5) + dx, math.floor(b + 0.5) + dy)
 end

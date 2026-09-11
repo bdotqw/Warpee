@@ -113,12 +113,8 @@ local STRINGS = {
   ["Portuguese"] = "Portugués",
   ["Lock bags and bank"] = "Fijar las bolsas y el banco",
   ["Lock the pocket"] = "Fijar el bolsillo",
-  ["Pocket X"] = "Bolsillo X",
-  ["Pocket Y"] = "Bolsillo Y",
   ["Keep the pocket where it is. Unlocked, the arrows along its bottom edge nudge it around."] =
     "Mantiene el bolsillo en su sitio. Sin fijar, las flechas de su borde inferior lo desplazan.",
-  ["Where the pocket sits on screen. The same numbers the other windows show along their bottom edge."] =
-    "Dónde se sitúa el bolsillo en pantalla. Los mismos números que muestran las otras ventanas en su borde inferior.",
   ["Hide X/Y fields"] = "Ocultar los campos X/Y",
   ["Capacity bar"] = "Barra de ocupación",
   ["Hide minimap icon"] = "Ocultar el icono del minimapa",
