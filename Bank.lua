@@ -964,7 +964,7 @@ end
 function View:Activate(mode)
   if self.bankerOpen and not self.snap then
     local bm = self:BlizzMode()
-    if bm and bm ~= mode and self:ModeAvailable(bm) then
+    if bm and bm ~= mode then
       mode = bm
       self.mode = bm
       self:ApplySnap()
