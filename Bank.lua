@@ -807,12 +807,13 @@ end
 -- windows open, so the icon list and its search, the deposit settings and the write back
 -- are all the game's, and none of it has to be kept in step with a patch from here.
 --
--- Two things have to happen before it can be opened from our strip. It is a child of
+-- Three things have to happen before it can be opened from our strip. It is a child of
 -- BankPanel and BankFrame lives in the hidden holder, so nothing inside that panel is ever
 -- drawn; it is parented out to UIParent for that, which costs nothing because the game
--- reads the panel off the BankPanel global rather than down the parent chain. And it is
--- handed to the guild bank's popup skinner once, so the two popups of one template cannot
--- drift apart.
+-- reads the panel off the BankPanel global rather than down the parent chain. It is given
+-- its tab data, because the panel's own answer is a cache that comes back empty on the path
+-- we open it by, see TabData below. And it is handed to the guild bank's popup skinner once,
+-- so the two popups of one template cannot drift apart.
 function View:TabSettings()
   local panel = BankFrame and BankFrame.BankPanel
   local pop = panel and panel.TabSettingsMenu
@@ -822,9 +823,32 @@ function View:TabSettings()
     pop:SetParent(UIParent)
     pop:SetFrameStrata("DIALOG")
     pop:SetClampedToScreen(true)
+    pop.GetBankPanel = function()
+      return { GetTabData = function(_, tabID) return self:TabData(tabID) end }
+    end
     if ns.SkinIconPopup then pcall(ns.SkinIconPopup, pop) end
   end
   return pop
+end
+
+-- The menu asks the panel for the tab it was opened on and draws itself from the answer, and
+-- the panel answers from a cache of purchased tabs. Opened straight from our strip that
+-- answer comes back empty, and the menu sits on its blank defaults until a bank type switch
+-- resets the panel underneath it. The live read is asked first instead; the panel's own
+-- answer stays as the second source, for a bank type the live read refuses.
+function View:TabData(tabID)
+  local bt = bankTypeFor(self.mode)
+  if bt and C_Bank and C_Bank.FetchPurchasedBankTabData then
+    local ok, data = pcall(C_Bank.FetchPurchasedBankTabData, bt)
+    if ok and type(data) == "table" then
+      for _, td in ipairs(data) do
+        if td.ID == tabID then return td end
+      end
+    end
+  end
+  local panel = BankFrame and BankFrame.BankPanel
+  if panel and panel.GetTabData then return panel:GetTabData(tabID) end
+  return nil
 end
 
 function View:HideTabSettings()
@@ -843,8 +867,13 @@ function View:OpenTabSettings(bag)
   else
     pop:SetPoint("CENTER")
   end
-  -- The game's own open path, so a second right click on the tab that is already open
-  -- closes the popup instead of moving it.
+  -- The game's own path, so a second right click on the tab that is already open closes the
+  -- popup instead of moving it. A right click on another tab while it is up retargets it:
+  -- the menu only ever moves to what the game itself selects, and nothing here does that.
+  if pop:IsShown() and pop.GetSelectedTabID and pop:GetSelectedTabID() ~= bag then
+    pop:OnNewBankTabSelected(bag)
+    return
+  end
   pop:OnOpenTabSettingsRequested(bag)
 end
 
