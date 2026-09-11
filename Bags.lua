@@ -45,7 +45,7 @@ function Bags:FlowHeader()
   if not self.frame then return end
   local row1 = ROW1_Y + Theme:TopInset() + Theme:HeadDrop()
   self.headEdge = ns.FlowRow(self.frame, -PAD, -row1, 4,
-    { self.closeBtn, self.gearBtn, self.bagsToggle, self.reagentBtn,
+    { self.closeBtn, self.gearBtn, self.bagsToggle, self.bankBtn,
       self.pocketBtn, self.sellBtn, self.sortBtn })
 end
 
@@ -56,13 +56,6 @@ function Bags:AnchorHeader()
   if self.charTag then
     self.charTag:ClearAllPoints()
     ns.SnapPoint(self.charTag, "TOPLEFT", self.frame, "TOPLEFT", PAD, -row1)
-  end
-  -- The bank button stands with the character list now, and the slot count reads after it.
-  -- Both follow the tag, so they are chained here rather than at build time: the tag is
-  -- placed on every layout, and a point written once would have been left behind.
-  if self.bankBtn and self.charTag then
-    self.bankBtn:ClearAllPoints()
-    ns.SnapPoint(self.bankBtn, "LEFT", self.charTag, "RIGHT", 4, 0)
   end
   if self.gaugeBg then
     self.gaugeBg:ClearAllPoints()
@@ -157,6 +150,22 @@ function Bags:Build()
     ns.AddTip(btn, txt, "top")
   end
 
+  -- The left cluster is built first, because the two things that follow it hang off the tag:
+  -- the reagent switch and the slot count. AnchorHeader moves the tag on every layout and
+  -- both follow, so neither needs a point written a second time.
+  local charTag = ns.CreateCharTag(f, HB, "left")
+  charTag:SetPoint("TOPLEFT", PAD, -ROW1_Y)
+  charTag:SetScript("OnClick", function(s) Bags:ToggleCharPicker(s) end)
+  ns.AddTip(charTag, "Bags of another character", "top", function(s)
+    if s:IsEnabled() then return nil end
+    return { { text = "Nothing saved for other characters yet", color = "dim" } }
+  end)
+  self.charTag = charTag
+
+  local slots = Theme:Label(f, 12, "dim")
+  slots:SetJustifyH("LEFT")
+  self.slotText = slots
+
   local close = ns.CreateGlyphButton(f, "×", HB, "icon")
   close:SetPoint("TOPRIGHT", -PAD, -ROW1_Y)
   close:SetScript("OnClick", function() ns.Toggle(false) end)
@@ -199,11 +208,13 @@ function Bags:Build()
   end
   self.bagsToggle = bagsToggle
 
-  -- Reagents, on the switch the settings already had. The icon is the reagent bag itself and
-  -- the button reads as a toggle: while the bag is left out of the grid the icon sits dull,
-  -- the way the other off buttons do.
+  -- Reagents, on the switch the settings already had. It stands with the tag and the count
+  -- rather than in the button row: the count still includes the reagent slots while they are
+  -- hidden, so the control that hides the block belongs beside the number that keeps counting
+  -- it. The row is also the wrong place for an eighth button, since it is already wider than
+  -- the narrowest the window can be.
   local reags = ns.CreateGlyphButton(f, "", HB, "icon")
-  reags:SetPoint("TOPRIGHT", bagsToggle, "TOPLEFT", -4, 0)
+  reags:SetPoint("LEFT", charTag, "RIGHT", 4, 0)
   reags:SetScript("OnClick", function() Bags:ToggleReagents() end)
   addTip(reags, "Hide reagents")
   local reagsIcon = reags:CreateTexture(nil, "ARTWORK")
@@ -221,10 +232,10 @@ function Bags:Build()
   self.reagentBtn = reags
   Bags:PaintReagents(reags)
 
-  -- The bank button left this row and hangs off the character tag instead. The point written
-  -- here is only a placeholder until the first AnchorHeader, which owns it.
+  slots:SetPoint("LEFT", reags, "RIGHT", 10, 0)
+
   local bank = ns.CreateGlyphButton(f, "", HB, "icon")
-  bank:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -ROW1_Y)
+  bank:SetPoint("TOPRIGHT", bagsToggle, "TOPLEFT", -4, 0)
   bank:SetScript("OnClick", function() if ns.ToggleBank then ns.ToggleBank() end end)
   ns.AddTip(bank, "Bank / Warband", "top", function(s)
     if s:IsEnabled() then return nil end
@@ -248,7 +259,7 @@ function Bags:Build()
   end
   self.bankBtn = bank
 
-  sort:SetPoint("TOPRIGHT", reags, "TOPLEFT", -4, 0)
+  sort:SetPoint("TOPRIGHT", bank, "TOPLEFT", -4, 0)
 
   local sell = ns.CreateGlyphButton(f, "", HB, "icon")
   sell:SetPoint("TOPRIGHT", sort, "TOPLEFT", -4, 0)
@@ -289,20 +300,6 @@ function Bags:Build()
     end
   end, "pocket")
   self.pocketBtn = pocket
-
-  local charTag = ns.CreateCharTag(f, HB, "left")
-  charTag:SetPoint("TOPLEFT", PAD, -ROW1_Y)
-  charTag:SetScript("OnClick", function(s) Bags:ToggleCharPicker(s) end)
-  ns.AddTip(charTag, "Bags of another character", "top", function(s)
-    if s:IsEnabled() then return nil end
-    return { { text = "Nothing saved for other characters yet", color = "dim" } }
-  end)
-  self.charTag = charTag
-
-  local slots = Theme:Label(f, 12, "dim")
-  slots:SetPoint("LEFT", bank, "RIGHT", 10, 0)
-  slots:SetJustifyH("LEFT")
-  self.slotText = slots
 
   local search = ns.CreateSearchBox(f, function(text)
     self.query = (text or ""):lower()
@@ -906,9 +903,9 @@ function Bags:FitHeader()
   self.search:Show()
   if self.slotText and self.charTag then
     local edge = self.headEdge and self.headEdge:GetLeft()
-    -- The count sits after the bank button now, so that is the edge it has to clear. The tag
-    -- is the fallback for a frame built before that button existed.
-    local anchor = self.bankBtn or self.charTag
+    -- The count reads after the reagent switch now, so that is the edge it has to clear. The
+    -- tag is the fallback for a frame built before that button existed.
+    local anchor = self.reagentBtn or self.charTag
     local from = anchor:GetRight()
     local show = true
     if edge and from then
