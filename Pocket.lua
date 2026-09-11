@@ -623,17 +623,19 @@ function Pocket:Layout()
     ns.SnapPoint(self.gearBtn, "RIGHT", rightBtn, "LEFT", -4, 0)
     rightBtn = self.gearBtn
   end
-  if self.plusBtn then
-    self.plusBtn:ClearAllPoints()
-    ns.SnapPoint(self.plusBtn, "RIGHT", rightBtn, "LEFT", -4, 0)
-    rightBtn = self.plusBtn
-  end
+  -- The lock sits between the gear and the plus, so the plus keeps the outermost slot it has
+  -- always had and the new button is the one that moves in.
   if self.lockBtn then
     self.lockBtn:ClearAllPoints()
     ns.SnapPoint(self.lockBtn, "RIGHT", rightBtn, "LEFT", -4, 0)
     rightBtn = self.lockBtn
     self.lockBtn.icon:SetVertexColor(Theme:C(self:Locked() and "accent" or "dim"))
     self.lockBtn:Show()
+  end
+  if self.plusBtn then
+    self.plusBtn:ClearAllPoints()
+    ns.SnapPoint(self.plusBtn, "RIGHT", rightBtn, "LEFT", -4, 0)
+    rightBtn = self.plusBtn
   end
 
   local gen = ((Bags and Bags.styleGen) or 0) .. ":" .. tostring(path) .. ":" .. size
