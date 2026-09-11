@@ -26,7 +26,6 @@ local Bags = { pool = {}, vpool = {}, cols = COLS_DEFAULT, gap = GAP_DEFAULT, ic
                badge = ns.BadgeDefaults(),
                qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, reagentTint = true, unusableBorder = true,
                revFill = false, fillUp = false, reagentTop = false, hideReagents = false,
-               reagentFold = false,
                styleGen = 1 }
 ns.Bags = Bags
 
@@ -72,43 +71,6 @@ function Bags:AnchorHeader()
   Theme:HeaderBand(self.frame)
 end
 
--- ArrowGlyph sizes its wrapper once, from the direction it was built with, and turns only the
--- triangle when the direction changes later: the wrapper keeps the old footprint, and since
--- the triangle hangs off its top left corner the glyph ends up off centre by the difference
--- between a flat triangle and a tall one. Re-fitting the wrapper to the triangle keeps them
--- in step. The same thing runs on a scale change, and agrees, because it reads the same size.
-local function setGlyphDir(glyph, dir)
-  glyph:SetDir(dir)
-  local t = glyph.tri
-  if t then glyph:SetSize(t:GetWidth(), t:GetHeight()) end
-end
-
--- The caption of the reagent block doubles as its handle: the arrow at the far end of that
--- line folds the block away and brings it back, and the caption itself stays put, so there is
--- always something left to click. This is not the "Hide reagents" option. That one takes the
--- block and this line out of the window altogether, and its slots still count in the header.
-local function ensureReagentFold(bags)
-  if bags.reagentFoldBtn then return bags.reagentFoldBtn end
-  local b = CreateFrame("Button", nil, bags.content)
-  ns.SnapBox(b, 16, 16)
-  local glyph = ns.ArrowGlyph(b, "down", 11)
-  glyph:SetPoint("CENTER")
-  b.glyph = glyph
-  b:SetScript("OnEnter", function(s) s.glyph:SetTint("accent") end)
-  b:SetScript("OnLeave", function(s) s.glyph:SetTint("dim") end)
-  b:SetScript("OnClick", function() Bags:ToggleReagentFold() end)
-  b:Hide()
-  bags.reagentFoldBtn = b
-  return b
-end
-
-function Bags:ToggleReagentFold()
-  local on = not (self.reagentFold and true or false)
-  self.reagentFold = on
-  if WarpeeDB then WarpeeDB.reagentFold = on end
-  self:Layout()
-end
-
 function Bags:Build()
   if self.frame then
     local f = self.frame
@@ -142,7 +104,6 @@ function Bags:Build()
       rlabel:Hide()
       self.reagentLabel = rlabel
     end
-    ensureReagentFold(self)
     return f
   end
 
@@ -348,7 +309,6 @@ function Bags:Build()
   ns.LocalText(rlabel, "REAGENTS")
   rlabel:Hide()
   self.reagentLabel = rlabel
-  ensureReagentFold(self)
 
   f:Hide()
   return f
@@ -576,18 +536,13 @@ function Bags:Layout(capture)
   local merge = (not hide) and self.mergeReagents and true or false
   local rnum = self:Slots(ns.reagentBag)
   self.bagSlots[ns.reagentBag] = rnum
-  local rShown = (not hide) and (not merge) and rnum > 0
-  -- Folded keeps the caption and drops the cells, so the block is in the window but is not
-  -- split out. The caption then sits in the gap the block would have opened, which is why a
-  -- folded block needs no height of its own: rBlock stays zero and that gap does the spacing.
-  local folded = rShown and self.reagentFold and true or false
-  local split = rShown and not folded
+  local split = (not hide) and (not merge) and rnum > 0
   local mainCount = merge and rnum or 0
   for _, bag in ipairs(ns.playerBags) do mainCount = mainCount + self:Slots(bag) end
   local mainRows = math.max(1, math.ceil(mainCount / cols))
   local rRows = split and math.max(1, math.ceil(rnum / cols)) or 0
   local rBlock = split and ((rRows - 1) * step + size) or 0
-  local onTop = rShown and self.reagentTop and true or false
+  local onTop = split and self.reagentTop and true or false
   local mainTop = onTop and (rBlock + DIV * 2) or 0
   local mainBottom = mainTop + (mainRows - 1) * step + size
   local rTop = onTop and DIV or (mainBottom + DIV)
@@ -621,26 +576,16 @@ function Bags:Layout(capture)
   end
 
   local contentH = mainBottom
-  if rShown then
+  if split then
     self.reagentLabel:ClearAllPoints()
     self.reagentLabel:SetPoint("TOPLEFT", self.content, "TOPLEFT", 2, -(rTop - DIV + 6))
     self.reagentLabel:Show()
-    local fb = self.reagentFoldBtn
-    if fb then
-      setGlyphDir(fb.glyph, folded and "right" or "down")
-      fb:ClearAllPoints()
-      fb:SetPoint("TOPRIGHT", self.content, "TOPRIGHT", -2, -(rTop - DIV + 6) + 2)
-      fb:Show()
-    end
-    if split then
-      for slot = 1, rnum do
-        place(ns.reagentBag, slot, cellXY(slot, rnum, rRows, rTop))
-      end
+    for slot = 1, rnum do
+      place(ns.reagentBag, slot, cellXY(slot, rnum, rRows, rTop))
     end
     if not onTop then contentH = rTop + rBlock end
   else
     self.reagentLabel:Hide()
-    if self.reagentFoldBtn then self.reagentFoldBtn:Hide() end
   end
 
   local active, idle = self:Pool(), (self.snap and self.pool or self.vpool)

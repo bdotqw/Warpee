@@ -23,7 +23,7 @@ local DEFAULTS = {
   iconZoom = 1, borderWidth = 1, gridAlpha = 0, showGauge = false,
   favShow = true, recentBags = true, recentPocket = true,
   qualityColorIlvl = true, qualityBorder = true, mergeReagents = false,
-  reagentTop = false, hideReagents = false, reagentFold = false,
+  reagentTop = false, hideReagents = false,
   pocketShow = true, pocketWithBags = false, pocketRows = 4, pocketCols = 6,
   pocketIconSize = NONE,
   revFill = false, fillUp = false, questMarks = true, newItemGlow = false,
@@ -139,7 +139,6 @@ function ns.PushConfig()
   Bags.mergeReagents    = WarpeeDB.mergeReagents
   Bags.reagentTop       = WarpeeDB.reagentTop
   Bags.hideReagents     = WarpeeDB.hideReagents
-  Bags.reagentFold      = WarpeeDB.reagentFold
   Bags.revFill          = WarpeeDB.revFill
   Bags.fillUp           = WarpeeDB.fillUp
   Bags.questMarks       = WarpeeDB.questMarks
