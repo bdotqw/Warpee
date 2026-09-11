@@ -36,9 +36,23 @@ end
 
 function Bags:BaseTop() return HEADER + 4 + Theme:TopInset() - self:HeadShift() end
 
+-- Whether the reagent block is drawn as its own row above the main grid. The test is the one
+-- Layout makes for the same question: the bag has slots to draw, it is neither merged into
+-- the grid nor left out of the window, and it is set to sit on top.
+function Bags:ReagentsUp()
+  if self.hideReagents or self.mergeReagents or not self.reagentTop then return false end
+  return (self:Slots(ns.reagentBag) or 0) > 0
+end
+
 function Bags:TopOffset()
   local rows = (self.recentH or 0) + (self.favH or 0)
-  return self:BaseTop() + rows + (rows > 0 and 18 or 0)
+  -- The rows overhead keep a gap to the grid so the two do not read as one block. A reagent
+  -- block standing between them brings its own separator in the caption the block is labelled
+  -- with, and the two together would leave a hole between the caption and the cells above it.
+  -- Only that case drops the gap: merged reagents carry no caption, and hidden ones leave
+  -- nothing behind at all.
+  local sep = (rows > 0 and not self:ReagentsUp()) and 18 or 0
+  return self:BaseTop() + rows + sep
 end
 
 function Bags:FlowHeader()
