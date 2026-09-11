@@ -176,6 +176,11 @@ local function remove(id)
 end
 
 local function prune(counts)
+  -- Nothing is counted or dropped while the cursor carries an item. A picked-up item is in
+  -- no bag at all until it lands, so every key reads as gone for the pass, and the row would
+  -- spend the forgiveness on the very items it is showing.
+  if GetCursorInfo() then return false end
+  local fence = false
   for i = 1, MAX_SLOTS do
     local key = cells[i]
     local here = key and (type(key) == "string" and guidNow[key] or counts[key])
@@ -190,11 +195,13 @@ local function prune(counts)
         cells[i] = nil
       else
         cellMiss[key] = m
+        fence = true
       end
     elseif key then
       cellMiss[key] = nil
     end
   end
+  return fence
 end
 
 local shed, shedAt, body = {}, {}, {}
@@ -239,6 +246,9 @@ local function pardon(id, delta)
   return delta - eat
 end
 
+-- Declared here because detect needs it: see the note on the miss counter in prune.
+local soon
+
 local function detect()
   local counts = tally()
   bodyDiff()
@@ -280,7 +290,11 @@ local function detect()
       missed[id] = nil
     end
   end
-  prune(counts)
+  -- A cell that just missed is not decided: it takes three passes, and the passes are only
+  -- ever the bag events that happen to arrive. The event that takes an item out of the bags
+  -- is usually the last one for a while, so the third pass never comes on its own, and the
+  -- cell outlives the item it was showing. The count is asked for another look instead.
+  if prune(counts) then soon() end
   for g in pairs(guidHad) do
     if guidNow[g] then guidMiss[g] = nil
     else
@@ -550,7 +564,7 @@ end
 
 local queued = false
 
-local function soon()
+soon = function()
   if queued then return end
   queued = true
   C_Timer.After(0.05, function()
