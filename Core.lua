@@ -163,6 +163,7 @@ function ns.ApplyAll()
   if WarpeeDB.pocketPos and ns.Pocket and ns.Pocket.frame then ns.PlaceWindow(ns.Pocket.frame, "pocketPos") end
   Bags:Warm()
   if ns.Fav then ns.Fav:Warm() end
+  if ns.Recent then ns.Recent:Warm() end
   if ns.Pocket then
     ns.Pocket:Warm()
     if ns.Pocket.Apply then ns.Pocket:Apply() end
@@ -515,6 +516,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     Bags:RestorePos()
     Bags:Warm()
     if ns.Fav then ns.Fav:Warm() end
+    if ns.Recent then ns.Recent:Warm() end
     if ns.Pocket then ns.Pocket:Warm() end
     ns.Theme:ApplyGridAlpha()
     HookBagToggles()
