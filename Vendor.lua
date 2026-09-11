@@ -13,6 +13,21 @@ local SKIP_LOC = {
   INVTYPE_RELIC = true,
 }
 
+local STONE = {
+  [9149] = true, [13503] = true,
+  [35748] = true, [35749] = true, [35750] = true, [35751] = true,
+  [44322] = true, [44323] = true, [44324] = true,
+  [58483] = true, [68775] = true, [68776] = true, [68777] = true,
+  [75274] = true, [109262] = true,
+  [122601] = true, [122602] = true, [122603] = true, [122604] = true,
+  [128023] = true, [128024] = true, [127842] = true,
+  [165926] = true, [165927] = true, [165928] = true,
+  [166974] = true, [166975] = true, [166976] = true,
+  [171085] = true, [171087] = true, [171088] = true, [171323] = true,
+  [191491] = true, [191492] = true, [210816] = true,
+  [241291] = true, [241340] = true,
+}
+
 local function cosmeticArmor(classID, subID)
   local E = Enum.ItemArmorSubclass
   if not (E and E.Cosmetic) then return false end
@@ -220,6 +235,7 @@ function Vendor:Scan(junkOnly)
         end
         if take and refundable(bag, slot) then take = false end
         if take and questItem(bag, slot) then take = false end
+        if STONE[info.itemID] then take = false end
         if take and self:Blocked(info.itemID) then take = false; locked = locked + 1 end
         if take then
           local value = sellPrice(link) * (info.stackCount or 1)
