@@ -1153,6 +1153,8 @@ function ns.UpdateItemButton(b)
     end
     ns.PaintSlotBg(b)
     b.itemName, b.meta = nil, nil
+    b.searchMiss = nil
+    b:SetAlpha(1)
     return nil, true
   end
   local hl = info and info.hyperlink
