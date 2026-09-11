@@ -62,7 +62,7 @@ function Bags:AnchorHeader()
   -- placed on every layout, and a point written once would have been left behind.
   if self.bankBtn and self.charTag then
     self.bankBtn:ClearAllPoints()
-    ns.SnapPoint(self.bankBtn, "LEFT", self.charTag, "RIGHT", 10, 0)
+    ns.SnapPoint(self.bankBtn, "LEFT", self.charTag, "RIGHT", 4, 0)
   end
   if self.gaugeBg then
     self.gaugeBg:ClearAllPoints()
