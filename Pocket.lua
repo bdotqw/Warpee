@@ -4,7 +4,7 @@ local Theme = ns.Theme
 local Pocket = {}
 ns.Pocket = Pocket
 Pocket.slots, Pocket.ghosts, Pocket.catchers = {}, {}, {}
-Pocket.recSlots, Pocket.recGhosts = {}, {}
+Pocket.recSlots, Pocket.recGhosts, Pocket.recCatchers = {}, {}, {}
 
 local PAD, BAND = 12, 26
 local NUDGE_BAND = 24
@@ -585,6 +585,11 @@ function Pocket:Warm()
       g:Hide()
       self.recGhosts[i] = g
     end
+    if not self.recCatchers[i] then
+      local c = ns.Recent:NewCatcher(w, i, self.recSlots, "pkBag", "pkSlot")
+      c:Hide()
+      self.recCatchers[i] = c
+    end
   end
   self.cold = nil
   self.warmed = math.max(self.warmed or 0, n)
@@ -661,7 +666,7 @@ function Pocket:Layout()
     self.recWipe:SetOn(feed[1] and true or false)
     self.recWipe:Show()
     for i = 1, math.max(cols, self.recMax or 0) do
-      local b, g = self.recSlots[i], self.recGhosts[i]
+      local b, g, c = self.recSlots[i], self.recGhosts[i], self.recCatchers[i]
       local id = (i <= cols) and feed[i] or nil
       local bag, slot = R:Where(id)
       if id and bag and not b then self.cold = true end
@@ -693,6 +698,18 @@ function Pocket:Layout()
           g:Hide()
         end
       end
+      -- The same overlay the bag row carries, on the same terms: it exists only where a live
+      -- cell does, and an empty cell of the row is a ghost with no click of its own.
+      if c then
+        if live then
+          ns.SnapBox(c, size, size)
+          c:ClearAllPoints()
+          ns.SnapPoint(c, "TOPLEFT", w, "TOPLEFT", PAD + (i - 1) * step, -y)
+          c:Show()
+        else
+          c:Hide()
+        end
+      end
     end
     self.recMax = cols
     y = y + size + SPLIT
@@ -700,9 +717,10 @@ function Pocket:Layout()
     self.recLabel:Hide()
     self.recWipe:Hide()
     for i = 1, (self.recMax or 0) do
-      local b, g = self.recSlots[i], self.recGhosts[i]
+      local b, g, c = self.recSlots[i], self.recGhosts[i], self.recCatchers[i]
       if b then b.holder:Hide(); b.pkBag, b.wpeForce = nil, nil end
       if g then g:Hide() end
+      if c then c:Hide() end
     end
   end
 

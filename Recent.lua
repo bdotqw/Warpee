@@ -312,9 +312,14 @@ end
 -- the row remembered, and it has to be the link the cell is showing. A cell whose item moved
 -- on stays on the row for a few updates by design, and acting on the new occupant of that
 -- slot would be acting on the wrong item. An emptied slot reads no link and does nothing.
-local function makeCatcher(parent, index)
+--
+-- The list is drawn in two windows and each keeps its own cells, so the pool and the two
+-- field names that answer for a cell come in from the row that owns it. Everything above is
+-- the same for both, which is the point of building them here rather than twice.
+local function makeCatcher(parent, index, pool, bagKey, slotKey)
   local c = CreateFrame("Button", nil, parent)
   c.recIndex = index
+  c.recPool, c.recBagKey, c.recSlotKey = pool, bagKey, slotKey
   c:RegisterForClicks("LeftButtonUp")
   c:SetFrameLevel(parent:GetFrameLevel() + 30)
   c:EnableMouse(true)
@@ -326,19 +331,26 @@ local function makeCatcher(parent, index)
   c:SetScript("OnClick", function(s, button)
     if button ~= "LeftButton" or GetCursorInfo() then return end
     if not (IsModifiedClick("DRESSUP") or IsModifiedClick("CHATLINK")) then return end
-    local b = Rec.slots[s.recIndex]
-    if not (b and b.recBag) then return end
-    local link = C_Container.GetContainerItemLink(b.recBag, b.recSlot)
+    local b = s.recPool and s.recPool[s.recIndex]
+    local bag, slot = b and b[s.recBagKey], b and b[s.recSlotKey]
+    if not (bag and slot) then return end
+    local link = C_Container.GetContainerItemLink(bag, slot)
     if not (link and link == b.link) then return end
     -- The location goes with the link because that is how the game calls it, and its
     -- dress-up branch reaches for the location before it falls back to parsing the link.
     local loc
     if ItemLocation and ItemLocation.CreateFromBagAndSlot then
-      loc = ItemLocation:CreateFromBagAndSlot(b.recBag, b.recSlot)
+      loc = ItemLocation:CreateFromBagAndSlot(bag, slot)
     end
     HandleModifiedItemClick(link, loc)
   end)
   return c
+end
+
+-- The pocket draws the same list in cells of its own, and takes the overlay from here so
+-- there is one copy of the click rules and one place that sets the pass-through.
+function Rec:NewCatcher(parent, index, pool, bagKey, slotKey)
+  return makeCatcher(parent, index, pool, bagKey, slotKey)
 end
 
 -- The cells are container slot buttons, so they are built here, out of combat, and a
@@ -369,7 +381,7 @@ function Rec:Warm()
       self.ghosts[i] = g
     end
     if not self.catchers[i] then
-      local c = makeCatcher(frame, i)
+      local c = makeCatcher(frame, i, self.slots, "recBag", "recSlot")
       c:Hide()
       self.catchers[i] = c
     end
