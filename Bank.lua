@@ -45,6 +45,25 @@ local function bankLive(self, bankType)
   return true
 end
 
+-- A bank type can be switched off at the realm, and the game reports that through a reason
+-- of its own rather than a failed call: the bank panel asks for it and turns the answer into
+-- the prompt it draws over its own grid. The sentence is a plain global, so it arrives in the
+-- player's own language and is not ours to translate. Zero is "None", the bank is fine, and the
+-- panel's own table skips it the same way.
+local BANK_LOCKED = {}
+if Enum and Enum.BankLockedReason then
+  BANK_LOCKED[Enum.BankLockedReason.NoAccountInventoryLock] = "BANK_LOCKED_REASON_NO_ACCOUNT_INVENTORY_LOCK"
+  BANK_LOCKED[Enum.BankLockedReason.BankDisabled] = "BANK_LOCKED_REASON_BANK_DISABLED"
+  BANK_LOCKED[Enum.BankLockedReason.BankConversionFailed] = "BANK_LOCKED_REASON_BANK_CONVERSION_FAILED"
+end
+
+local function bankLockMessage(bankType)
+  if not (bankType and C_Bank and C_Bank.FetchBankLockedReason) then return nil end
+  local ok, reason = pcall(C_Bank.FetchBankLockedReason, bankType)
+  local name = ok and BANK_LOCKED[reason]
+  return name and _G[name] or nil
+end
+
 local function purchasableCost(bankType)
   if not (bankType and C_Bank and C_Bank.CanPurchaseBankTab
           and C_Bank.FetchNextPurchasableBankTabData) then return nil end
@@ -311,6 +330,13 @@ function View:Build()
   hint:Hide()
   self.hint = hint
 
+  -- The game's own sentence for a bank the realm has switched off, over the empty grid.
+  local lock = Theme:Label(f, 13, "text")
+  lock:SetWidth(ns.SnapValue(f, 300))
+  lock:SetJustifyH("CENTER")
+  lock:Hide()
+  self.lockHint = lock
+
   f:Hide()
   return f
 end
@@ -446,6 +472,13 @@ function View:AccountOnly()
     if ok and yes == false then return true end
   end
   return false
+end
+
+-- Only a live bank can be locked: a snapshot is browsable whatever the realm is doing with
+-- the bank it was taken from.
+function View:Locked()
+  if not (self.bankerOpen and not self.snap) then return nil end
+  return bankLockMessage(bankTypeFor(self.mode))
 end
 
 function View:ModeAvailable(mode)
@@ -992,7 +1025,10 @@ function View:Plan(st, size, cols, gap)
   for j = li + 1, #st.labels do st.labels[j]:Hide() end
 
   st.blank = nil
-  if n == 0 and self.snap then
+  -- A locked bank has no grid to draw whatever the client still reports for its tabs, so it
+  -- takes the placeholder the empty snapshot takes and the message sits in the middle of it.
+  local lock = self:Locked()
+  if lock or (n == 0 and self.snap) then
     local rows = 4
     for k = 1, cols * rows do
       local c = plan[k] or {}
@@ -1006,6 +1042,7 @@ function View:Plan(st, size, cols, gap)
     st.blank = true
   end
 
+  st.locked = lock
   st.planCount = n
   return n, bottom, used, total
 end
@@ -1064,6 +1101,7 @@ function View:Fonts()
   end
   put(self.freeText, -1)
   put(self.hint, 0)
+  put(self.lockHint, 0)
   if self.money then
     put(self.money, 3)
     self.money:SetFont(path, math.max(7, base + 3), Theme:IsLight() and ns.OutlineFlags() or "")
@@ -1111,7 +1149,17 @@ function View:LayoutMode(st, tag)
     self:Resize(st)
     self:UpdateMeta()
     self:UpdateFooter()
-    if self.hint then self.hint:SetShown(st.blank and true or false) end
+    local lock = st.locked
+    if st.content then st.content:SetShown(not lock) end
+    if self.hint then self.hint:SetShown((st.blank and not lock) and true or false) end
+    if self.lockHint then
+      self.lockHint:ClearAllPoints()
+      if lock then
+        self.lockHint:SetText(lock)
+        ns.SnapPoint(self.lockHint, "CENTER", st.content, "CENTER", 0, 0)
+      end
+      self.lockHint:SetShown(lock and true or false)
+    end
   end
   self:Run(st, repaint, tag)
 end
