@@ -114,7 +114,14 @@ local STRINGS = {
   ["Russian"] = "Russe",
   ["Italian"] = "Italien",
   ["Portuguese"] = "Portugais",
-  ["Lock windows"] = "Verrouiller les fenêtres",
+  ["Lock bags and bank"] = "Verrouiller les sacs et la banque",
+  ["Lock the pocket"] = "Verrouiller la poche",
+  ["Pocket X"] = "Poche X",
+  ["Pocket Y"] = "Poche Y",
+  ["Keep the pocket where it is. Unlocked, the arrows along its bottom edge nudge it around."] =
+    "Garde la poche à sa place. Déverrouillée, les flèches de son bord inférieur la déplacent.",
+  ["Where the pocket sits on screen. The same numbers the other windows show along their bottom edge."] =
+    "Où se trouve la poche à l'écran. Les mêmes nombres que ceux affichés par les autres fenêtres sur leur bord inférieur.",
   ["Hide X/Y fields"] = "Masquer les champs X/Y",
   ["Capacity bar"] = "Barre de remplissage",
   ["Hide minimap icon"] = "Masquer l'icône de la minicarte",
@@ -129,8 +136,8 @@ local STRINGS = {
     "Utilisée pour tous les textes affichés par Warpee. D'autres addons peuvent enrichir cette liste.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Langue des textes de l'addon. Les noms d'objets viennent toujours du jeu.",
-  ["Freeze every window in place. Unlocked, the bags and the bank show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
-    "Fige toutes les fenêtres à leur place. Déverrouillées, les sacs et la banque affichent des champs X et Y sur leur bord inférieur : saisissez une valeur ou ajustez avec les flèches (Maj = 10).",
+  ["Freeze the bags and the bank in place. Unlocked, they show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
+    "Fige les sacs et la banque à leur place. Déverrouillés, ils affichent des champs X et Y sur leur bord inférieur : saisissez une valeur ou ajustez avec les flèches (Maj = 10).",
   ["The windows stay movable by dragging, but the X/Y fields are not drawn."] =
     "Les fenêtres restent déplaçables à la souris, mais les champs X et Y ne sont plus affichés.",
   ["Fill bar in the bags header showing how full they are."] =

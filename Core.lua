@@ -26,6 +26,10 @@ local DEFAULTS = {
   reagentTop = false, hideReagents = false,
   pocketShow = true, pocketWithBags = false, pocketRows = 4, pocketCols = 6,
   pocketIconSize = NONE,
+  -- NONE, not false: nil here means the pocket has never been given a lock of its own, and
+  -- the login block seeds it from the lock that used to cover it. Filling it with a default
+  -- would settle that question before the migration ever gets to ask it.
+  pocketLock = NONE,
   revFill = false, fillUp = false, questMarks = true, newItemGlow = false,
   reagentTint = true, unusableBorder = true,
   goldFormat = "short", goldLetters = true, goldOnly = true,
@@ -477,6 +481,12 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if WarpeeDB.recentBags == nil then WarpeeDB.recentBags = WarpeeDB.recentShow ~= false end
     if WarpeeDB.recentPocket == nil then WarpeeDB.recentPocket = WarpeeDB.recentShow ~= false end
     WarpeeDB.recentShow = nil
+
+    -- The pocket used to be frozen by the lock that governs the bags and the bank. It is
+    -- independent now, and a save that predates that has no answer of its own: take the old
+    -- lock's answer once, so nobody's pocket starts moving on its own after an update. From
+    -- here on the two never read each other.
+    if WarpeeDB.pocketLock == nil then WarpeeDB.pocketLock = WarpeeDB.lockWindows == true end
 
     fillDefaults(WarpeeDB)
     for i = 1, #NUMERIC do

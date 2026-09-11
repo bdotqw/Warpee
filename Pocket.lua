@@ -7,6 +7,7 @@ Pocket.slots, Pocket.ghosts, Pocket.catchers = {}, {}, {}
 Pocket.recSlots, Pocket.recGhosts = {}, {}
 
 local PAD, BAND = 12, 26
+local NUDGE_BAND = 24
 local LABEL_H, LABEL_GAP, SPLIT = 13, 4, 10
 local BOX_H, BOX_GAP = 22, 8
 local MAX_COLS, MAX_ROWS = 8, 6
@@ -62,6 +63,19 @@ end
 
 function Pocket:Enabled()
   return not (WarpeeDB and WarpeeDB.pocketShow == false)
+end
+
+-- Its own lock, not the one the bags and the bank share. The pocket is dragged far more often
+-- than the two big windows, and freezing all three together meant the only way to nudge it was
+-- to unfreeze everything. The login block seeds this from the old lock once, so a save written
+-- before the split keeps the pocket where it was left.
+function Pocket:Locked()
+  return (WarpeeDB and WarpeeDB.pocketLock) and true or false
+end
+
+function Pocket:ToggleLock()
+  if WarpeeDB then WarpeeDB.pocketLock = not self:Locked() end
+  self:Layout()
 end
 
 function Pocket:Cols()
@@ -376,7 +390,10 @@ function Pocket:Build()
   w:SetMovable(true)
   w:EnableMouse(true)
   w:RegisterForDrag("LeftButton")
-  w:SetScript("OnDragStart", function(s) ns.DragStart(s) end)
+  w:SetScript("OnDragStart", function(s)
+    if Pocket:Locked() then return end
+    ns.DragMove(s)
+  end)
   w:SetScript("OnDragStop", function(s)
     if not s.wpeMoving then return end
     s.wpeMoving = nil
@@ -405,6 +422,18 @@ function Pocket:Build()
   plus:SetScript("OnClick", function() Pocket:TogglePicks() end)
   ns.AddTip(plus, ns.L["Popular"], "top")
   self.plusBtn = plus
+
+  local lock = ns.CreateGlyphButton(w, "")
+  lock:SetScript("OnClick", function() Pocket:ToggleLock() end)
+  local lockIcon = lock:CreateTexture(nil, "ARTWORK")
+  lockIcon:SetSize(15, 15)
+  lockIcon:SetPoint("CENTER")
+  ns.BadgeArt(lockIcon, "blocked")
+  lock.icon = lockIcon
+  ns.AddTip(lock, function() return ns.L["Lock the pocket"] end, "top")
+  self.lockBtn = lock
+
+  self.nudge = ns.CreateNudgeRow(w, "pocketPos")
 
   local rec = Theme:Label(w, 11, "dim")
   rec:SetJustifyH("LEFT")
@@ -599,6 +628,13 @@ function Pocket:Layout()
     ns.SnapPoint(self.plusBtn, "RIGHT", rightBtn, "LEFT", -4, 0)
     rightBtn = self.plusBtn
   end
+  if self.lockBtn then
+    self.lockBtn:ClearAllPoints()
+    ns.SnapPoint(self.lockBtn, "RIGHT", rightBtn, "LEFT", -4, 0)
+    rightBtn = self.lockBtn
+    self.lockBtn.icon:SetVertexColor(Theme:C(self:Locked() and "accent" or "dim"))
+    self.lockBtn:Show()
+  end
 
   local gen = ((Bags and Bags.styleGen) or 0) .. ":" .. tostring(path) .. ":" .. size
   local repaint = self.paintKey ~= gen
@@ -727,8 +763,13 @@ function Pocket:Layout()
   end
   self.max = n
   self:Cooldowns()
+  -- The arrows are the only way to move a pocket that is not being dragged, and they are also
+  -- what its lock hides, so the band under them is reserved only while they are up: a frozen
+  -- pocket stays as short as it always was.
+  local editable = not self:Locked()
+  if self.nudge then self.nudge:SetShown(editable) end
   local foot = gridTop + (rows - 1) * step + size + BOX_GAP
-  ns.SnapSize(w, PAD * 2 + cols * step - gap, foot + PAD)
+  ns.SnapSize(w, PAD * 2 + cols * step - gap, foot + (editable and NUDGE_BAND or PAD))
   ns.AlignToScreen(w)
 end
 

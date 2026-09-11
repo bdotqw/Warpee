@@ -114,7 +114,14 @@ local STRINGS = {
   ["Russian"] = "Русский",
   ["Italian"] = "Итальянский",
   ["Portuguese"] = "Португальский",
-  ["Lock windows"] = "Закрепить окна",
+  ["Lock bags and bank"] = "Закрепить сумки и банк",
+  ["Lock the pocket"] = "Закрепить карман",
+  ["Pocket X"] = "Карман X",
+  ["Pocket Y"] = "Карман Y",
+  ["Keep the pocket where it is. Unlocked, the arrows along its bottom edge nudge it around."] =
+    "Держит карман на месте. Если отметку снять, двигать его можно стрелками у нижнего края.",
+  ["Where the pocket sits on screen. The same numbers the other windows show along their bottom edge."] =
+    "Где карман стоит на экране. Те же числа, что показывают другие окна у нижнего края.",
   ["Hide X/Y fields"] = "Скрыть поля X/Y",
   ["Capacity bar"] = "Полоса заполнения",
   ["Hide minimap icon"] = "Скрыть иконку у миникарты",
@@ -129,8 +136,8 @@ local STRINGS = {
     "Используется для всех надписей Warpee. Другие аддоны могут добавлять шрифты в этот список.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Язык текста самого аддона. Названия предметов всегда берутся из игры.",
-  ["Freeze every window in place. Unlocked, the bags and the bank show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
-    "Закрепляет все окна на месте. Если отметку снять, у сумок и банка снизу появятся поля X и Y: значение можно ввести вручную или менять стрелками (Shift — шаг 10).",
+  ["Freeze the bags and the bank in place. Unlocked, they show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
+    "Закрепляет сумки и банк на месте. Если отметку снять, снизу появятся поля X и Y: значение можно ввести вручную или менять стрелками (Shift: шаг 10).",
   ["The windows stay movable by dragging, but the X/Y fields are not drawn."] =
     "Окна по-прежнему можно перетаскивать мышью, но поля X и Y не показываются.",
   ["Fill bar in the bags header showing how full they are."] =

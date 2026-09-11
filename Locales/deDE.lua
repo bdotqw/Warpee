@@ -103,7 +103,14 @@ local STRINGS = {
   ["Russian"] = "Russisch",
   ["Italian"] = "Italienisch",
   ["Portuguese"] = "Portugiesisch",
-  ["Lock windows"] = "Fenster fixieren",
+  ["Lock bags and bank"] = "Taschen und Bank fixieren",
+  ["Lock the pocket"] = "Ablage fixieren",
+  ["Pocket X"] = "Ablage X",
+  ["Pocket Y"] = "Ablage Y",
+  ["Keep the pocket where it is. Unlocked, the arrows along its bottom edge nudge it around."] =
+    "Hält die Ablage an ihrem Platz. Ohne Fixierung lässt sie sich mit den Pfeilen am unteren Rand verschieben.",
+  ["Where the pocket sits on screen. The same numbers the other windows show along their bottom edge."] =
+    "Wo die Ablage auf dem Bildschirm sitzt. Dieselben Zahlen, die die anderen Fenster am unteren Rand zeigen.",
   ["Hide X/Y fields"] = "X/Y-Felder ausblenden",
   ["Capacity bar"] = "Füllstandsleiste",
   ["Hide minimap icon"] = "Minikartensymbol ausblenden",
@@ -118,8 +125,8 @@ local STRINGS = {
     "Wird für jeden Text verwendet, den Warpee zeichnet. Andere Addons können diese Liste erweitern.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Sprache für die Texte des Addons. Gegenstandsnamen kommen immer aus dem Spiel.",
-  ["Freeze every window in place. Unlocked, the bags and the bank show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
-    "Hält alle Fenster an ihrem Platz. Ohne Fixierung zeigen Taschen und Bank am unteren Rand Felder für X und Y: Wert eintippen oder mit den Pfeilen ändern (Shift = 10er-Schritte).",
+  ["Freeze the bags and the bank in place. Unlocked, they show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
+    "Hält Taschen und Bank an ihrem Platz. Ohne Fixierung zeigen sie am unteren Rand Felder für X und Y: Wert eintippen oder mit den Pfeilen ändern (Shift = 10er-Schritte).",
   ["The windows stay movable by dragging, but the X/Y fields are not drawn."] =
     "Die Fenster lassen sich weiter mit der Maus verschieben, die Felder für X und Y werden aber nicht angezeigt.",
   ["Fill bar in the bags header showing how full they are."] =

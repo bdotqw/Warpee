@@ -723,11 +723,16 @@ function factories.input(parent, spec)
   box:SetMaxLetters(4)
 
   row.Refresh = function()
+    local on = not (spec.disabled and spec.disabled())
+    box:EnableMouse(on)
     fs:SetText(T(spec.name))
+    fs:SetTextColor(Theme:C(on and "text" or "faint"))
+    box:SetTextColor(Theme:C(on and "text" or "faint"))
     if not box:HasFocus() then box:SetText(tostring(spec.get() or 0)) end
   end
 
   local function apply()
+    if spec.disabled and spec.disabled() then return end
     local v = tonumber(box:GetText()) or spec.get() or 0
     if spec.min and v < spec.min then v = spec.min end
     if spec.max and v > spec.max then v = spec.max end
@@ -1712,6 +1717,32 @@ fav.pkWithSet = function(v)
   end
   relayout()
 end
+fav.pkLockGet = function() return ns.Pocket and ns.Pocket:Locked() end
+fav.pkLockSet = function(v)
+  WarpeeDB.pocketLock = v and true or false
+  if ns.Pocket then ns.Pocket:Apply() end
+end
+-- The fields carry the same numbers the bags band shows, so a value typed here means what it
+-- means there. A closed pocket has no rectangle to read, so ns.WindowCorner falls back to the
+-- anchor it was left on rather than making the fields dead whenever the window is not up.
+fav.pkXGet = function()
+  local f = ns.Pocket and ns.Pocket.frame
+  if not f then return 0 end
+  local l = ns.WindowCorner(f, "pocketPos")
+  return math.floor((l or 0) + 0.5)
+end
+fav.pkXSet = function(v)
+  if ns.Pocket and ns.Pocket.frame then ns.MoveWindowTo(ns.Pocket.frame, "pocketPos", v, nil) end
+end
+fav.pkYGet = function()
+  local f = ns.Pocket and ns.Pocket.frame
+  if not f then return 0 end
+  local _, b = ns.WindowCorner(f, "pocketPos")
+  return math.floor((b or 0) + 0.5)
+end
+fav.pkYSet = function(v)
+  if ns.Pocket and ns.Pocket.frame then ns.MoveWindowTo(ns.Pocket.frame, "pocketPos", nil, v) end
+end
 fav.pkRowsGet = function() return ns.Pocket and ns.Pocket:Rows() or 5 end
 fav.pkRowsSet = function(v)
   WarpeeDB.pocketRows = tonumber(v) or 5
@@ -1786,8 +1817,8 @@ local GENERAL_PAGE = {
   { type = "select", name = "Language", section = "interface", get = localeGet, set = localeSet,
     keys = localeKeys, label = localeLabel,
     desc = "Language for the addon's own text. Item names always come from the game." },
-  { type = "toggle", name = "Lock windows", col = 1, section = "interface", get = lockGet, set = lockSet,
-    desc = "Freeze every window in place. Unlocked, the bags and the bank show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)." },
+  { type = "toggle", name = "Lock bags and bank", col = 1, section = "interface", get = lockGet, set = lockSet,
+    desc = "Freeze the bags and the bank in place. Unlocked, they show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)." },
   { type = "toggle", name = "Hide X/Y fields", col = 2, section = "interface", get = hideFieldsGet, set = hideFieldsSet,
     disabled = function() return lockGet() end,
     desc = "The windows stay movable by dragging, but the X/Y fields are not drawn." },
@@ -1828,6 +1859,17 @@ local POCKET_PAGE = {
     get = fav.recentPocketGet, set = fav.recentPocketSet,
     disabled = function() return not fav.pkGet() end,
     desc = "A row above the pocket cells holding what came into your bags this session, apart from gray items. It is the same list the bag window shows, so clearing it in one window clears it in the other." },
+  { type = "toggle", name = "Lock the pocket", col = 2,
+    get = fav.pkLockGet, set = fav.pkLockSet,
+    disabled = function() return not fav.pkGet() end,
+    desc = "Keep the pocket where it is. Unlocked, the arrows along its bottom edge nudge it around." },
+  { type = "input", name = "Pocket X", col = 1, min = 0, max = 9999,
+    get = fav.pkXGet, set = fav.pkXSet,
+    disabled = function() return not fav.pkGet() end,
+    desc = "Where the pocket sits on screen. The same numbers the other windows show along their bottom edge." },
+  { type = "input", name = "Pocket Y", col = 2, min = 0, max = 9999,
+    get = fav.pkYGet, set = fav.pkYSet,
+    disabled = function() return not fav.pkGet() end },
   { type = "header", name = "Pocket size", key = "pocketsize" },
   { type = "range", name = "Pocket rows", min = 1, max = 6, step = 1, half = "left",
     section = "pocketsize",

@@ -104,7 +104,14 @@ local STRINGS = {
   ["Russian"] = "Russo",
   ["Italian"] = "Italiano",
   ["Portuguese"] = "Português",
-  ["Lock windows"] = "Travar janelas",
+  ["Lock bags and bank"] = "Travar bolsas e banco",
+  ["Lock the pocket"] = "Travar o bolso",
+  ["Pocket X"] = "Bolso X",
+  ["Pocket Y"] = "Bolso Y",
+  ["Keep the pocket where it is. Unlocked, the arrows along its bottom edge nudge it around."] =
+    "Mantém o bolso no lugar. Destravado, as setas na borda inferior o deslocam.",
+  ["Where the pocket sits on screen. The same numbers the other windows show along their bottom edge."] =
+    "Onde o bolso fica na tela. Os mesmos números que as outras janelas mostram na borda inferior.",
   ["Hide X/Y fields"] = "Ocultar campos X/Y",
   ["Capacity bar"] = "Barra de capacidade",
   ["Hide minimap icon"] = "Ocultar ícone do minimapa",
@@ -119,8 +126,8 @@ local STRINGS = {
     "Usada em todos os textos exibidos pelo Warpee. Outros addons podem adicionar fontes a esta lista.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Idioma dos textos do addon. Os nomes dos itens sempre vêm do jogo.",
-  ["Freeze every window in place. Unlocked, the bags and the bank show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
-    "Trava todas as janelas no lugar. Destravadas, as bolsas e o banco mostram campos X/Y na borda inferior. Digite um valor ou ajuste com as setas (Shift = 10).",
+  ["Freeze the bags and the bank in place. Unlocked, they show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
+    "Trava as bolsas e o banco no lugar. Destravados, mostram campos X/Y na borda inferior. Digite um valor ou ajuste com as setas (Shift = 10).",
   ["The windows stay movable by dragging, but the X/Y fields are not drawn."] =
     "As janelas continuam podendo ser arrastadas, mas os campos X/Y não são exibidos.",
   ["Fill bar in the bags header showing how full they are."] =

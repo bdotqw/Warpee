@@ -111,7 +111,14 @@ local STRINGS = {
   ["Russian"] = "Ruso",
   ["Italian"] = "Italiano",
   ["Portuguese"] = "Portugués",
-  ["Lock windows"] = "Fijar las ventanas",
+  ["Lock bags and bank"] = "Fijar las bolsas y el banco",
+  ["Lock the pocket"] = "Fijar el bolsillo",
+  ["Pocket X"] = "Bolsillo X",
+  ["Pocket Y"] = "Bolsillo Y",
+  ["Keep the pocket where it is. Unlocked, the arrows along its bottom edge nudge it around."] =
+    "Mantiene el bolsillo en su sitio. Sin fijar, las flechas de su borde inferior lo desplazan.",
+  ["Where the pocket sits on screen. The same numbers the other windows show along their bottom edge."] =
+    "Dónde se sitúa el bolsillo en pantalla. Los mismos números que muestran las otras ventanas en su borde inferior.",
   ["Hide X/Y fields"] = "Ocultar los campos X/Y",
   ["Capacity bar"] = "Barra de ocupación",
   ["Hide minimap icon"] = "Ocultar el icono del minimapa",
@@ -126,8 +133,8 @@ local STRINGS = {
     "Se usa en todos los textos que dibuja Warpee. Otros addons pueden añadir fuentes a esta lista.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Idioma de los textos del addon. Los nombres de los objetos siempre vienen del juego.",
-  ["Freeze every window in place. Unlocked, the bags and the bank show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
-    "Fija todas las ventanas en su sitio. Sin fijar, las bolsas y el banco muestran campos X e Y en su borde inferior: escribe un valor o ajústalo con las flechas (Mayús = 10).",
+  ["Freeze the bags and the bank in place. Unlocked, they show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
+    "Fija las bolsas y el banco en su sitio. Sin fijar, muestran campos X e Y en su borde inferior: escribe un valor o ajústalo con las flechas (Mayús = 10).",
   ["The windows stay movable by dragging, but the X/Y fields are not drawn."] =
     "Las ventanas se siguen moviendo con el ratón, pero los campos X e Y no se dibujan.",
   ["Fill bar in the bags header showing how full they are."] =

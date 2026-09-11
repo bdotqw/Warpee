@@ -154,8 +154,56 @@ end
 
 function ns.DragStart(frame)
   if ns.WindowsLocked() then return end
+  ns.DragMove(frame)
+end
+
+-- The mechanical half of a drag, without the lock check: the pocket keeps its own lock rather
+-- than the one that governs the bags and the bank, and it decides for itself when to start.
+function ns.DragMove(frame)
   frame:StartMoving()
   frame.wpeMoving = true
+end
+
+-- A window that is not on screen may have no rectangle to read, and the settings can be opened
+-- with that window closed. What is saved for it answers instead. It is stored as a corner plus
+-- an offset, which is what keeps a window in place across a screen resize, so turning it back
+-- into an absolute corner is the only way to speak the same numbers the X/Y band shows.
+local function storedCorner(frame, pos)
+  if not pos then return nil end
+  local sw = UIParent:GetWidth() or 0
+  local sh = UIParent:GetHeight() or 0
+  local w, h = frame:GetWidth() or 0, frame:GetHeight() or 0
+  local p, x, y = pos.p, pos.x or 0, pos.y or 0
+  if p == "BOTTOMLEFT" then return x, y end
+  if p == "BOTTOMRIGHT" then return sw + x - w, y end
+  if p == "TOPLEFT" then return x, sh + y - h end
+  if p == "TOPRIGHT" then return sw + x - w, sh + y - h end
+  if p == "LEFT" then return x, sh * 0.5 + y - h * 0.5 end
+  if p == "RIGHT" then return sw + x - w, sh * 0.5 + y - h * 0.5 end
+  if p == "TOP" then return sw * 0.5 + x - w * 0.5, sh + y - h end
+  if p == "BOTTOM" then return sw * 0.5 + x - w * 0.5, y end
+  return sw * 0.5 + x - w * 0.5, sh * 0.5 + y - h * 0.5
+end
+
+function ns.WindowCorner(frame, dbKey)
+  local l, b = frame:GetLeft(), frame:GetBottom()
+  if l and b then return l, b end
+  return storedCorner(frame, WarpeeDB and WarpeeDB[dbKey])
+end
+
+function ns.MoveWindowTo(frame, dbKey, nx, ny)
+  local l, b = ns.WindowCorner(frame, dbKey)
+  if not (l and b) then return end
+  frame:ClearAllPoints()
+  frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT",
+    nx or math.floor(l + 0.5), ny or math.floor(b + 0.5))
+  ns.Rebase(frame, dbKey)
+end
+
+function ns.NudgeWindow(frame, dbKey, dx, dy)
+  local l, b = ns.WindowCorner(frame, dbKey)
+  if not (l and b) then return end
+  ns.MoveWindowTo(frame, dbKey, math.floor(l + 0.5) + dx, math.floor(b + 0.5) + dy)
 end
 
 local moveBars = {}
@@ -245,46 +293,28 @@ function ns.CreateMoveBar(frame, dbKey)
   bar:SetFrameLevel(frame:GetFrameLevel() + 20)
   bar.key = dbKey
 
-  local function nudge(dx, dy)
-    local l, b = frame:GetLeft(), frame:GetBottom()
-    if not (l and b) then return end
-    frame:ClearAllPoints()
-    frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT",
-      math.floor(l + 0.5) + dx, math.floor(b + 0.5) + dy)
-    ns.Rebase(frame, dbKey)
-  end
-
-  local function moveTo(nx, ny)
-    local l, b = frame:GetLeft(), frame:GetBottom()
-    if not (l and b) then return end
-    frame:ClearAllPoints()
-    frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT",
-      nx or math.floor(l + 0.5), ny or math.floor(b + 0.5))
-    ns.Rebase(frame, dbKey)
-  end
-
   local xl = Theme:Label(bar, 11, "dim")
   xl:SetPoint("LEFT", 1, 0)
   xl:SetText("X")
   bar.xLabel = xl
-  local xf = barField(bar, function(v) moveTo(v, nil) end)
+  local xf = barField(bar, function(v) ns.MoveWindowTo(frame, dbKey, v, nil) end)
   xf:SetPoint("LEFT", xl, "RIGHT", 4, 0)
   bar.xField = xf
-  local xm = barArrow(bar, "left", function(step) nudge(-step, 0) end)
+  local xm = barArrow(bar, "left", function(step) ns.NudgeWindow(frame, dbKey, -step, 0) end)
   xm:SetPoint("LEFT", xf, "RIGHT", 2, 0)
-  local xp = barArrow(bar, "right", function(step) nudge(step, 0) end)
+  local xp = barArrow(bar, "right", function(step) ns.NudgeWindow(frame, dbKey, step, 0) end)
   xp:SetPoint("LEFT", xm, "RIGHT", 0, 0)
 
   local yl = Theme:Label(bar, 11, "dim")
   yl:SetPoint("LEFT", xp, "RIGHT", 10, 0)
   yl:SetText("Y")
   bar.yLabel = yl
-  local yf = barField(bar, function(v) moveTo(nil, v) end)
+  local yf = barField(bar, function(v) ns.MoveWindowTo(frame, dbKey, nil, v) end)
   yf:SetPoint("LEFT", yl, "RIGHT", 4, 0)
   bar.yField = yf
-  local ym = barArrow(bar, "down", function(step) nudge(0, -step) end)
+  local ym = barArrow(bar, "down", function(step) ns.NudgeWindow(frame, dbKey, 0, -step) end)
   ym:SetPoint("LEFT", yf, "RIGHT", 2, 0)
-  local yp = barArrow(bar, "up", function(step) nudge(0, step) end)
+  local yp = barArrow(bar, "up", function(step) ns.NudgeWindow(frame, dbKey, 0, step) end)
   yp:SetPoint("LEFT", ym, "RIGHT", 0, 0)
   bar:SetWidth(176)
 
@@ -315,6 +345,33 @@ function ns.ApplyWindowLock()
     bar:SetShown(show)
     if show then bar:Refresh() end
   end
+end
+
+-- The pocket is nudged far more often than it is typed at, and its window can be too narrow
+-- for the band the other two carry. Labels and fields come to about 185px, and a pocket four
+-- columns wide is 180 at factory sizes and 132 at the smallest icon, so the numbers would
+-- hang off both edges. Four arrows come to 70 and fit any width, and the coordinates live in
+-- the settings instead. Nothing here follows the global lock: the pocket decides that itself.
+function ns.CreateNudgeRow(frame, dbKey)
+  if frame.wpeNudge then return frame.wpeNudge end
+  local row = CreateFrame("Frame", nil, frame)
+  row:SetPoint("BOTTOM", frame, "BOTTOM", 0, 6)
+  row:SetFrameLevel(frame:GetFrameLevel() + 20)
+  row:SetHeight(16)
+  row:SetWidth(70)
+
+  local prev
+  for _, spec in ipairs({ { "left", -1, 0 }, { "right", 1, 0 },
+                          { "down", 0, -1 }, { "up", 0, 1 } }) do
+    local dir, dx, dy = spec[1], spec[2], spec[3]
+    local b = barArrow(row, dir, function(step)
+      ns.NudgeWindow(frame, dbKey, dx * step, dy * step)
+    end)
+    if prev then b:SetPoint("LEFT", prev, "RIGHT", 2, 0) else b:SetPoint("LEFT", 0, 0) end
+    prev = b
+  end
+  frame.wpeNudge = row
+  return row
 end
 
 function ns.CreateButton(parent, text, width, height, template, dark)

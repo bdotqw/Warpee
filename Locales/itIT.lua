@@ -106,7 +106,14 @@ local STRINGS = {
   ["Russian"] = "Russo",
   ["Italian"] = "Italiano",
   ["Portuguese"] = "Portoghese",
-  ["Lock windows"] = "Blocca le finestre",
+  ["Lock bags and bank"] = "Blocca borse e banca",
+  ["Lock the pocket"] = "Blocca la tasca",
+  ["Pocket X"] = "Tasca X",
+  ["Pocket Y"] = "Tasca Y",
+  ["Keep the pocket where it is. Unlocked, the arrows along its bottom edge nudge it around."] =
+    "Mantiene la tasca al suo posto. Se sbloccata, le frecce sul bordo inferiore la spostano.",
+  ["Where the pocket sits on screen. The same numbers the other windows show along their bottom edge."] =
+    "Dove si trova la tasca sullo schermo. Gli stessi numeri che le altre finestre mostrano sul bordo inferiore.",
   ["Hide X/Y fields"] = "Nascondi i campi X/Y",
   ["Capacity bar"] = "Barra di capienza",
   ["Hide minimap icon"] = "Nascondi l'icona della minimappa",
@@ -121,8 +128,8 @@ local STRINGS = {
     "Usato per ogni testo visualizzato da Warpee. Altri addon possono aggiungere caratteri a questo elenco.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Lingua dei testi dell'addon. I nomi degli oggetti provengono sempre dal gioco.",
-  ["Freeze every window in place. Unlocked, the bags and the bank show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
-    "Blocca tutte le finestre in posizione. Se sbloccate, le borse e la banca mostrano i campi X/Y sul bordo inferiore. Inserisci un valore o regolalo con le frecce (Maiusc = 10).",
+  ["Freeze the bags and the bank in place. Unlocked, they show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
+    "Blocca borse e banca in posizione. Se sbloccate, mostrano i campi X/Y sul bordo inferiore. Inserisci un valore o regolalo con le frecce (Maiusc = 10).",
   ["The windows stay movable by dragging, but the X/Y fields are not drawn."] =
     "Le finestre restano spostabili trascinandole, ma i campi X/Y non vengono mostrati.",
   ["Fill bar in the bags header showing how full they are."] =
