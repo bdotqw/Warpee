@@ -305,8 +305,11 @@ local function HookBagToggles()
     local ok, name = pcall(frame.GetName, frame)
     return (ok and OPEN_FRAME_KEY[name]) or nil
   end
-  hookList({ "OpenAllBags", "OpenBackpack", "OpenBag" }, function()
-    local fromToast = debugstack():find("AlertFrameSystems", 1, true)
+  -- A loot toast click is the only thing that reaches the bags through OpenBag, so the
+  -- stack is read on that one name. OpenAllBags and OpenBackpack arrive from the mail, a
+  -- merchant, the auction house or a keybind, and building a stack for them was paying
+  -- for an answer they cannot give.
+  local function fromGameOpen(fromToast)
     if ns.ItemTargeting() then
       if not (ns.Pocket and ns.Pocket.frame and ns.Pocket.frame:IsShown()) then
         ns.Toggle(true)
@@ -315,6 +318,12 @@ local function HookBagToggles()
       ns.Toggle(true)
     end
     hideBlizzBags()
+  end
+  hookList({ "OpenAllBags", "OpenBackpack" }, function()
+    fromGameOpen(false)
+  end)
+  hookList({ "OpenBag" }, function()
+    fromGameOpen(debugstack():find("AlertFrameSystems", 1, true) ~= nil)
   end)
   -- An item spell waiting for a target, an enchant or a gem, makes the game open the
   -- bags through these same calls. Only our own frame is held back here; the game's
@@ -451,10 +460,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     return
   end
   if event == "PLAYER_LOGIN" then
-    local fresh = (WarpeeDB == nil)
     WarpeeDB = WarpeeDB or {}
-    if fresh then WarpeeDB.pocketShow = false end
-
     if WarpeeDB.goldLetters == nil then
       WarpeeDB.goldLetters = WarpeeDB.goldMode == nil or WarpeeDB.goldMode == "letters"
     end

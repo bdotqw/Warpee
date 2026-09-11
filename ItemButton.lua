@@ -1421,11 +1421,11 @@ function ns.CreateBagButton(parent, bagID, size)
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
   ns.SnapBox(b, size, size)
   ns.PixelBackdrop(b)
-  b:SetBackdropColor(Theme:C("slot"))
-  b:SetBackdropBorderColor(Theme:C("stroke"))
+  ns.SetBg(b, Theme:C("slot"))
+  ns.SetEdge(b, Theme:C("stroke"))
   Theme:Track(b, function(s)
-    s:SetBackdropColor(Theme:C("slot"))
-    s:SetBackdropBorderColor(Theme:C(s.wpeHover and "accent" or "stroke"))
+    ns.SetBg(s, Theme:C("slot"))
+    ns.SetEdge(s, Theme:C(s.wpeHover and "accent" or "stroke"))
   end)
   b.wpeBagID = bagID
   local icon = b:CreateTexture(nil, "ARTWORK")
@@ -1439,7 +1439,7 @@ function ns.CreateBagButton(parent, bagID, size)
   b.cntFontSize = cf
   b:SetScript("OnEnter", function(s)
     s.wpeHover = true
-    s:SetBackdropBorderColor(Theme:C("accent"))
+    ns.SetEdge(s, Theme:C("accent"))
     if ns.Bags.HighlightBag then ns.Bags:HighlightBag(bagID) end
     GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
     if bagID == 0 then
@@ -1451,7 +1451,7 @@ function ns.CreateBagButton(parent, bagID, size)
   end)
   b:SetScript("OnLeave", function(s)
     s.wpeHover = nil
-    s:SetBackdropBorderColor(Theme:C("stroke"))
+    ns.SetEdge(s, Theme:C("stroke"))
     if ns.Bags.ClearBagHighlight then ns.Bags:ClearBagHighlight() end
     GameTooltip:Hide()
   end)
@@ -1755,7 +1755,7 @@ function ns.PaintPin(g, pin, t, btn)
     if g.cnt then g.cnt:Hide() end
     if g.ilvl then g.ilvl:Hide() end
     if g.outfit then g.outfit:Hide() end
-    g:SetBackdropBorderColor(Theme:C("emptyLine"))
+    ns.SetEdge(g, Theme:C("emptyLine"))
     return
   end
   local id = ns.ItemStubID(pin)
@@ -1764,7 +1764,7 @@ function ns.PaintPin(g, pin, t, btn)
   g.icon:SetDesaturated(gear)
   g.icon:SetAlpha(gear and 1 or 0.55)
   if g.plus then g.plus:Hide() end
-  g:SetBackdropBorderColor(Theme:C(ns.PinWorn(pin, t) and "worn" or "gone"))
+  ns.SetEdge(g, Theme:C(ns.PinWorn(pin, t) and "worn" or "gone"))
   local art = (not gear) and ns.PinTier(pin) or nil
   if g.tier then
     if art then

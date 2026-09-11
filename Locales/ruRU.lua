@@ -404,6 +404,10 @@ local STRINGS = {
   ["Drag an item here to keep it one click away"] =
     "Перетащите сюда предмет, чтобы использовать его в один клик",
   ["Ctrl + left click clears the slot"] = "Ctrl + ЛКМ освобождает ячейку",
+  ["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."] =
+    "Карман — небольшое окно с ячейками-закладками рядом с сумками. Откройте его по %s или кнопкой-сеткой в шапке.",
+  ["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."] =
+    "Карман — небольшое окно с ячейками-закладками рядом с сумками. Откройте его кнопкой-сеткой в шапке или назначьте клавишу в настройках.",
   ["Drag moves it to another slot"] = "Перетаскивание переносит в другую ячейку",
   ["No gold recorded yet"] = "Данных о золоте пока нет",
   ["Delete mode"] = "Режим удаления",

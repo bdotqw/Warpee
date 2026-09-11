@@ -598,8 +598,8 @@ function factories.keybind(parent, spec)
   btn:SetPoint("BOTTOMLEFT", 1, 0)
   btn:SetPoint("BOTTOMRIGHT", -1, 0)
   ns.PixelBackdrop(btn)
-  btn:SetBackdropColor(Theme:C("panel"))
-  btn:SetBackdropBorderColor(Theme:C("stroke"))
+  ns.SetBg(btn, Theme:C("panel"))
+  ns.SetEdge(btn, Theme:C("stroke"))
   btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 
   local cur = track(Theme:Label(btn, BASE_FONT - 1, "text"), -1)
@@ -617,14 +617,14 @@ function factories.keybind(parent, spec)
     if capturing then
       cur:SetText(T("Press a key..."))
       cur:SetTextColor(Theme:C("accent"))
-      btn:SetBackdropBorderColor(Theme:C("accent"))
+      ns.SetEdge(btn, Theme:C("accent"))
     else
       cur:SetText(keyText())
       cur:SetTextColor(Theme:C(on and "text" or "faint"))
-      btn:SetBackdropBorderColor(Theme:C("stroke"))
+      ns.SetEdge(btn, Theme:C("stroke"))
     end
     nameFS:SetTextColor(Theme:C(on and "text" or "faint"))
-    btn:SetBackdropColor(Theme:C("panel"))
+    ns.SetBg(btn, Theme:C("panel"))
   end
 
   local function stop()
@@ -662,8 +662,8 @@ function factories.keybind(parent, spec)
 
   btn:SetScript("OnEnter", function(s)
     if capturing then return end
-    s:SetBackdropColor(Theme:C("panelHi"))
-    s:SetBackdropBorderColor(Theme:C("accent"))
+    ns.SetBg(s, Theme:C("panelHi"))
+    ns.SetEdge(s, Theme:C("accent"))
   end)
   btn:SetScript("OnLeave", function(s)
     if capturing then return end
@@ -707,12 +707,12 @@ function factories.input(parent, spec)
   ns.SnapBox(box, 66, 24, true)
   ns.SnapPoint(box, "TOPRIGHT", row, "TOPRIGHT", -1, -2)
   ns.PixelBackdrop(box)
-  box:SetBackdropColor(Theme:C("bg"))
-  box:SetBackdropBorderColor(Theme:C("stroke"))
+  ns.SetBg(box, Theme:C("bg"))
+  ns.SetEdge(box, Theme:C("stroke"))
   Theme:Track(box, function(s)
-    s:SetBackdropColor(Theme:C("bg"))
+    ns.SetBg(s, Theme:C("bg"))
     s:SetTextColor(Theme:C("text"))
-    if not s:HasFocus() then s:SetBackdropBorderColor(Theme:C("stroke")) end
+    if not s:HasFocus() then ns.SetEdge(s, Theme:C("stroke")) end
   end)
   box:SetFont(dropdownFont(), BASE_FONT - 1, "")
   track(box, -1)
@@ -738,9 +738,9 @@ function factories.input(parent, spec)
 
   box:SetScript("OnEnterPressed", function(s) s:ClearFocus() end)
   box:SetScript("OnEscapePressed", function(s) s:ClearFocus(); row.Refresh() end)
-  box:SetScript("OnEditFocusGained", function(s) s:SetBackdropBorderColor(Theme:C("accent")) end)
+  box:SetScript("OnEditFocusGained", function(s) ns.SetEdge(s, Theme:C("accent")) end)
   box:SetScript("OnEditFocusLost", function(s)
-    s:SetBackdropBorderColor(Theme:C("stroke"))
+    ns.SetEdge(s, Theme:C("stroke"))
     apply()
   end)
 
@@ -882,8 +882,8 @@ function factories.select(parent, spec)
   btn:SetPoint("BOTTOMLEFT", 1, bare and 1 or 0)
   btn:SetPoint("BOTTOMRIGHT", -1, bare and 1 or 0)
   ns.PixelBackdrop(btn)
-  btn:SetBackdropColor(Theme:C("panel"))
-  btn:SetBackdropBorderColor(Theme:C("stroke"))
+  ns.SetBg(btn, Theme:C("panel"))
+  ns.SetEdge(btn, Theme:C("stroke"))
 
   local cur = track(Theme:Label(btn, BASE_FONT - 1, "text"), -1)
   cur:SetPoint("LEFT", 7, 0)
@@ -900,8 +900,8 @@ function factories.select(parent, spec)
     if nameFS then nameFS:SetText(T(spec.name)) end
     cur:SetText(T(spec.label(spec.get())) or "")
     cur:SetTextColor(Theme:C(off and "faint" or "text"))
-    btn:SetBackdropColor(Theme:C("panel"))
-    btn:SetBackdropBorderColor(Theme:C(off and "strokeSoft" or "stroke"))
+    ns.SetBg(btn, Theme:C("panel"))
+    ns.SetEdge(btn, Theme:C(off and "strokeSoft" or "stroke"))
     arrowColor(off and "faint" or "dim")
     btn:SetEnabled(not off)
   end
@@ -911,15 +911,15 @@ function factories.select(parent, spec)
     local open = dropdown and dropdown:IsShown() and dropdown.owner == s
     if spec.desc and not open then ns.ShowTip(row, { { text = spec.desc } }, "top") end
     if row.off then return end
-    s:SetBackdropColor(Theme:C("panelHi"))
-    s:SetBackdropBorderColor(Theme:C("accent"))
+    ns.SetBg(s, Theme:C("panelHi"))
+    ns.SetEdge(s, Theme:C("accent"))
     arrowColor("accent")
   end)
   btn:SetScript("OnLeave", function(s)
     ns.HideTip()
     if row.off then return end
-    s:SetBackdropColor(Theme:C("panel"))
-    s:SetBackdropBorderColor(Theme:C("stroke"))
+    ns.SetBg(s, Theme:C("panel"))
+    ns.SetEdge(s, Theme:C("stroke"))
     arrowColor("dim")
   end)
   btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
@@ -1090,8 +1090,8 @@ function factories.chars(parent, spec)
   ns.LocalText(del, "Delete mode")
   local function paintDel(hover)
     local key = row.delMode and "gaugeHi" or (hover and "accent" or "dim")
-    del:SetBackdropColor(Theme:C(hover and "panelHi" or "panel"))
-    del:SetBackdropBorderColor(Theme:C(key))
+    ns.SetBg(del, Theme:C(hover and "panelHi" or "panel"))
+    ns.SetEdge(del, Theme:C(key))
     del.Text:SetTextColor(Theme:C(key))
   end
   del:SetScript("OnEnter", function() paintDel(true) end)
@@ -1325,17 +1325,17 @@ function factories.badges(parent, spec)
   local function paintChip(c)
     local sel, on = c.wpeKey == bg.sel, ns.Badge(c.wpeKey).on
     local hover = c:IsMouseOver()
-    c:SetBackdropColor(Theme:C(hover and "panelHi" or "panel"))
-    c:SetBackdropBorderColor(Theme:C(sel and "accent" or (hover and "accentInk" or "stroke")))
+    ns.SetBg(c, Theme:C(hover and "panelHi" or "panel"))
+    ns.SetEdge(c, Theme:C(sel and "accent" or (hover and "accentInk" or "stroke")))
     c.Text:SetTextColor(Theme:C((not on) and "faint" or (sel and "accentInk" or "text")))
   end
 
   local function paint()
     local f, solo = factor(), bg.soloGet()
-    cell:SetBackdropColor(Theme:C("panel"))
-    cell:SetBackdropBorderColor(Theme:C("stroke"))
-    mark:SetBackdropColor(0, 0, 0, 0)
-    mark:SetBackdropBorderColor(Theme:C("accent"))
+    ns.SetBg(cell, Theme:C("panel"))
+    ns.SetEdge(cell, Theme:C("stroke"))
+    ns.SetBg(mark, 0, 0, 0, 0)
+    ns.SetEdge(mark, Theme:C("accent"))
     for _, d in ipairs(ns.BADGES) do
       local g, o, sel = ns.Badge(d.key), art[d.key], d.key == bg.sel
       local vis = (g.on and (sel or not solo)) and true or false
@@ -2157,12 +2157,12 @@ local PAGES = {
 local function paintTab(b)
   if b.sel then
     local def = Theme.SkinDef and Theme:SkinDef()
-    b:SetBackdropColor(Theme:C((def and def.quietTabs) and "panel" or "panelHi"))
-    b:SetBackdropBorderColor(Theme:C("accent"))
+    ns.SetBg(b, Theme:C((def and def.quietTabs) and "panel" or "panelHi"))
+    ns.SetEdge(b, Theme:C("accent"))
     b.Text:SetTextColor(Theme:C("accent"))
   else
-    b:SetBackdropColor(Theme:C("panel"))
-    b:SetBackdropBorderColor(Theme:C("stroke"))
+    ns.SetBg(b, Theme:C("panel"))
+    ns.SetEdge(b, Theme:C("stroke"))
     b.Text:SetTextColor(Theme:C("dim"))
   end
 end

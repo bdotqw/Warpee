@@ -351,8 +351,8 @@ local function tintButton(b, inkKey, edgeKey)
   local function paint(s)
     local hot = s.wpeHot and not s.offDuty
     local fade = s.offDuty
-    s:SetBackdropColor(Theme:C(hot and "panelHi" or "panel"))
-    s:SetBackdropBorderColor(Theme:C(fade and "strokeSoft"
+    ns.SetBg(s, Theme:C(hot and "panelHi" or "panel"))
+    ns.SetEdge(s, Theme:C(fade and "strokeSoft"
                                      or (hot and "accent" or (edgeKey or "stroke"))))
     if s.Text then
       s.Text:SetTextColor(Theme:C(fade and "faint" or (hot and "accent" or inkKey)))
@@ -545,14 +545,14 @@ function P:BuildPanel()
   str:SetTextColor(Theme:C("text"))
   str:SetHeight(STR_H)
   ns.PixelBackdrop(str)
-  str:SetBackdropColor(Theme:C(Theme:IsLight() and "slot" or "bg"))
-  str:SetBackdropBorderColor(Theme:C("stroke"))
+  ns.SetBg(str, Theme:C(Theme:IsLight() and "slot" or "bg"))
+  ns.SetEdge(str, Theme:C("stroke"))
   str:SetTextInsets(6, 6, 4, 4)
   str:SetPoint("TOPLEFT", reset, "BOTTOMLEFT", 0, -CODE_GAP)
   str:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -PAD, PAD)
   str:SetScript("OnEscapePressed", function(s) s:ClearFocus() end)
   Theme:Track(str, function(s)
-    s:SetBackdropColor(Theme:C(Theme:IsLight() and "slot" or "bg"))
+    ns.SetBg(s, Theme:C(Theme:IsLight() and "slot" or "bg"))
     s:SetTextColor(Theme:C("text"))
   end)
   f.str = str

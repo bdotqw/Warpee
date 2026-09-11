@@ -291,27 +291,33 @@ function ns.PixelLine(t, n, axis)
   end, "line")
 end
 
+-- A backdrop colour goes in through these two and nowhere else. The pixel job below
+-- repaints a frame from wpeBg/wpeEdge after a scale or theme move, and a colour set by
+-- another door would be lost on the next pass. Each writes the field and then calls the
+-- frame's own method untouched: a method is a field like any other, and the guild bank
+-- window is a guest we skin but do not own.
+function ns.SetBg(f, r, g, b, a)
+  if not f then return end
+  f.wpeBg = { r, g, b, a }
+  if f.SetBackdropColor then f:SetBackdropColor(r, g, b, a) end
+end
+
+function ns.SetEdge(f, r, g, b, a)
+  if not f then return end
+  f.wpeEdge = { r, g, b, a }
+  if f.SetBackdropBorderColor then f:SetBackdropBorderColor(r, g, b, a) end
+end
+
 function ns.PixelBackdrop(frame, painter)
   if not frame.SetBackdrop then Mixin(frame, BackdropTemplateMixin) end
   if not frame.SetBackdrop then return frame end
-  if not frame.wpeBdWrapped then
-    frame.wpeBdWrapped = true
-    local setBg, setEdge = frame.SetBackdropColor, frame.SetBackdropBorderColor
-    frame.wpeSetBg, frame.wpeSetEdge = setBg, setEdge
-    frame.SetBackdropColor = function(x, r, g, b, a)
-      x.wpeBg = { r, g, b, a }; setBg(x, r, g, b, a)
-    end
-    frame.SetBackdropBorderColor = function(x, r, g, b, a)
-      x.wpeEdge = { r, g, b, a }; setEdge(x, r, g, b, a)
-    end
-  end
   return ns.PixelJob(frame, function(x)
     if painter then painter(x); return end
     x:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = ns.PX(x) })
     local bgc = x.wpeBg or { Theme:C("panel") }
     local edc = x.wpeEdge or { Theme:C("stroke") }
-    x.wpeSetBg(x, bgc[1], bgc[2], bgc[3], bgc[4])
-    x.wpeSetEdge(x, edc[1], edc[2], edc[3], edc[4])
+    if x.SetBackdropColor then x:SetBackdropColor(bgc[1], bgc[2], bgc[3], bgc[4]) end
+    if x.SetBackdropBorderColor then x:SetBackdropBorderColor(edc[1], edc[2], edc[3], edc[4]) end
   end, "backdrop")
 end
 
@@ -431,22 +437,26 @@ function ns.RefreshPixels()
   restoreAll()
 end
 
-local watcher = CreateFrame("Frame")
-local lastScale = UIParent:GetEffectiveScale() or 1
-local lastPhys = physH
-local since = 0
+-- The scale is watched by events alone. UI_SCALE_CHANGED and DISPLAY_SIZE_CHANGED are
+-- registered in Core.lua, a scale cvar arrives by CVAR_UPDATE, and the two hooks below
+-- catch an addon that sets the scale straight. An OnUpdate poll used to sit here as a
+-- fourth path to the same two numbers; the events cover it, and a watch that never stops
+-- was paying every frame for a case it could not name.
 local pending = false
-local passes = 3
 local lastRun = 0
 
 local function runRefresh()
   pending = false
   lastRun = (GetTime and GetTime()) or 0
-  passes = 0
-  lastScale = UIParent:GetEffectiveScale() or lastScale
-  local _, h = GetPhysicalScreenSize()
-  if h and h > 0 then lastPhys = h end
   pcall(ns.RefreshPixels)
+  -- RefreshPixels restores the art once, at the end of its own run. The frames it
+  -- restyled are laid out again a frame or two later, so a second restore goes out
+  -- behind them. This is what the three OnUpdate passes used to do.
+  if C_Timer and C_Timer.After then
+    C_Timer.After(0.1, restoreAll)
+  else
+    restoreAll()
+  end
 end
 
 function ns.ScaleChanged()
@@ -459,22 +469,6 @@ function ns.ScaleChanged()
     runRefresh()
   end
 end
-
-watcher:SetScript("OnUpdate", function(self, dt)
-  if passes < 3 then
-    passes = passes + 1
-    if passes == 3 then restoreAll() end
-  end
-  since = since + (dt or 0)
-  if since < 0.2 then return end
-  since = 0
-  local s = UIParent:GetEffectiveScale() or 1
-  local _, h = GetPhysicalScreenSize()
-  h = (h and h > 0) and h or lastPhys
-  if math.abs(s - lastScale) > 0.0005 or h ~= lastPhys then
-    ns.ScaleChanged()
-  end
-end)
 
 hooksecurefunc(UIParent, "SetScale", function() ns.ScaleChanged() end)
 if UIParent.SetIgnoreParentScale then
@@ -993,20 +987,20 @@ function Theme:Panel(frame, bgKey, strokeKey)
         else
           x:SetBackdrop({ bgFile = WHITE,
                           insets = { left = 4, right = 4, top = 4, bottom = 4 } })
-          x:SetBackdropColor(Theme:C(bg))
+          ns.SetBg(x, Theme:C(bg))
         end
         return
       end
       x:SetBackdrop({ bgFile = TIP_BG, edgeFile = TIP_EDGE, tile = true, tileSize = 16,
                       edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
-      x:SetBackdropColor(Theme:C(bg))
-      x:SetBackdropBorderColor(1, 1, 1, 1)
+      ns.SetBg(x, Theme:C(bg))
+      ns.SetEdge(x, 1, 1, 1, 1)
       return
     end
     Theme:RefreshArt(x)
     x:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = ns.PX(x) })
-    x:SetBackdropColor(Theme:C(bg))
-    x:SetBackdropBorderColor(Theme:C(st))
+    ns.SetBg(x, Theme:C(bg))
+    ns.SetEdge(x, Theme:C(st))
   end
   ns.PixelBackdrop(frame, paint)
   track(frame, paint)

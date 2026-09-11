@@ -393,6 +393,10 @@ local STRINGS = {
   ["Drag an item here to keep it one click away"] =
     "Zieht einen Gegenstand hierher, um ihn mit einem Klick zu nutzen",
   ["Ctrl + left click clears the slot"] = "Strg + Linksklick leert den Platz",
+  ["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."] =
+    "Die Ablage ist ein kleines Fenster mit Merkfeldern neben den Taschen. Öffne sie mit %s oder der Gitterschaltfläche in der Kopfzeile.",
+  ["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."] =
+    "Die Ablage ist ein kleines Fenster mit Merkfeldern neben den Taschen. Öffne sie über die Gitterschaltfläche in der Kopfzeile oder lege eine Taste in den Einstellungen fest.",
   ["Drag moves it to another slot"] = "Ziehen verschiebt ihn auf einen anderen Platz",
   ["No gold recorded yet"] = "Noch kein Gold erfasst",
   ["Delete mode"] = "Löschmodus",

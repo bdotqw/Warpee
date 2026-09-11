@@ -169,8 +169,8 @@ end
 function Picker:Paint(keepScroll)
   if not self.frame then return end
   local k = Theme:IsLight() and "bg" or "deep"
-  self.frame:SetBackdropColor(Theme:C(k))
-  self.frame:SetBackdropBorderColor(Theme:C(k))
+  self.ns.SetBg(frame, Theme:C(k))
+  self.ns.SetEdge(frame, Theme:C(k))
   local scroll = keepScroll and self.sf:GetVerticalScroll() or 0
   local path = fontPath()
   local list = ns.Vault:WithOwner(ns.Vault:Chars(self.showHidden, self.mode))
@@ -229,16 +229,16 @@ function Picker:UpdateHiddenBorder()
   if not b then return end
   if self.showHidden then
     local r, g, b2 = Theme:C("accent")
-    b:SetBackdropColor(r, g, b2, b:IsMouseOver() and 0.32 or 0.22)
-    b:SetBackdropBorderColor(Theme:C("accent"))
+    ns.SetBg(b, r, g, b2, b:IsMouseOver() and 0.32 or 0.22)
+    ns.SetEdge(b, Theme:C("accent"))
     b.Text:SetTextColor(Theme:C("accentInk"))
   elseif b:IsMouseOver() then
-    b:SetBackdropColor(Theme:C("panelHi"))
-    b:SetBackdropBorderColor(Theme:C("accent"))
+    ns.SetBg(b, Theme:C("panelHi"))
+    ns.SetEdge(b, Theme:C("accent"))
     b.Text:SetTextColor(Theme:C("accent"))
   else
-    b:SetBackdropColor(Theme:C("panel"))
-    b:SetBackdropBorderColor(Theme:C("stroke"))
+    ns.SetBg(b, Theme:C("panel"))
+    ns.SetEdge(b, Theme:C("stroke"))
     b.Text:SetTextColor(Theme:C("dim"))
   end
 end

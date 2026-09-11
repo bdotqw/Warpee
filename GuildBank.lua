@@ -48,11 +48,11 @@ local function box(f, bgKey, strokeKey)
   ns.PixelBackdrop(f)
   if not f.SetBackdrop then return nil end
   local bg, st = bgKey or "panel", strokeKey or "stroke"
-  f:SetBackdropColor(Theme:C(bg))
-  f:SetBackdropBorderColor(Theme:C(st))
+  ns.SetBg(f, Theme:C(bg))
+  ns.SetEdge(f, Theme:C(st))
   Theme:Track(f, function(s)
-    s:SetBackdropColor(Theme:C(s.wpeLit and "panelHi" or bg))
-    s:SetBackdropBorderColor(Theme:C(s.wpeLit and "accent" or st))
+    ns.SetBg(s, Theme:C(s.wpeLit and "panelHi" or bg))
+    ns.SetEdge(s, Theme:C(s.wpeLit and "accent" or st))
     if s.wpeHl then
       s.wpeHl:SetColorTexture(Theme:C("accent"))
       s.wpeHl:SetAlpha(0.22)
@@ -88,13 +88,13 @@ local function skinButton(b, size)
   local fs = textOf(b)
   label(fs, size or 12)
   b:HookScript("OnEnter", function(s)
-    s:SetBackdropColor(Theme:C("panelHi"))
-    s:SetBackdropBorderColor(Theme:C("accent"))
+    ns.SetBg(s, Theme:C("panelHi"))
+    ns.SetEdge(s, Theme:C("accent"))
     if fs then fs:SetTextColor(Theme:C("accent")) end
   end)
   b:HookScript("OnLeave", function(s)
-    s:SetBackdropColor(Theme:C("panel"))
-    s:SetBackdropBorderColor(Theme:C("stroke"))
+    ns.SetBg(s, Theme:C("panel"))
+    ns.SetEdge(s, Theme:C("stroke"))
     if fs then fs:SetTextColor(Theme:C("text")) end
   end)
 end
@@ -102,8 +102,8 @@ end
 local function paintToggle(b)
   if not b.SetBackdrop then return end
   local hot = b.wpeLit or b.wpeHot
-  b:SetBackdropColor(Theme:C(hot and "panelHi" or "panel"))
-  b:SetBackdropBorderColor(Theme:C(hot and "accent" or "stroke"))
+  ns.SetBg(b, Theme:C(hot and "panelHi" or "panel"))
+  ns.SetEdge(b, Theme:C(hot and "accent" or "stroke"))
   if b.wpeHl then
     b.wpeHl:SetColorTexture(Theme:C("accent"))
     b.wpeHl:SetAlpha(0.22)
@@ -141,20 +141,20 @@ local function skinSlot(b)
     ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
   end
   if not box(b, "slot", "emptyLine") then return end
-  b:SetBackdropColor(0, 0, 0, 0)
+  ns.SetBg(b, 0, 0, 0, 0)
   b.bg = b:CreateTexture(nil, "BORDER", nil, -1)
   ns.SetInside(b.bg, b, 1)
   slotBg(b)
   local ib = b.IconBorder
   if ib then ib:SetAlpha(0) end
   Theme:Track(b, function(s)
-    s:SetBackdropColor(0, 0, 0, 0)
+    ns.SetBg(s, 0, 0, 0, 0)
     slotBg(s)
     local q = s.wpeQ
     if q then
-      s:SetBackdropBorderColor(q[1], q[2], q[3], 1)
+      ns.SetEdge(s, q[1], q[2], q[3], 1)
     else
-      s:SetBackdropBorderColor(Theme:C("emptyLine"))
+      ns.SetEdge(s, Theme:C("emptyLine"))
     end
     if s.wpeHl then
       s.wpeHl:SetColorTexture(Theme:C("accent"))
@@ -330,9 +330,9 @@ local function dressFrame(frame)
   ns.PixelBackdrop(frame)
   if frame.SetBackdrop then
     local r, g, b = Theme:C("bg")
-    frame:SetBackdropColor(math.min(1, r * SKIN_LIFT), math.min(1, g * SKIN_LIFT),
+    ns.SetBg(frame, math.min(1, r * SKIN_LIFT), math.min(1, g * SKIN_LIFT),
                            math.min(1, b * SKIN_LIFT), 1)
-    frame:SetBackdropBorderColor(Theme:C("stroke"))
+    ns.SetEdge(frame, Theme:C("stroke"))
   end
   if grain then
     grain:SetAlpha(GRAIN_ALPHA)
@@ -379,8 +379,8 @@ local function skinSearch(sb)
   sb:SetTextColor(Theme:C("text"))
   sb:SetTextInsets(8, 8, 0, 0)
   label(sb.Instructions, 13, "dim")
-  sb:HookScript("OnEditFocusGained", function(s) s:SetBackdropBorderColor(Theme:C("accent")) end)
-  sb:HookScript("OnEditFocusLost", function(s) s:SetBackdropBorderColor(Theme:C("stroke")) end)
+  sb:HookScript("OnEditFocusGained", function(s) ns.SetEdge(s, Theme:C("accent")) end)
+  sb:HookScript("OnEditFocusLost", function(s) ns.SetEdge(s, Theme:C("stroke")) end)
 end
 
 local function skinPopup(pop)
@@ -490,10 +490,10 @@ function Skin:PaintSlots()
           local c = (q and q >= 2 and ITEM_QUALITY_COLORS) and ITEM_QUALITY_COLORS[q] or nil
           if c then
             b.wpeQ = { c.r, c.g, c.b }
-            b:SetBackdropBorderColor(c.r, c.g, c.b, 1)
+            ns.SetEdge(b, c.r, c.g, c.b, 1)
           else
             b.wpeQ = nil
-            b:SetBackdropBorderColor(Theme:C("emptyLine"))
+            ns.SetEdge(b, Theme:C("emptyLine"))
           end
         end
       end

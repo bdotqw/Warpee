@@ -441,19 +441,19 @@ function Pocket:Build()
   for i = 1, PICK_MAX do
     local b = CreateFrame("Button", nil, picks, "BackdropTemplate")
     ns.PixelBackdrop(b)
-    b:SetBackdropColor(Theme:C("slot"))
-    b:SetBackdropBorderColor(Theme:C("emptyLine"))
+    ns.SetBg(b, Theme:C("slot"))
+    ns.SetEdge(b, Theme:C("emptyLine"))
     local function pickBorder(s)
-      s:SetBackdropBorderColor(Theme:C(s.wpePinned and "accent" or "emptyLine"))
+      ns.SetEdge(s, Theme:C(s.wpePinned and "accent" or "emptyLine"))
     end
     Theme:Track(b, function(s)
-      s:SetBackdropColor(Theme:C("slot"))
+      ns.SetBg(s, Theme:C("slot"))
       pickBorder(s)
     end)
     b:RegisterForClicks("LeftButtonUp")
     b:SetScript("OnEnter", function(s)
-      s:SetBackdropColor(Theme:C("panelHi"))
-      s:SetBackdropBorderColor(Theme:C("accent"))
+      ns.SetBg(s, Theme:C("panelHi"))
+      ns.SetEdge(s, Theme:C("accent"))
       GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
       if s.wpeID then
         GameTooltip:SetItemByID(s.wpeID)
@@ -464,7 +464,7 @@ function Pocket:Build()
       GameTooltip:Show()
     end)
     b:SetScript("OnLeave", function(s)
-      s:SetBackdropColor(Theme:C("slot"))
+      ns.SetBg(s, Theme:C("slot"))
       pickBorder(s)
       GameTooltip:Hide()
     end)
@@ -768,8 +768,8 @@ function Pocket:PickPaint()
       if ns.ItemStubID(list[j]) == id then pinned = true; break end
     end
     b.wpePinned = pinned
-    b:SetBackdropColor(Theme:C("slot"))
-    b:SetBackdropBorderColor(Theme:C(pinned and "accent" or "emptyLine"))
+    ns.SetBg(b, Theme:C("slot"))
+    ns.SetEdge(b, Theme:C(pinned and "accent" or "emptyLine"))
     b.icon:SetDesaturated(false)
     b.icon:SetAlpha(pinned and 0.55 or 1)
     local atlas = ns.PinTier(id)
@@ -915,15 +915,16 @@ local function defaultKey()
       if GetBindingKey("WARPEE_POCKET") ~= key then key = nil end
     end
   end
-  local how
+  -- The line names the key it just took, so it is built from the localized sentence with
+  -- the key spliced in, not from an English string glued to an English tail.
+  local line
   if key then
-    how = "Open it with " .. key .. " or the grid button in the header."
+    line = (ns.L["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."]):format(key)
   else
-    how = "Open it with the grid button in the header, or bind a key in the settings."
+    line = ns.L["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."]
   end
   WarpeeDB.pocketBind = true
-  print("|cffd9a85fWarpee|r |cffffffff"
-    .. "The pocket is a small window of bookmark cells beside the bags. " .. how .. "|r")
+  print("|cffd9a85fWarpee|r |cffffffff" .. line .. "|r")
 end
 
 local ev = CreateFrame("Frame")
