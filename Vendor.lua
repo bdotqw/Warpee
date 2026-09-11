@@ -32,12 +32,21 @@ local FUN = {
   [7734] = true, [10716] = true, [11905] = true, [1404] = true,
   [2820] = true, [14022] = true, [10727] = true, [10577] = true,
   [18634] = true, [18638] = true, [18639] = true, [19024] = true,
+  [19979] = true,
 }
 
 local OLDCONSUM = {
   [133576] = true, [13452] = true, [13512] = true, [6657] = true,
   [8529] = true, [127844] = true, [127843] = true, [142117] = true,
   [127846] = true, [33447] = true,
+}
+
+local PROF = {
+  [9452] = true, [12709] = true, [19901] = true,
+  [19972] = true, [19969] = true,
+  [155459] = true, [155484] = true, [155468] = true, [155476] = true,
+  [7349] = true, [10542] = true,
+  [85663] = true, [19971] = true, [34109] = true,
 }
 
 local function cosmeticArmor(classID, subID)
@@ -247,7 +256,7 @@ function Vendor:Scan(junkOnly)
         end
         if take and refundable(bag, slot) then take = false end
         if take and questItem(bag, slot) then take = false end
-        if STONE[info.itemID] or FUN[info.itemID] or OLDCONSUM[info.itemID] then take = false end
+        if STONE[info.itemID] or FUN[info.itemID] or OLDCONSUM[info.itemID] or PROF[info.itemID] then take = false end
         if classID == Enum.ItemClass.Battlepet then take = false end
         if take and self:Blocked(info.itemID) then take = false; locked = locked + 1 end
         if take then
