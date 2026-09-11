@@ -32,7 +32,7 @@ local FUN = {
   [7734] = true, [10716] = true, [11905] = true, [1404] = true,
   [2820] = true, [14022] = true, [10727] = true, [10577] = true,
   [18634] = true, [18638] = true, [18639] = true, [19024] = true,
-  [19979] = true,
+  [19979] = true, [7506] = true, [18706] = true,
 }
 
 local OLDCONSUM = {
@@ -56,7 +56,7 @@ local PROF = {
   [7349] = true, [10542] = true,
   [85663] = true, [19971] = true, [34109] = true,
   [68796] = true, [34836] = true, [116117] = true, [153203] = true,
-  [46006] = true,
+  [46006] = true, [18258] = true,
 }
 
 local function cosmeticArmor(classID, subID)
