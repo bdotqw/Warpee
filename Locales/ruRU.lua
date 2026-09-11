@@ -360,7 +360,10 @@ local STRINGS = {
   ["%d  (bags)"] = "%d  (в сумках)",
   ["Favorites"] = "Избранное",
   ["Recent"] = "Недавнее",
-  ["Recent items"] = "Недавние предметы",
+  ["Recent in bags"] = "Недавнее в сумках",
+  ["Recent in the pocket"] = "Недавнее в кармане",
+  ["A row above the pocket cells holding what came into your bags this session, apart from gray items. It is the same list the bag window shows, so clearing it in one window clears it in the other."] =
+    "Ряд над ячейками кармана, в котором лежит то, что попало в сумки за эту сессию, кроме серых предметов. Это тот же список, что показывает окно сумок, поэтому очистка в одном окне очищает и в другом.",
   ["A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
     "Ряд над избранным, в котором лежит то, что попало в сумки за эту сессию, кроме серых предметов. Каждое поступление занимает первую свободную ячейку, при переполнении уходит самое старое, а при выходе из игры или перезагрузке интерфейса ряд очищается.",
   ["POCKET"] = "КАРМАН",

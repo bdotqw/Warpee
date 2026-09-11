@@ -1684,9 +1684,14 @@ fav.showSet = function(v)
   WarpeeDB.favShow = v and true or false
   relayout()
 end
-fav.recentGet = function() return ns.Recent and ns.Recent:Enabled() end
-fav.recentSet = function(v)
-  WarpeeDB.recentShow = v and true or false
+fav.recentBagsGet = function() return ns.Recent and ns.Recent:BagsOn() end
+fav.recentBagsSet = function(v)
+  WarpeeDB.recentBags = v and true or false
+  relayout()
+end
+fav.recentPocketGet = function() return ns.Recent and ns.Recent:PocketOn() end
+fav.recentPocketSet = function(v)
+  WarpeeDB.recentPocket = v and true or false
   relayout()
 end
 fav.pkGet = function() return ns.Pocket and ns.Pocket:Enabled() end
@@ -1819,6 +1824,10 @@ local POCKET_PAGE = {
   { type = "toggle", name = "Open with bags", col = 2, get = fav.pkWithGet, set = fav.pkWithSet,
     disabled = function() return not fav.pkGet() end,
     desc = "The pocket opens together with the bags. A window that opens the bags on its own, the auction house or the mail, pushes the pocket aside until you open it yourself." },
+  { type = "toggle", name = "Recent in the pocket", col = 1,
+    get = fav.recentPocketGet, set = fav.recentPocketSet,
+    disabled = function() return not fav.pkGet() end,
+    desc = "A row above the pocket cells holding what came into your bags this session, apart from gray items. It is the same list the bag window shows, so clearing it in one window clears it in the other." },
   { type = "header", name = "Pocket size", key = "pocketsize" },
   { type = "range", name = "Pocket rows", min = 1, max = 6, step = 1, half = "left",
     section = "pocketsize",
@@ -1930,7 +1939,8 @@ local GRID_PAGE = {
     get = flow.revGet, set = flow.revSet,
     desc = "The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in." },
   { type = "header", name = "Quick access" },
-  { type = "toggle", name = "Recent items", col = 1, get = fav.recentGet, set = fav.recentSet,
+  { type = "toggle", name = "Recent in bags", col = 1,
+    get = fav.recentBagsGet, set = fav.recentBagsSet,
     desc = "A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload." },
   { type = "toggle", name = "Favorite slots", col = 2, get = fav.showGet, set = fav.showSet,
     desc = "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot." },

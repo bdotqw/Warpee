@@ -21,7 +21,7 @@ local DEFAULTS = {
   cols = 16, gap = 4, iconSize = 36, slotStyle = "plate", theme = "blizzard",
   font = "Rubik Bold",
   iconZoom = 1, borderWidth = 1, gridAlpha = 0, showGauge = false,
-  favShow = true, recentShow = true,
+  favShow = true, recentBags = true, recentPocket = true,
   qualityColorIlvl = true, qualityBorder = true, mergeReagents = false,
   reagentTop = false, hideReagents = false,
   pocketShow = true, pocketWithBags = false, pocketRows = 4, pocketCols = 6,
@@ -469,6 +469,14 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
       WarpeeDB.goldOnly = WarpeeDB.goldMode == nil or WarpeeDB.goldMode == "gold"
     end
     WarpeeDB.goldMode = nil
+
+    -- Recent was one switch for both windows, and it is two now. The split has to happen
+    -- before the defaults are filled in, because that is what would otherwise write two
+    -- "on" over the only record of the row having been off. A save that already carries
+    -- either key was written by this version, so the old value is spent either way.
+    if WarpeeDB.recentBags == nil then WarpeeDB.recentBags = WarpeeDB.recentShow ~= false end
+    if WarpeeDB.recentPocket == nil then WarpeeDB.recentPocket = WarpeeDB.recentShow ~= false end
+    WarpeeDB.recentShow = nil
 
     fillDefaults(WarpeeDB)
     for i = 1, #NUMERIC do

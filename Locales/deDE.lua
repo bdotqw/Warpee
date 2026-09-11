@@ -349,7 +349,10 @@ local STRINGS = {
   ["%d  (bags)"] = "%d  (Taschen)",
   ["Favorites"] = "Favoriten",
   ["Recent"] = "Kürzlich",
-  ["Recent items"] = "Kürzlich erhalten",
+  ["Recent in bags"] = "Kürzlich erhalten in den Taschen",
+  ["Recent in the pocket"] = "Kürzlich erhalten in der Ablage",
+  ["A row above the pocket cells holding what came into your bags this session, apart from gray items. It is the same list the bag window shows, so clearing it in one window clears it in the other."] =
+    "Eine Reihe über den Zellen der Ablage mit dem, was in dieser Sitzung in die Taschen kam, ohne graue Gegenstände. Es ist dieselbe Liste, die das Taschenfenster zeigt, ein Leeren wirkt also in beiden Fenstern.",
   ["A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
     "Eine Reihe über den Favoriten mit dem, was in dieser Sitzung in die Taschen kam, ohne graue Gegenstände. Jeder Neuzugang belegt die erste freie Zelle, bei voller Reihe fällt der älteste Eintrag heraus, und beim Abmelden oder Neuladen wird die Reihe geleert.",
   ["POCKET"] = "ABLAGE",

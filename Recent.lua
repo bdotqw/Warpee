@@ -33,9 +33,25 @@ local function itemGuid(bag, slot)
   return (ok and g) or nil
 end
 
-function Rec:Enabled()
-  return not (WarpeeDB and WarpeeDB.recentShow == false)
+-- The row is drawn in two windows out of the one list, and each window has its own switch.
+-- The key is written at login; a read that happens before that falls back to the old single
+-- switch, which meant the same thing for both windows. This file used to carry one Enabled
+-- for the pair, and that one value was doing two jobs: it hid the rows and it stopped the
+-- collection. The two are separated here on purpose, because hiding the row in one window
+-- must not stop the list the other window is still showing.
+local function flag(key)
+  local db = WarpeeDB
+  if not db then return true end
+  if db[key] == nil then return db.recentShow ~= false end
+  return db[key] ~= false
 end
+
+function Rec:BagsOn() return flag("recentBags") end
+function Rec:PocketOn() return flag("recentPocket") end
+
+-- What the collection itself watches. With both switches off this is the old "off": the list
+-- keeps its cells but takes nothing new, exactly as it did before the split.
+function Rec:Live() return self:BagsOn() or self:PocketOn() end
 
 local FREEZE
 local function frozen()
@@ -226,7 +242,7 @@ end
 local function detect()
   local counts = tally()
   bodyDiff()
-  local hold = not primed or frozen() or not Rec:Enabled()
+  local hold = not primed or frozen() or not Rec:Live()
      or (GetTime() - primed) < SETTLE
   if not primed and (C_Container.GetContainerNumSlots(0) or 0) > 0 then
     primed = GetTime()
@@ -339,13 +355,13 @@ function Rec:Hide()
 end
 
 function Rec:Height(size)
-  if not self:Enabled() then return 0 end
+  if not self:BagsOn() then return 0 end
   return LABEL_H + LABEL_GAP + (tonumber(size) or 0) + 6
 end
 
 function Rec:Feed(n)
   local out = {}
-  if not self:Enabled() then return out end
+  if not self:PocketOn() then return out end
   for i = 1, MAX_SLOTS do
     if cells[i] then out[#out + 1] = cells[i] end
   end
@@ -375,7 +391,7 @@ function Rec:Apply(bags, x, top, size, gap)
   self.args = { bags = bags, x = x, top = top, size = size, gap = gap }
   local n = capacity()
   compact(n)
-  if not self:Enabled() then
+  if not self:BagsOn() then
     self:Hide()
     return 0
   end

@@ -605,7 +605,7 @@ function Pocket:Layout()
   self.paintKey = gen
 
   local R = ns.Recent
-  local recOn = (R and R:Enabled()) and true or false
+  local recOn = (R and R:PocketOn()) and true or false
   local y = head
   if recOn then
     self.recLabel:SetFont(path, 11, "")
