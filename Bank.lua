@@ -894,11 +894,20 @@ function View:OpenTabSettings(bag)
   if InCombatLockdown() then return end
   local pop = self:TabSettings()
   if not pop then return end
+  -- The strip of bank tabs hangs off the window's right edge, and the menu opened at that
+  -- edge sat on top of the icon the player had just right clicked. It opens past the top tab
+  -- instead, and past the window itself when there is no strip to clear.
+  local anchor
+  for _, b in ipairs(self.tabBtns or {}) do
+    if b:IsShown() then anchor = b break end
+  end
   pop:ClearAllPoints()
-  if self.frame and self.frame:IsShown() then
-    ns.SnapPoint(pop, "TOPLEFT", self.frame, "TOPRIGHT", 8, 0)
-  else
+  if not (self.frame and self.frame:IsShown()) then
     pop:SetPoint("CENTER")
+  elseif anchor then
+    ns.SnapPoint(pop, "TOPLEFT", anchor, "TOPRIGHT", 8, 0)
+  else
+    ns.SnapPoint(pop, "TOPLEFT", self.frame, "TOPRIGHT", 8, 0)
   end
   -- The game's own path, so a second right click on the tab that is already open closes the
   -- popup instead of moving it. A right click on another tab while it is up retargets it:
