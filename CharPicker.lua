@@ -169,8 +169,8 @@ end
 function Picker:Paint(keepScroll)
   if not self.frame then return end
   local k = Theme:IsLight() and "bg" or "deep"
-  self.ns.SetBg(frame, Theme:C(k))
-  self.ns.SetEdge(frame, Theme:C(k))
+  ns.SetBg(self.frame, Theme:C(k))
+  ns.SetEdge(self.frame, Theme:C(k))
   local scroll = keepScroll and self.sf:GetVerticalScroll() or 0
   local path = fontPath()
   local list = ns.Vault:WithOwner(ns.Vault:Chars(self.showHidden, self.mode))
