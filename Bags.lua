@@ -45,7 +45,7 @@ function Bags:FlowHeader()
   if not self.frame then return end
   local row1 = ROW1_Y + Theme:TopInset() + Theme:HeadDrop()
   self.headEdge = ns.FlowRow(self.frame, -PAD, -row1, 4,
-    { self.closeBtn, self.gearBtn, self.bagsToggle, self.bankBtn,
+    { self.closeBtn, self.gearBtn, self.bagsToggle, self.reagentBtn,
       self.pocketBtn, self.sellBtn, self.sortBtn })
 end
 
@@ -56,6 +56,13 @@ function Bags:AnchorHeader()
   if self.charTag then
     self.charTag:ClearAllPoints()
     ns.SnapPoint(self.charTag, "TOPLEFT", self.frame, "TOPLEFT", PAD, -row1)
+  end
+  -- The bank button stands with the character list now, and the slot count reads after it.
+  -- Both follow the tag, so they are chained here rather than at build time: the tag is
+  -- placed on every layout, and a point written once would have been left behind.
+  if self.bankBtn and self.charTag then
+    self.bankBtn:ClearAllPoints()
+    ns.SnapPoint(self.bankBtn, "LEFT", self.charTag, "RIGHT", 10, 0)
   end
   if self.gaugeBg then
     self.gaugeBg:ClearAllPoints()
@@ -192,8 +199,32 @@ function Bags:Build()
   end
   self.bagsToggle = bagsToggle
 
+  -- Reagents, on the switch the settings already had. The icon is the reagent bag itself and
+  -- the button reads as a toggle: while the bag is left out of the grid the icon sits dull,
+  -- the way the other off buttons do.
+  local reags = ns.CreateGlyphButton(f, "", HB, "icon")
+  reags:SetPoint("TOPRIGHT", bagsToggle, "TOPLEFT", -4, 0)
+  reags:SetScript("OnClick", function() Bags:ToggleReagents() end)
+  addTip(reags, "Hide reagents")
+  local reagsIcon = reags:CreateTexture(nil, "ARTWORK")
+  local reagsAtlas = C_Texture and C_Texture.GetAtlasInfo
+                     and C_Texture.GetAtlasInfo("bags-icon-reagents")
+  if reagsAtlas then
+    reagsIcon:SetAtlas("bags-icon-reagents")
+  else
+    reagsIcon:SetTexture("Interface\\Icons\\INV_Misc_Bag_EnchantedMageweave")
+  end
+  reagsIcon:SetSize(20, 20)
+  reagsIcon:SetPoint("CENTER")
+  reags.icon = reagsIcon
+  reags.wpeIconPaint = function(s) Bags:PaintReagents(s) end
+  self.reagentBtn = reags
+  Bags:PaintReagents(reags)
+
+  -- The bank button left this row and hangs off the character tag instead. The point written
+  -- here is only a placeholder until the first AnchorHeader, which owns it.
   local bank = ns.CreateGlyphButton(f, "", HB, "icon")
-  bank:SetPoint("TOPRIGHT", bagsToggle, "TOPLEFT", -4, 0)
+  bank:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -ROW1_Y)
   bank:SetScript("OnClick", function() if ns.ToggleBank then ns.ToggleBank() end end)
   ns.AddTip(bank, "Bank / Warband", "top", function(s)
     if s:IsEnabled() then return nil end
@@ -217,7 +248,7 @@ function Bags:Build()
   end
   self.bankBtn = bank
 
-  sort:SetPoint("TOPRIGHT", bank, "TOPLEFT", -4, 0)
+  sort:SetPoint("TOPRIGHT", reags, "TOPLEFT", -4, 0)
 
   local sell = ns.CreateGlyphButton(f, "", HB, "icon")
   sell:SetPoint("TOPRIGHT", sort, "TOPLEFT", -4, 0)
@@ -269,7 +300,7 @@ function Bags:Build()
   self.charTag = charTag
 
   local slots = Theme:Label(f, 12, "dim")
-  slots:SetPoint("LEFT", charTag, "RIGHT", 10, 0)
+  slots:SetPoint("LEFT", bank, "RIGHT", 10, 0)
   slots:SetJustifyH("LEFT")
   self.slotText = slots
 
@@ -411,6 +442,30 @@ function Bags:ToggleBagWindow()
   self:LayoutBagWindow()
   w:Show()
   self:UpdateBagBar()
+end
+
+function Bags:ReagentsHidden() return self.hideReagents and true or false end
+
+-- The icon carries the state: full colour while the reagent bag is in the grid, dull once it
+-- is left out. Called from the button's own Repaint as well, so a theme or a profile change
+-- arrives here without the header having to know about it.
+function Bags:PaintReagents(b)
+  b = b or self.reagentBtn
+  if not (b and b.icon) then return end
+  local off = self:ReagentsHidden()
+  b.icon:SetVertexColor(Theme:IconTint())
+  b.icon:SetDesaturated(off)
+  b.icon:SetAlpha(off and 0.45 or 1)
+end
+
+-- The same key the settings row writes, from the other end of the window. Layout is the whole
+-- of it: nothing outside the bag grid reads this, and the pocket and the bank keep their own.
+function Bags:ToggleReagents()
+  local v = not self:ReagentsHidden()
+  self.hideReagents = v
+  if WarpeeDB then WarpeeDB.hideReagents = v end
+  if self.frame and self.frame:IsShown() then self:Layout() else self:PaintReagents() end
+  if ns.Options and ns.Options.Refresh then ns.Options:Refresh() end
 end
 
 function Bags:Acquire(i)
@@ -592,6 +647,7 @@ function Bags:Layout(capture)
   for j = i + 1, #active do active[j].holder:Hide() end
   for _, b in ipairs(idle) do if b.holder:IsShown() then b.holder:Hide() end end
   if self.sortBtn then self.sortBtn:SetShown(not self.snap) end
+  if self.reagentBtn then self:PaintReagents() end
   if self.pocketBtn then
     self.pocketBtn:SetShown((ns.Pocket and ns.Pocket:Enabled()) and true or false)
   end
@@ -850,7 +906,10 @@ function Bags:FitHeader()
   self.search:Show()
   if self.slotText and self.charTag then
     local edge = self.headEdge and self.headEdge:GetLeft()
-    local from = self.charTag:GetRight()
+    -- The count sits after the bank button now, so that is the edge it has to clear. The tag
+    -- is the fallback for a frame built before that button existed.
+    local anchor = self.bankBtn or self.charTag
+    local from = anchor:GetRight()
     local show = true
     if edge and from then
       show = (edge - from - 16) >= math.ceil(self.slotText:GetStringWidth())
