@@ -605,10 +605,17 @@ function View:DiagWatch(source, oldMode, newMode)
   if not self.bankerOpen then return end
   local native = self:BlizzMode()
   local ok = native ~= nil
+  local E = Enum and Enum.BankType
+  local cbOk, cbYes = false, nil
+  if E and C_Bank and C_Bank.CanViewBank then
+    cbOk, cbYes = pcall(C_Bank.CanViewBank, E.Character)
+  end
   diagStore({ seq = diagSeq, dt = math.floor(((GetTime() or 0) - diagOpenT) * 10) / 10,
     src = source, ok = ok and true or false, nat = native,
     old = oldMode, show = newMode, dep = self.depositType,
     combat = InCombatLockdown() and true or false,
+    canbank = (cbOk and cbYes) and true or false,
+    avail = self:ModeAvailable(newMode or self.mode) and true or false,
     tabs = (BLIZZ_TAB.bank and "b" or "-") .. (BLIZZ_TAB.warband and "w" or "-") })
   if ok and native and not self.snap and native ~= newMode then
     local sig = diagSeq .. native .. (newMode or "?")
