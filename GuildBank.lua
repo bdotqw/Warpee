@@ -386,11 +386,18 @@ end
 local function skinPopup(pop)
   if not pop or pop.wpeSkin then return end
   pop.wpeSkin = true
+  -- The template wears two frames, an outer one and a BorderBox inside it. Both are muted, so
+  -- the panel below is the only surface: with the inner one left up, Blizzard's metal frame sat
+  -- on top of our fill with a margin of the fill showing all the way around it.
   muteArt(pop)
   if pop.NineSlice then pop.NineSlice:SetAlpha(0) end
   if pop.Border then muteArt(pop.Border) end
-  Theme:Panel(pop, "bg", "stroke")
   local bb = pop.BorderBox
+  if bb then
+    muteArt(bb)
+    if bb.NineSlice then bb.NineSlice:SetAlpha(0) end
+  end
+  Theme:Panel(pop, "bg", "stroke")
   skinButton((bb and bb.OkayButton) or pop.OkayButton or _G.GuildBankPopupOkayButton)
   skinButton((bb and bb.CancelButton) or pop.CancelButton or _G.GuildBankPopupCancelButton)
   label((bb and bb.IconSelectorEditBox) or _G.GuildBankPopupEditBox, 13)
