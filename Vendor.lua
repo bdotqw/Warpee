@@ -41,6 +41,14 @@ local OLDCONSUM = {
   [127846] = true, [33447] = true,
 }
 
+local RUNE = {
+  [118630] = true, [118631] = true, [118632] = true,
+  [128482] = true, [128475] = true, [140587] = true, [153023] = true,
+  [160053] = true, [174906] = true, [181468] = true, [190384] = true,
+  [201325] = true, [211495] = true, [224572] = true, [246492] = true,
+  [243191] = true, [259085] = true,
+}
+
 local PROF = {
   [9452] = true, [12709] = true, [19901] = true,
   [19972] = true, [19969] = true,
@@ -258,7 +266,7 @@ function Vendor:Scan(junkOnly)
         end
         if take and refundable(bag, slot) then take = false end
         if take and questItem(bag, slot) then take = false end
-        if STONE[info.itemID] or FUN[info.itemID] or OLDCONSUM[info.itemID] or PROF[info.itemID] then take = false end
+        if STONE[info.itemID] or FUN[info.itemID] or OLDCONSUM[info.itemID] or PROF[info.itemID] or RUNE[info.itemID] then take = false end
         if classID == Enum.ItemClass.Battlepet then take = false end
         if take and self:Blocked(info.itemID) then take = false; locked = locked + 1 end
         if take then
