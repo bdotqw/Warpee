@@ -397,6 +397,10 @@ local function skinPopup(pop)
   skinClose(pop.CloseButton, pop)
 end
 
+-- The bank tab settings popup is the same game template as this one, so both are skinned
+-- here and the two cannot drift apart.
+ns.SkinIconPopup = skinPopup
+
 local function try(fn, ...)
   if fn then pcall(fn, ...) end
 end

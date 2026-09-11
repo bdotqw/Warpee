@@ -182,7 +182,7 @@ function View:Build()
   f:SetScript("OnHide", function()
     ns.ClearSearch(self.search)
     self.depositType = nil
-    if self.tabEditFrame then self.tabEditFrame:Hide() end
+    self:HideTabSettings()
     if ns.CharPicker then ns.CharPicker:Close() end
     if ns.Vault:SetView("bank", nil) then self:UpdateCharBtn() end
     ns.RefreshBagDim()
@@ -507,7 +507,7 @@ function View:SelectTab(bag)
     WarpeeDB.bankTabSel = WarpeeDB.bankTabSel or {}
     WarpeeDB.bankTabSel[mode] = bag or nil
   end
-  if self.tabEditFrame then self.tabEditFrame:Hide() end
+  self:HideTabSettings()
   if self.frame and self.frame:IsShown() then self:Layout() end
 end
 
@@ -702,6 +702,7 @@ function View:SetMode(mode)
     end
     return
   end
+  self:HideTabSettings()
   self.mode = mode
   self:ApplySnap()
   self:UpdateTabs()
@@ -763,7 +764,7 @@ function View:RefreshStrip()
         GameTooltip:Hide()
       end)
       b:SetScript("OnClick", function(s, button)
-        if button == "RightButton" then self:OpenTabEdit(s, s.wpeBag)
+        if button == "RightButton" then self:OpenTabSettings(s.wpeBag)
         else self:SelectTab(s.wpeBag) end
       end)
       ns.AddTip(b, function(s) return s.wpeTip end, "left", function()
@@ -802,301 +803,49 @@ function View:RefreshStrip()
   for j = #entries + 1, #self.tabBtns do self.tabBtns[j]:Hide() end
 end
 
-local TAB_ICONS = {
-  [[Interface\MoneyFrame\UI-GoldIcon]],
-  [[Interface\MoneyFrame\UI-SilverIcon]],
-  [[Interface\MoneyFrame\UI-CopperIcon]],
-  [[Interface\PaperDoll\UI-PaperDoll-Slot-Bag]],
-  [[Interface\Icons\INV_Misc_Bag_08]],
-  [[Interface\Icons\INV_Misc_Gear_01]],
-  [[Interface\Icons\INV_Misc_Note_01]],
-  [[Interface\Icons\inv_misc_gem_amethyst_02]],
-  [[Interface\Icons\INV_Ore_FelIron]],
-  [[Interface\Icons\INV_Misc_Map_01]],
-  [[Interface\Icons\INV_Misc_QuestionMark]],
-  [[Interface\Icons\INV_Misc_Bag_09]],
-  [[Interface\Icons\INV_Misc_Bag_10]],
-  [[Interface\Icons\INV_Misc_Bag_11]],
-  [[Interface\Icons\INV_Misc_Coin_01]],
-  [[Interface\Icons\INV_Misc_Coin_02]],
-  [[Interface\Icons\INV_Misc_Gem_Amethyst_01]],
-  [[Interface\Icons\INV_Misc_Gem_Amethyst_03]],
-  [[Interface\Icons\INV_Alchemy_Elixir_01]],
-  [[Interface\Icons\INV_Alchemy_Elixir_02]],
-  [[Interface\Icons\INV_Ore_Copper_01]],
-  [[Interface\Icons\INV_Fabric_Wool_01]],
-  [[Interface\Icons\INV_Scroll_02]],
-}
-local EDIT_W, EDIT_PAD = 220, 10
-local EDIT_COLS, EDIT_SIZE, EDIT_GAP = 6, 30, 4
-
-function View:BuildTabEdit()
-  local f = self.tabEditFrame
-  if f then return f end
-  f = CreateFrame("Frame", "WarpeeBankTabEdit", UIParent, "BackdropTemplate")
-  Theme:Panel(f, "bg", "stroke")
-  Theme:Window(f)
-  f:SetFrameStrata("DIALOG")
-  f:SetClampedToScreen(true)
-  f:EnableMouse(true)
-  f:Hide()
-  ns.EscClose(f)
-  self.tabEditFrame = f
-
-  local title = Theme:Title(f, 14, "accent")
-  title:SetPoint("TOPLEFT", EDIT_PAD, -8)
-  self.tabEditTitle = title
-
-  local close = ns.CreateGlyphButton(f, "×", 22)
-  close:SetPoint("TOPRIGHT", -6, -6)
-  close:SetScript("OnClick", function() f:Hide() end)
-
-  local prev = f:CreateTexture(nil, "ARTWORK")
-  prev:SetSize(40, 40)
-  prev:SetPoint("TOPLEFT", EDIT_PAD, -30)
-  prev:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-  self.tabEditPrev = prev
-
-  local name = ns.CreateSearchBox(f, nil, "Tab name")
-  name:SetPoint("TOPLEFT", prev, "TOPRIGHT", 6, -9)
-  name:SetPoint("TOPRIGHT", f, "TOPRIGHT", -EDIT_PAD, -39)
-  name:SetHeight(22)
-  name:SetScript("OnEnterPressed", function(s) s:ClearFocus(); self:SaveTabEdit() end)
-  self.tabEditName = name
-
-  local gridTop = 78
-  local GRID_H = 5 * EDIT_SIZE + 4 * EDIT_GAP
-  local icons = {}
-  if IconDataProviderMixin and IconDataProviderExtraType then
-    local ok, prov = pcall(CreateAndInitFromMixin, IconDataProviderMixin, IconDataProviderExtraType.None)
-    if ok and prov and prov.GetNumIcons then
-      local okN, n = pcall(prov.GetNumIcons, prov)
-      if okN and n then
-        for i = 1, math.min(n, 480) do
-          local okI, p = pcall(prov.GetIconByIndex, prov, i)
-          if okI and p then icons[#icons + 1] = p end
-        end
-      end
-      if prov.Release then pcall(prov.Release, prov) end
-    end
+-- The tab editor is the game's own settings menu, the same popup the macro and guild bank
+-- windows open, so the icon list and its search, the deposit settings and the write back
+-- are all the game's, and none of it has to be kept in step with a patch from here.
+--
+-- Two things have to happen before it can be opened from our strip. It is a child of
+-- BankPanel and BankFrame lives in the hidden holder, so nothing inside that panel is ever
+-- drawn; it is parented out to UIParent for that, which costs nothing because the game
+-- reads the panel off the BankPanel global rather than down the parent chain. And it is
+-- handed to the guild bank's popup skinner once, so the two popups of one template cannot
+-- drift apart.
+function View:TabSettings()
+  local panel = BankFrame and BankFrame.BankPanel
+  local pop = panel and panel.TabSettingsMenu
+  if not (pop and pop.OnOpenTabSettingsRequested) then return nil end
+  if not pop.wpeMoved then
+    pop.wpeMoved = true
+    pop:SetParent(UIParent)
+    pop:SetFrameStrata("DIALOG")
+    pop:SetClampedToScreen(true)
+    if ns.SkinIconPopup then pcall(ns.SkinIconPopup, pop) end
   end
-  if #icons == 0 then for i = 1, #TAB_ICONS do icons[i] = TAB_ICONS[i] end end
-
-  local grid = CreateFrame("ScrollFrame", nil, f)
-  ns.SnapBox(grid, EDIT_COLS * (EDIT_SIZE + EDIT_GAP) - EDIT_GAP, GRID_H)
-  ns.SnapPoint(grid, "TOPLEFT", f, "TOPLEFT", EDIT_PAD, -gridTop)
-  grid:SetClampedToScreen(true)
-  grid:EnableMouseWheel(true)
-  local child = CreateFrame("Frame", nil, grid)
-  child:SetSize(EDIT_COLS * (EDIT_SIZE + EDIT_GAP) - EDIT_GAP, GRID_H)
-  grid:SetScrollChild(child)
-  self.tabEditGrid = grid
-
-  local rows = math.ceil(#icons / EDIT_COLS)
-  child:SetHeight(rows * (EDIT_SIZE + EDIT_GAP))
-
-  self.tabEditBtns = {}
-  for i, p in ipairs(icons) do
-    local b = CreateFrame("Button", nil, child, "BackdropTemplate")
-    ns.SnapBox(b, EDIT_SIZE, EDIT_SIZE)
-    ns.PixelBackdrop(b)
-    ns.SetBg(b, Theme:C("slot"))
-    ns.SetEdge(b, Theme:C("emptyLine"))
-    local pick = function(s)
-      ns.SetEdge(s, Theme:C(s.wpeOn and "accent" or "emptyLine"))
-    end
-    Theme:Track(b, function(s)
-      ns.SetBg(s, Theme:C("slot"))
-      pick(s)
-    end)
-    local ic = b:CreateTexture(nil, "ARTWORK")
-    ic:SetPoint("TOPLEFT", 2, -2)
-    ic:SetPoint("BOTTOMRIGHT", -2, 2)
-    ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    ic:SetTexture(p)
-    b.wpeIconPath = p
-    b.wpeIconID = (GetFileIDFromPath and GetFileIDFromPath(p)) or p
-    b:RegisterForClicks("LeftButtonUp")
-    b:SetScript("OnEnter", function(s)
-      ns.SetBg(s, Theme:C("panelHi"))
-      ns.SetEdge(s, Theme:C("accent"))
-    end)
-    b:SetScript("OnLeave", function(s)
-      ns.SetBg(s, Theme:C("slot"))
-      pick(s)
-    end)
-    b:SetScript("OnClick", function(s)
-      if self.tabEdit then self.tabEdit.icon = s.wpeIconID end
-      self:PaintTabEdit()
-    end)
-    local col, row = (i - 1) % EDIT_COLS, math.floor((i - 1) / EDIT_COLS)
-    ns.SnapPoint(b, "TOPLEFT", child, "TOPLEFT",
-      col * (EDIT_SIZE + EDIT_GAP), -row * (EDIT_SIZE + EDIT_GAP))
-    self.tabEditBtns[i] = b
-  end
-
-  local bar = CreateFrame("Frame", nil, f)
-  ns.PixelBackdrop(bar)
-  ns.SetBg(bar, Theme:C("strokeSoft"))
-  ns.SnapBox(bar, 4, GRID_H)
-  ns.SnapPoint(bar, "LEFT", grid, "RIGHT", 5, 0)
-  local thumb = CreateFrame("Frame", nil, bar)
-  ns.PixelBackdrop(thumb)
-  ns.SetBg(thumb, Theme:C("accentInk"))
-  local function paintBar()
-    local max = child:GetHeight() - GRID_H
-    if max <= 0 then bar:Hide(); return end
-    bar:Show()
-    local th = math.max(18, GRID_H * GRID_H / child:GetHeight())
-    ns.SnapSize(thumb, 4, th)
-    thumb:ClearAllPoints()
-    ns.SnapPoint(thumb, "TOPLEFT", bar, "TOPLEFT", 0, -((GRID_H - th) * grid:GetVerticalScroll() / max))
-  end
-  grid:SetScript("OnVerticalScroll", paintBar)
-  grid:SetScript("OnMouseWheel", function(s, delta)
-    local max = child:GetHeight() - GRID_H
-    if max <= 0 then return end
-    local v = s:GetVerticalScroll() - delta * 34
-    s:SetVerticalScroll(math.max(0, math.min(max, v)))
-  end)
-  paintBar()
-
-  local link = ns.CreateSearchBox(f, nil, "Icon ID / item link")
-  link.wpeLinkID = true
-  link:SetHeight(22)
-  link:SetScript("OnEnterPressed", function(s)
-    self:TakeTabIcon(s:GetText())
-    s:SetText("")
-    s:ClearFocus()
-  end)
-  link:SetScript("OnEscapePressed", function(s)
-    s:SetText("")
-    s:ClearFocus()
-  end)
-  self.tabEditLink = link
-  link.Hint:SetText("")
-  link.Hint:SetAlpha(0)
-  local linkCap = Theme:Label(f, 11, "dim")
-  ns.LocalText(linkCap, "Icon ID / item link")
-  self.tabEditLinkCap = linkCap
-
-  local save = ns.CreateButton(f, ns.L["Save"], 80, 22)
-  ns.LocalText(save, "Save")
-  save:SetScript("OnClick", function() self:SaveTabEdit() end)
-  self.tabEditSave = save
-
-  local cancel = ns.CreateButton(f, ns.L["Cancel"], 80, 22)
-  ns.LocalText(cancel, "Cancel")
-  cancel:SetScript("OnClick", function() f:Hide() end)
-  self.tabEditCancel = cancel
-
-  local linkTop = gridTop + GRID_H + 8
-  self.tabEditLinkCap:ClearAllPoints()
-  ns.SnapPoint(self.tabEditLinkCap, "TOPLEFT", f, "TOPLEFT", EDIT_PAD, -linkTop)
-  local linkTop2 = linkTop + 14
-  link:ClearAllPoints()
-  ns.SnapPoint(link, "TOPLEFT", f, "TOPLEFT", EDIT_PAD, -linkTop2)
-  ns.SnapPoint(link, "TOPRIGHT", f, "TOPRIGHT", -EDIT_PAD, -linkTop2)
-  cancel:ClearAllPoints()
-  ns.SnapPoint(cancel, "BOTTOMLEFT", f, "BOTTOMLEFT", EDIT_PAD, EDIT_PAD)
-  save:ClearAllPoints()
-  ns.SnapPoint(save, "BOTTOMRIGHT", f, "BOTTOMRIGHT", -EDIT_PAD, EDIT_PAD)
-  ns.SnapSize(f, EDIT_W, linkTop2 + 22 + 8 + 22 + EDIT_PAD)
-  return f
+  return pop
 end
 
-function View:PaintTabEdit()
-  local e = self.tabEdit
-  local f = self.tabEditFrame
-  if not (e and f) then return end
-  -- A tab nobody has named draws its tooltip label instead, so the editor is never a blank
-  -- box: the placeholder is for reading, and it is not what the save writes back.
-  self.tabEditTitle:SetText((e.name ~= "" and e.name) or e.label or "")
-  self.tabEditPrev:SetTexture(e.icon or TAB_FALLBACK_ICON)
-  for _, b in ipairs(self.tabEditBtns) do
-    b.wpeOn = (b.wpeIconID == e.icon) or nil
-    ns.SetEdge(b, Theme:C(b.wpeOn and "accent" or "emptyLine"))
-  end
+function View:HideTabSettings()
+  local pop = self:TabSettings()
+  if pop and pop:IsShown() then pop:Hide() end
 end
 
-function View:OpenTabEdit(anchor, bag)
+function View:OpenTabSettings(bag)
   if bag == nil or not (self.bankerOpen and not self.snap) then return end
   if InCombatLockdown() then return end
-  local f = self:BuildTabEdit()
-  local meta = self:LiveTabMeta(self.mode) or {}
-  local raw = meta[bag]
-  local m = raw or {}
-  self.tabEdit = {
-    bag = bag, mode = self.mode,
-    -- Whether the game answered for this tab at all. Without it the icon and the deposit
-    -- flags below are ours, not the tab's, and save has nothing to write back.
-    live = raw and true or false,
-    icon = m.icon or TAB_FALLBACK_ICON,
-    flags = m.depositFlags or 0,
-    name = m.name or "",
-    label = anchor.wpeTip,
-  }
-  local path = ns.Fonts:Current()
-  self.tabEditTitle:SetFont(path, 14, "")
-  self.tabEditName:SetFont(path, 13, "")
-  if self.tabEditName.Hint then self.tabEditName.Hint:SetFont(path, 13, "") end
-  self.tabEditLink:SetFont(path, 13, "")
-  if self.tabEditLink.Hint then self.tabEditLink.Hint:SetFont(path, 13, "") end
-  self.tabEditLinkCap:SetFont(path, 11, "")
-  self.tabEditSave.Text:SetFont(path, 12, "")
-  self.tabEditCancel.Text:SetFont(path, 12, "")
-  self.tabEditName:SetText(self.tabEdit.name or "")
-  self.tabEditLink:SetText("")
-  self:PaintTabEdit()
-  f:ClearAllPoints()
-  ns.SnapPoint(f, "TOPLEFT", anchor, "TOPRIGHT", 6, 0)
-  f:Show()
-end
-
-function View:TakeTabIcon(text)
-  local e = self.tabEdit
-  if not e then return end
-  local s = tostring(text or "")
-  local item = tonumber(s:match("item:(%d+)"))
-  if item and C_Item and C_Item.GetItemIconByID then
-    local ok, tex = pcall(C_Item.GetItemIconByID, item)
-    if ok and tex then
-      e.icon = tex
-      self:PaintTabEdit()
-    end
-    return
+  local pop = self:TabSettings()
+  if not pop then return end
+  pop:ClearAllPoints()
+  if self.frame and self.frame:IsShown() then
+    ns.SnapPoint(pop, "TOPLEFT", self.frame, "TOPRIGHT", 8, 0)
+  else
+    pop:SetPoint("CENTER")
   end
-  local fid = tonumber(s:match("^%s*(%d+)%s*$"))
-  if fid and fid > 0 then
-    e.icon = fid
-    self:PaintTabEdit()
-  end
-end
-
-function View:SaveTabEdit()
-  local e = self.tabEdit
-  local f = self.tabEditFrame
-  if not e then if f then f:Hide() end return end
-  if self.tabEditLink then self:TakeTabIcon(self.tabEditLink:GetText()) end
-  -- An editor that opened without the game's own read of this tab holds our placeholders in
-  -- its icon and its deposit flags, and the name box may be empty because the tab really has
-  -- no name. Writing that back would name the tab after the placeholder and wipe its
-  -- auto-deposit filters, so nothing is written and the window stays up instead.
-  if not (e.live and not InCombatLockdown()) then return end
-  local bt = bankTypeFor(e.mode)
-  if not (bt and C_Bank and C_Bank.UpdateBankTabSettings) then f:Hide(); return end
-  local name = ""
-  if self.tabEditName then name = self.tabEditName:GetText() or "" end
-  -- The game hands the icon out as a file id but its own caller passes the texture path, so
-  -- the number is resolved back to a path here. A path can never be harmed by this.
-  local icon = e.icon or TAB_FALLBACK_ICON
-  if type(icon) == "number" and C_Texture and C_Texture.GetFilenameFromFileDataID then
-    local got, p = pcall(C_Texture.GetFilenameFromFileDataID, icon)
-    if got and type(p) == "string" then icon = p end
-  end
-  if pcall(C_Bank.UpdateBankTabSettings, bt, e.bag, name, icon, e.flags or 0) then
-    f:Hide()
-  end
+  -- The game's own open path, so a second right click on the tab that is already open
+  -- closes the popup instead of moving it.
+  pop:OnOpenTabSettingsRequested(bag)
 end
 
 function View:Activate(mode)
@@ -1647,6 +1396,7 @@ function View:OpenSnapshot(mode)
 end
 
 function View:OnBankClosed()
+  self:HideTabSettings()
   -- A snapshot is local and browsable without a banker, so losing the banker while
   -- looking at someone else's bank keeps the window and only drops the live parts.
   self.depositType = nil
