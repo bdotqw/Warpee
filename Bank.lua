@@ -920,6 +920,15 @@ function View:OpenTabSettings(bag)
 end
 
 function View:Activate(mode)
+  if self.bankerOpen and not self.snap then
+    local bm = self:BlizzMode()
+    if bm and bm ~= mode and self:ModeAvailable(bm) then
+      mode = bm
+      self.mode = bm
+      self:ApplySnap()
+      self:UpdateTabs()
+    end
+  end
   local st = self:State(mode)
   local prev = self.cur
   if prev and prev ~= st then
@@ -935,6 +944,7 @@ function View:Activate(mode)
   self.gridBg:SetPoint("BOTTOMRIGHT", st.content, "BOTTOMRIGHT", 3, -3)
   self.gridBg:SetAlpha(Theme:GridAlpha())
   self:Layout()
+  self:PinBlizzTabs()
 end
 
 function View:Acquire(st, i)

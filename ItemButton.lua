@@ -1381,7 +1381,6 @@ end
 function ns.ApplySearchToButton(b, filters, blocked)
   if not b then return end
   local miss = (blocked or (filters and not ns.MatchSearch(b.meta, filters))) and true or false
-  if b.searchMiss == miss then return end
   b.searchMiss = miss
   b:SetAlpha(miss and 0.20 or 1)
   SetItemButtonDesaturated(b, miss)
