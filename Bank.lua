@@ -1392,15 +1392,6 @@ function View:Sort()
   if PlaySound and SOUNDKIT and SOUNDKIT.UI_BAG_SORTING_01 then
     PlaySound(SOUNDKIT.UI_BAG_SORTING_01)
   end
-  -- The game's own cleanup button asks before it rearranges a bank that has tabs, and this
-  -- glyph sits four pixels from the settings gear: one slip would rewrite every tab with no
-  -- way back. The same question, then the same call, and the popup reads the bank type off
-  -- the game itself, which is the type asked for here too.
-  if GetCVarBool and GetCVarBool("bankConfirmTabCleanUp")
-     and StaticPopupSpecial_Show and BankCleanUpConfirmationPopup then
-    StaticPopupSpecial_Show(BankCleanUpConfirmationPopup)
-    return
-  end
   if C_Container.SortBank then
     C_Container.SortBank(bt)
   elseif self.mode == "warband" then
