@@ -593,6 +593,34 @@ function View:BlizzMode()
   return (acct and bt == acct) and "warband" or "bank"
 end
 
+local diagSeq, diagOpenT, diagSig = 0, 0, nil
+local function diagStore(rec)
+  if not WarpeeDB then return end
+  local t = WarpeeDB.desyncLog
+  if type(t) ~= "table" then t = {}; WarpeeDB.desyncLog = t end
+  t[#t + 1] = rec
+  while #t > 20 do table.remove(t, 1) end
+end
+function View:DiagWatch(source, oldMode, newMode)
+  if not self.bankerOpen then return end
+  local native = self:BlizzMode()
+  local ok = native ~= nil
+  diagStore({ seq = diagSeq, dt = math.floor(((GetTime() or 0) - diagOpenT) * 10) / 10,
+    src = source, ok = ok and true or false, nat = native,
+    old = oldMode, show = newMode, dep = self.depositType,
+    combat = InCombatLockdown() and true or false,
+    tabs = (BLIZZ_TAB.bank and "b" or "-") .. (BLIZZ_TAB.warband and "w" or "-") })
+  if ok and native and not self.snap and native ~= newMode then
+    local sig = diagSeq .. native .. (newMode or "?")
+    if diagSig ~= sig then
+      diagSig = sig
+      print("|cffd9a85fWarpee|r bank view out of sync: shows " .. tostring(newMode) .. ", game has " .. native)
+    end
+  else
+    diagSig = nil
+  end
+end
+
 -- Every line in here is load bearing, so keep the lot:
 --   the tab system moves into our window because a button only takes mouse input while its
 --     whole parent chain is shown, and BankFrame itself stays in the hidden holder so its
@@ -671,7 +699,9 @@ function View:AttachBlizzTabs()
         self:UpdateTabs()
       end)
       btn:HookScript("OnClick", function()
-        if self.frame and self.frame:IsShown() then self:SetMode(mode) end
+        if not (self.frame and self.frame:IsShown()) then return end
+        self:DiagWatch("blizztab", self.mode, mode)
+        self:SetMode(mode)
       end)
     end
   end
@@ -687,7 +717,9 @@ function View:AttachBlizzTabs()
     hooksecurefunc(F.BankPanel, "SetBankType", function(_, bt)
       local acct = Enum and Enum.BankType and Enum.BankType.Account
       local want = (acct and bt == acct) and "warband" or "bank"
-      if self.frame and self.frame:IsShown() then self:SetMode(want) end
+      if not (self.frame and self.frame:IsShown()) then return end
+      self:DiagWatch("banktype", self.mode, want)
+      self:SetMode(want)
     end)
   end
   self:PinBlizzTabs()
@@ -725,6 +757,7 @@ end
 
 function View:SetMode(mode)
   if not self:ModeAvailable(mode) then return end
+  local oldMode = self.mode
   if mode == self.mode and self.cur then
     -- Clicking the tab of the mode already on screen is the way out of another
     -- character's snapshot: with the banker still open it asks for the live view
@@ -733,12 +766,14 @@ function View:SetMode(mode)
       self:UpdateCharBtn()
       if self:ApplySnap() then self:Activate(self.mode) else self:Repaint() end
     end
+    self:DiagWatch("snapback", mode, mode)
     return
   end
   self:HideTabSettings()
   self.mode = mode
   self:ApplySnap()
   self:UpdateTabs()
+  self:DiagWatch("view", oldMode, mode)
   self:Activate(mode)
 end
 
@@ -1456,6 +1491,9 @@ function View:Place()
 end
 
 function View:OnBankOpened()
+  diagSeq = diagSeq + 1
+  diagOpenT = GetTime() or 0
+  diagSig = nil
   self:Build()
   self:BuildBuyButtons()
   ns.Vault:SetView("bank", nil)
@@ -1469,6 +1507,7 @@ function View:OnBankOpened()
   self.frame:Show()
   Theme:Raise(self.frame)
   self:Activate(self.mode)
+  self:DiagWatch("open", nil, self.mode)
   if not self:AccountOnly() then ns.Vault:Capture("bank") end
   if ns.WarbandActive() then ns.Vault:Capture("warband") end
   if not self:AccountOnly() then ns.Vault:SetTabs("bank", self:LiveTabMeta("bank")) end
