@@ -164,6 +164,9 @@ function Bags:Build()
     ns.AddTip(btn, txt, "top")
   end
 
+  -- The left cluster is built first, because the two things that follow it hang off the tag:
+  -- the reagent switch and the slot count. AnchorHeader moves the tag on every layout and
+  -- both follow, so neither needs a point written a second time.
   local charTag = ns.CreateCharTag(f, HB, "left")
   charTag:SetPoint("TOPLEFT", PAD, -ROW1_Y)
   charTag:SetScript("OnClick", function(s) Bags:ToggleCharPicker(s) end)
@@ -219,6 +222,11 @@ function Bags:Build()
   end
   self.bagsToggle = bagsToggle
 
+  -- Reagents, on the switch the settings already had. It stands with the tag and the count
+  -- rather than in the button row: the count still includes the reagent slots while they are
+  -- hidden, so the control that hides the block belongs beside the number that keeps counting
+  -- it. The row is also the wrong place for an eighth button, since it is already wider than
+  -- the narrowest the window can be.
   local reags = ns.CreateGlyphButton(f, "", HB, "icon")
   reags:SetPoint("LEFT", charTag, "RIGHT", 4, 0)
   reags:SetScript("OnClick", function() Bags:ToggleReagents() end)
