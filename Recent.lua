@@ -3,7 +3,7 @@ local Theme = ns.Theme
 
 local Rec = {}
 ns.Recent = Rec
-Rec.slots, Rec.ghosts = {}, {}
+Rec.slots, Rec.ghosts, Rec.catchers = {}, {}, {}
 
 local LABEL_H, LABEL_GAP = 13, 4
 local MAX_SLOTS = 24
@@ -292,11 +292,60 @@ local function detect()
   for g in pairs(guidNow) do guidHad[g] = true end
 end
 
+-- The row is a stack of live container buttons and it keeps the right button alone, so a
+-- left click cannot lift an item off it. That also costs the two left-click gestures a slot
+-- normally answers, and this overlay buys those two back without buying back the rest.
+--
+-- The overlay owns the left button and passes the right one down to the cell, so a right
+-- click still reaches the game's own handler with no addon code in its path.
+-- SetPassThroughButtons is refused during combat lockdown, so it is set once, here, when the
+-- overlay is built, and never touched again: a pool that was not ready before the fight
+-- cannot be made ready during it, and the whole pool is built beside the cells in Warm.
+--
+-- What it adds is a modified left click, and only the two kinds the row wants: dress up and
+-- insert into chat. Everything else is swallowed deliberately. An ordinary left click does
+-- nothing, so no item is picked up; nothing is registered for drag, so the overlay cannot be
+-- dragged; there is no receive handler, so an item dragged in from the grid is not dropped
+-- onto the row and stays on the cursor; middle and extra buttons die here as well.
+--
+-- The link is read from the live slot at the moment of the click rather than from anything
+-- the row remembered, and it has to be the link the cell is showing. A cell whose item moved
+-- on stays on the row for a few updates by design, and acting on the new occupant of that
+-- slot would be acting on the wrong item. An emptied slot reads no link and does nothing.
+local function makeCatcher(parent, index)
+  local c = CreateFrame("Button", nil, parent)
+  c.recIndex = index
+  c:RegisterForClicks("LeftButtonUp")
+  c:SetFrameLevel(parent:GetFrameLevel() + 30)
+  c:EnableMouse(true)
+  c:EnableKeyboard(false)
+  if c.SetPassThroughButtons then c:SetPassThroughButtons("RightButton") end
+  -- Hover is not the overlay's to take: the cell's own OnEnter owns the tooltip, and this
+  -- lets the motion through to it instead of stopping here.
+  if c.SetPropagateMouseMotion then c:SetPropagateMouseMotion(true) end
+  c:SetScript("OnClick", function(s, button)
+    if button ~= "LeftButton" or GetCursorInfo() then return end
+    if not (IsModifiedClick("DRESSUP") or IsModifiedClick("CHATLINK")) then return end
+    local b = Rec.slots[s.recIndex]
+    if not (b and b.recBag) then return end
+    local link = C_Container.GetContainerItemLink(b.recBag, b.recSlot)
+    if not (link and link == b.link) then return end
+    -- The location goes with the link because that is how the game calls it, and its
+    -- dress-up branch reaches for the location before it falls back to parsing the link.
+    local loc
+    if ItemLocation and ItemLocation.CreateFromBagAndSlot then
+      loc = ItemLocation:CreateFromBagAndSlot(b.recBag, b.recSlot)
+    end
+    HandleModifiedItemClick(link, loc)
+  end)
+  return c
+end
+
 -- The cells are container slot buttons, so they are built here, out of combat, and a
 -- redraw only moves and re-ids them after that. A button made during a fight is
 -- tainted for good. The row keeps the right button for using the item and leaves the
--- template's own drag alone, and it owns no click handler and no overlay, which is why
--- SetPassThroughButtons, the call that is refused in combat, never appears in this file.
+-- template's own drag alone, and the left button lives on the overlay above each cell,
+-- which is the only place in this file that calls SetPassThroughButtons.
 function Rec:Warm()
   local bags = ns.Bags
   local frame = bags and bags.frame
@@ -318,6 +367,11 @@ function Rec:Warm()
       ns.RecMark(g)
       g:Hide()
       self.ghosts[i] = g
+    end
+    if not self.catchers[i] then
+      local c = makeCatcher(frame, i)
+      c:Hide()
+      self.catchers[i] = c
     end
   end
   if not self.clear then
@@ -348,9 +402,10 @@ function Rec:Hide()
   if self.label then self.label:Hide() end
   if self.clear then self.clear:Hide() end
   for i = 1, MAX_SLOTS do
-    local b, g = self.slots[i], self.ghosts[i]
+    local b, g, c = self.slots[i], self.ghosts[i], self.catchers[i]
     if b then b.holder:Hide(); b.recBag = nil end
     if g then g:Hide() end
+    if c then c:Hide() end
   end
 end
 
@@ -422,10 +477,11 @@ function Rec:Apply(bags, x, top, size, gap)
   for i = 1, MAX_SLOTS do
     local id = (i <= n) and cells[i] or nil
     local bag, slot = id and locBag[id], id and locSlot[id]
-    local b, g = self.slots[i], self.ghosts[i]
+    local b, g, c = self.slots[i], self.ghosts[i], self.catchers[i]
     local px = x + (i - 1) * (size + gap)
     if id and bag and not b then self.cold = true end
-    if id and bag and b then
+    local live = (id and bag and b) and true or false
+    if live then
       if b.recBag ~= bag or b.recSlot ~= slot then
         b.recBag, b.recSlot, b.wpeBagID = bag, slot, bag
         b.holder:SetID(bag)
@@ -451,6 +507,18 @@ function Rec:Apply(bags, x, top, size, gap)
         g:Show()
       elseif g then
         g:Hide()
+      end
+    end
+    -- The overlay exists only where a live cell does. An empty cell of the row is a ghost
+    -- rather than a drop target, so it gets no overlay and answers no click.
+    if c then
+      if live then
+        ns.SnapBox(c, size, size)
+        c:ClearAllPoints()
+        ns.SnapPoint(c, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
+        c:Show()
+      else
+        c:Hide()
       end
     end
   end
