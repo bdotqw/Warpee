@@ -1,5 +1,11 @@
 # Warpee
 
+## 4.0
+
+Fixes
+
+- The character picker no longer errors on open
+
 ## 3.0
 
 New
