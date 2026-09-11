@@ -47,6 +47,8 @@ local PROF = {
   [155459] = true, [155484] = true, [155468] = true, [155476] = true,
   [7349] = true, [10542] = true,
   [85663] = true, [19971] = true, [34109] = true,
+  [68796] = true, [34836] = true, [116117] = true, [153203] = true,
+  [46006] = true,
 }
 
 local function cosmeticArmor(classID, subID)
