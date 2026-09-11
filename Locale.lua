@@ -88,10 +88,10 @@ function ns.Upper(s)
         return "\195" .. string.char(b - 32)
       end
     elseif a == 208 then
-      -- Cyrillic а through п, the low half of the alphabet.
+      -- Cyrillic U+0430 through U+043F, the low half of the alphabet.
       if b >= 176 and b <= 191 then return "\208" .. string.char(b - 32) end
     elseif a == 209 then
-      -- Cyrillic р through я, then ё on its own.
+      -- Cyrillic U+0440 through U+044F, then U+0451 on its own.
       if b >= 128 and b <= 143 then return "\208" .. string.char(b + 32) end
       if b == 145 then return "\208\129" end
     end
