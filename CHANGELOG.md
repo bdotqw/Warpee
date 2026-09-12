@@ -1,5 +1,11 @@
 # Warpee
 
+## 6.0
+
+Fixes
+
+- The character picker draws as one piece again: its rows no longer float over other windows when they overlap
+
 ## 5.1
 
 New
