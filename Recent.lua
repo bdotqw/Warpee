@@ -207,14 +207,19 @@ end
 local shed, shedAt, body = {}, {}, {}
 local SHED = 3
 
+-- Returns whether any body slot answered at all, which is what tells a real empty inventory
+-- apart from the client not being ready to answer.
 local function bodyDiff()
   local f = GetInventoryItemID
+  if not f then return true end
   local cut = GetTime() - SHED
   for id, t in pairs(shedAt) do
     if t < cut then shed[id], shedAt[id] = nil, nil end
   end
+  local seen = false
   for s = 1, 19 do
-    local now = f and f("player", s) or nil
+    local now = f("player", s)
+    if now then seen = true end
     local was = body[s]
     body[s] = now
     if was and was ~= now then
@@ -232,6 +237,7 @@ local function bodyDiff()
       wornN = wornN + 1
     end
   end
+  return seen
 end
 
 local function pardon(id, delta)
@@ -251,7 +257,14 @@ local soon
 
 local function detect()
   local counts = tally()
-  bodyDiff()
+  local seen = bodyDiff()
+  -- A pass that reads no item and no equipment at once is the client between worlds, not an
+  -- emptied inventory: around a loading screen the container calls and the equipment calls
+  -- go away together, and the pass is over before either answers again. Judged on its own it
+  -- would drop everything the row knows, and the lot walks back in as arrivals the moment the
+  -- read returns, which is the whole inventory arriving as new. Such a pass decides nothing,
+  -- and it is not worth asking for another look on either.
+  if not (next(counts) or next(guidNow) or seen) then return end
   local hold = not primed or frozen() or not Rec:Live()
      or (GetTime() - primed) < SETTLE
   if not primed and (C_Container.GetContainerNumSlots(0) or 0) > 0 then
