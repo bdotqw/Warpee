@@ -720,7 +720,7 @@ local LOWER_STRATA = { TOOLTIP = "FULLSCREEN_DIALOG", FULLSCREEN_DIALOG = "DIALO
                        DIALOG = "HIGH", HIGH = "MEDIUM", MEDIUM = "LOW", LOW = "BACKGROUND" }
 
 local function sinkArt(frame, art)
-  local under = LOWER_STRATA[frame:GetFrameStrata() or ""] or "MEDIUM"
+  local under = frame.wpeArtStrata or LOWER_STRATA[frame:GetFrameStrata() or ""] or "MEDIUM"
   art:SetFrameStrata(under)
   art:SetFrameLevel(1)
 end
