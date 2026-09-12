@@ -1,6 +1,6 @@
 # Warpee
 
-## 5.0
+## 5.1
 
 New
 
@@ -12,6 +12,7 @@ New
 
 Fixes
 
+- Walking into a dungeon with a vendor, the auction house or the mail open no longer sends part of the bags into the recent row as new arrivals
 - A cell of the recent row leaves with its item: equip or use the last one and the cell and its Clear button go together, instead of staying behind
 - The bank window stays in step with the game's own tab while the banker is open, so coming back to the warband bank no longer leaves the window on the other one: the search dim marks the grid you are looking at, and a right click deposits into that same bank
 - A slot that is emptied stops carrying the search dim
