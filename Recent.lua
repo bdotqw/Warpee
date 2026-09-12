@@ -348,6 +348,7 @@ local function makeCatcher(parent, index, pool, bagKey, slotKey)
   c.recIndex = index
   c.recPool, c.recBagKey, c.recSlotKey = pool, bagKey, slotKey
   c:RegisterForClicks("LeftButtonUp")
+  c:RegisterForDrag("LeftButton")
   c:SetFrameLevel(parent:GetFrameLevel() + 30)
   c:EnableMouse(true)
   c:EnableKeyboard(false)
@@ -370,6 +371,26 @@ local function makeCatcher(parent, index, pool, bagKey, slotKey)
       loc = ItemLocation:CreateFromBagAndSlot(bag, slot)
     end
     HandleModifiedItemClick(link, loc)
+  end)
+  -- Outgoing drag only, and only the plain kind. C_Container.PickupContainerItem is
+  -- not a protected call, but it runs here solely from this hardware drag event, out
+  -- of combat, with an empty cursor, no item targeting and no modified click held, so
+  -- no secure path can read anything this handler wrote. A stale cell refuses on a
+  -- link mismatch, and there is deliberately no receive handler: nothing from the
+  -- grid may be dropped onto the row.
+  c:SetScript("OnDragStart", function(s, button)
+    if button and button ~= "LeftButton" then return end
+    if IsModifiedClick() then return end
+    if InCombatLockdown() then return end
+    if CursorHasItem() then return end
+    if GetCursorInfo() then return end
+    if ns.ItemTargeting() then return end
+    local b = s.recPool and s.recPool[s.recIndex]
+    local bag, slot = b and b[s.recBagKey], b and b[s.recSlotKey]
+    if not (bag and slot) then return end
+    local link = C_Container.GetContainerItemLink(bag, slot)
+    if not (link and link == b.link) then return end
+    C_Container.PickupContainerItem(bag, slot)
   end)
   return c
 end

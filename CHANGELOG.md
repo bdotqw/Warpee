@@ -5,6 +5,7 @@
 Fixes
 
 - The character picker draws as one piece again: its rows no longer float over other windows when they overlap
+- Items in the recent row can be dragged out again: plain left click still takes nothing, Ctrl + left click shows the dressing room and Shift + left click links into chat
 
 ## 5.1
 
