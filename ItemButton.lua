@@ -429,13 +429,13 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
   -- button instead, which takes the game's animated quest border off a quest item. The mark is
   -- taken from the atlas sheet and not from the game's own quest picture: that picture has a
   -- glow painted around the glyph, and a glow baked into the art cannot be switched off.
-  -- Size and nudge are written for a 37 slot, the size the game's own mark is cut for. FitOverlays
-  -- holds both as a share of our slot and lays them on again whenever the slot is repainted.
+  -- Size and nudge are the share of a slot the game's own mark holds; FitOverlays lays them on
+  -- again on every pass, so the mark is cut for our slot at whatever size that slot is.
   suppress(b.IconQuestTexture);   suppress(_G[nm.."IconQuestTexture"])
   local quest = b.borderFrame:CreateTexture(nil, "OVERLAY", nil, 6)
   quest:SetAtlas("Crosshair_Quest_64")
   quest:SetSize(28, 28)
-  quest:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", -3, 2)
+  quest:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", -5, 1)
   quest:Hide()
   b.wpeQuest = quest
   muteAnim(b.flashAnim)
@@ -692,16 +692,15 @@ function ns.FitOverlays(b)
   fit(b.IconOverlay2 or _G[nm .. "IconOverlay2"])
   -- The cell changes size with the window setting, so the mark is measured off the cell on every
   -- pass. The atlas carries a margin of its own, so the texture is laid under the cell at a share
-  -- of it rather than at full size: the glyph then lands near the two thirds of the cell the
-  -- game's own mark takes, which is where it reads the same size as the game. The nudge off the
-  -- corner is a share of the cell too: held in plain pixels it thins out as the cell grows, and
-  -- that reads as the mark sliding towards the middle of the slot.
+  -- of it rather than at full size: the glyph then lands at the two thirds of the cell the game's
+  -- own mark takes. The nudge puts the middle of the mark where the game's own middle sits, 24% in
+  -- from the left edge and 41% up from the bottom, both as a share of the cell, so neither the size
+  -- nor the place drifts when the cell is resized.
   if b.wpeQuest then
     local h = b:GetHeight() or 37
-    local k = h / 37
     local s = math.max(10, math.floor(h * 0.76 + 0.5))
     b.wpeQuest:SetSize(s, s)
-    b.wpeQuest:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", -3 * k, 2 * k)
+    b.wpeQuest:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", -0.14 * h, 0.03 * h)
   end
   fitToIcon(b.NewItemTexture or _G[nm .. "NewItemTexture"], ic)
   fitToIcon(b.BattlepayItemTexture or _G[nm .. "BattlepayItemTexture"], ic)
