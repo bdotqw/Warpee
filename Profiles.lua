@@ -401,7 +401,7 @@ function P:BuildPanel()
   f:EnableMouse(true)
   f:SetMovable(true)
   f:RegisterForDrag("LeftButton")
-  f:SetScript("OnDragStart", function(s) ns.DragStart(s) end)
+  f:SetScript("OnDragStart", function(s) ns.DragMove(s) end)
   f:SetScript("OnDragStop", function(s)
     if not s.wpeMoving then return end
     s.wpeMoving = nil
