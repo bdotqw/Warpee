@@ -214,7 +214,7 @@ local function showGoldTip(anchor)
     t.sep2:SetPoint("TOPRIGHT", -TIP_PAD, -y)
     t.sep2:Show()
     y = y + 4
-    row(ns.L["WoW Token"], ns.FormatMoney(token, true, true), "azure")
+    row(ns.L["WoW Token"], ns.FormatMoney(token, true, true), "dim")
   elseif t.sep2 then
     t.sep2:Hide()
   end
