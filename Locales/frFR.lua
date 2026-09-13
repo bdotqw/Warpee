@@ -231,6 +231,10 @@ local STRINGS = {
     "Une bordure autour de chaque objet dans la couleur de sa qualité.",
   ["Blizzard quest art: a mark for unaccepted quests, a border for quest items."] =
     "Graphismes de quête de Blizzard : un point d'exclamation pour les quêtes non acceptées, une bordure pour les objets de quête.",
+  ["A border around every item in its quality color. Quest items take the quest gold instead."] =
+    "Une bordure autour de chaque objet dans la couleur de sa qualité. Les objets de quête prennent à la place la teinte dorée du point d'exclamation.",
+  ["The game's exclamation mark on quests you have not picked up yet."] =
+    "Le point d'exclamation du jeu sur les quêtes que vous n'avez pas encore acceptées.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Lueur de la couleur de qualité sur les objets que le jeu considère encore comme nouveaux.",
   ["Tint the slots of the reagent bag and the reagent bank."] =

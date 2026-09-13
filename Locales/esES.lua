@@ -228,6 +228,10 @@ local STRINGS = {
     "Un borde alrededor de cada objeto con el color de su calidad.",
   ["Blizzard quest art: a mark for unaccepted quests, a border for quest items."] =
     "Gráficos de misión de Blizzard: un signo de exclamación para las misiones sin aceptar y un borde para los objetos de misión.",
+  ["A border around every item in its quality color. Quest items take the quest gold instead."] =
+    "Un borde alrededor de cada objeto con el color de su calidad. Los objetos de misión llevan en su lugar el dorado del signo de exclamación.",
+  ["The game's exclamation mark on quests you have not picked up yet."] =
+    "El signo de exclamación del juego en las misiones que aún no has aceptado.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Brillo del color de la calidad en los objetos que el juego todavía cuenta como nuevos.",
   ["Tint the slots of the reagent bag and the reagent bank."] =

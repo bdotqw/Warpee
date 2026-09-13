@@ -231,6 +231,10 @@ local STRINGS = {
     "Рамка цвета качества вокруг каждого предмета.",
   ["Blizzard quest art: a mark for unaccepted quests, a border for quest items."] =
     "Штатная графика заданий: восклицательный знак для непринятых заданий, рамка для предметов заданий.",
+  ["A border around every item in its quality color. Quest items take the quest gold instead."] =
+    "Рамка цвета качества вокруг каждого предмета. У предметов заданий она золотая, как восклицательный знак.",
+  ["The game's exclamation mark on quests you have not picked up yet."] =
+    "Штатный восклицательный знак на заданиях, которые ещё не приняты.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Свечение цвета качества на предметах, которые игра ещё считает новыми.",
   ["Tint the slots of the reagent bag and the reagent bank."] =
