@@ -152,7 +152,11 @@ local function showGoldTip(anchor)
   local path = ns.Fonts:Current()
   local list, total = ns.Vault:MoneyList()
   local wb = ns.Vault:WarbandMoney()
-  local token = (C_WowTokenPublic_GetCurrentMarketPrice and C_WowTokenPublic_GetCurrentMarketPrice()) or 0
+  local token = 0
+  if C_WowTokenPublic and C_WowTokenPublic.GetCurrentMarketPrice then
+    if C_WowTokenPublic.UpdateMarketPrice then C_WowTokenPublic.UpdateMarketPrice() end
+    token = C_WowTokenPublic.GetCurrentMarketPrice() or 0
+  end
 
   local count = math.max(1, #list) + 1 + ((wb and wb > 0) and 1 or 0) + ((token > 0) and 1 or 0)
   local top = (anchor and anchor:GetTop()) or 0
