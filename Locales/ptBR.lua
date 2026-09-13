@@ -88,7 +88,6 @@ local STRINGS = {
   ["In the cell above, hide every badge except the selected one."] =
     "Na célula acima, ocultar todos os emblemas, exceto o selecionado.",
   ["Locked items"] = "Itens protegidos",
-  ["Item tooltips"] = "Dicas de itens",
   ["Open bags with"] = "Abrir as bolsas com",
   ["Runs on its own"] = "Automaticamente",
   ["The coin button"] = "Botão da moeda",
