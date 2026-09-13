@@ -211,6 +211,19 @@ local STRINGS = {
   ["Border thickness"] = "Толщина рамки",
   ["Item level by quality"] = "Уровень предмета по качеству",
   ["Corner"] = "Угол",
+  ["Bags growth corner"] = "Угол роста сумок",
+  ["Bank growth corner"] = "Угол роста банка",
+  ["Pocket growth corner"] = "Угол роста кармана",
+  ["Center"] = "Центр",
+  ["Snap to windows"] = "Прилипание к окнам",
+  ["The corner of the screen the bag window hangs from. It grows away from that corner as your bags fill."] =
+    "Угол экрана, от которого висит окно сумок. По мере заполнения сумок окно растёт от этого угла.",
+  ["The corner of the screen the bank window hangs from, used the same way."] =
+    "Угол экрана, от которого висит окно банка. Работает так же.",
+  ["The corner the pocket hangs from. Snapping it against another window sets this by itself."] =
+    "Угол, от которого висит карман. Прилипание к другому окну выставляет его само.",
+  ["Dropped close to the bags or the bank, the pocket lines up against it and holds that seam when the other window changes size. Dragging the bags never carries the pocket along."] =
+    "Брошенный рядом с сумками или банком, карман встаёт встык и держит шов при смене размера соседнего окна. Перетаскивание сумок его не везёт.",
   ["Text size"] = "Размер текста",
   ["X offset"] = "Сдвиг по X",
   ["Y offset"] = "Сдвиг по Y",
@@ -241,6 +254,10 @@ local STRINGS = {
     "Считать и банк каждого персонажа. Выкл. — только сумки.",
   ["Count the shared Warband bank on its own line."] =
     "Считать общий банк отряда отдельной строкой.",
+  ["Tooltips"] = "Подсказки",
+  ["Gold tooltip"] = "Подсказка золота",
+  ["Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price."] =
+    "Подсказка золота над деньгами в углу окна: золото каждого персонажа, банк отряда, итог и цена жетона.",
   ["Unchecked characters stay saved but are hidden from the character list."] =
     "Персонажи без отметки остаются в сохранённых данных, но не показываются в списке.",
   ["Snapshots"] = "Сохранённые данные",

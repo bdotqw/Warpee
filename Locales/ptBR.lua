@@ -201,6 +201,19 @@ local STRINGS = {
   ["Border thickness"] = "Espessura da borda",
   ["Item level by quality"] = "Nível do item por qualidade",
   ["Corner"] = "Canto",
+  ["Bags growth corner"] = "Canto de crescimento das bolsas",
+  ["Bank growth corner"] = "Canto de crescimento do banco",
+  ["Pocket growth corner"] = "Canto de crescimento do bolso",
+  ["Center"] = "Centro",
+  ["Snap to windows"] = "Encaixar nas janelas",
+  ["The corner of the screen the bag window hangs from. It grows away from that corner as your bags fill."] =
+    "O canto da tela em que a janela das bolsas está pendurada. Ela cresce a partir desse canto conforme as bolsas enchem.",
+  ["The corner of the screen the bank window hangs from, used the same way."] =
+    "O canto da tela em que a janela do banco está pendurada, funciona da mesma forma.",
+  ["The corner the pocket hangs from. Snapping it against another window sets this by itself."] =
+    "O canto em que o bolso está pendurado. Encaixá-lo em outra janela define isso sozinho.",
+  ["Dropped close to the bags or the bank, the pocket lines up against it and holds that seam when the other window changes size. Dragging the bags never carries the pocket along."] =
+    "Solto perto das bolsas ou do banco, o bolso se alinha à janela e mantém essa emenda quando a outra janela muda de tamanho. Arrastar as bolsas nunca o carrega junto.",
   ["Text size"] = "Tamanho do texto",
   ["X offset"] = "Deslocamento X",
   ["Y offset"] = "Deslocamento Y",
@@ -231,6 +244,10 @@ local STRINGS = {
     "Conta também o banco de cada personagem. Desativado: somente bolsas.",
   ["Count the shared Warband bank on its own line."] =
     "Conta o banco compartilhado do Bando de Guerra em uma linha separada.",
+  ["Tooltips"] = "Dicas",
+  ["Gold tooltip"] = "Dica de ouro",
+  ["Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price."] =
+    "Dica de ouro sobre o dinheiro no canto da janela: o ouro de cada personagem, o banco do Bando de Guerra, o total e o preço da ficha.",
   ["Unchecked characters stay saved but are hidden from the character list."] =
     "Personagens desmarcados continuam salvos, mas ficam ocultos da lista.",
   ["Snapshots"] = "Registros salvos",

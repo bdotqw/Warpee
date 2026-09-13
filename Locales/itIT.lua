@@ -203,6 +203,19 @@ local STRINGS = {
   ["Border thickness"] = "Spessore bordo",
   ["Item level by quality"] = "Livello oggetto per qualità",
   ["Corner"] = "Angolo",
+  ["Bags growth corner"] = "Angolo di crescita delle borse",
+  ["Bank growth corner"] = "Angolo di crescita della banca",
+  ["Pocket growth corner"] = "Angolo di crescita della tasca",
+  ["Center"] = "Centro",
+  ["Snap to windows"] = "Aggancio alle finestre",
+  ["The corner of the screen the bag window hangs from. It grows away from that corner as your bags fill."] =
+    "L'angolo dello schermo a cui è appesa la finestra delle borse. Si estende da quell'angolo man mano che le borse si riempiono.",
+  ["The corner of the screen the bank window hangs from, used the same way."] =
+    "L'angolo dello schermo a cui è appesa la finestra della banca, funziona allo stesso modo.",
+  ["The corner the pocket hangs from. Snapping it against another window sets this by itself."] =
+    "L'angolo a cui è appesa la tasca. Agganciandola a un'altra finestra si imposta da solo.",
+  ["Dropped close to the bags or the bank, the pocket lines up against it and holds that seam when the other window changes size. Dragging the bags never carries the pocket along."] =
+    "Rilasciata vicino alle borse o alla banca, la tasca si allinea alla finestra e mantiene la giunzione quando l'altra finestra cambia dimensione. Trascinare le borse non la trascina mai con sé.",
   ["Text size"] = "Dimensione testo",
   ["X offset"] = "Scostamento X",
   ["Y offset"] = "Scostamento Y",
@@ -233,6 +246,10 @@ local STRINGS = {
     "Conta anche la banca di ogni personaggio. Disattivo: solo le borse.",
   ["Count the shared Warband bank on its own line."] =
     "Conta la banca condivisa della Brigata su una riga separata.",
+  ["Tooltips"] = "Descrizioni",
+  ["Gold tooltip"] = "Descrizione dell'oro",
+  ["Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price."] =
+    "Descrizione dell'oro sopra il denaro nell'angolo della finestra: l'oro di ogni personaggio, la banca della Brigata, il totale e il prezzo del gettone.",
   ["Unchecked characters stay saved but are hidden from the character list."] =
     "I personaggi deselezionati restano salvati ma vengono nascosti dall'elenco.",
   ["Snapshots"] = "Istantanee",

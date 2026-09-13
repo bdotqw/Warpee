@@ -211,6 +211,19 @@ local STRINGS = {
   ["Border thickness"] = "Épaisseur de la bordure",
   ["Item level by quality"] = "Niveau d'objet selon la qualité",
   ["Corner"] = "Coin",
+  ["Bags growth corner"] = "Coin de croissance des sacs",
+  ["Bank growth corner"] = "Coin de croissance de la banque",
+  ["Pocket growth corner"] = "Coin de croissance de la poche",
+  ["Center"] = "Centre",
+  ["Snap to windows"] = "Aimantation aux fenêtres",
+  ["The corner of the screen the bag window hangs from. It grows away from that corner as your bags fill."] =
+    "Le coin de l'écran auquel est suspendue la fenêtre des sacs. Elle s'étend depuis ce coin à mesure que les sacs se remplissent.",
+  ["The corner of the screen the bank window hangs from, used the same way."] =
+    "Le coin de l'écran auquel est suspendue la fenêtre de la banque, fonctionne de la même façon.",
+  ["The corner the pocket hangs from. Snapping it against another window sets this by itself."] =
+    "Le coin auquel est suspendue la poche. L'aimantation à une autre fenêtre le règle toute seule.",
+  ["Dropped close to the bags or the bank, the pocket lines up against it and holds that seam when the other window changes size. Dragging the bags never carries the pocket along."] =
+    "Déposée près des sacs ou de la banque, la poche s'aligne contre la fenêtre et maintient ce joint quand l'autre fenêtre change de taille. Déplacer les sacs ne l'entraîne jamais.",
   ["Text size"] = "Taille du texte",
   ["X offset"] = "Décalage X",
   ["Y offset"] = "Décalage Y",
@@ -241,6 +254,10 @@ local STRINGS = {
     "Compte aussi la banque de chaque personnage. Désactivé : les sacs seulement.",
   ["Count the shared Warband bank on its own line."] =
     "Compte la banque de bataillon partagée sur une ligne à part.",
+  ["Tooltips"] = "Infobulles",
+  ["Gold tooltip"] = "Infobulle d'or",
+  ["Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price."] =
+    "Infobulle d'or au-dessus de l'argent dans le coin de la fenêtre : l'or de chaque personnage, la banque de bataillon, le total et le prix du jeton.",
   ["Unchecked characters stay saved but are hidden from the character list."] =
     "Les personnages décochés restent enregistrés mais n'apparaissent plus dans la liste.",
   ["Snapshots"] = "Données enregistrées",

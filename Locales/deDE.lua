@@ -200,6 +200,19 @@ local STRINGS = {
   ["Border thickness"] = "Rahmenstärke",
   ["Item level by quality"] = "Gegenstandsstufe nach Qualität",
   ["Corner"] = "Ecke",
+  ["Bags growth corner"] = "Wachstumsecke der Taschen",
+  ["Bank growth corner"] = "Wachstumsecke der Bank",
+  ["Pocket growth corner"] = "Wachstumsecke der Ablage",
+  ["Center"] = "Mitte",
+  ["Snap to windows"] = "An Fenstern einrasten",
+  ["The corner of the screen the bag window hangs from. It grows away from that corner as your bags fill."] =
+    "Die Bildschirmecke, an der das Taschenfenster hängt. Es wächst von dieser Ecke weg, wenn sich die Taschen füllen.",
+  ["The corner of the screen the bank window hangs from, used the same way."] =
+    "Die Bildschirmecke, an der das Bankfenster hängt, funktioniert genauso.",
+  ["The corner the pocket hangs from. Snapping it against another window sets this by itself."] =
+    "Die Ecke, an der die Ablage hängt. Beim Einrasten an einem anderen Fenster wird sie automatisch gesetzt.",
+  ["Dropped close to the bags or the bank, the pocket lines up against it and holds that seam when the other window changes size. Dragging the bags never carries the pocket along."] =
+    "Wird die Ablage nahe bei den Taschen oder der Bank losgelassen, richtet sie sich daran aus und hält die Naht, wenn das andere Fenster seine Größe ändert. Das Ziehen der Taschen nimmt sie niemals mit.",
   ["Text size"] = "Textgröße",
   ["X offset"] = "X-Versatz",
   ["Y offset"] = "Y-Versatz",
@@ -230,6 +243,10 @@ local STRINGS = {
     "Zählt auch die Bank jedes Charakters. Aus: nur die Taschen.",
   ["Count the shared Warband bank on its own line."] =
     "Zählt die gemeinsame Kriegsmeutenbank in einer eigenen Zeile.",
+  ["Tooltips"] = "Tooltips",
+  ["Gold tooltip"] = "Gold-Tooltip",
+  ["Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price."] =
+    "Gold-Tooltip über dem Geld in der Fensterecke: das Gold jedes Charakters, die Kriegsmeutenbank, die Summe und der WoW-Markenpreis.",
   ["Unchecked characters stay saved but are hidden from the character list."] =
     "Charaktere ohne Häkchen bleiben gespeichert, erscheinen aber nicht in der Charakterliste.",
   ["Snapshots"] = "Gespeicherte Daten",

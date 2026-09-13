@@ -208,6 +208,19 @@ local STRINGS = {
   ["Border thickness"] = "Grosor del borde",
   ["Item level by quality"] = "Nivel de objeto según la calidad",
   ["Corner"] = "Esquina",
+  ["Bags growth corner"] = "Esquina de crecimiento de las bolsas",
+  ["Bank growth corner"] = "Esquina de crecimiento del banco",
+  ["Pocket growth corner"] = "Esquina de crecimiento del bolsillo",
+  ["Center"] = "Centro",
+  ["Snap to windows"] = "Ajustar a las ventanas",
+  ["The corner of the screen the bag window hangs from. It grows away from that corner as your bags fill."] =
+    "La esquina de la pantalla de la que cuelga la ventana de las bolsas. Crece desde esa esquina a medida que se llenan las bolsas.",
+  ["The corner of the screen the bank window hangs from, used the same way."] =
+    "La esquina de la pantalla de la que cuelga la ventana del banco; funciona igual.",
+  ["The corner the pocket hangs from. Snapping it against another window sets this by itself."] =
+    "La esquina de la que cuelga el bolsillo. Al ajustarlo a otra ventana se establece sola.",
+  ["Dropped close to the bags or the bank, the pocket lines up against it and holds that seam when the other window changes size. Dragging the bags never carries the pocket along."] =
+    "Al soltar el bolsillo cerca de las bolsas o del banco, se alinea con la ventana y mantiene esa unión cuando la otra ventana cambia de tamaño. Arrastrar las bolsas nunca lo arrastra consigo.",
   ["Text size"] = "Tamaño del texto",
   ["X offset"] = "Desplazamiento X",
   ["Y offset"] = "Desplazamiento Y",
@@ -238,6 +251,10 @@ local STRINGS = {
     "Cuenta también el banco de cada personaje. Desactivado: solo las bolsas.",
   ["Count the shared Warband bank on its own line."] =
     "Cuenta el banco compartido de la banda guerrera en una línea aparte.",
+  ["Tooltips"] = "Información emergente",
+  ["Gold tooltip"] = "Información de oro",
+  ["Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price."] =
+    "Información de oro sobre el dinero en la esquina de la ventana: el oro de cada personaje, el banco de la banda guerrera, el total y el precio de la ficha.",
   ["Unchecked characters stay saved but are hidden from the character list."] =
     "Los personajes sin marcar siguen guardados, pero no aparecen en la lista.",
   ["Snapshots"] = "Datos guardados",
