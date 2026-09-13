@@ -139,6 +139,10 @@ local function goldTipFrame()
   ns.PixelLine(line, 1)
   line:Hide()
   t.sep = line
+  local line2 = Theme:Rect(t, "strokeSoft", "ARTWORK")
+  ns.PixelLine(line2, 1)
+  line2:Hide()
+  t.sep2 = line2
   goldTip = t
   return t
 end
@@ -148,8 +152,9 @@ local function showGoldTip(anchor)
   local path = ns.Fonts:Current()
   local list, total = ns.Vault:MoneyList()
   local wb = ns.Vault:WarbandMoney()
+  local token = (C_WowTokenPublic_GetCurrentMarketPrice and C_WowTokenPublic_GetCurrentMarketPrice()) or 0
 
-  local count = math.max(1, #list) + 1 + ((wb and wb > 0) and 1 or 0)
+  local count = math.max(1, #list) + 1 + ((wb and wb > 0) and 1 or 0) + ((token > 0) and 1 or 0)
   local top = (anchor and anchor:GetTop()) or 0
   local avail = math.max(120, (UIParent:GetHeight() or 768) - top - 24)
   local fs = TIP_FONT_MAX
@@ -198,6 +203,17 @@ local function showGoldTip(anchor)
     sum = sum + wb
   end
   row(ns.L["Total"], ns.FormatMoney(sum, true, true), "accent")
+  if token > 0 then
+    y = y + 3
+    t.sep2:ClearAllPoints()
+    t.sep2:SetPoint("TOPLEFT", TIP_PAD, -y)
+    t.sep2:SetPoint("TOPRIGHT", -TIP_PAD, -y)
+    t.sep2:Show()
+    y = y + 4
+    row(ns.L["WoW Token"], ns.FormatMoney(token, true, true), "azure")
+  elseif t.sep2 then
+    t.sep2:Hide()
+  end
 
   for i = n + 1, #t.rows do t.rows[i]:Hide() end
   t:SetSize(widest + TIP_PAD * 2, y + TIP_PAD)

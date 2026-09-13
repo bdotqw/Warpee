@@ -360,6 +360,7 @@ local STRINGS = {
   ["Inventory"] = "Inventaire",
   ["Warband bank"] = "Banque de bataillon",
   ["Total"] = "Total",
+  ["WoW Token"] = "Jeton WoW",
   ["%d  (%d bags, %d bank)"] = "%d  (%d sacs, %d banque)",
   ["%d  (bank)"] = "%d  (banque)",
   ["%d  (bags)"] = "%d  (sacs)",
