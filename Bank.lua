@@ -195,6 +195,7 @@ function View:Build()
     s.wpeMoving = nil
     s:StopMovingOrSizing()
     ns.Rebase(s, "bankPos")
+    ns.SeamDrop(s)
   end)
   Theme:Window(f, "WarpeeBankFrame")
   Theme:HeaderBand(f)
@@ -1196,12 +1197,14 @@ function View:Layout()
 end
 
 function View:Resize(st)
+  local seam = ns.SeamWatch(self.frame)
   local gw = gridWidth(st.iconSize, self:Cols(st.mode), st.pxGap or Bags.gap or 4)
   st.content:ClearAllPoints()
   ns.SnapPoint(st.content, "TOPLEFT", self.frame, "TOPLEFT", PAD, -(self:HeaderH() + 4))
   st.content:SetSize(gw, st.contentH)
   self.frame:SetSize(PAD * 2 + gw, self:HeaderH() + 4 + st.contentH + self:FooterH())
   ns.Rebase(self.frame, "bankPos")
+  ns.SeamHeal(seam)
 end
 
 function View:FitHeader()

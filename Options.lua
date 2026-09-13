@@ -106,7 +106,33 @@ end
 
 local ANCHORS = { "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT" }
 local ANCHOR_LABELS = { TOPLEFT = "Top left", TOPRIGHT = "Top right",
-                        BOTTOMLEFT = "Bottom left", BOTTOMRIGHT = "Bottom right" }
+                        BOTTOMLEFT = "Bottom left", BOTTOMRIGHT = "Bottom right",
+                        CENTER = "Center" }
+local ANGLE_KEYS = { "CENTER", "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT" }
+
+local function angleGet(dbKey)
+  local rec = WarpeeDB and WarpeeDB[dbKey]
+  local stored = rec and ns.CornerOk(rec.p)
+  if stored then return stored end
+  local def = ns.DEFAULTS and ns.DEFAULTS[dbKey]
+  return (def and ns.CornerOk(def.p)) or "CENTER"
+end
+
+-- A window that is closed has no rectangle to keep, so the corner is only recorded and the
+-- next open places the window from it. One that is standing is re-anchored on the rectangle
+-- it holds, which is why picking a corner never moves a window.
+local function angleSet(dbKey, v)
+  local f = dbKey == "pos" and ns.Bags and ns.Bags.frame
+    or dbKey == "bankPos" and ns.Bank and ns.Bank.frame
+    or dbKey == "pocketPos" and ns.Pocket and ns.Pocket.frame
+  if f then
+    ns.SetAngle(f, dbKey, v)
+    return
+  end
+  local rec = WarpeeDB and WarpeeDB[dbKey]
+  if rec then rec.p, rec.rp = v, v end
+end
+
 local STYLES = { "flat", "plate", "deep" }
 local STYLE_LABELS = { flat = "Transparent", plate = "Highlight", deep = "Solid" }
 local THEME_LABELS = {}
@@ -1709,6 +1735,8 @@ fav.pkSet = function(v)
   relayout()
 end
 fav.pkWithGet = function() return WarpeeDB.pocketWithBags ~= false end
+fav.snapGet = function() return WarpeeDB.pocketSnap ~= false end
+fav.snapSet = function(v) WarpeeDB.pocketSnap = v and true or false end
 fav.pkWithSet = function(v)
   WarpeeDB.pocketWithBags = v and true or false
   if v and ns.Pocket and ns.Bags and ns.Bags.frame and ns.Bags.frame:IsShown()
@@ -1801,6 +1829,16 @@ local GENERAL_PAGE = {
   { type = "toggle", name = "Hide X/Y fields", col = 2, section = "interface", get = hideFieldsGet, set = hideFieldsSet,
     disabled = function() return lockGet() end,
     desc = "The windows stay movable by dragging, but the X/Y fields are not drawn." },
+  { type = "select", name = "Bags corner", col = 1, of = 2, section = "interface",
+    get = function() return angleGet("pos") end,
+    set = function(v) angleSet("pos", v) end,
+    keys = anchorKeys, label = anchorLabel,
+    desc = "The corner of the screen the bag window hangs from. It grows away from that corner as your bags fill." },
+  { type = "select", name = "Bank corner", col = 2, of = 2, section = "interface",
+    get = function() return angleGet("bankPos") end,
+    set = function(v) angleSet("bankPos", v) end,
+    keys = anchorKeys, label = anchorLabel,
+    desc = "The corner of the screen the bank window hangs from, used the same way." },
   { type = "toggle", name = "Capacity bar", col = 1, section = "interface", get = gaugeGet, set = gaugeSet,
     desc = "Fill bar in the bags header showing how full they are." },
   { type = "toggle", name = "Hide minimap icon", col = 2, section = "interface", get = mmHideGet, set = mmHideSet,
@@ -1842,6 +1880,16 @@ local POCKET_PAGE = {
     get = fav.pkLockGet, set = fav.pkLockSet,
     disabled = function() return not fav.pkGet() end,
     desc = "Keep the pocket where it is. Unlocked, the arrows along its bottom edge nudge it around." },
+  { type = "toggle", name = "Snap to the bags", col = 1,
+    get = fav.snapGet, set = fav.snapSet,
+    disabled = function() return not fav.pkGet() end,
+    desc = "Dropped close to the bags or the bank, the pocket lines up against it and holds that seam when the other window changes size. Dragging the bags never carries the pocket along." },
+  { type = "select", name = "Pocket corner", col = 2,
+    get = function() return angleGet("pocketPos") end,
+    set = function(v) angleSet("pocketPos", v) end,
+    keys = function() return ANGLE_KEYS end, label = anchorLabel,
+    disabled = function() return not fav.pkGet() end,
+    desc = "The corner the pocket hangs from. Snapping it against the bags sets this by itself." },
   { type = "header", name = "Pocket size", key = "pocketsize" },
   { type = "range", name = "Pocket rows", min = 1, max = 6, step = 1, half = "left",
     section = "pocketsize",

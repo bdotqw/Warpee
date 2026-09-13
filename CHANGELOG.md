@@ -2,8 +2,14 @@
 
 ## 6.0
 
+New
+
+- Every window hangs from a corner you pick: Bags corner and Bank corner on the General tab, Pocket corner on the Pocket tab. The window grows away from its corner as its contents change
+- The pocket docks against the bags or the bank: dropped within reach it lines up against the window, takes the corner that keeps it on that side, and holds the seam when the window it stands against changes size. Dragging the bags never carries it along. A switch on the Pocket tab turns the whole thing off
+
 Fixes
 
+- A window keeps the corner it was given. It used to re-anchor itself to whichever half of the screen it happened to be standing on, so a resize or a drag could quietly change the direction it grows in
 - The character picker draws as one piece again: its rows no longer float over other windows when they overlap
 - Items in the recent row can be dragged out again: plain left click still takes nothing, Ctrl + left click shows the dressing room and Shift + left click links into chat
 

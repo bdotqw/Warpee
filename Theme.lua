@@ -434,6 +434,10 @@ function ns.RefreshPixels()
     if ns.Options.frame then ns.SnapFrame(ns.Options.frame) end
     if ns.Options.ReflowPages then ns.Options:ReflowPages() end
   end
+  if ns.Pocket and ns.Pocket.frame then
+    ns.SnapFrame(ns.Pocket.frame)
+    if quiet and ns.Pocket.frame:IsShown() and ns.Pocket.Refresh then ns.Pocket:Refresh() end
+  end
   restoreAll()
 end
 

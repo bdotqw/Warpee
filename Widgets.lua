@@ -167,10 +167,8 @@ end
 function ns.MoveWindowTo(frame, dbKey, nx, ny)
   local l, b = frame:GetLeft(), frame:GetBottom()
   if not (l and b) then return end
-  frame:ClearAllPoints()
-  frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT",
-    nx or math.floor(l + 0.5), ny or math.floor(b + 0.5))
-  ns.Rebase(frame, dbKey)
+  ns.PlaceRect(frame, dbKey, nil, nx or l, ny or b)
+  if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
 end
 
 function ns.NudgeWindow(frame, dbKey, dx, dy)
@@ -218,39 +216,93 @@ local function barField(bar, apply)
   return e
 end
 
-function ns.Rebase(frame, dbKey)
-  local l, b = frame:GetLeft(), frame:GetBottom()
-  if not (l and b) then return end
-  l, b = ns.SnapValue(frame, l), ns.SnapValue(frame, b)
-  local w = frame:GetWidth() or 0
-  local sw = UIParent:GetWidth() or 0
-  -- Layout also calls this after a resize, and the window is still standing where the
-  -- previous profile left it at that point. Saving that would overwrite the position
-  -- the profile switch has just loaded, before ApplyAll gets to place the window.
-  local save = WarpeeDB and not ns.Applying
+-- A window is stored as the corner it hangs from plus the offset of that corner from the
+-- same corner of the screen. The corner is what decides which way the window grows when its
+-- contents change, so it is picked and never guessed: every move re-anchors on the rectangle
+-- the window already occupies and leaves the corner alone. Only a record that carries no
+-- usable corner falls back to the half of the screen the window is standing on.
+function ns.CornerOk(a)
+  if a == "CENTER" or a == "TOPLEFT" or a == "TOPRIGHT" or a == "BOTTOMLEFT"
+     or a == "BOTTOMRIGHT" then return a end
+end
+
+local function cornerOffsets(angle, l, b, w, h, sw, sh)
+  if angle == "TOPLEFT" then return l, b + h - sh end
+  if angle == "TOPRIGHT" then return l + w - sw, b + h - sh end
+  if angle == "BOTTOMRIGHT" then return l + w - sw, b end
+  if angle == "CENTER" then return l + w * 0.5 - sw * 0.5, b + h * 0.5 - sh * 0.5 end
+  return l, b
+end
+
+-- The rectangle a record describes, for a window that cannot be measured where it stands:
+-- the pocket is usually closed when its corner is changed, and a closed frame has no rect.
+local function recordRect(frame, rec, sw, sh)
+  if not (frame and rec) then return nil end
+  local w, h = frame:GetWidth() or 0, frame:GetHeight() or 0
+  local x, y = tonumber(rec.x) or 0, tonumber(rec.y) or 0
+  local a = ns.CornerOk(rec.p) or "CENTER"
+  if a == "TOPLEFT" then return x, sh - h + y end
+  if a == "TOPRIGHT" then return sw - w + x, sh - h + y end
+  if a == "BOTTOMRIGHT" then return sw - w + x, y end
+  if a == "CENTER" then return sw * 0.5 - w * 0.5 + x, sh * 0.5 - h * 0.5 + y end
+  return x, y
+end
+
+function ns.PlaceRect(frame, dbKey, angle, l, b, fallback)
+  if not (frame and l and b) then return end
+  local sw, sh = UIParent:GetWidth() or 0, UIParent:GetHeight() or 0
+  if sw <= 0 or sh <= 0 then return end
+  local rec = WarpeeDB and WarpeeDB[dbKey]
+  local w, h = frame:GetWidth() or 0, frame:GetHeight() or 0
+  angle = ns.CornerOk(angle) or (rec and ns.CornerOk(rec.p)) or ns.CornerOk(fallback)
+  if not angle then angle = (l + w * 0.5) > sw * 0.5 and "BOTTOMRIGHT" or "BOTTOMLEFT" end
+  local x, y = cornerOffsets(angle, l, b, w, h, sw, sh)
   frame:ClearAllPoints()
-  if sw > 0 and (l + w * 0.5) > sw * 0.5 then
-    frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", ns.SnapValue(frame, l + w - sw), b)
-    ns.AlignToScreen(frame)
-    local _, _, _, rx, ry = frame:GetPoint()
-    if save then WarpeeDB[dbKey] = { p = "BOTTOMRIGHT", rp = "BOTTOMRIGHT", x = rx or 0, y = ry or b } end
-  else
-    frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", l, b)
-    ns.AlignToScreen(frame)
-    local _, _, _, lx, ly = frame:GetPoint()
-    if save then WarpeeDB[dbKey] = { p = "BOTTOMLEFT", rp = "BOTTOMLEFT", x = lx or l, y = ly or b } end
+  ns.SnapPoint(frame, angle, UIParent, angle, x, y)
+  ns.AlignToScreen(frame)
+  local _, _, _, rx, ry = frame:GetPoint()
+  -- Layout also calls this after a resize, and the window is still standing where the
+  -- previous profile left it at that point. Saving that would overwrite the position the
+  -- profile switch has just loaded, before ApplyAll gets to place the window. The offsets
+  -- are read back after the clamp and the sub-pixel pass, so what is stored is the
+  -- rectangle that is on screen rather than the one that was asked for.
+  if WarpeeDB and not ns.Applying then
+    WarpeeDB[dbKey] = { p = angle, rp = angle, x = rx or x, y = ry or y }
   end
   if frame.wpeBar then frame.wpeBar:Refresh() end
+end
+
+function ns.Rebase(frame, dbKey, fallback)
+  if not frame then return end
+  local l, b = frame:GetLeft(), frame:GetBottom()
+  if not (l and b) then return end
+  ns.PlaceRect(frame, dbKey, nil, ns.SnapValue(frame, l), ns.SnapValue(frame, b), fallback)
+  if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
+end
+
+-- Changing the corner is a statement about growth, not about position: the window stays on
+-- the rectangle it holds and only the numbers that describe it are rewritten.
+function ns.SetAngle(frame, dbKey, angle)
+  if not (frame and ns.CornerOk(angle)) then return end
+  if ns.Applying then return end
+  if not (WarpeeDB and WarpeeDB[dbKey]) then return end
+  local sw, sh = UIParent:GetWidth() or 0, UIParent:GetHeight() or 0
+  if sw <= 0 or sh <= 0 then return end
+  local l, b = frame:GetLeft(), frame:GetBottom()
+  if not (l and b) then l, b = recordRect(frame, WarpeeDB[dbKey], sw, sh) end
+  if not (l and b) then return end
+  ns.PlaceRect(frame, dbKey, angle, l, b)
   if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
 end
 
 function ns.PlaceWindow(frame, dbKey, def)
   local p = WarpeeDB and WarpeeDB[dbKey]
+  local stored = p and ns.CornerOk(p.p)
+  local rec = stored and p or def
+  local angle = rec and ns.CornerOk(rec.p)
   frame:ClearAllPoints()
-  if p and p.p then
-    ns.SnapPoint(frame, p.p, UIParent, p.rp or p.p, p.x or 0, p.y or 0)
-  elseif def then
-    ns.SnapPoint(frame, def.p, UIParent, def.rp or def.p, def.x or 0, def.y or 0)
+  if angle then
+    ns.SnapPoint(frame, angle, UIParent, ns.CornerOk(rec.rp) or angle, rec.x or 0, rec.y or 0)
   else
     frame:SetPoint("CENTER")
   end
@@ -345,6 +397,147 @@ function ns.CreateNudgeRow(frame, dbKey)
   end
   frame.wpeNudge = row
   return row
+end
+
+-- The seam is the gap two windows hold when they stand against each other. It is measured
+-- between rectangles, so the art that hangs past a rectangle is not part of it; the number
+-- below is what is left over after both skins have had their overhang, and is the one knob
+-- to turn if the gap reads wrong on a theme. Recognition is a window around it, wide enough
+-- to catch a window dropped by hand and narrow enough to leave alone one parked well away.
+ns.SEAM_GAP = 4
+local SEAM_TOL = 8
+local seamBusy = false
+
+local function seamRect(f)
+  if not (f and f:IsShown()) then return nil end
+  local l, b = f:GetLeft(), f:GetBottom()
+  local w, h = f:GetWidth(), f:GetHeight()
+  if not (l and b and w and h) then return nil end
+  return l, b, l + w, b + h
+end
+
+local function pocketFrame()
+  local f = ns.Pocket and ns.Pocket.frame
+  if f and f:IsShown() and not f.wpeMoving then return f end
+end
+
+function ns.PocketSnapOn()
+  return (WarpeeDB == nil) or WarpeeDB.pocketSnap ~= false
+end
+
+-- Which side of `mover` the pocket holds a seam on, and which edge of the mover it is lined
+-- up with on the other axis. Read before a resize and replayed after it, so a size change
+-- repairs a seam that already held instead of inventing one.
+local function seamOf(mover, partner)
+  local ml, mb, mr, mt = seamRect(mover)
+  local pl, pb, pr, pt = seamRect(partner)
+  if not (ml and pl) then return nil end
+  local gap = ns.SnapValue(partner, ns.SEAM_GAP)
+  local tol = gap + SEAM_TOL
+  local side
+  if mt > pb and mb < pt then
+    if math.abs(pl - mr - gap) <= tol then side = "right"
+    elseif math.abs(ml - pr - gap) <= tol then side = "left" end
+  end
+  if not side and mr > pl and ml < pr then
+    if math.abs(pb - mt - gap) <= tol then side = "above"
+    elseif math.abs(mb - pt - gap) <= tol then side = "below" end
+  end
+  if not side then return nil end
+  local align
+  if side == "above" or side == "below" then
+    if math.abs(pl - ml) <= tol then align = "left"
+    elseif math.abs(pr - mr) <= tol then align = "right"
+    elseif math.abs(pl + pr - ml - mr) <= tol then align = "center" end
+  else
+    if math.abs(pt - mt) <= tol then align = "top"
+    elseif math.abs(pb - mb) <= tol then align = "bottom"
+    elseif math.abs(pt + pb - mt - mb) <= tol then align = "center" end
+  end
+  return { side = side, align = align }
+end
+
+-- The corner that keeps the pocket on its side of the seam while its own contents change:
+-- the edge it shares with the mover stays put, and the pocket grows away from it.
+local function seamCorner(rel)
+  if rel.side == "right" then return rel.align == "bottom" and "BOTTOMLEFT" or "TOPLEFT" end
+  if rel.side == "left" then return rel.align == "bottom" and "BOTTOMRIGHT" or "TOPRIGHT" end
+  if rel.side == "above" then return rel.align == "right" and "BOTTOMRIGHT" or "BOTTOMLEFT" end
+  return rel.align == "right" and "TOPRIGHT" or "TOPLEFT"
+end
+
+local function seamFix(mover, partner, rel, dbKey, fallback)
+  local ml, mb, mr, mt = seamRect(mover)
+  local pl, pb, pr, pt = seamRect(partner)
+  if not (ml and pl) then return false end
+  local gap = ns.SnapValue(partner, ns.SEAM_GAP)
+  local dx, dy = 0, 0
+  local vertical = (rel.side == "left" or rel.side == "right")
+  if rel.side == "right" then dx = mr + gap - pl
+  elseif rel.side == "left" then dx = ml - gap - pr
+  elseif rel.side == "above" then dy = mt + gap - pb
+  elseif rel.side == "below" then dy = mb - gap - pt
+  else return false end
+  if vertical then
+    if rel.align == "top" then dy = mt - pt
+    elseif rel.align == "bottom" then dy = mb - pb
+    elseif rel.align == "center" then dy = (mt + mb - pt - pb) * 0.5 end
+  else
+    if rel.align == "left" then dx = ml - pl
+    elseif rel.align == "right" then dx = mr - pr
+    elseif rel.align == "center" then dx = (ml + mr - pl - pr) * 0.5 end
+  end
+  if math.abs(dx) < 0.01 and math.abs(dy) < 0.01 then return false end
+  ns.PlaceRect(partner, dbKey, nil, pl + dx, pb + dy, fallback)
+  return true
+end
+
+function ns.SeamWatch(mover)
+  if seamBusy or not ns.PocketSnapOn() then return nil end
+  local partner = pocketFrame()
+  if not (partner and mover and partner ~= mover) then return nil end
+  local rel = seamOf(mover, partner)
+  if not rel then return nil end
+  return { mover = mover, partner = partner, rel = rel }
+end
+
+function ns.SeamHeal(watch)
+  if not (watch and watch.rel) or seamBusy then return end
+  seamBusy = true
+  seamFix(watch.mover, watch.partner, watch.rel, "pocketPos", "CENTER")
+  seamBusy = false
+end
+
+-- On a drop the pocket is the one that gives way, whichever of the two was just put down.
+-- Dragging the bags does not carry it, and it is never dragged along by a window it is not
+-- standing against.
+function ns.SeamDrop(mover)
+  if seamBusy or not ns.PocketSnapOn() then return end
+  local partner = pocketFrame()
+  if not partner then return end
+  if partner ~= mover then
+    local rel = seamOf(mover, partner)
+    if not rel then return end
+    seamBusy = true
+    ns.SetAngle(partner, "pocketPos", seamCorner(rel))
+    seamFix(mover, partner, rel, "pocketPos", "CENTER")
+    seamBusy = false
+    return
+  end
+  local list = { ns.Bags and ns.Bags.frame, ns.Bank and ns.Bank.frame }
+  for i = 1, 2 do
+    local f = list[i]
+    if f and f ~= partner and f:IsShown() then
+      local rel = seamOf(f, partner)
+      if rel then
+        seamBusy = true
+        ns.SetAngle(partner, "pocketPos", seamCorner(rel))
+        seamFix(f, partner, rel, "pocketPos", "CENTER")
+        seamBusy = false
+        return
+      end
+    end
+  end
 end
 
 function ns.CreateButton(parent, text, width, height, template, dark)

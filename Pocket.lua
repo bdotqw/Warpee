@@ -398,9 +398,8 @@ function Pocket:Build()
     if not s.wpeMoving then return end
     s.wpeMoving = nil
     s:StopMovingOrSizing()
-    local pp, rp, x, y = ns.SnapFrame(s)
-    if pp then WarpeeDB.pocketPos = { p = pp, rp = rp, x = x, y = y } end
-    if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
+    ns.Rebase(s, "pocketPos", "CENTER")
+    ns.SeamDrop(s)
   end)
   ns.EscClose(w)
   ns.PixelJob(w, function(s) ns.AlignToScreen(s) end, "align")
@@ -893,7 +892,7 @@ function Pocket:Open()
   local pp = WarpeeDB and WarpeeDB.pocketPos
   local anchor = ns.Bags and ns.Bags.frame
   if pp then
-    ns.SnapPoint(w, pp.p, UIParent, pp.rp, pp.x, pp.y)
+    ns.PlaceWindow(w, "pocketPos")
   elseif anchor then
     ns.SnapPoint(w, "TOPLEFT", anchor, "TOPRIGHT", 8, 0)
   else

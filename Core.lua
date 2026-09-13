@@ -25,6 +25,7 @@ local DEFAULTS = {
   qualityColorIlvl = true, qualityBorder = true, mergeReagents = false,
   reagentTop = false, hideReagents = false,
   pocketShow = true, pocketWithBags = false, pocketRows = 4, pocketCols = 6,
+  pocketSnap = true,
   pocketIconSize = NONE,
   -- NONE, not false: nil here means the pocket has never been given a lock of its own, and
   -- the login block seeds it from the lock that used to cover it. Filling it with a default

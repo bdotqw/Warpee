@@ -133,6 +133,7 @@ function Bags:Build()
     s.wpeMoving = nil
     s:StopMovingOrSizing()
     ns.Rebase(s, "pos")
+    ns.SeamDrop(s)
   end)
   Theme:Window(f, "WarpeeFrame")
   Theme:HeaderBand(f)
@@ -676,6 +677,7 @@ function Bags:Layout(capture)
   if ns.Pocket then ns.Pocket:Refresh() end
 end
 function Bags:Resize(contentH)
+  local seam = ns.SeamWatch(self.frame)
   local gw = gridWidth(self.pxSize or self.iconSize, self.cols, self.pxGap or self.gap)
   self.content:SetSize(gw, contentH)
   self.frame:SetSize(PAD * 2 + gw, self:TopOffset() + contentH + FOOTER)
@@ -684,6 +686,7 @@ function Bags:Resize(contentH)
   self.gridBg:SetPoint("BOTTOMRIGHT", self.content, "BOTTOMRIGHT", 3, -3)
   self.gridBg:SetAlpha(Theme:GridAlpha())
   ns.Rebase(self.frame, "pos")
+  ns.SeamHeal(seam)
 end
 
 local function groupNumber(n, sep)
