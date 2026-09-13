@@ -216,14 +216,10 @@ local STRINGS = {
   ["Text size"] = "Textgröße",
   ["X offset"] = "X-Versatz",
   ["Y offset"] = "Y-Versatz",
-  ["A border around every item in its quality color."] =
-    "Ein Rahmen um jeden Gegenstand in seiner Qualitätsfarbe.",
-  ["Blizzard quest art: a mark for unaccepted quests, a border for quest items."] =
-    "Blizzards Questgrafik: ein Ausrufezeichen für nicht angenommene Quests, ein Rahmen für Questgegenstände.",
-  ["A border around every item in its quality color. Quest items take the quest gold instead."] =
-    "Ein Rahmen um jeden Gegenstand in seiner Qualitätsfarbe. Questgegenstände bekommen stattdessen das Gold des Ausrufezeichens.",
-  ["The game's exclamation mark on quests you have not picked up yet."] =
-    "Das Ausrufezeichen des Spiels bei Quests, die du noch nicht angenommen hast.",
+  ["A border around each item in its quality color. Items tied to a quest take the quest yellow instead, the color of the exclamation mark. The reagent and unwearable borders come first."] =
+    "Ein Rahmen um jeden Gegenstand in seiner Qualitätsfarbe. Gegenstände mit Questbezug bekommen stattdessen das Gelb des Ausrufezeichens. Die Rahmen für Reagenzien und für nicht tragbare Ausrüstung gehen vor.",
+  ["The exclamation mark on items for quests you have not picked up yet. Not shown in the warband bank."] =
+    "Das Ausrufezeichen auf Gegenständen für Quests, die du noch nicht angenommen hast. In der Kriegsmeutenbank wird es nicht gezeigt.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Leuchten in der Qualitätsfarbe auf Gegenständen, die das Spiel noch als neu zählt.",
   ["Tint the slots of the reagent bag and the reagent bank."] =

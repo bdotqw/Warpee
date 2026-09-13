@@ -227,14 +227,10 @@ local STRINGS = {
   ["Text size"] = "Размер текста",
   ["X offset"] = "Сдвиг по X",
   ["Y offset"] = "Сдвиг по Y",
-  ["A border around every item in its quality color."] =
-    "Рамка цвета качества вокруг каждого предмета.",
-  ["Blizzard quest art: a mark for unaccepted quests, a border for quest items."] =
-    "Штатная графика заданий: восклицательный знак для непринятых заданий, рамка для предметов заданий.",
-  ["A border around every item in its quality color. Quest items take the quest gold instead."] =
-    "Рамка цвета качества вокруг каждого предмета. У предметов заданий она золотая, как восклицательный знак.",
-  ["The game's exclamation mark on quests you have not picked up yet."] =
-    "Штатный восклицательный знак на заданиях, которые ещё не приняты.",
+  ["A border around each item in its quality color. Items tied to a quest take the quest yellow instead, the color of the exclamation mark. The reagent and unwearable borders come first."] =
+    "Рамка вокруг каждого предмета в цвет его качества. Предметы, связанные с заданием, получают вместо неё золотой цвет восклицательного знака. Рамки реагентов и вещей, которые персонаж не может надеть, идут первыми.",
+  ["The exclamation mark on items for quests you have not picked up yet. Not shown in the warband bank."] =
+    "Восклицательный знак на предметах, дающих ещё не принятое задание. В банке отряда не показывается.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Свечение цвета качества на предметах, которые игра ещё считает новыми.",
   ["Tint the slots of the reagent bag and the reagent bank."] =

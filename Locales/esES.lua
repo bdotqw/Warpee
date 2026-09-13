@@ -224,14 +224,10 @@ local STRINGS = {
   ["Text size"] = "Tamaño del texto",
   ["X offset"] = "Desplazamiento X",
   ["Y offset"] = "Desplazamiento Y",
-  ["A border around every item in its quality color."] =
-    "Un borde alrededor de cada objeto con el color de su calidad.",
-  ["Blizzard quest art: a mark for unaccepted quests, a border for quest items."] =
-    "Gráficos de misión de Blizzard: un signo de exclamación para las misiones sin aceptar y un borde para los objetos de misión.",
-  ["A border around every item in its quality color. Quest items take the quest gold instead."] =
-    "Un borde alrededor de cada objeto con el color de su calidad. Los objetos de misión llevan en su lugar el dorado del signo de exclamación.",
-  ["The game's exclamation mark on quests you have not picked up yet."] =
-    "El signo de exclamación del juego en las misiones que aún no has aceptado.",
+  ["A border around each item in its quality color. Items tied to a quest take the quest yellow instead, the color of the exclamation mark. The reagent and unwearable borders come first."] =
+    "Un borde alrededor de cada objeto con el color de su calidad. Los objetos ligados a una misión llevan en su lugar el amarillo del signo de exclamación. Los bordes de componentes y de equipo no equipable tienen prioridad.",
+  ["The exclamation mark on items for quests you have not picked up yet. Not shown in the warband bank."] =
+    "El signo de exclamación en los objetos de misiones que aún no has aceptado. No se muestra en el banco de banda guerrera.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Brillo del color de la calidad en los objetos que el juego todavía cuenta como nuevos.",
   ["Tint the slots of the reagent bag and the reagent bank."] =
