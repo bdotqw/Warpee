@@ -2048,7 +2048,7 @@ local CHARS_PAGE = {
   { type = "toggle", name = "Include Warband", col = 1, get = tipWbGet, set = tipWbSet,
     disabled = tipOff,
     desc = "Count the shared Warband bank on its own line." },
-  { type = "toggle", name = "Show gold", col = 2, get = tipGoldGet, set = tipGoldSet,
+  { type = "toggle", name = "Gold tooltip", col = 2, get = tipGoldGet, set = tipGoldSet,
     desc = "Gold tooltip over the money in the window corner: every character's gold, the Warband bank and the total." },
   { type = "header", name = "Snapshots",
     state = function() return onOf({ snap.bagsGet, snap.bankGet, snap.wbGet }) end },
