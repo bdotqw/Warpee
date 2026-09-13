@@ -161,7 +161,7 @@ local function fitToIcon(t, ic)
 end
 
 local function questTex(b)
-  return b.IconQuestTexture or _G[(b:GetName() or "") .. "IconQuestTexture"]
+  return b.wpeQuest
 end
 
 function ns.QuestMarked(b)
@@ -169,20 +169,12 @@ function ns.QuestMarked(b)
   return (t and t:IsShown()) and true or false
 end
 
--- The gold the game draws its quest bang in. The ring takes the place of the border the game
--- used to draw over a quest item, so it wears the mark's own colour and not a quality colour.
 local QUEST_YELLOW = { 1, 0.82, 0 }
 
--- Two outcomes, both on the bang alone: shown for a quest that has not been picked up yet,
--- hidden in every other case, and the checkbox covers the bang and nothing else. The ring
--- carries the rest of the quest state, so the animated border the game draws around a quest
--- item is never asked for any more.
 function ns.MarkQuestItem(b, questID, isActive)
   local t = questTex(b)
   if not t then return end
   if ns.Bags.questMarks and questID and not isActive then
-    t:SetTexture(TEXTURE_ITEM_QUEST_BANG)
-    fitToIcon(t, iconOf(b))
     t:Show()
   else
     t:Hide()
@@ -433,6 +425,15 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
   attachBorder(b)
   local nm = b:GetName() or ""
   suppress(b.IconBorder);   suppress(_G[nm.."IconBorder"])
+  -- IconQuestTexture is the template's own field, so it is never written: it is killed on the
+  -- button instead and the mark is drawn on a texture of ours. Killing it is also what takes
+  -- the game's animated quest border off a quest item for good.
+  suppress(b.IconQuestTexture);   suppress(_G[nm.."IconQuestTexture"])
+  local quest = b:CreateTexture(nil, "OVERLAY", nil, 6)
+  quest:SetTexture(TEXTURE_ITEM_QUEST_BANG)
+  if ic then quest:SetAllPoints(ic) else quest:SetAllPoints(b) end
+  quest:Hide()
+  b.wpeQuest = quest
   muteAnim(b.flashAnim)
   muteAnim(b.newitemglowAnim)
   local cd = b.Cooldown or _G[nm .. "Cooldown"]
@@ -1120,11 +1121,9 @@ function ns.UpdateItemButton(b)
     end
   end
   local mark = keystoneMark(link)
-  -- The quest state is read before the guard rather than after it. The bags rebuild every
+  -- The quest marker is read before the guard rather than after it. The bags rebuild every
   -- cell on a layout, but the bank repaints one only when its plan moved, so a quest taken
-  -- or dropped while the bank was shut used to keep the marker the cell already had. The read
-  -- is gated on either feature that needs it, the bang and the ring the quality border draws,
-  -- so a user who wants neither pays nothing for it.
+  -- or dropped while the bank was shut used to keep the marker the cell already had.
   local qi
   if (ns.Bags.qualityBorder or ns.Bags.questMarks)
      and C_Container.GetContainerItemQuestInfo then
@@ -1226,9 +1225,6 @@ function ns.UpdateItemButton(b)
   if nt then nt:SetAlpha(0) end
   local q = info and info.quality
   ns.SetSlotBorder(b, Theme:C("emptyLine"))
-  -- A quest item wears the gold where the quality colour would have gone: the ring is what
-  -- says "quest" now that the game's own border is gone. The reagent tint and the unwearable
-  -- red keep their places ahead of it, since those say something the gold does not.
   if ns.Bags.reagentTint and not b.wpeNoReagent
          and b.wpeBagID == ns.reagentBag then
     local r = Theme.colors.reagent
@@ -1309,8 +1305,6 @@ function ns.PaintVaultButton(b, d, bagID)
   if link then
     SetItemButtonQuality(b, q, link, false, d.b)
     ns.FitOverlays(b)
-    -- The vault has no quest data to hand, so a quest item there wears the gold ring and no
-    -- bang: there is no quest to have picked up or not.
     ns.MarkQuestItem(b)
     ns.MarkJunk(b, q)
     ns.MarkBlocked(b, (C_Item.GetItemInfoInstant(link)))
