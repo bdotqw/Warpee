@@ -18,6 +18,9 @@ local POCKET_PICKS = {
   272195, -- Vantus Rune: Tides
   243734, -- Thalassian Phoenix Oil
   259085, -- Void-Touched Augment Rune
+  244639, -- Void-Touched Drums
+  248409, -- W-47CH D0G
+  248137, -- M3DDY
   132514, -- auto-hammer
   269586, -- Emergency Soul Link
   248486, -- Emergency Soul Link
@@ -52,9 +55,6 @@ local POCKET_PICKS = {
   241320, -- Flask of Thalassian Resistance
   241321, -- Flask of Thalassian Resistance
   245926, -- Fleeting Flask of Thalassian Resistance
-  244639, -- Void-Touched Drums
-  248409, -- W-47CH D0G
-  248137, -- M3DDY
 }
 
 local function charKey()
