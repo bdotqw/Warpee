@@ -434,7 +434,7 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
   suppress(b.IconQuestTexture);   suppress(_G[nm.."IconQuestTexture"])
   local quest = b.borderFrame:CreateTexture(nil, "OVERLAY", nil, 6)
   quest:SetAtlas("Crosshair_Quest_64")
-  quest:SetSize(37, 37)
+  quest:SetSize(28, 28)
   quest:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", -3, 2)
   quest:Hide()
   b.wpeQuest = quest
@@ -691,13 +691,15 @@ function ns.FitOverlays(b)
   fit(b.IconOverlay or _G[nm .. "IconOverlay"])
   fit(b.IconOverlay2 or _G[nm .. "IconOverlay2"])
   -- The cell changes size with the window setting, so the mark is measured off the cell on every
-  -- pass. The atlas is cut at one size, and the nudge off the corner is kept as a share of the
-  -- cell rather than as plain pixels: a nudge held in pixels thins out as the cell grows, and
+  -- pass. The atlas carries a margin of its own, so the texture is laid under the cell at a share
+  -- of it rather than at full size: the glyph then lands near the two thirds of the cell the
+  -- game's own mark takes, which is where it reads the same size as the game. The nudge off the
+  -- corner is a share of the cell too: held in plain pixels it thins out as the cell grows, and
   -- that reads as the mark sliding towards the middle of the slot.
   if b.wpeQuest then
     local h = b:GetHeight() or 37
     local k = h / 37
-    local s = math.max(10, math.floor(h + 0.5))
+    local s = math.max(10, math.floor(h * 0.76 + 0.5))
     b.wpeQuest:SetSize(s, s)
     b.wpeQuest:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", -3 * k, 2 * k)
   end
