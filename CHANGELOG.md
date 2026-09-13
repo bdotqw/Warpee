@@ -10,7 +10,7 @@ New
 - The pocket docks against the bags or the bank: dropped within reach it lines up against the window, takes the corner that keeps it on that side, and holds the seam when the window it stands against changes size. Dragging the bags never carries it along. A switch on the Pocket tab turns the whole thing off
 - The gold tooltip shows the WoW Token price on its own line below the total
 - Three more picks in the pocket's Popular list: Void-Touched Drums, W-47CH D0G and M3DDY, grouped with the other raid utilities
-- A quest item wears its mark on the border: the edge takes the quest gold, the colour of the game's exclamation mark, and the animated border the game used to draw over a quest item is gone
+- A quest item wears its mark on the border: the edge takes the quest gold, the colour of the game's exclamation mark, and the animated border the game used to draw over a quest item is gone. The mark itself is cut to the size and set at the place the game gives its own, and it follows the slot when the slot changes size
 
 Fixes
 
@@ -27,7 +27,7 @@ RU
 - Карман докируется к сумкам или банку: брошенный рядом встаёт встык, забирает угол под свою сторону и держит шов при ресайзах соседнего окна. Перетаскивание сумок его не везёт. Тумблер отказа во вкладке кармана
 - Тултип золота показывает цену жетона отдельной строкой под итогом
 - Три новинки в Популярном кармана: барабаны Пустоты, W-47CH D0G и Медди — стоят рядом с остальными рейдовыми утилитами
-- Предмет задания носит метку на рамке: край окрашивается в золото задания, тот же цвет, что у восклицательного знака, а анимированная рамка, которую игра рисовала поверх такого предмета, убрана
+- Предмет задания носит метку на рамке: край окрашивается в золото задания, тот же цвет, что у восклицательного знака, а анимированная рамка, которую игра рисовала поверх такого предмета, убрана. Сам знак взят того же размера и поставлен туда же, куда его ставит игра, и следует за размером ячейки
 
 Исправления
 
