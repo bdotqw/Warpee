@@ -432,7 +432,7 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
   suppress(b.IconQuestTexture);   suppress(_G[nm.."IconQuestTexture"])
   local quest = b.borderFrame:CreateTexture(nil, "OVERLAY", nil, 6)
   quest:SetAtlas("Crosshair_Quest_64")
-  quest:SetSize(30, 30)
+  quest:SetSize(37, 37)
   quest:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", -3, 2)
   quest:Hide()
   b.wpeQuest = quest
@@ -690,9 +690,9 @@ function ns.FitOverlays(b)
   fit(b.IconOverlay2 or _G[nm .. "IconOverlay2"])
   -- The cell changes size with the window setting, so the mark is measured off the cell every
   -- pass: the atlas is cut at one size and would otherwise sit wrong on a cell that grew. It
-  -- takes most of the cell, the share the game's own mark takes on its own button.
+  -- takes the whole cell, the way the game draws its own mark on its own button.
   if b.wpeQuest then
-    local s = math.max(10, math.floor((b:GetHeight() or 37) * 0.8))
+    local s = math.max(10, math.floor((b:GetHeight() or 37) + 0.5))
     b.wpeQuest:SetSize(s, s)
   end
   fitToIcon(b.NewItemTexture or _G[nm .. "NewItemTexture"], ic)
