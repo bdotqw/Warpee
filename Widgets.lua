@@ -305,6 +305,7 @@ function ns.SetAngle(frame, dbKey, angle)
   if not (l and b) then l, b = recordRect(frame, WarpeeDB[dbKey], sw, sh) end
   if not (l and b) then return end
   ns.PlaceRect(frame, dbKey, angle, l, b)
+  if ns.Options and ns.Options.RefreshSoon then ns.Options:RefreshSoon() end
   if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
 end
 
@@ -418,7 +419,7 @@ end
 -- to turn if the gap reads wrong on a theme. Recognition is a window around it, wide enough
 -- to catch a window dropped by hand and narrow enough to leave alone one parked well away.
 ns.SEAM_GAP = 4
-local SEAM_TOL = 8
+local SEAM_TOL = 14
 local seamBusy = false
 
 local function seamRect(f)
