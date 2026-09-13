@@ -2049,7 +2049,7 @@ local CHARS_PAGE = {
     disabled = tipOff,
     desc = "Count the shared Warband bank on its own line." },
   { type = "toggle", name = "Gold tooltip", col = 2, get = tipGoldGet, set = tipGoldSet,
-    desc = "Gold tooltip over the money in the window corner: every character's gold, the Warband bank and the total." },
+    desc = "Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price." },
   { type = "header", name = "Snapshots",
     state = function() return onOf({ snap.bagsGet, snap.bankGet, snap.wbGet }) end },
   { type = "description",
