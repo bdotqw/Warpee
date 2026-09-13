@@ -52,6 +52,9 @@ local POCKET_PICKS = {
   241320, -- Flask of Thalassian Resistance
   241321, -- Flask of Thalassian Resistance
   245926, -- Fleeting Flask of Thalassian Resistance
+  244639, -- Void-Touched Drums
+  248409, -- W-47CH D0G
+  248137, -- M3DDY
 }
 
 local function charKey()
