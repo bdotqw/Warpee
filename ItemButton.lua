@@ -429,11 +429,13 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
   -- button instead, which takes the game's animated quest border off a quest item. The mark is
   -- taken from the atlas sheet and not from the game's own quest picture: that picture has a
   -- glow painted around the glyph, and a glow baked into the art cannot be switched off.
+  -- Size and nudge are written for a 37 slot, the size the game's own mark is cut for. FitOverlays
+  -- holds both as a share of our slot and lays them on again whenever the slot is repainted.
   suppress(b.IconQuestTexture);   suppress(_G[nm.."IconQuestTexture"])
   local quest = b.borderFrame:CreateTexture(nil, "OVERLAY", nil, 6)
   quest:SetAtlas("Crosshair_Quest_64")
   quest:SetSize(37, 37)
-  quest:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", -6, 2)
+  quest:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", -3, 2)
   quest:Hide()
   b.wpeQuest = quest
   muteAnim(b.flashAnim)
@@ -688,12 +690,16 @@ function ns.FitOverlays(b)
   end
   fit(b.IconOverlay or _G[nm .. "IconOverlay"])
   fit(b.IconOverlay2 or _G[nm .. "IconOverlay2"])
-  -- The cell changes size with the window setting, so the mark is measured off the cell every
-  -- pass: the atlas is cut at one size and would otherwise sit wrong on a cell that grew. It
-  -- takes the whole cell, the way the game draws its own mark on its own button.
+  -- The cell changes size with the window setting, so the mark is measured off the cell on every
+  -- pass. The atlas is cut at one size, and the nudge off the corner is kept as a share of the
+  -- cell rather than as plain pixels: a nudge held in pixels thins out as the cell grows, and
+  -- that reads as the mark sliding towards the middle of the slot.
   if b.wpeQuest then
-    local s = math.max(10, math.floor((b:GetHeight() or 37) + 0.5))
+    local h = b:GetHeight() or 37
+    local k = h / 37
+    local s = math.max(10, math.floor(h + 0.5))
     b.wpeQuest:SetSize(s, s)
+    b.wpeQuest:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", -3 * k, 2 * k)
   end
   fitToIcon(b.NewItemTexture or _G[nm .. "NewItemTexture"], ic)
   fitToIcon(b.BattlepayItemTexture or _G[nm .. "BattlepayItemTexture"], ic)
