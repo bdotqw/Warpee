@@ -2025,6 +2025,8 @@ local function tipBankGet() return WarpeeDB.tipBank ~= false end
 local function tipBankSet(v) WarpeeDB.tipBank = v and true or false end
 local function tipWbGet() return WarpeeDB.tipWarband ~= false end
 local function tipWbSet(v) WarpeeDB.tipWarband = v and true or false end
+local function tipGoldGet() return WarpeeDB.tipGold ~= false end
+local function tipGoldSet(v) WarpeeDB.tipGold = v and true or false end
 local function tipOff() return not tipOnGet() end
 
 local snap = {}
@@ -2036,8 +2038,8 @@ snap.wbGet = function() return WarpeeDB.keepWarband ~= false end
 snap.wbSet = function(v) WarpeeDB.keepWarband = v and true or false; relayout() end
 
 local CHARS_PAGE = {
-  { type = "header", name = "Item tooltips",
-    state = function() return onOf({ tipOnGet, tipBankGet, tipWbGet }) end },
+  { type = "header", name = "Tooltips",
+    state = function() return onOf({ tipOnGet, tipBankGet, tipWbGet, tipGoldGet }) end },
   { type = "toggle", name = "Count across characters", col = 1, get = tipOnGet, set = tipOnSet,
     desc = "Adds an Inventory block to item tooltips: how many each character carries." },
   { type = "toggle", name = "Include bank", col = 2, get = tipBankGet, set = tipBankSet,
@@ -2046,6 +2048,8 @@ local CHARS_PAGE = {
   { type = "toggle", name = "Include Warband", col = 1, get = tipWbGet, set = tipWbSet,
     disabled = tipOff,
     desc = "Count the shared Warband bank on its own line." },
+  { type = "toggle", name = "Show gold", col = 2, get = tipGoldGet, set = tipGoldSet,
+    desc = "Gold tooltip over the money in the window corner: every character's gold, the Warband bank and the total." },
   { type = "header", name = "Snapshots",
     state = function() return onOf({ snap.bagsGet, snap.bankGet, snap.wbGet }) end },
   { type = "description",

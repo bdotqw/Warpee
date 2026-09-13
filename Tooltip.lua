@@ -148,6 +148,10 @@ local function goldTipFrame()
 end
 
 local function showGoldTip(anchor)
+  if WarpeeDB and WarpeeDB.tipGold == false then
+    if goldTip then goldTip:Hide() end
+    return
+  end
   local t = goldTipFrame()
   local path = ns.Fonts:Current()
   local list, total = ns.Vault:MoneyList()

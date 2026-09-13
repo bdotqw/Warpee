@@ -39,7 +39,7 @@ local DEFAULTS = {
   vendorKeepBoE = true, vendorKeepWarbound = true, vendorKeepGems = true,
   vendorGrey = true, vendorRelics = true,
   vendorRepair = true, vendorRepairBy = "player",
-  hideMinimapIcon = false, tipCounts = true, tipBank = true, tipWarband = true,
+  hideMinimapIcon = false, tipCounts = true, tipBank = true, tipWarband = true, tipGold = true,
   keepBags = true, keepBank = true, keepWarband = true,
   searchClear = true, searchLink = true, minimapAngle = 2.2,
   bankCols = 28, warbandCols = 26, bankIconSize = 36,
