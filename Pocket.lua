@@ -15,15 +15,15 @@ local PICK_MAX, PICK_COLS = 64, 8
 local PICK_SIZE, PICK_GAP, PICK_PAD = 36, 8, 12
 
 local POCKET_PICKS = {
-  272195, -- Vantus Rune: Tides
-  243734, -- Thalassian Phoenix Oil
   259085, -- Void-Touched Augment Rune
-  244639, -- Void-Touched Drums
+  132514, -- Auto-hammer
   248409, -- W-47CH D0G
+  244639, -- Void-Touched Drums
   248137, -- M3DDY
-  132514, -- auto-hammer
   269586, -- Emergency Soul Link
   248486, -- Emergency Soul Link
+  272195, -- Vantus Rune: Tides
+  243734, -- Thalassian Phoenix Oil
   242747, -- Hearty Royal Roast
   242275, -- Royal Roast
   271884, -- Concentrated Silvermoon Health Potion
