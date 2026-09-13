@@ -430,10 +430,10 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
   -- taken from the atlas sheet and not from the game's own quest picture: that picture has a
   -- glow painted around the glyph, and a glow baked into the art cannot be switched off.
   suppress(b.IconQuestTexture);   suppress(_G[nm.."IconQuestTexture"])
-  local quest = b.borderFrame:CreateTexture(nil, "OVERLAY")
+  local quest = b.borderFrame:CreateTexture(nil, "OVERLAY", nil, 6)
   quest:SetAtlas("Crosshair_Quest_64")
-  quest:SetPoint("CENTER", b, "CENTER")
-  quest:SetSize(32, 32)
+  quest:SetSize(22, 22)
+  quest:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", -3, 2)
   quest:Hide()
   b.wpeQuest = quest
   muteAnim(b.flashAnim)
@@ -688,12 +688,6 @@ function ns.FitOverlays(b)
   end
   fit(b.IconOverlay or _G[nm .. "IconOverlay"])
   fit(b.IconOverlay2 or _G[nm .. "IconOverlay2"])
-  -- The mark is an atlas, so it is given the size of the cell it stands in rather than the
-  -- size it was cut at: the game's own quest picture carried its scale with it.
-  if b.wpeQuest then
-    local s = math.max(12, math.floor((ic:GetHeight() or 37) * 0.95))
-    b.wpeQuest:SetSize(s, s)
-  end
   fitToIcon(b.NewItemTexture or _G[nm .. "NewItemTexture"], ic)
   fitToIcon(b.BattlepayItemTexture or _G[nm .. "BattlepayItemTexture"], ic)
   if b.cd then fitToIcon(b.cd, ic) end
