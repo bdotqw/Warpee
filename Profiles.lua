@@ -56,12 +56,11 @@ local WINDOWS = {
 -- would carry no opinion about it and the window would keep whatever place the previous
 -- profile left behind. Reading the live spot instead pins every window into every
 -- profile, and GetLeft/GetBottom are UIParent based whichever way the frame is anchored.
-local function livePos(frame)
+local function livePos(frame, key)
   if not frame then return nil end
   local l, b = frame:GetLeft(), frame:GetBottom()
   if not (l and b) then return nil end
-  return { p = "BOTTOMLEFT", rp = "BOTTOMLEFT",
-           x = ns.SnapValue(frame, l), y = ns.SnapValue(frame, b) }
+  return ns.RectRecord(frame, key, ns.SnapValue(frame, l), ns.SnapValue(frame, b))
 end
 
 function P:Capture()
@@ -73,7 +72,7 @@ function P:Capture()
   end
   for i = 1, #WINDOWS do
     local w = WINDOWS[i]
-    if out[w.key] == nil then out[w.key] = livePos(w.get()) end
+    if out[w.key] == nil then out[w.key] = livePos(w.get(), w.key) end
   end
   return out
 end

@@ -272,6 +272,19 @@ function ns.PlaceRect(frame, dbKey, angle, l, b, fallback)
   if frame.wpeBar then frame.wpeBar:Refresh() end
 end
 
+-- The record a window standing on `l, b` would be filed under, under the corner it already
+-- carries. Profiles read a live rectangle through this for a window nothing has saved yet,
+-- and a corner written here is one the window keeps.
+function ns.RectRecord(frame, dbKey, l, b)
+  if not (frame and l and b) then return nil end
+  local sw, sh = UIParent:GetWidth() or 0, UIParent:GetHeight() or 0
+  if sw <= 0 or sh <= 0 then return nil end
+  local rec = WarpeeDB and WarpeeDB[dbKey]
+  local angle = ns.CornerOk(rec and rec.p) or "BOTTOMLEFT"
+  local x, y = cornerOffsets(angle, l, b, frame:GetWidth() or 0, frame:GetHeight() or 0, sw, sh)
+  return { p = angle, rp = angle, x = ns.SnapValue(frame, x), y = ns.SnapValue(frame, y) }
+end
+
 function ns.Rebase(frame, dbKey, fallback)
   if not frame then return end
   local l, b = frame:GetLeft(), frame:GetBottom()
