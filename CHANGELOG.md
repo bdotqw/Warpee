@@ -2,6 +2,8 @@
 
 ## 6.0
 
+ENG
+
 New
 
 - Every window hangs from a corner you pick: Bags growth corner and Bank growth corner on the General tab, Pocket growth corner on the Pocket tab. The window grows away from its corner as its contents change
@@ -12,6 +14,19 @@ Fixes
 - A window keeps the corner it was given. It used to re-anchor itself to whichever half of the screen it happened to be standing on, so a resize or a drag could quietly change the direction it grows in
 - The character picker draws as one piece again: its rows no longer float over other windows when they overlap
 - Items in the recent row can be dragged out again: plain left click still takes nothing, Ctrl + left click shows the dressing room and Shift + left click links into chat
+
+RU
+
+Новое
+
+- У каждого окна выбираемый угол: углы роста сумок и банка на вкладке General, угол роста кармана на вкладке кармана. Окно растёт от своего угла при смене содержимого
+- Карман докируется к сумкам или банку: брошенный рядом встаёт встык, забирает угол под свою сторону и держит шов при ресайзах соседнего окна. Перетаскивание сумок его не везёт. Тумблер отказа во вкладке кармана
+
+Исправления
+
+- Окно держит заданный угол. Раньше оно тихо перепривязывалось к той половине экрана, где стояло, и ресайз или драг могли незаметно сменить направление роста
+- Пикер персонажей снова рисуется цельно: строки больше не висят поверх чужих окон при перекрытии
+- Предметы из ряда недавнего снова можно утащить наружу: простой левый клик по-прежнему ничего не делает, Ctrl + левый клик открывает примерочную, Shift + левый клик вставляет ссылку в чат
 
 ## 5.1
 
