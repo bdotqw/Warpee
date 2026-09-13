@@ -433,7 +433,7 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
   local quest = b.borderFrame:CreateTexture(nil, "OVERLAY", nil, 6)
   quest:SetAtlas("Crosshair_Quest_64")
   quest:SetSize(37, 37)
-  quest:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", -3, 2)
+  quest:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", -6, 2)
   quest:Hide()
   b.wpeQuest = quest
   muteAnim(b.flashAnim)
