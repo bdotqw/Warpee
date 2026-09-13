@@ -4,7 +4,7 @@
 
 New
 
-- Every window hangs from a corner you pick: Bags corner and Bank corner on the General tab, Pocket corner on the Pocket tab. The window grows away from its corner as its contents change
+- Every window hangs from a corner you pick: Bags growth corner and Bank growth corner on the General tab, Pocket growth corner on the Pocket tab. The window grows away from its corner as its contents change
 - The pocket docks against the bags or the bank: dropped within reach it lines up against the window, takes the corner that keeps it on that side, and holds the seam when the window it stands against changes size. Dragging the bags never carries it along. A switch on the Pocket tab turns the whole thing off
 
 Fixes
