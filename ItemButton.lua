@@ -169,16 +169,19 @@ function ns.QuestMarked(b)
   return (t and t:IsShown()) and true or false
 end
 
-function ns.MarkQuestItem(b, isQuestItem, questID, isActive)
+-- The gold the game draws its quest bang in. The ring takes the place of the border the game
+-- used to draw over a quest item, so it wears the mark's own colour and not a quality colour.
+local QUEST_YELLOW = { 1, 0.82, 0 }
+
+-- Two outcomes, both on the bang alone: shown for a quest that has not been picked up yet,
+-- hidden in every other case, and the checkbox covers the bang and nothing else. The ring
+-- carries the rest of the quest state, so the animated border the game draws around a quest
+-- item is never asked for any more.
+function ns.MarkQuestItem(b, questID, isActive)
   local t = questTex(b)
   if not t then return end
-  if not ns.Bags.questMarks then t:Hide(); return end
-  if questID and not isActive then
+  if ns.Bags.questMarks and questID and not isActive then
     t:SetTexture(TEXTURE_ITEM_QUEST_BANG)
-    fitToIcon(t, iconOf(b))
-    t:Show()
-  elseif questID or isQuestItem then
-    t:SetTexture(TEXTURE_ITEM_QUEST_BORDER)
     fitToIcon(t, iconOf(b))
     t:Show()
   else
@@ -191,7 +194,7 @@ function ns.SyncQuestMark(b)
   local was = ns.QuestMarked(b)
   if ns.Bags.questMarks and C_Container.GetContainerItemQuestInfo then
     local qi = C_Container.GetContainerItemQuestInfo(b.wpeBagID, b:GetID())
-    ns.MarkQuestItem(b, qi and qi.isQuestItem, qi and qi.questID, qi and qi.isActive)
+    ns.MarkQuestItem(b, qi and qi.questID, qi and qi.isActive)
   else
     ns.MarkQuestItem(b)
   end
@@ -1117,12 +1120,14 @@ function ns.UpdateItemButton(b)
     end
   end
   local mark = keystoneMark(link)
-  -- The quest marker is read before the guard rather than after it. The bags rebuild every
+  -- The quest state is read before the guard rather than after it. The bags rebuild every
   -- cell on a layout, but the bank repaints one only when its plan moved, so a quest taken
-  -- or dropped while the bank was shut used to keep the marker the cell already had. The
-  -- feature gate stays around the read, so a user who turned markers off pays nothing.
+  -- or dropped while the bank was shut used to keep the marker the cell already had. The read
+  -- is gated on either feature that needs it, the bang and the ring the quality border draws,
+  -- so a user who wants neither pays nothing for it.
   local qi
-  if ns.Bags.questMarks and C_Container.GetContainerItemQuestInfo then
+  if (ns.Bags.qualityBorder or ns.Bags.questMarks)
+     and C_Container.GetContainerItemQuestInfo then
     qi = C_Container.GetContainerItemQuestInfo(bagID, slot)
   end
   local qkey = qi and ((qi.questID or 0) .. (qi.isQuestItem and "|q" or "|")
@@ -1210,11 +1215,7 @@ function ns.UpdateItemButton(b)
   SetItemButtonQuality(b, info and info.quality, hl, false, info and info.isBound)
   ns.FitOverlays(b)
   ns.ApplyIconZoom(b)
-  if ns.Bags.questMarks and C_Container.GetContainerItemQuestInfo then
-    ns.MarkQuestItem(b, qi and qi.isQuestItem, qi and qi.questID, qi and qi.isActive)
-  else
-    ns.MarkQuestItem(b)
-  end
+  ns.MarkQuestItem(b, qi and qi.questID, qi and qi.isActive)
   ns.MarkNewItem(b, bagID, slot, info and info.quality)
   ns.MarkJunk(b, info and info.quality)
   ns.MarkBlocked(b, info and info.itemID)
@@ -1225,15 +1226,18 @@ function ns.UpdateItemButton(b)
   if nt then nt:SetAlpha(0) end
   local q = info and info.quality
   ns.SetSlotBorder(b, Theme:C("emptyLine"))
-  if ns.QuestMarked(b) then
-    ns.SetRarityRing(b)
-  elseif ns.Bags.reagentTint and not b.wpeNoReagent
+  -- A quest item wears the gold where the quality colour would have gone: the ring is what
+  -- says "quest" now that the game's own border is gone. The reagent tint and the unwearable
+  -- red keep their places ahead of it, since those say something the gold does not.
+  if ns.Bags.reagentTint and not b.wpeNoReagent
          and b.wpeBagID == ns.reagentBag then
     local r = Theme.colors.reagent
     ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
   elseif ns.Bags.unusableBorder and hl and ns.IsItemUnusable(bagID, slot, hl) then
     local R = RED_FONT_COLOR
     ns.SetRarityRing(b, R.r, R.g, R.b, 1)
+  elseif ns.Bags.qualityBorder and qi and (qi.questID or qi.isQuestItem) then
+    ns.SetRarityRing(b, QUEST_YELLOW[1], QUEST_YELLOW[2], QUEST_YELLOW[3], 1)
   elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q]
          and not decorated(b.IconOverlay) and not decorated(b.IconOverlay2) then
     local c = ITEM_QUALITY_COLORS[q]
@@ -1305,7 +1309,9 @@ function ns.PaintVaultButton(b, d, bagID)
   if link then
     SetItemButtonQuality(b, q, link, false, d.b)
     ns.FitOverlays(b)
-    ns.MarkQuestItem(b, classID == Enum.ItemClass.Questitem)
+    -- The vault has no quest data to hand, so a quest item there wears the gold ring and no
+    -- bang: there is no quest to have picked up or not.
+    ns.MarkQuestItem(b)
     ns.MarkJunk(b, q)
     ns.MarkBlocked(b, (C_Item.GetItemInfoInstant(link)))
     -- A record written before the flag existed carries no w, and reading that as "not
@@ -1341,14 +1347,14 @@ function ns.PaintVaultButton(b, d, bagID)
     end
   end
   ns.SetSlotBorder(b, Theme:C("emptyLine"))
-  if ns.QuestMarked(b) then
-    ns.SetRarityRing(b)
-  elseif ns.Bags.reagentTint and bagID == ns.reagentBag then
+  if ns.Bags.reagentTint and bagID == ns.reagentBag then
     local r = Theme.colors.reagent
     ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
   elseif link and ns.Bags.unusableBorder and ns.IsLinkUnusable(link) then
     local R = RED_FONT_COLOR
     ns.SetRarityRing(b, R.r, R.g, R.b, 1)
+  elseif ns.Bags.qualityBorder and classID == Enum.ItemClass.Questitem then
+    ns.SetRarityRing(b, QUEST_YELLOW[1], QUEST_YELLOW[2], QUEST_YELLOW[3], 1)
   elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q]
          and not decorated(b.IconOverlay) and not decorated(b.IconOverlay2) then
     local c = ITEM_QUALITY_COLORS[q]

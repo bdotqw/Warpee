@@ -10,10 +10,12 @@ New
 - The pocket docks against the bags or the bank: dropped within reach it lines up against the window, takes the corner that keeps it on that side, and holds the seam when the window it stands against changes size. Dragging the bags never carries it along. A switch on the Pocket tab turns the whole thing off
 - The gold tooltip shows the WoW Token price on its own line below the total
 - Three more picks in the pocket's Popular list: Void-Touched Drums, W-47CH D0G and M3DDY, grouped with the other raid utilities
+- A quest item wears its mark on the border: the edge takes the quest gold, the colour of the game's exclamation mark, and the animated border the game used to draw over a quest item is gone
 
 Fixes
 
 - A window keeps the corner it was given. It used to re-anchor itself to whichever half of the screen it happened to be standing on, so a resize or a drag could quietly change the direction it grows in
+- The Quest marker switch covers the game's exclamation mark alone. Turning it off no longer takes the quest edge with it: with Quality border on, a quest item keeps the gold either way
 - The character picker draws as one piece again: its rows no longer float over other windows when they overlap
 - Items in the recent row can be dragged out again: plain left click still takes nothing, Ctrl + left click shows the dressing room and Shift + left click links into chat
 
@@ -25,10 +27,12 @@ RU
 - Карман докируется к сумкам или банку: брошенный рядом встаёт встык, забирает угол под свою сторону и держит шов при ресайзах соседнего окна. Перетаскивание сумок его не везёт. Тумблер отказа во вкладке кармана
 - Тултип золота показывает цену жетона отдельной строкой под итогом
 - Три новинки в Популярном кармана: барабаны Пустоты, W-47CH D0G и Медди — стоят рядом с остальными рейдовыми утилитами
+- Предмет задания носит метку на рамке: край окрашивается в золото задания, тот же цвет, что у восклицательного знака, а анимированная рамка, которую игра рисовала поверх такого предмета, убрана
 
 Исправления
 
 - Окно держит заданный угол. Раньше оно тихо перепривязывалось к той половине экрана, где стояло, и ресайз или драг могли незаметно сменить направление роста
+- Тумблер «Метка задания» отвечает только за восклицательный знак. Его выключение больше не забирает золотой край: с включённой «Рамкой качества» предмет задания остаётся золотым в любом случае
 - Пикер персонажей снова рисуется цельно: строки больше не висят поверх чужих окон при перекрытии
 - Предметы из ряда недавнего снова можно утащить наружу: простой левый клик по-прежнему ничего не делает, Ctrl + левый клик открывает примерочную, Shift + левый клик вставляет ссылку в чат
 
