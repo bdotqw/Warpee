@@ -124,6 +124,7 @@ local function blackRepaint()
   local B = ns.Bags
   if B and B.frame and B.frame:IsShown() then B:Layout() end
   if ns.Bank then ns.Bank:Repaint() end
+  if ns.Pocket then ns.Pocket:Soon() end
   local O = ns.Options
   if O and O.ReflowPages and O.frame and O.frame:IsShown() then O:ReflowPages() end
 end
