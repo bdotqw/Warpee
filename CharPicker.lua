@@ -238,11 +238,7 @@ function Picker:Paint(keepScroll)
   self.sf:SetPoint("TOPLEFT", PAD, -(PAD + HEAD_H + drop))
   self.sf:SetPoint("BOTTOMRIGHT", -PAD, PAD)
   local bodyH = math.max(ROW_H, math.min(y, MAX_ROWS * ROW_H))
-  local win = (self.anchor and self.anchor.GetParent and self.anchor:GetParent()) or self.anchor
-  local winH = win and win.GetHeight and win:GetHeight()
-  if winH and winH > 0 then
-    bodyH = math.min(bodyH, math.max(3 * ROW_H, winH - (PAD * 2 + HEAD_H + drop)))
-  end
+  if self.capH then bodyH = math.min(bodyH, self.capH) end
   ns.SnapSize(self.frame, widest + PAD * 2 + wide, PAD * 2 + HEAD_H + bodyH + drop)
   self.child:SetSize(widest + wide, math.max(1, y))
   local span = math.max(0, y - bodyH)
@@ -278,8 +274,16 @@ function Picker:Toggle(anchor, side, onSelect, currentKey, mode, size)
   self.query, self.showHidden = nil, false
   if self.filter then self.filter:SetText(""); self.filter:ClearFocus() end
   self:UpdateHiddenBorder()
-  self:Paint()
   local win = (anchor and anchor.GetParent and anchor:GetParent()) or anchor
+  local winH = win and win.GetHeight and win:GetHeight()
+  if winH and winH > 0 then
+    local drop = 0
+    if Theme.skin == "blizzard" then drop = 12 end
+    self.capH = math.max(3 * ROW_H, winH - (PAD * 2 + HEAD_H + drop))
+  else
+    self.capH = nil
+  end
+  self:Paint()
   if not win then return end
   m:ClearAllPoints()
   if side == "right" then
