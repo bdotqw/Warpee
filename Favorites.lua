@@ -102,6 +102,7 @@ local function makeGhost(parent)
   local plus = Theme:Label(g, 13, "faint")
   plus:SetPoint("CENTER")
   plus:SetText("+")
+  plus:SetShown(ns.GhostPlus())
   g.plus = plus
   return g
 end
@@ -418,7 +419,7 @@ function Fav:Apply(bags, x, top, size, gap)
         ns.PaintPin(g, pin, pins)
         if not pin then
           g.plus:SetFont(bags.fontPath or ns.Fonts:Current(), plusSize, "")
-          g.plus:Show()
+          g.plus:SetShown(ns.GhostPlus())
         end
         g:Show()
       end

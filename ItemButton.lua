@@ -1785,6 +1785,13 @@ function ns.PinTierFit(g)
   g.tier:SetPoint("TOPLEFT", g, "TOPLEFT", -3, 2)
 end
 
+-- An empty cell of a row is told from a cell of the grid by the plus alone. The two skinned
+-- themes already mark the empty cell with the game's own slot art, so a plus laid over that
+-- art reads as a mark on it instead of as an invitation, and those two go without one.
+function ns.GhostPlus()
+  return not (Theme.Skinned and Theme:Skinned())
+end
+
 -- Blue edge means the item is on you, gold means it is not with you at all. Gear
 -- carries its item level and its gear set instead of a count, and the craft tier
 -- is drawn only on what is not gear, since an item level already says how good
