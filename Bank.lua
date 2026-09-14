@@ -30,6 +30,18 @@ local function applyDensity(size)
   FONT = d.font
   HBAND = d.headerBand
 end
+
+local function sizeGlyph(btn, size)
+  if not btn then return end
+  if btn.wpeBoxW == size and btn.wpeBoxH == size then return end
+  ns.SnapBox(btn, size, size)
+  if btn.Text then btn.Text:SetFontObject(ns.Fonts:Object(math.max(16, math.floor(size * 0.74)))) end
+  if btn.icon and btn.iconPct then
+    local h = btn.iconPctY or btn.iconPct
+    btn.icon:SetSize(math.floor(size * btn.iconPct / 100 + 0.5), math.floor(size * h / 100 + 0.5))
+  end
+  btn:Repaint()
+end
 local ROW1_Y = 4
 local SEARCH_MIN = 80
 local function headerH(base) return math.max(34, base + 16) end
@@ -238,18 +250,18 @@ function View:Build()
     self.tabSel.warband = WarpeeDB.bankTabSel.warband
   end
 
-  local close = ns.CreateGlyphButton(f, "×", 26, "icon")
+  local close = ns.CreateGlyphButton(f, "×", HBTN, "icon")
   close:SetPoint("TOPRIGHT", -PAD, -ROW1_Y)
   close:SetScript("OnClick", function() f:Hide() end)
   self.closeBtn = close
 
-  local gear = ns.CreateGlyphButton(f, "|TInterface\\Buttons\\UI-OptionsButton:13:13:0:0|t", 26, "icon")
+  local gear = ns.CreateGlyphButton(f, "|TInterface\\Buttons\\UI-OptionsButton:13:13:0:0|t", HBTN, "icon")
   gear:SetPoint("TOPRIGHT", close, "TOPLEFT", -4, 0)
   gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
   addTip(gear, "Settings", nil, "top")
   self.gearBtn = gear
 
-  local sort = ns.CreateGlyphButton(f, "", 26, "icon")
+  local sort = ns.CreateGlyphButton(f, "", HBTN, "icon")
   sort:SetPoint("TOPRIGHT", gear, "TOPLEFT", -4, 0)
   sort:SetScript("OnClick", function() self:Sort() end)
   addTip(sort, "Clean up", nil, "top")
@@ -260,6 +272,7 @@ function View:Build()
   sortIcon:SetVertexColor(Theme:C("overlay"))
   Theme:Track(sortIcon, function(x) x:SetVertexColor(Theme:C("overlay")) end)
   sort.icon = sortIcon
+  sort.iconPct, sort.iconPctY = 50, 58
   sort.wpeIconPaint = function(s)
     if s.icon then s.icon:SetVertexColor(Theme:C("overlay")) end
   end
@@ -390,6 +403,9 @@ end
 function View:FlowHeader()
   if not self.frame then return end
   local row1 = ROW1_Y + Theme:TopInset() + Theme:HeadDrop()
+  sizeGlyph(self.closeBtn, HBTN)
+  sizeGlyph(self.gearBtn, HBTN)
+  sizeGlyph(self.sortBtn, HBTN)
   self.headEdge = ns.FlowRow(self.frame, -PAD, -row1, 4,
     { self.closeBtn, self.gearBtn, self.sortBtn })
 end
