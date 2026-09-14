@@ -22,6 +22,7 @@ Locales\ptBR.lua
 Locales\ruRU.lua
 Locales\zhCN.lua
 Theme.lua
+Density.lua
 Widgets.lua
 Tooltip.lua
 ItemRules.lua
