@@ -299,7 +299,7 @@ function View:Build()
   Theme:Money(money)
   money:SetPoint("BOTTOMRIGHT", -PAD, 6)
   self.money = money
-  ns.AttachGoldTooltip(money, f)
+  ns.AttachGoldTooltip(money, f, function() return self:CellSize() end)
 
   local caption = Theme:Label(f, 10, "faint")
   caption:SetPoint("RIGHT", money, "LEFT", -6, 1)
@@ -354,7 +354,7 @@ function View:BuildCharPicker()
   local b = ns.CreateCharTag(self.frame, 22, "right")
   b:SetScript("OnClick", function(s)
     ns.CharPicker:Toggle(s, "right", function(k) self:SelectChar(k) end,
-      ns.Vault:ViewKey("bank"), "bank")
+      ns.Vault:ViewKey("bank"), "bank", function() return self:CellSize() end)
   end)
   addTip(b, "Browse another character's bank", function(s)
     if s:IsEnabled() then return nil end

@@ -154,7 +154,7 @@ function Bags:Build()
       Theme:Money(money)
       money:SetPoint("BOTTOMRIGHT", -PAD, 6)
       self.money = money
-      ns.AttachGoldTooltip(money, f)
+      ns.AttachGoldTooltip(money, f, function() return self.iconSize end)
     end
     if not self.reagentLabel then
       local rlabel = Theme:Label(self.content, FONT - 4, "reagent")
@@ -395,7 +395,7 @@ function Bags:Build()
   Theme:Money(money)
   money:SetPoint("BOTTOMRIGHT", -PAD, 6)
   self.money = money
-  ns.AttachGoldTooltip(money, f)
+  ns.AttachGoldTooltip(money, f, function() return self.iconSize end)
 
   local rlabel = Theme:Label(content, FONT - 4, "reagent")
   ns.LocalText(rlabel, "REAGENTS")
@@ -908,7 +908,8 @@ end
 function Bags:ToggleCharPicker(anchor)
   if not ns.CharPicker then return end
   ns.CharPicker:Toggle(anchor or self.charTag, "left",
-    function(key) self:SelectChar(key) end, ns.Vault:ViewKey("bags"), "bags")
+    function(key) self:SelectChar(key) end, ns.Vault:ViewKey("bags"), "bags",
+    function() return self.iconSize end)
 end
 
 function Bags:SelectChar(key)
