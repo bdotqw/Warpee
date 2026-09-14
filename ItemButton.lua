@@ -99,8 +99,8 @@ end
 
 function ns.PaintCellBase(tex)
   if not tex then return end
-  local fn = SLOT_STYLES[ns.Bags.slotStyle or "tile"] or SLOT_STYLES.tile
-  tex:SetColorTexture(fn())
+  if (ns.Bags.slotStyle or "tile") == "flat" then tex:SetColorTexture(0, 0, 0, 0); return end
+  tex:SetColorTexture(SLOT_STYLES.deep())
 end
 
 -- Everything the fill is read from, so a surface can tell a stale paint from a fresh one. The
