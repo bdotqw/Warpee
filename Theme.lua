@@ -122,7 +122,7 @@ Theme.THEMES = {
     text = { 0.919, 0.948, 0.951, 1.000 }, dim = { 0.611, 0.663, 0.668, 1.000 },
     faint = { 0.389, 0.454, 0.460, 1.000 }, emptyLine = { 0.150, 0.300, 0.310, 1.000 },
     azure = { 0.350, 0.600, 0.900, 1.000 }, reagent = { 0.353, 0.804, 0.616, 1.000 } },
-  flatdark = { label = "Flat Dark",
+  flatdark = { label = "Flat Dark", classAccent = true,
     bg = { 0.060, 0.060, 0.060, 0.800 }, panel = { 0.100, 0.100, 0.100, 1.000 },
     panelHi = { 0.160, 0.160, 0.160, 1.000 }, slot = { 0.100, 0.100, 0.100, 1.000 },
     stroke = { 0.000, 0.000, 0.000, 1.000 }, strokeSoft = { 0.310, 0.310, 0.310, 1.000 },
@@ -163,7 +163,15 @@ function Theme:Apply(name)
   local c = {}
   for k, v in pairs(SHARED) do c[k] = v end
   for k, v in pairs(t) do
-    if k ~= "label" and k ~= "skin" then c[k] = v end
+    if k ~= "label" and k ~= "skin" and k ~= "classAccent" then c[k] = v end
+  end
+  if t.classAccent then
+    local _, cls = UnitClass("player")
+    local col = cls and RAID_CLASS_COLORS and RAID_CLASS_COLORS[cls]
+    if col then
+      c.accent = { col.r, col.g, col.b, 1 }
+      c.accentInk = { col.r + (1 - col.r) * 0.45, col.g + (1 - col.g) * 0.45, col.b + (1 - col.b) * 0.45, 1 }
+    end
   end
   if not c.deep then c.deep = c.bg end
   self.colors = c
