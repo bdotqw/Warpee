@@ -238,6 +238,11 @@ function Picker:Paint(keepScroll)
   self.sf:SetPoint("TOPLEFT", PAD, -(PAD + HEAD_H + drop))
   self.sf:SetPoint("BOTTOMRIGHT", -PAD, PAD)
   local bodyH = math.max(ROW_H, math.min(y, MAX_ROWS * ROW_H))
+  local win = (self.anchor and self.anchor.GetParent and self.anchor:GetParent()) or self.anchor
+  local winH = win and win.GetHeight and win:GetHeight()
+  if winH and winH > 0 then
+    bodyH = math.min(bodyH, math.max(3 * ROW_H, winH - (PAD * 2 + HEAD_H + drop)))
+  end
   ns.SnapSize(self.frame, widest + PAD * 2 + wide, PAD * 2 + HEAD_H + bodyH + drop)
   self.child:SetSize(widest + wide, math.max(1, y))
   local span = math.max(0, y - bodyH)
