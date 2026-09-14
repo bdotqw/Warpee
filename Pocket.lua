@@ -13,6 +13,20 @@ local BOX_H, BOX_GAP = 22, 8
 local MAX_COLS, MAX_ROWS = 8, 6
 local PICK_MAX, PICK_COLS = 64, 8
 local PICK_SIZE, PICK_GAP, PICK_PAD = 36, 8, 12
+local FONT, PICK_MINW = 15, 176
+
+local function pocketSize()
+  return (WarpeeDB and tonumber(WarpeeDB.pocketIconSize)) or (ns.Bags and ns.Bags.iconSize) or 37
+end
+
+local function applyDensity()
+  local d = ns.Density(pocketSize())
+  PAD, BAND, NUDGE_BAND = d.pocketPad, d.pocketBand, d.pocketNudge
+  LABEL_H, LABEL_GAP = d.labelH, d.labelGap
+  BOX_H, BOX_GAP = d.searchH, d.pocketGap
+  PICK_SIZE, PICK_GAP, PICK_PAD = d.pickSize, d.pickGap, d.pickPad
+  FONT, PICK_MINW = d.font, d.pickMinW
+end
 
 local POCKET_PICKS = {
   259085, -- Void-Touched Augment Rune
@@ -612,6 +626,7 @@ end
 function Pocket:Layout()
   local w = self.frame
   if not w then return end
+  applyDensity()
   local Bags = ns.Bags
   local size, gap, step = ns.GridMetrics(w,
     (WarpeeDB and tonumber(WarpeeDB.pocketIconSize)) or (Bags and Bags.iconSize) or 37,
@@ -623,7 +638,7 @@ function Pocket:Layout()
   local head = band and (band + 6) or (30 + Theme:TopInset())
   local mid = (band or head) / 2 + Theme:TitleDrop()
   local path = ns.Fonts:Current()
-  self.title:SetFont(path, 14, "")
+  self.title:SetFont(path, FONT - 1, "")
   paintTitle()
   self.title:ClearAllPoints()
   ns.SnapPoint(self.title, "LEFT", w, "TOPLEFT", PAD, -mid)
@@ -658,14 +673,14 @@ function Pocket:Layout()
   local recOn = (R and R:PocketOn()) and true or false
   local y = head
   if recOn then
-    self.recLabel:SetFont(path, 11, "")
+    self.recLabel:SetFont(path, FONT - 4, "")
     self.recLabel:ClearAllPoints()
     ns.SnapPoint(self.recLabel, "TOPLEFT", w, "TOPLEFT", PAD, -y)
     self.recLabel:Show()
     local capY = y
     y = y + LABEL_H + LABEL_GAP
     local feed = R:Feed(cols)
-    self.recWipe.Text:SetFont(path, 10, "")
+    self.recWipe.Text:SetFont(path, FONT - 5, "")
     self.recWipe:SetSize(math.ceil(self.recWipe.Text:GetStringWidth()) + 8, LABEL_H)
     self.recWipe:ClearAllPoints()
     ns.SnapPoint(self.recWipe, "TOPLEFT", w, "TOPLEFT",
@@ -813,6 +828,7 @@ end
 function Pocket:PickPaint()
   local p = self.picksFrame
   if not (p and self.pickBtns) then return end
+  applyDensity()
   local list = self:List()
   local n = #POCKET_PICKS
   local path = ns.Fonts:Current()
@@ -820,7 +836,7 @@ function Pocket:PickPaint()
   local head = band and (band + 6) or (30 + Theme:TopInset())
   local mid = (band or head) / 2 + Theme:TitleDrop()
   if self.picksTitle then
-    self.picksTitle:SetFont(path, 14, "")
+    self.picksTitle:SetFont(path, FONT - 1, "")
     self.picksTitle:ClearAllPoints()
     ns.SnapPoint(self.picksTitle, "LEFT", p, "TOPLEFT", PICK_PAD, -mid)
   end
@@ -829,8 +845,8 @@ function Pocket:PickPaint()
     ns.SnapPoint(self.picksClose, "RIGHT", p, "TOPRIGHT", -6, -mid)
   end
   if self.idBox then
-    self.idBox:SetFont(path, 13, "")
-    if self.idBox.Hint then self.idBox.Hint:SetFont(path, 13, "") end
+    self.idBox:SetFont(path, FONT - 2, "")
+    if self.idBox.Hint then self.idBox.Hint:SetFont(path, FONT - 2, "") end
     self.idBox:ClearAllPoints()
     ns.SnapPoint(self.idBox, "TOPLEFT", p, "TOPLEFT", PICK_PAD, -head)
     ns.SnapPoint(self.idBox, "TOPRIGHT", p, "TOPRIGHT", -PICK_PAD, -head)
@@ -859,7 +875,7 @@ function Pocket:PickPaint()
   local rows = n > 0 and math.ceil(n / cols) or 0
   local gridH = rows > 0 and (rows * PICK_SIZE + (rows - 1) * PICK_GAP) or 0
   local pickW = PICK_PAD * 2 + cols * PICK_SIZE + (cols - 1) * PICK_GAP
-  ns.SnapSize(p, math.max(pickW, 176), gridTop + gridH + PICK_PAD)
+  ns.SnapSize(p, math.max(pickW, PICK_MINW), gridTop + gridH + PICK_PAD)
   for i = 1, n do
     local b = self.pickBtns[i]
     ns.SnapSize(b, PICK_SIZE, PICK_SIZE)

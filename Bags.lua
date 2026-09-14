@@ -17,8 +17,33 @@ local HEADER, FOOTER = 66, 28
 local DIV = 22
 local HB = 26
 local ROW1_Y = 4
+local SEARCH = 22
 local GAUGE_Y = ROW1_Y + HB + 6
 local ROW2_Y = GAUGE_Y + 6
+local FONT = 15
+local BAGPAD, BAGGAP = 12, 6
+
+local function applyDensity(size)
+  local d = ns.Density(size)
+  PAD, HEADER, FOOTER, DIV, HB = d.pad, d.header, d.footer, d.div, d.hb
+  ROW1_Y, SEARCH = d.row1y, d.searchH
+  GAUGE_Y = ROW1_Y + HB + 6
+  ROW2_Y = GAUGE_Y + 6
+  FONT = d.font
+  BAGPAD, BAGGAP = d.bagPad, d.bagGap
+end
+
+local function sizeGlyph(btn, size)
+  if not btn then return end
+  if btn.wpeBoxW == size and btn.wpeBoxH == size then return end
+  ns.SnapBox(btn, size, size)
+  if btn.Text then btn.Text:SetFontObject(ns.Fonts:Object(math.max(16, math.floor(size * 0.74)))) end
+  if btn.icon and btn.iconPct then
+    local h = btn.iconPctY or btn.iconPct
+    btn.icon:SetSize(math.floor(size * btn.iconPct / 100 + 0.5), math.floor(size * h / 100 + 0.5))
+  end
+  btn:Repaint()
+end
 
 local Bags = { pool = {}, vpool = {}, cols = COLS_DEFAULT, gap = GAP_DEFAULT, iconSize = SIZE_DEFAULT,
                slotStyle = "tile", showGauge = true, goldLetters = false, goldOnly = false,
@@ -66,7 +91,25 @@ end
 function Bags:AnchorHeader()
   local top = Theme:TopInset()
   local row1 = ROW1_Y + top + Theme:HeadDrop()
+  sizeGlyph(self.closeBtn, HB)
+  sizeGlyph(self.sortBtn, HB)
+  sizeGlyph(self.gearBtn, HB)
+  sizeGlyph(self.bagsToggle, HB)
+  sizeGlyph(self.reagentBtn, HB)
+  sizeGlyph(self.bankBtn, HB)
+  sizeGlyph(self.pocketBtn, HB)
+  sizeGlyph(self.sellBtn, HB)
+  if self.charTag then ns.SnapBox(self.charTag, nil, HB) end
+  if self.search then ns.SnapBox(self.search, nil, SEARCH) end
   self:FlowHeader()
+  if self.title then
+    self.title:ClearAllPoints()
+    self.title:SetPoint("BOTTOMLEFT", PAD, 6)
+  end
+  if self.money then
+    self.money:ClearAllPoints()
+    self.money:SetPoint("BOTTOMRIGHT", -PAD, 6)
+  end
   if self.charTag then
     self.charTag:ClearAllPoints()
     ns.SnapPoint(self.charTag, "TOPLEFT", self.frame, "TOPLEFT", PAD, -row1)
@@ -86,6 +129,7 @@ function Bags:AnchorHeader()
 end
 
 function Bags:Build()
+  applyDensity(self.iconSize)
   if self.frame then
     local f = self.frame
     if not self.content then self.content = CreateFrame("Frame", nil, f) end
@@ -106,14 +150,14 @@ function Bags:Build()
       self.gridBg = gridBg
     end
     if not self.money then
-      local money = Theme:Label(f, 16, "text")
+      local money = Theme:Label(f, FONT + 1, "text")
       Theme:Money(money)
       money:SetPoint("BOTTOMRIGHT", -PAD, 6)
       self.money = money
       ns.AttachGoldTooltip(money, f)
     end
     if not self.reagentLabel then
-      local rlabel = Theme:Label(self.content, 11, "reagent")
+      local rlabel = Theme:Label(self.content, FONT - 4, "reagent")
       ns.LocalText(rlabel, "REAGENTS")
       rlabel:Hide()
       self.reagentLabel = rlabel
@@ -156,7 +200,7 @@ function Bags:Build()
   self.content = CreateFrame("Frame", nil, f)
   ns.CreateMoveBar(f, "pos")
 
-  local title = Theme:Title(f, 15, "accent")
+  local title = Theme:Title(f, FONT, "accent")
   title:SetPoint("BOTTOMLEFT", PAD, 6)
   title:SetText("WARPEE")
   self.title = title
@@ -177,7 +221,7 @@ function Bags:Build()
   end)
   self.charTag = charTag
 
-  local slots = Theme:Label(f, 12, "dim")
+  local slots = Theme:Label(f, FONT - 3, "dim")
   slots:SetJustifyH("LEFT")
   self.slotText = slots
 
@@ -196,6 +240,7 @@ function Bags:Build()
   sortIcon:SetVertexColor(Theme:C("overlay"))
   Theme:Track(sortIcon, function(x) x:SetVertexColor(Theme:C("overlay")) end)
   sort.icon = sortIcon
+  sort.iconPct, sort.iconPctY = 50, 58
   sort.wpeIconPaint = function(s)
     if s.icon then s.icon:SetVertexColor(Theme:C("overlay")) end
   end
@@ -218,6 +263,7 @@ function Bags:Build()
   bagIcon:SetVertexColor(Theme:IconTint())
   Theme:Track(bagIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
   bagsToggle.icon = bagIcon
+  bagsToggle.iconPct = 85
   bagsToggle.wpeIconPaint = function(s)
     if s.icon then s.icon:SetVertexColor(Theme:IconTint()) end
   end
@@ -243,6 +289,7 @@ function Bags:Build()
   reagsIcon:SetSize(20, 20)
   reagsIcon:SetPoint("CENTER")
   reags.icon = reagsIcon
+  reags.iconPct = 77
   reags.wpeIconPaint = function(s) Bags:PaintReagents(s) end
   self.reagentBtn = reags
   Bags:PaintReagents(reags)
@@ -269,6 +316,7 @@ function Bags:Build()
   bankIcon:SetVertexColor(Theme:IconTint())
   Theme:Track(bankIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
   bank.icon = bankIcon
+  bank.iconPct = 77
   bank.wpeIconPaint = function(s)
     if s.icon then s.icon:SetVertexColor(Theme:IconTint()) end
   end
@@ -291,6 +339,7 @@ function Bags:Build()
   sellIcon:SetVertexColor(Theme:IconTint())
   Theme:Track(sellIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
   sell.icon = sellIcon
+  sell.iconPct = 61
   sell.wpeIconPaint = function(s)
     if s.icon then s.icon:SetVertexColor(Theme:IconTint()) end
   end
@@ -324,7 +373,7 @@ function Bags:Build()
   end)
   search:SetPoint("TOPLEFT", PAD, -ROW2_Y)
   search:SetPoint("TOPRIGHT", -PAD, -ROW2_Y)
-  search:SetHeight(22)
+  search:SetHeight(SEARCH)
   self.search = search
 
   local gaugeBg = Theme:Rect(f, "panel", "BACKGROUND")
@@ -342,13 +391,13 @@ function Bags:Build()
   gridBg:SetDrawLayer("BACKGROUND", 1)
   self.gridBg = gridBg
 
-  local money = Theme:Label(f, 16, "text")
+  local money = Theme:Label(f, FONT + 1, "text")
   Theme:Money(money)
   money:SetPoint("BOTTOMRIGHT", -PAD, 6)
   self.money = money
   ns.AttachGoldTooltip(money, f)
 
-  local rlabel = Theme:Label(content, 11, "reagent")
+  local rlabel = Theme:Label(content, FONT - 4, "reagent")
   ns.LocalText(rlabel, "REAGENTS")
   rlabel:Hide()
   self.reagentLabel = rlabel
@@ -359,7 +408,7 @@ end
 
 function Bags:BuildBagWindow()
   if self.bagWindow then return self.bagWindow end
-  local BPAD = 12
+  local BPAD = BAGPAD
   local w = CreateFrame("Frame", "WarpeeBagsWindow", UIParent, "BackdropTemplate")
   Theme:Panel(w, "bg", "stroke")
   Theme:WindowArt(w)
@@ -378,7 +427,7 @@ function Bags:BuildBagWindow()
   end)
   ns.EscClose(w)
 
-  local title = Theme:Title(w, 14, "accent")
+  local title = Theme:Title(w, FONT - 1, "accent")
   title:SetPoint("TOPLEFT", BPAD, -8)
   ns.LocalText(title, "BAGS")
   self.bagTitle = title
@@ -406,7 +455,7 @@ end
 function Bags:LayoutBagWindow()
   local w = self.bagWindow
   if not w or not self.bagButtons then return end
-  local BGAP, BPAD = 6, 12
+  local BGAP, BPAD = BAGGAP, BAGPAD
   local BBAND = 26
   local size = self:BagWinButtonSize()
   local cf = ns.Badge("count").s
@@ -535,6 +584,7 @@ function Bags:Restyle()
 end
 
 function Bags:Layout(capture)
+  applyDensity(self.iconSize)
   self:Build()
   if not (self.frame and self.content and self.gaugeBg and self.gaugeFill
           and self.gridBg and self.money and self.reagentLabel) then return end
@@ -546,19 +596,19 @@ function Bags:Layout(capture)
   self.byKey = {}
   self.bagSlots = self.bagSlots or {}
   self.fontPath = ns.Fonts:Current()
-  if self.title then self.title:SetFont(self.fontPath, 15, "") end
+  if self.title then self.title:SetFont(self.fontPath, FONT, "") end
   if self.money then
-    self.money:SetFont(self.fontPath, 16, Theme:IsLight() and ns.OutlineFlags() or "")
+    self.money:SetFont(self.fontPath, FONT + 1, Theme:IsLight() and ns.OutlineFlags() or "")
     Theme:Money(self.money)
   end
-  if self.reagentLabel then self.reagentLabel:SetFont(self.fontPath, 11, "") end
-  if self.slotText then self.slotText:SetFont(self.fontPath, 12, "") end
+  if self.reagentLabel then self.reagentLabel:SetFont(self.fontPath, FONT - 4, "") end
+  if self.slotText then self.slotText:SetFont(self.fontPath, FONT - 3, "") end
   if self.search then
-    self.search:SetFont(self.fontPath, 13, "")
-    if self.search.Hint then self.search.Hint:SetFont(self.fontPath, 13, "") end
+    self.search:SetFont(self.fontPath, FONT - 2, "")
+    if self.search.Hint then self.search.Hint:SetFont(self.fontPath, FONT - 2, "") end
   end
-  if self.charTag then self.charTag.Text:SetFont(self.fontPath, 12, ns.OutlineFlags()); self:UpdateCharTag() end
-  if self.frame and self.frame.wpeBar then self.frame.wpeBar:Fonts(self.fontPath, 11) end
+  if self.charTag then self.charTag.Text:SetFont(self.fontPath, FONT - 3, ns.OutlineFlags()); self:UpdateCharTag() end
+  if self.frame and self.frame.wpeBar then self.frame.wpeBar:Fonts(self.fontPath, FONT - 4) end
 
   self.recentH = ns.Recent and ns.Recent:Apply(self, PAD, self:BaseTop(), size, gap) or 0
   self.favH = ns.Fav and ns.Fav:Apply(self, PAD, self:BaseTop() + self.recentH, size, gap) or 0
@@ -771,7 +821,7 @@ end
 function Bags:UpdateBagBar()
   if not self.bagButtons then return end
   local path = ns.Fonts:Current()
-  if self.bagTitle then self.bagTitle:SetFont(path, 14, "") end
+  if self.bagTitle then self.bagTitle:SetFont(path, FONT - 1, "") end
   for _, b in ipairs(self.bagButtons) do
     local bagID = b.wpeBagID
     local tex

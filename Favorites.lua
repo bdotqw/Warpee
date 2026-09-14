@@ -5,7 +5,6 @@ local Fav = {}
 ns.Fav = Fav
 Fav.slots, Fav.ghosts, Fav.catchers = {}, {}, {}
 
-local LABEL_H, LABEL_GAP = 13, 4
 local MAX_SLOTS = 24
 
 local function charKey()
@@ -356,6 +355,7 @@ end
 function Fav:Apply(bags, x, top, size, gap)
   if not (bags and bags.frame) then return 0 end
   local frame = bags.frame
+  local d = ns.Density(size)
   self.args = { bags = bags, x = x, top = top, size = size, gap = gap }
   if not self:Enabled() then
     self:Hide()
@@ -367,7 +367,7 @@ function Fav:Apply(bags, x, top, size, gap)
     ns.LocalText(fs, "Favorites")
     self.label = fs
   end
-  self.label:SetFont(bags.fontPath or ns.Fonts:Current(), 11, "")
+  self.label:SetFont(bags.fontPath or ns.Fonts:Current(), d.font - 4, "")
   self.label:ClearAllPoints()
   ns.SnapPoint(self.label, "TOPLEFT", frame, "TOPLEFT", x, -top)
   self.label:Show()
@@ -375,7 +375,7 @@ function Fav:Apply(bags, x, top, size, gap)
   local cols = bags.cols or 14
   local n = math.min(cols, MAX_SLOTS)
   if not self.warmed then self:Warm() end
-  local rowY = top + LABEL_H + LABEL_GAP
+  local rowY = top + d.labelH + d.labelGap
   local list = self:List()
   local last = math.max(self.max or 0, n)
   self.max = last
@@ -448,7 +448,7 @@ function Fav:Apply(bags, x, top, size, gap)
   -- until the next cooldown event. One pass after placing the cells closes that gap,
   -- and the cached start and duration keep an unchanged one nearly free.
   self:Cooldowns()
-  return LABEL_H + LABEL_GAP + size + 6
+  return d.labelH + d.labelGap + size + 6
 end
 
 local ev = CreateFrame("Frame")

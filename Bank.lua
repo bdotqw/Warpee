@@ -21,6 +21,13 @@ local WARBAND   = idList({ "AccountBankTab_1", "AccountBankTab_2", "AccountBankT
 
 local PAD, DIV = 10, 22
 local HBTN = 26
+local FONT = 15
+
+local function applyDensity(size)
+  local d = ns.Density(size)
+  PAD, DIV, HBTN = d.pad, d.div, d.hb
+  FONT = d.font
+end
 local ROW1_Y = 4
 local SEARCH_MIN = 80
 local function headerH(base) return math.max(34, base + 16) end
@@ -171,7 +178,7 @@ function View:Cols(mode)
   local n = WarpeeDB and (wb and WarpeeDB.warbandCols or WarpeeDB.bankCols)
   return n or (d and (wb and d.warbandCols or d.bankCols)) or (wb and 26 or 28)
 end
-function View:FontSize() return 13 end
+function View:FontSize() return FONT - 2 end
 function View:HeaderH() return math.max(58, headerH(self:FontSize()) + 24) + Theme:TopInset() end
 function View:FooterH() return footerH(self:FontSize()) end
 
@@ -1107,6 +1114,7 @@ function View:Run(st, repaint, tag)
 end
 
 function View:Fonts()
+  applyDensity(self:CellSize())
   local path = ns.Fonts:Current()
   local base = self:FontSize()
   self.fontPath, self.fontBase = path, base
@@ -1186,6 +1194,7 @@ end
 
 function View:Layout()
   if not (self.frame and self.cur) then return end
+  applyDensity(self:CellSize())
   self:Fonts()
   self:AnchorHeader()
   self:LayoutMode(self.cur, "fill")
