@@ -2332,7 +2332,7 @@ function Options:Build()
 
   local f = CreateFrame("Frame", "WarpeeOptionsFrame", UIParent, "BackdropTemplate")
   f:Hide()
-  Theme:Panel(f, "bg", "stroke")
+  Theme:Panel(f, "bg", "stroke", true)
   ns.SnapBox(f, WIN_W, math.min(WIN_H, UIParent:GetHeight() - 60), true)
   f:SetClampedToScreen(true)
   f:SetMovable(true)

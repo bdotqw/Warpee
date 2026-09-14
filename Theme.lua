@@ -990,8 +990,13 @@ function Theme:TitleDrop()
   return (def and def.titleDrop) or 0
 end
 
-function Theme:Panel(frame, bgKey, strokeKey)
+function Theme:Panel(frame, bgKey, strokeKey, opaque)
   local bg, st = bgKey or "bg", strokeKey or "stroke"
+  local function setBg(x)
+    local r, g, b, a = Theme:C(bg)
+    if opaque then a = 1 end
+    ns.SetBg(x, r, g, b, a)
+  end
   local function paint(x)
     if Theme:Skinned() then
       local def = Theme:SkinDef()
@@ -1007,19 +1012,19 @@ function Theme:Panel(frame, bgKey, strokeKey)
         else
           x:SetBackdrop({ bgFile = WHITE,
                           insets = { left = 4, right = 4, top = 4, bottom = 4 } })
-          ns.SetBg(x, Theme:C(bg))
+          setBg(x)
         end
         return
       end
       x:SetBackdrop({ bgFile = TIP_BG, edgeFile = TIP_EDGE, tile = true, tileSize = 16,
                       edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
-      ns.SetBg(x, Theme:C(bg))
+      setBg(x)
       ns.SetEdge(x, 1, 1, 1, 1)
       return
     end
     Theme:RefreshArt(x)
     x:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = ns.PX(x) })
-    ns.SetBg(x, Theme:C(bg))
+    setBg(x)
     ns.SetEdge(x, Theme:C(st))
   end
   ns.PixelBackdrop(frame, paint)
