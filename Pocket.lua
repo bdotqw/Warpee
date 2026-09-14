@@ -389,6 +389,11 @@ function Pocket:Build()
   local w = CreateFrame("Frame", "WarpeePocket", UIParent, "BackdropTemplate")
   Theme:Panel(w, "bg", "stroke")
   Theme:Window(w, "WarpeePocket")
+  -- The pocket had no panel of its own: its cells stood on the window's own paint, while the
+  -- cells of the bags stand on one. Same rect, laid out in every pass of the layout.
+  local gridBg = Theme:Rect(w, "panel", "BACKGROUND")
+  gridBg:SetDrawLayer("BACKGROUND", 1)
+  self.gridBg = gridBg
   w:SetClampedToScreen(true)
   w:SetMovable(true)
   w:EnableMouse(true)
@@ -695,6 +700,7 @@ function Pocket:Layout()
           ns.SnapBox(g, size, size)
           g:ClearAllPoints()
           ns.SnapPoint(g, "TOPLEFT", w, "TOPLEFT", PAD + (i - 1) * step, -y)
+          ns.PaintGhostBg(g)
           g:Show()
         elseif g then
           g:Hide()
@@ -791,6 +797,15 @@ function Pocket:Layout()
   local editable = not self:Locked()
   if self.nudge then self.nudge:SetShown(editable) end
   local foot = gridTop + (rows - 1) * step + size + BOX_GAP
+  if self.gridBg then
+    -- Up to the label of the topmost row when one is drawn, otherwise the top of the grid, and
+    -- down to the last row of it. The band under the arrows is not covered.
+    local top = recOn and head or gridTop
+    self.gridBg:ClearAllPoints()
+    self.gridBg:SetPoint("TOPLEFT", w, "TOPLEFT", PAD - 3, -(top - 3))
+    self.gridBg:SetPoint("TOPRIGHT", w, "TOPRIGHT", -(PAD - 3), -(foot + 3))
+    self.gridBg:SetAlpha(Theme:GridAlpha())
+  end
   ns.SnapSize(w, PAD * 2 + cols * step - gap, foot + NUDGE_BAND)
   ns.AlignToScreen(w)
 end

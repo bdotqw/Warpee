@@ -539,6 +539,7 @@ function Theme:ApplyGridAlpha()
   local a = self:GridAlpha()
   if ns.Bags and ns.Bags.gridBg then ns.Bags.gridBg:SetAlpha(a) end
   if ns.Bank and ns.Bank.gridBg then ns.Bank.gridBg:SetAlpha(a) end
+  if ns.Pocket and ns.Pocket.gridBg then ns.Pocket.gridBg:SetAlpha(a) end
 end
 
 local escFrames = {}

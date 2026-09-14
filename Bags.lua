@@ -682,7 +682,12 @@ function Bags:Resize(contentH)
   self.content:SetSize(gw, contentH)
   self.frame:SetSize(PAD * 2 + gw, self:TopOffset() + contentH + FOOTER)
   self.gridBg:ClearAllPoints()
-  self.gridBg:SetPoint("TOPLEFT", self.content, "TOPLEFT", -3, 3)
+  -- The rows stand above the content on the window's own paint, so the panel is stretched up
+  -- over them: the gaps around a row then read like the gaps of the grid. With every row off
+  -- the top drops back onto the content and no band of panel is left behind.
+  local rows = (self.recentH or 0) + (self.favH or 0)
+  local top = rows > 0 and self:BaseTop() or self:TopOffset()
+  self.gridBg:SetPoint("TOPLEFT", self.frame, "TOPLEFT", PAD - 3, -(top - 3))
   self.gridBg:SetPoint("BOTTOMRIGHT", self.content, "BOTTOMRIGHT", 3, -3)
   self.gridBg:SetAlpha(Theme:GridAlpha())
   ns.Rebase(self.frame, "pos")

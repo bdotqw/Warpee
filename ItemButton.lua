@@ -69,29 +69,56 @@ local SLOT_STYLES = {
 
 local SLOT_TEXTURE = [[Interface\Buttons\UI-Slot-Background]]
 
-function ns.PaintSlotBg(b)
-  if not (b and b.bg) then return end
+-- Which fill a cell wears: the theme's slot art where the theme carries one, a flat colour
+-- otherwise, both picked by the slot style. It stands apart from either surface because the
+-- empty cells of the recent and favourite rows wear it too, and those are not item buttons.
+function ns.PaintCellFill(tex)
+  if not tex then return end
   local style = ns.Bags.slotStyle or "tile"
-  b.bg:SetTexCoord(0, 1, 0, 1)
-  b.bg:SetVertexColor(1, 1, 1, 1)
+  tex:SetTexCoord(0, 1, 0, 1)
+  tex:SetVertexColor(1, 1, 1, 1)
   local def = Theme.SkinDef and Theme:SkinDef()
   if style ~= "flat" and not Theme:IsLight() and Theme.Skinned and Theme:Skinned()
      and not (def and def.flatSlots) then
     local atlas = Theme.SlotAtlas and Theme:SlotAtlas()
-    if atlas and b.bg.SetAtlas and pcall(b.bg.SetAtlas, b.bg, atlas) then
+    if atlas and tex.SetAtlas and pcall(tex.SetAtlas, tex, atlas) then
       if style == "deep" then
         local k = Theme:IsLight() and 0.82 or 0.52
-        b.bg:SetVertexColor(k, k, k, 1)
+        tex:SetVertexColor(k, k, k, 1)
       end
       return
     end
-    if pcall(b.bg.SetTexture, b.bg, SLOT_TEXTURE) then
-      b.bg:SetTexCoord(0, 0.578125, 0, 0.578125)
+    if pcall(tex.SetTexture, tex, SLOT_TEXTURE) then
+      tex:SetTexCoord(0, 0.578125, 0, 0.578125)
       return
     end
   end
   local fn = SLOT_STYLES[style] or SLOT_STYLES.tile
-  b.bg:SetColorTexture(fn())
+  tex:SetColorTexture(fn())
+end
+
+-- Everything the fill is read from, so a surface can tell a stale paint from a fresh one. The
+-- theme name carries its palette, its skin and its light or dark half along with it, and the
+-- slot style is the one option that moves the key without a theme switch.
+function ns.CellFillKey()
+  return table.concat({ tostring(Theme.active), tostring(Theme.skin),
+                        tostring(ns.Bags.slotStyle or "tile"), tostring(Theme:IsLight()),
+                        tostring(Theme.SlotAtlas and Theme:SlotAtlas()) }, ":")
+end
+
+-- A ghost hangs on the window rather than in the content, so the grid's own pass never reaches
+-- it and it asks for its fill here instead, only when the key has moved.
+function ns.PaintGhostBg(g)
+  if not (g and g.bg) then return end
+  local key = ns.CellFillKey()
+  if g.fillKey == key then return end
+  g.fillKey = key
+  ns.PaintCellFill(g.bg)
+end
+
+function ns.PaintSlotBg(b)
+  if not (b and b.bg) then return end
+  ns.PaintCellFill(b.bg)
 end
 
 local RING_INSET = 0
@@ -1765,6 +1792,7 @@ end
 -- recognisable, the gold edge already says it is not with you.
 function ns.PaintPin(g, pin, t, btn)
   if not g then return end
+  ns.PaintGhostBg(g)
   if not pin then
     if g.icon then g.icon:Hide() end
     if g.tier then g.tier:Hide() end
