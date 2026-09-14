@@ -170,8 +170,14 @@ end
 function Picker:Paint(keepScroll)
   if not self.frame then return end
   local k = Theme:IsLight() and "bg" or "deep"
+  -- The fill is re-asserted because the light and the dark half of a theme take a different key
+  -- and the panel baked its own in at build time. The edge is left alone, or the repaint below
+  -- would keep painting it in the fill's own colour and the window would stay without an
+  -- outline on every plain theme, whatever key the panel was built with. The two Blizzard
+  -- themes keep the old call: their frame art carries the border itself, and the plain backdrop
+  -- that stands in for it, on the rare pass where the art is missing, has to blend away.
   ns.SetBg(self.frame, Theme:C(k))
-  ns.SetEdge(self.frame, Theme:C(k))
+  if Theme:Skinned() then ns.SetEdge(self.frame, Theme:C(k)) end
   local scroll = keepScroll and self.sf:GetVerticalScroll() or 0
   local path = fontPath()
   local list = ns.Vault:WithOwner(ns.Vault:Chars(self.showHidden, self.mode))
