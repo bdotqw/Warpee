@@ -22,11 +22,13 @@ local WARBAND   = idList({ "AccountBankTab_1", "AccountBankTab_2", "AccountBankT
 local PAD, DIV = 10, 22
 local HBTN = 26
 local FONT = 15
+local HBAND = 32
 
 local function applyDensity(size)
   local d = ns.Density(size)
   PAD, DIV, HBTN = d.pad, d.div, d.hb
   FONT = d.font
+  HBAND = d.headerBand
 end
 local ROW1_Y = 4
 local SEARCH_MIN = 80
@@ -205,7 +207,7 @@ function View:Build()
     ns.SeamDrop(s)
   end)
   Theme:Window(f, "WarpeeBankFrame")
-  Theme:HeaderBand(f)
+  Theme:HeaderBand(f, HBAND)
   f:SetScript("OnHide", function()
     ns.ClearSearch(self.search)
     self.depositType = nil
@@ -401,7 +403,7 @@ function View:AnchorHeader()
     self.bankTab:ClearAllPoints()
     ns.SnapPoint(self.bankTab, "TOPLEFT", self.frame, "TOPLEFT", PAD, -row1)
   end
-  Theme:HeaderBand(self.frame)
+  Theme:HeaderBand(self.frame, HBAND)
   self:UpdateTabs()
   self:AnchorSearch()
 end
