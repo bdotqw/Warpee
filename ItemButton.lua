@@ -97,6 +97,12 @@ function ns.PaintCellFill(tex)
   tex:SetColorTexture(fn())
 end
 
+function ns.PaintCellBase(tex)
+  if not tex then return end
+  local fn = SLOT_STYLES[ns.Bags.slotStyle or "tile"] or SLOT_STYLES.tile
+  tex:SetColorTexture(fn())
+end
+
 -- Everything the fill is read from, so a surface can tell a stale paint from a fresh one. The
 -- theme name carries its palette, its skin and its light or dark half along with it, and the
 -- slot style is the one option that moves the key without a theme switch.
@@ -114,11 +120,13 @@ function ns.PaintGhostBg(g)
   if g.fillKey == key then return end
   g.fillKey = key
   ns.PaintCellFill(g.bg)
+  ns.PaintCellBase(g.bgBase)
 end
 
 function ns.PaintSlotBg(b)
   if not (b and b.bg) then return end
   ns.PaintCellFill(b.bg)
+  ns.PaintCellBase(b.bgBase)
 end
 
 local RING_INSET = 0
@@ -444,6 +452,9 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
   b.bg = b:CreateTexture(nil, "BACKGROUND", nil, -1)
   b.bg:SetAllPoints(b)
   b.bg:SetColorTexture(Theme:C("slot"))
+  b.bgBase = b:CreateTexture(nil, "BACKGROUND", nil, -2)
+  b.bgBase:SetAllPoints(b)
+  b.bgBase:SetColorTexture(Theme:C("slot"))
   local nt = b:GetNormalTexture()
   if nt then nt:SetAlpha(0) end
   b.emptyBackgroundAtlas = nil
@@ -499,6 +510,9 @@ function ns.CreateVaultButton(parent)
   b.bg = b:CreateTexture(nil, "BACKGROUND", nil, -1)
   b.bg:SetAllPoints(b)
   b.bg:SetColorTexture(Theme:C("slot"))
+  b.bgBase = b:CreateTexture(nil, "BACKGROUND", nil, -2)
+  b.bgBase:SetAllPoints(b)
+  b.bgBase:SetColorTexture(Theme:C("slot"))
   local nt = b:GetNormalTexture()
   if nt then nt:SetAlpha(0) end
   local ic = b.icon or _G[(b:GetName() or "") .. "IconTexture"]
