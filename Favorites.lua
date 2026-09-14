@@ -80,10 +80,17 @@ end
 local function makeGhost(parent)
   local g = CreateFrame("Frame", nil, parent, "BackdropTemplate")
   ns.PixelBackdrop(g)
-  ns.SetBg(g, Theme:C("slot"))
+  -- The backdrop carries the edge alone, because that is what the pin states repaint through
+  -- ns.SetEdge. The fill is a texture of its own, so an empty cell of a row wears the same
+  -- slot art a cell of the grid wears instead of a flat plate of its own colour.
+  ns.SetBg(g, 0, 0, 0, 0)
   ns.SetEdge(g, Theme:C("emptyLine"))
+  local bg = g:CreateTexture(nil, "BACKGROUND", nil, -1)
+  bg:SetAllPoints(g)
+  g.bg = bg
+  ns.PaintGhostBg(g)
   Theme:Track(g, function(s)
-    ns.SetBg(s, Theme:C("slot"))
+    ns.PaintGhostBg(s)
     ns.SetEdge(s, Theme:C("emptyLine"))
   end)
   local ic = g:CreateTexture(nil, "ARTWORK")

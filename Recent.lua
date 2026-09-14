@@ -564,6 +564,7 @@ function Rec:Apply(bags, x, top, size, gap)
         ns.SnapBox(g, size, size)
         g:ClearAllPoints()
         ns.SnapPoint(g, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
+        ns.PaintGhostBg(g)
         g:Show()
       elseif g then
         g:Hide()
