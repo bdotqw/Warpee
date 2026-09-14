@@ -22,6 +22,7 @@ local GAUGE_Y = ROW1_Y + HB + 6
 local ROW2_Y = GAUGE_Y + 6
 local FONT = 15
 local BAGPAD, BAGGAP = 12, 6
+local HBAND = 32
 
 local function applyDensity(size)
   local d = ns.Density(size)
@@ -31,6 +32,7 @@ local function applyDensity(size)
   ROW2_Y = GAUGE_Y + 6
   FONT = d.font
   BAGPAD, BAGGAP = d.bagPad, d.bagGap
+  HBAND = d.headerBand
 end
 
 local function sizeGlyph(btn, size)
@@ -125,7 +127,7 @@ function Bags:AnchorHeader()
     self.search:SetPoint("TOPLEFT", self.frame, "TOPLEFT", PAD, -row2)
     self.search:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row2)
   end
-  Theme:HeaderBand(self.frame)
+  Theme:HeaderBand(self.frame, HBAND)
 end
 
 function Bags:Build()
@@ -180,7 +182,7 @@ function Bags:Build()
     ns.SeamDrop(s)
   end)
   Theme:Window(f, "WarpeeFrame")
-  Theme:HeaderBand(f)
+  Theme:HeaderBand(f, HBAND)
   f:SetScript("OnHide", function()
     -- However the window went away, the auto open is over: the cross, Esc, the bag key
     -- and the game's own sync all land here. Leaving the mark up made the next hand
