@@ -88,6 +88,9 @@ local function makeGhost(parent)
   local bg = g:CreateTexture(nil, "BACKGROUND", nil, -1)
   bg:SetAllPoints(g)
   g.bg = bg
+  local base = g:CreateTexture(nil, "BACKGROUND", nil, -2)
+  base:SetAllPoints(g)
+  g.bgBase = base
   ns.PaintGhostBg(g)
   Theme:Track(g, function(s)
     ns.PaintGhostBg(s)
