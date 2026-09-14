@@ -23,7 +23,7 @@ function Picker:Build()
   m:Hide()
   m.wpeArtStrata = "FULLSCREEN"
   local bgKey = Theme:IsLight() and "bg" or "deep"
-  Theme:Panel(m, bgKey, "strokeSoft")
+  Theme:Panel(m, bgKey, "stroke")
   m:SetFrameStrata("FULLSCREEN_DIALOG")
   Theme:WindowArt(m)
   m:EnableMouse(true)
