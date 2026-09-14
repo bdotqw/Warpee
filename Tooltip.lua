@@ -110,16 +110,16 @@ end
 
 local goldTip
 local TIP_PAD, TIP_GAP = 8, 16
-local TIP_FONT_MAX, TIP_FONT_MIN = 14, 8
+local TIP_FONT_MIN = 8
 
-local function tipRow(t, i)
+local function tipRow(t, i, size)
   local r = t.rows[i]
   if r then return r end
   r = CreateFrame("Frame", nil, t)
-  local l = Theme:Label(r, TIP_FONT_MAX, "text")
+  local l = Theme:Label(r, size, "text")
   l:SetPoint("LEFT", 0, 0)
   l:SetJustifyH("LEFT")
-  local v = Theme:Label(r, TIP_FONT_MAX, "text")
+  local v = Theme:Label(r, size, "text")
   v:SetPoint("RIGHT", 0, 0)
   v:SetJustifyH("RIGHT")
   r.Left, r.Right = l, v
@@ -165,7 +165,9 @@ local function showGoldTip(anchor)
   local count = math.max(1, #list) + 1 + ((wb and wb > 0) and 1 or 0) + ((token > 0) and 1 or 0)
   local top = (anchor and anchor:GetTop()) or 0
   local avail = math.max(120, (UIParent:GetHeight() or 768) - top - 24)
-  local fs = TIP_FONT_MAX
+  local size = anchor and anchor.wpeGoldSize
+  if type(size) == "function" then size = size() end
+  local fs = ns.Density(size).font - 1
   while fs > TIP_FONT_MIN and (count * (fs + 3) + TIP_PAD * 2 + 7) > avail do
     fs = fs - 1
   end
@@ -175,7 +177,7 @@ local function showGoldTip(anchor)
 
   local function row(name, amount, colorKey, col)
     n = n + 1
-    local r = tipRow(t, n)
+    local r = tipRow(t, n, fs)
     r:SetHeight(rowH)
     r:ClearAllPoints()
     r:SetPoint("TOPLEFT", TIP_PAD, -y)
@@ -230,12 +232,13 @@ local function showGoldTip(anchor)
   t:Show()
 end
 
-function ns.AttachGoldTooltip(region, parent)
+function ns.AttachGoldTooltip(region, parent, size)
   if not region then return nil end
   if region.wpeGoldHit then return region.wpeGoldHit end
   local hit = CreateFrame("Frame", nil, parent or region:GetParent())
   hit:SetAllPoints(region)
   hit:EnableMouse(true)
+  hit.wpeGoldSize = size
   hit:SetScript("OnEnter", function(s) showGoldTip(s) end)
   hit:SetScript("OnLeave", function() if goldTip then goldTip:Hide() end end)
   region.wpeGoldHit = hit

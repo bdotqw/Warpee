@@ -3,7 +3,18 @@ local Theme = ns.Theme
 
 local ROW_H, HDR_H, HEAD_H, PAD = 27, 22, 32, 8
 local MAX_ROWS = 18
-local MIN_W = 265
+local MIN_W, FONT = 265, 15
+
+local function ownerSize(src)
+  if type(src) == "function" then return src() end
+  return src
+end
+
+local function applyDensity(src)
+  local d = ns.Density(ownerSize(src))
+  PAD, ROW_H, HDR_H, HEAD_H = d.pickerPad, d.pickerRow, d.pickerHdr, d.pickerHead
+  MIN_W, FONT = d.pickerMinW, d.font
+end
 
 local Picker = { rows = {} }
 ns.CharPicker = Picker
@@ -90,7 +101,7 @@ function Picker:Row(i)
   dot:SetPoint("LEFT", 1, 0)
   dot:Hide()
   r.dot = dot
-  local fs = Theme:Label(r, 14, "text")
+  local fs = Theme:Label(r, FONT - 1, "text")
   fs:SetJustifyH("LEFT")
   Theme:Shadow(fs, true)
   r.Text = fs
@@ -137,7 +148,7 @@ function Picker:RealmRow(n, y, realm, path)
   h.Text:ClearAllPoints()
   h.Text:SetPoint("LEFT", 2, 0)
   h.Text:SetPoint("RIGHT", -6, 0)
-  h.Text:SetFont(path, 12, "")
+  h.Text:SetFont(path, FONT - 3, "")
   h.Text:SetTextColor(Theme:C("faint"))
   h.Text:SetText(ns.Upper(realm or "?"))
   h:Show()
@@ -147,6 +158,7 @@ function Picker:CharRow(n, y, e, path)
   local r = self:Row(n)
   r.kind, r.key = "char", e.key
   r:SetHeight(ROW_H)
+  r.dot:SetSize(3, ROW_H - 8)
   r:ClearAllPoints()
   r:SetPoint("TOPLEFT", 0, -y)
   r:SetPoint("TOPRIGHT", 0, -y)
@@ -154,7 +166,7 @@ function Picker:CharRow(n, y, e, path)
   r.Text:ClearAllPoints()
   r.Text:SetPoint("LEFT", 8, 0)
   r.Text:SetPoint("RIGHT", -8, 0)
-  r.Text:SetFont(path, 14, ns.OutlineFlags())
+  r.Text:SetFont(path, FONT - 1, ns.OutlineFlags())
   local col = classColor(e.class)
   r.Text:SetText(e.name)
   if col then r.Text:SetTextColor(col.r, col.g, col.b)
@@ -169,6 +181,7 @@ end
 
 function Picker:Paint(keepScroll)
   if not self.frame then return end
+  applyDensity(self.size)
   local k = Theme:IsLight() and "bg" or "deep"
   -- The fill is re-asserted because the light and the dark half of a theme take a different key
   -- and the panel baked its own in at build time. The edge is left alone, or the repaint below
@@ -200,8 +213,8 @@ function Picker:Paint(keepScroll)
   for i = n + 1, #self.rows do self.rows[i]:Hide() end
 
   if self.filter then
-    self.filter:SetFont(path, 13, "")
-    if self.filter.Hint then self.filter.Hint:SetFont(path, 13, "") end
+    self.filter:SetFont(path, FONT - 2, "")
+    if self.filter.Hint then self.filter.Hint:SetFont(path, FONT - 2, "") end
   end
   local skin = Theme.skin
   local top, wide, drop, side = PAD, 0, 0, 0
@@ -210,7 +223,7 @@ function Picker:Paint(keepScroll)
   if self.hideBtn then
     self.hideBtn:ClearAllPoints()
     self.hideBtn:SetPoint("TOPLEFT", PAD + side, -top)
-    self.hideBtn.Text:SetFont(path, 13, "")
+    self.hideBtn.Text:SetFont(path, FONT - 2, "")
     local w = math.max(68, math.ceil(self.hideBtn.Text:GetStringWidth()) + 18)
     self.hideBtn.wpeBoxW = w
     self.hideBtn:SetWidth(w)
@@ -250,7 +263,9 @@ function Picker:UpdateHiddenBorder()
   end
 end
 
-function Picker:Toggle(anchor, side, onSelect, currentKey, mode)
+function Picker:Toggle(anchor, side, onSelect, currentKey, mode, size)
+  self.size = size
+  applyDensity(self.size)
   local m = self:Build()
   if m:IsShown() and self.anchor == anchor then m:Hide(); return end
   self.anchor, self.onSelect, self.currentKey = anchor, onSelect, currentKey
