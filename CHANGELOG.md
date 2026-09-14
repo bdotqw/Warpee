@@ -16,6 +16,7 @@ Fixes
 - Slot art corners no longer hollow at large icon sizes
 - No stray plus on empty cells of the skinned themes
 - Magma retired (falls back to Midnight)
+- The vendor padlock in the pocket flips at once, even with the bags closed
 
 RU
 
@@ -31,3 +32,4 @@ RU
 - Углы арта слотов больше не пустые на крупных иконках
 - Нет лишнего плюса на пустых ячейках скиновых тем
 - Magma убрана (откат на Midnight)
+- Замочек вендора в кармане переключается сразу, даже при закрытых сумках
