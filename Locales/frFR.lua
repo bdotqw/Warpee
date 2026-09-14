@@ -113,6 +113,7 @@ local STRINGS = {
   ["Russian"] = "Russe",
   ["Italian"] = "Italien",
   ["Portuguese"] = "Portugais",
+  ["Chinese (Simplified)"] = "Chinois (simplifié)",
   ["Lock bags and bank"] = "Verrouiller les sacs et la banque",
   ["Lock the pocket"] = "Verrouiller la poche",
   ["Keep the pocket where it is. Unlocked, the arrows along its bottom edge nudge it around."] =

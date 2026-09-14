@@ -105,6 +105,7 @@ local STRINGS = {
   ["Russian"] = "俄语",
   ["Italian"] = "意大利语",
   ["Portuguese"] = "葡萄牙语",
+  ["Chinese (Simplified)"] = "简体中文",
   ["Lock bags and bank"] = "锁定背包和银行",
   ["Lock the pocket"] = "锁定口袋",
   ["Keep the pocket where it is. Unlocked, the arrows along its bottom edge nudge it around."] = "把口袋固定在原地。解锁后，可以用底边上的箭头微调位置。",
