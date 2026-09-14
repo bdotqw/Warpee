@@ -122,7 +122,7 @@ Theme.THEMES = {
     text = { 0.919, 0.948, 0.951, 1.000 }, dim = { 0.611, 0.663, 0.668, 1.000 },
     faint = { 0.389, 0.454, 0.460, 1.000 }, emptyLine = { 0.150, 0.300, 0.310, 1.000 },
     azure = { 0.350, 0.600, 0.900, 1.000 }, reagent = { 0.353, 0.804, 0.616, 1.000 } },
-  flatdark = { label = "Class Dark", classAccent = true,
+  flatdark = { label = "Class", classAccent = true,
     bg = { 0.060, 0.060, 0.060, 0.800 }, panel = { 0.100, 0.100, 0.100, 1.000 },
     panelHi = { 0.160, 0.160, 0.160, 1.000 }, slot = { 0.100, 0.100, 0.100, 1.000 },
     stroke = { 0.000, 0.000, 0.000, 1.000 }, strokeSoft = { 0.310, 0.310, 0.310, 1.000 },
@@ -1002,7 +1002,7 @@ function Theme:Panel(frame, bgKey, strokeKey, opaque)
   local bg, st = bgKey or "bg", strokeKey or "stroke"
   local function setBg(x)
     local r, g, b, a = Theme:C(bg)
-    if opaque then a = 1 end
+    if opaque and Theme.skin ~= "flatdark" then a = 1 end
     ns.SetBg(x, r, g, b, a)
   end
   local function paint(x)
