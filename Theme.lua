@@ -122,6 +122,14 @@ Theme.THEMES = {
     text = { 0.919, 0.948, 0.951, 1.000 }, dim = { 0.611, 0.663, 0.668, 1.000 },
     faint = { 0.389, 0.454, 0.460, 1.000 }, emptyLine = { 0.150, 0.300, 0.310, 1.000 },
     azure = { 0.350, 0.600, 0.900, 1.000 }, reagent = { 0.353, 0.804, 0.616, 1.000 } },
+  flatdark = { label = "Flat Dark",
+    bg = { 0.060, 0.060, 0.060, 0.940 }, panel = { 0.100, 0.100, 0.100, 1.000 },
+    panelHi = { 0.160, 0.160, 0.160, 1.000 }, slot = { 0.100, 0.100, 0.100, 1.000 },
+    stroke = { 0.000, 0.000, 0.000, 1.000 }, strokeSoft = { 0.310, 0.310, 0.310, 1.000 },
+    accent = { 0.090, 0.520, 0.820, 1.000 }, accentInk = { 0.350, 0.650, 0.950, 1.000 },
+    text = { 0.900, 0.900, 0.900, 1.000 }, dim = { 0.600, 0.600, 0.600, 1.000 },
+    faint = { 0.400, 0.400, 0.400, 1.000 }, emptyLine = { 0.150, 0.150, 0.150, 1.000 },
+    azure = { 0.090, 0.520, 0.820, 1.000 }, reagent = { 0.400, 0.800, 0.600, 1.000 } },
   magma = { label = "Magma",
     bg = { 0.035, 0.012, 0.008, 0.960 }, panel = { 0.100, 0.060, 0.045, 1.000 },
     panelHi = { 0.170, 0.110, 0.085, 1.000 }, slot = { 0.045, 0.022, 0.016, 1.000 },
@@ -133,7 +141,7 @@ Theme.THEMES = {
 }
 Theme.THEME_ORDER = { "blizzard", "blizzardflat", "midnight", "nightbloom",
                       "void", "nord", "harbor", "abyss", "forest",
-                      "velvet", "meadow", "reef", "magma", "blood" }
+                      "velvet", "meadow", "reef", "magma", "blood", "flatdark" }
 Theme.LIGHT = {}
 
 function Theme:IsLight()
