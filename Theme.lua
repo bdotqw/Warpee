@@ -1002,7 +1002,7 @@ function Theme:Panel(frame, bgKey, strokeKey, opaque)
   local bg, st = bgKey or "bg", strokeKey or "stroke"
   local function setBg(x)
     local r, g, b, a = Theme:C(bg)
-    if opaque and Theme.active ~= "flatdark" then a = 1 end
+    if opaque then a = 1 end
     ns.SetBg(x, r, g, b, a)
   end
   local function paint(x)
