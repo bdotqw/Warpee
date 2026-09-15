@@ -421,6 +421,7 @@ function Bags:BuildBagWindow()
   Theme:Panel(w, "bg", "stroke")
   Theme:WindowArt(w)
   w:SetFrameStrata("MEDIUM")
+  w:SetToplevel(true)
   w:SetClampedToScreen(true)
   w:SetMovable(true); w:EnableMouse(true)
   w:RegisterForDrag("LeftButton")
@@ -511,6 +512,7 @@ function Bags:ToggleBagWindow()
   end
   self:LayoutBagWindow()
   w:Show()
+  ns.Theme:Raise(w)
   self:UpdateBagBar()
 end
 
