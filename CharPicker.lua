@@ -4,6 +4,24 @@ local Theme = ns.Theme
 local ROW_H, HDR_H, HEAD_H, PAD = 27, 22, 32, 8
 local MAX_ROWS = 18
 local MIN_W, FONT = 265, 15
+local BAR_W = 6
+
+function Picker:PaintBar()
+  local sf, bar, thumb = self.sf, self.bar, self.thumb
+  if not (sf and bar and thumb and self.frame) then return end
+  local span = math.max(0, self.child:GetHeight() - sf:GetHeight())
+  local view = sf:GetHeight()
+  if span <= 0 or not sf:IsShown() then bar:Hide(); return end
+  bar:Show()
+  bar:ClearAllPoints()
+  bar:SetPoint("TOPLEFT", sf, "TOPRIGHT", 2, 0)
+  bar:SetPoint("BOTTOMLEFT", sf, "BOTTOMRIGHT", 2, 0)
+  local h = math.max(16, view * view / self.child:GetHeight())
+  thumb:SetHeight(h)
+  local frac = sf:GetVerticalScroll() / span
+  thumb:ClearAllPoints()
+  thumb:SetPoint("TOP", bar, "TOP", 0, -frac * (view - h))
+end
 local PICK_ROWS = 10
 
 local function ownerSize(src)
@@ -83,8 +101,44 @@ function Picker:Build()
   sf:SetScript("OnMouseWheel", function(s, d)
     local span = math.max(0, child:GetHeight() - s:GetHeight())
     s:SetVerticalScroll(math.min(span, math.max(0, s:GetVerticalScroll() - d * ROW_H * 2)))
+    if Picker.PaintBar then Picker:PaintBar() end
   end)
   self.sf, self.child = sf, child
+
+  local bar = CreateFrame("Frame", nil, m)
+  bar:SetWidth(BAR_W)
+  local trackTex = Theme:Rect(bar, "panel", "BACKGROUND")
+  trackTex:SetAllPoints(bar)
+  local thumb = CreateFrame("Frame", nil, bar)
+  thumb:SetWidth(BAR_W)
+  local thumbTex = Theme:Rect(thumb, "faint", "ARTWORK")
+  thumbTex:SetAllPoints(thumb)
+  bar:Hide()
+  self.bar, self.thumb = bar, thumb
+  thumb:EnableMouse(true)
+  thumb:SetScript("OnMouseDown", function(s)
+    s.grabY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+    s.grabScroll = sf:GetVerticalScroll()
+    s:SetScript("OnUpdate", function(t)
+      local y = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+      local view = sf:GetHeight()
+      local travel = view - t:GetHeight()
+      if travel <= 0 then return end
+      local span = math.max(0, child:GetHeight() - view)
+      local v = math.min(span, math.max(0, t.grabScroll + (t.grabY - y) * span / travel))
+      sf:SetVerticalScroll(v)
+      if Picker.PaintBar then Picker:PaintBar() end
+    end)
+    thumbTex:SetVertexColor(Theme:C("accent"))
+  end)
+  thumb:SetScript("OnMouseUp", function(s)
+    s:SetScript("OnUpdate", nil)
+    thumbTex:SetVertexColor(Theme:C("faint"))
+  end)
+  thumb:SetScript("OnEnter", function() thumbTex:SetVertexColor(Theme:C("dim")) end)
+  thumb:SetScript("OnLeave", function(s)
+    if not s:GetScript("OnUpdate") then thumbTex:SetVertexColor(Theme:C("faint")) end
+  end)
 
   return m
 end
@@ -238,14 +292,15 @@ function Picker:Paint(keepScroll)
 
   self.sf:ClearAllPoints()
   self.sf:SetPoint("TOPLEFT", PAD, -(PAD + HEAD_H + drop))
-  self.sf:SetPoint("BOTTOMRIGHT", -PAD, PAD)
+  self.sf:SetPoint("BOTTOMRIGHT", -(PAD + BAR_W + 2), PAD)
   local maxRows = math.max(3, PICK_ROWS)
   local bodyH = math.max(ROW_H, math.min(y, MAX_ROWS * ROW_H, maxRows * ROW_H))
   if self.capH then bodyH = math.min(bodyH, self.capH) end
-  ns.SnapSize(self.frame, widest + PAD * 2 + wide, PAD * 2 + HEAD_H + bodyH + drop)
+  ns.SnapSize(self.frame, widest + PAD * 2 + wide + BAR_W + 2, PAD * 2 + HEAD_H + bodyH + drop)
   self.child:SetSize(widest + wide, math.max(1, y))
   local span = math.max(0, y - bodyH)
   self.sf:SetVerticalScroll(math.min(span, math.max(0, scroll)))
+  self:PaintBar()
 end
 
 function Picker:UpdateHiddenBorder()
