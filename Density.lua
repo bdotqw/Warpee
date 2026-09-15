@@ -18,7 +18,7 @@ local STEPS = {
   { max = 56,
     pad = 12, header = 71, footer = 29, div = 24, hb = 28, row1y = 5, searchH = 24, headerBand = 34,
     bagPad = 14, bagGap = 7, labelH = 14, labelGap = 5,
-    pocketPad = 14, pocketBand = 30, pocketNudge = 28, pocketGap = 9, arrow = 12, moveH = 18,
+    pocketPad = 14, pocketBand = 30, pocketNudge = 28, pocketGap = 9, arrow = 12, moveH = 20,
     pickSize = 40, pickGap = 9, pickPad = 14, pickMinW = 200,
     pickerPad = 10, pickerRow = 30, pickerHdr = 24, pickerHead = 36, pickerMinW = 300, pickerRows = 14,
     font = 16 },
