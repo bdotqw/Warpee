@@ -52,10 +52,9 @@ function Picker:Build()
 
   local m = CreateFrame("Frame", "WarpeeCharPicker", UIParent, "BackdropTemplate")
   m:Hide()
-  m.wpeArtStrata = "FULLSCREEN"
   local bgKey = Theme:IsLight() and "bg" or "deep"
   Theme:Panel(m, bgKey, "stroke")
-  m:SetFrameStrata("FULLSCREEN_DIALOG")
+  m:SetFrameStrata("MEDIUM")
   Theme:WindowArt(m)
   m:EnableMouse(true)
   m:SetClampedToScreen(true)
