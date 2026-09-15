@@ -281,7 +281,7 @@ end
 
 local function tierAtlas(t)
   local a = t and t.GetAtlas and t:GetAtlas()
-  return (a and a:lower():find("quality%-tier")) and true or false
+  return (a and a:lower():find("quality%-.*tier%d")) and true or false
 end
 
 -- The craft tier is drawn by the game on a texture of its own making, at the atlas's own
