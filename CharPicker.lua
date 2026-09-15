@@ -4,6 +4,7 @@ local Theme = ns.Theme
 local ROW_H, HDR_H, HEAD_H, PAD = 27, 22, 32, 8
 local MAX_ROWS = 18
 local MIN_W, FONT = 265, 15
+local PICK_ROWS = 10
 
 local function ownerSize(src)
   if type(src) == "function" then return src() end
@@ -14,6 +15,7 @@ local function applyDensity(src)
   local d = ns.Density(ownerSize(src))
   PAD, ROW_H, HDR_H, HEAD_H = d.pickerPad, d.pickerRow, d.pickerHdr, d.pickerHead
   MIN_W, FONT = d.pickerMinW, d.font
+  PICK_ROWS = d.pickerRows or 10
 end
 
 local Picker = { rows = {} }
@@ -237,7 +239,8 @@ function Picker:Paint(keepScroll)
   self.sf:ClearAllPoints()
   self.sf:SetPoint("TOPLEFT", PAD, -(PAD + HEAD_H + drop))
   self.sf:SetPoint("BOTTOMRIGHT", -PAD, PAD)
-  local bodyH = math.max(ROW_H, math.min(y, MAX_ROWS * ROW_H, 10 * ROW_H))
+  local maxRows = math.max(3, PICK_ROWS)
+  local bodyH = math.max(ROW_H, math.min(y, MAX_ROWS * ROW_H, maxRows * ROW_H))
   if self.capH then bodyH = math.min(bodyH, self.capH) end
   ns.SnapSize(self.frame, widest + PAD * 2 + wide, PAD * 2 + HEAD_H + bodyH + drop)
   self.child:SetSize(widest + wide, math.max(1, y))
