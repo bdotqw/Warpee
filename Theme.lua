@@ -611,6 +611,23 @@ function Theme:Raise(frame)
   if frame and frame.Raise then frame:Raise() end
 end
 
+function Theme:LiftArt(frame)
+  local art = frame and frame.wpeArt
+  if not art or art.wpeLifted then return end
+  art.wpeLifted = { art:GetFrameStrata(), art:GetFrameLevel() }
+  art:SetFrameStrata(frame:GetFrameStrata())
+  art:SetFrameLevel(1)
+end
+
+function Theme:DropArt(frame)
+  local art = frame and frame.wpeArt
+  local s = art and art.wpeLifted
+  if not (art and s) then return end
+  art.wpeLifted = nil
+  art:SetFrameStrata(s[1])
+  art:SetFrameLevel(s[2])
+end
+
 function Theme:Rect(parent, colorKey, layer)
   local t = parent:CreateTexture(nil, layer or "ARTWORK")
   t:SetTexture(WHITE)

@@ -162,6 +162,11 @@ end
 function ns.DragMove(frame)
   frame:StartMoving()
   frame.wpeMoving = true
+  Theme:LiftArt(frame)
+  if not frame.wpeDropHook then
+    frame.wpeDropHook = true
+    frame:HookScript("OnDragStop", function(s) Theme:DropArt(s) end)
+  end
 end
 
 function ns.MoveWindowTo(frame, dbKey, nx, ny)
