@@ -878,7 +878,15 @@ function Pocket:PickPaint()
     b.icon:SetDesaturated(false)
     b.icon:SetAlpha(pinned and 0.55 or 1)
     local atlas = ns.PinTier(id)
-    if atlas then b.tier:SetAtlas(atlas, true); b.tier:Show() else b.tier:Hide() end
+    if atlas then
+      b.tier:SetAtlas(atlas, true)
+      local w0, h0 = b.tier:GetWidth() or 0, b.tier:GetHeight() or 0
+      if w0 > 0 and h0 > 0 then
+        local k = size / 37
+        b.tier:SetSize(math.max(1, w0 * k), math.max(1, h0 * k))
+      end
+      b.tier:Show()
+    else b.tier:Hide() end
     b:Show()
   end
   for i = n + 1, PICK_MAX do self.pickBtns[i]:Hide() end
