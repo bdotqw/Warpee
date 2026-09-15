@@ -1174,7 +1174,7 @@ local function judgeScript(script, path)
   local first, same = nil, true
   for _, ch in ipairs(set.chars) do
     local w = measure(glyphProbe, ch)
-    if w <= 0 then return nil end
+    if w <= 0 then return false end
     if not first then
       first = w
     elseif math.abs(w - first) > 0.5 then
