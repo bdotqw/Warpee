@@ -1166,7 +1166,10 @@ function View:Fonts()
   if self.depositBtn then put(self.depositBtn.Text, -1); fit(self.depositBtn, 70, 18) end
   if self.withdrawBtn then put(self.withdrawBtn.Text, -1); fit(self.withdrawBtn, 76, 18) end
   for _, b in pairs(self.buyBtn or {}) do put(b.Text, -1); b:SetHeight(bh) end
-  if self.frame and self.frame.wpeBar then self.frame.wpeBar:Fonts(path, math.max(8, base - 2)) end
+  if self.frame and self.frame.wpeBar then
+    self.frame.wpeBar:Fonts(path, math.max(8, base - 2))
+    self.frame.wpeBar:Size(ns.Density(self:CellSize()).moveH)
+  end
   for _, st in pairs(self.state) do
     for _, l in ipairs(st.labels) do put(l, -2) end
   end
