@@ -55,6 +55,7 @@ function Picker:Build()
   local bgKey = Theme:IsLight() and "bg" or "deep"
   Theme:Panel(m, bgKey, "stroke")
   m:SetFrameStrata("MEDIUM")
+  m:SetToplevel(true)
   Theme:WindowArt(m)
   m:EnableMouse(true)
   m:SetClampedToScreen(true)
