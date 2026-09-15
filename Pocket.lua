@@ -665,12 +665,6 @@ function Pocket:Layout()
     ns.SnapPoint(self.plusBtn, "RIGHT", rightBtn, "LEFT", -4, 0)
     rightBtn = self.plusBtn
   end
-  local free = 0
-  if rightBtn and rightBtn.GetLeft then
-    local rl, wl = rightBtn:GetLeft(), w:GetLeft()
-    if rl and wl then free = rl - wl - PAD - 4 end
-  end
-  self.title:SetShown(free <= 0 or self.title:GetStringWidth() <= free)
 
   local gen = ((Bags and Bags.styleGen) or 0) .. ":" .. tostring(path) .. ":" .. size
   local repaint = self.paintKey ~= gen
@@ -830,6 +824,12 @@ function Pocket:Layout()
   end
   ns.SnapSize(w, PAD * 2 + cols * step - gap, foot + NUDGE_BAND)
   ns.AlignToScreen(w)
+  local free = 0
+  if rightBtn and rightBtn.GetLeft then
+    local rl, wl = rightBtn:GetLeft(), w:GetLeft()
+    if rl and wl then free = rl - wl - PAD - 4 end
+  end
+  self.title:SetShown(free <= 0 or self.title:GetStringWidth() <= free)
 end
 
 function Pocket:PickPaint()
