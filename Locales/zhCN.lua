@@ -392,7 +392,7 @@ local STRINGS = {
 
 ns.AddLocale("zhCN", "Chinese (Simplified)", {
   coin = { g = "金", s = "银", c = "铜" },
-  short = { dec = ".", units = { { 1e8, "亿" }, { 1e4, "万" } } },
+  short = { dec = ".", units = { { 1e8, "亿" }, { 1e4, "万" }, { 1e3, "千" } } },
   words = WORDS,
   strings = STRINGS,
 })
