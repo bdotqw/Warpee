@@ -386,6 +386,12 @@ function ns.CreateMoveBar(frame, dbKey)
     s.yLabel:SetFontObject(o)
     s.xField:SetFontObject(o)
     s.yField:SetFontObject(o)
+    -- An edit box accepts a new font object without ever drawing it: it keeps the face it
+    -- had when its text was last written, so the values stayed in whatever was current
+    -- before the font settled while the labels, which follow their object, moved on. Writing
+    -- the numbers again is what repaints them. A field with focus is skipped by Refresh, so
+    -- nothing being typed into it is lost.
+    s:Refresh()
   end
 
   bar.Size = function(s, h)
