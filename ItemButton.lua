@@ -306,7 +306,23 @@ local function tierTex(b)
   return t
 end
 
+local function tierFit(b)
+  local t = b.wpeTier
+  if not (t and t:IsShown() and t.wpeW0) then return end
+  local src = t.wpeSrc
+  if not (src and tierAtlas(src)) then t:Hide(); return end
+  local k = (b:GetHeight() or 37) / 37
+  t:SetSize(math.max(1, t.wpeW0 * k), math.max(1, t.wpeH0 * k))
+  t:ClearAllPoints()
+  t:SetPoint("TOPLEFT", b, "TOPLEFT", -3 * k, 2 * k)
+end
+
 local function tierTake(b, src)
+  local t = tierTex(b)
+  if not b.wpeTierSize then
+    b.wpeTierSize = true
+    b:HookScript("OnSizeChanged", function(s) tierFit(s) end)
+  end
   local t = tierTex(b)
   local k = (b:GetHeight() or 37) / 37
   t:SetAtlas(src:GetAtlas(), true)
@@ -795,14 +811,8 @@ function ns.FitOverlays(b)
   if took then tierTake(b, took)
   elseif b.wpeTier then
     local t, src = b.wpeTier, b.wpeTier.wpeSrc
-    if t:IsShown() and t.wpeW0 and src and tierAtlas(src) then
-      local k = (b:GetHeight() or 37) / 37
-      t:SetSize(math.max(1, t.wpeW0 * k), math.max(1, t.wpeH0 * k))
-      t:ClearAllPoints()
-      t:SetPoint("TOPLEFT", b, "TOPLEFT", -3 * k, 2 * k)
-    else
-      t:Hide()
-    end
+    if t:IsShown() and t.wpeW0 and src and tierAtlas(src) then tierFit(b)
+    else t:Hide() end
   end
   -- The cell changes size with the window setting, so the mark is measured off the cell on every
   -- pass. The atlas carries a margin of its own, so the texture is laid under the cell at a share
