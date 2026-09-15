@@ -5,6 +5,22 @@ local ROW_H, HDR_H, HEAD_H, PAD = 27, 22, 32, 8
 local MAX_ROWS = 18
 local MIN_W, FONT = 265, 15
 local BAR_W = 6
+local PICK_ROWS = 10
+
+local function ownerSize(src)
+  if type(src) == "function" then return src() end
+  return src
+end
+
+local function applyDensity(src)
+  local d = ns.Density(ownerSize(src))
+  PAD, ROW_H, HDR_H, HEAD_H = d.pickerPad, d.pickerRow, d.pickerHdr, d.pickerHead
+  MIN_W, FONT = d.pickerMinW, d.font
+  PICK_ROWS = d.pickerRows or 10
+end
+
+local Picker = { rows = {} }
+ns.CharPicker = Picker
 
 function Picker:PaintBar()
   local sf, bar, thumb = self.sf, self.bar, self.thumb
@@ -22,22 +38,6 @@ function Picker:PaintBar()
   thumb:ClearAllPoints()
   thumb:SetPoint("TOP", bar, "TOP", 0, -frac * (view - h))
 end
-local PICK_ROWS = 10
-
-local function ownerSize(src)
-  if type(src) == "function" then return src() end
-  return src
-end
-
-local function applyDensity(src)
-  local d = ns.Density(ownerSize(src))
-  PAD, ROW_H, HDR_H, HEAD_H = d.pickerPad, d.pickerRow, d.pickerHdr, d.pickerHead
-  MIN_W, FONT = d.pickerMinW, d.font
-  PICK_ROWS = d.pickerRows or 10
-end
-
-local Picker = { rows = {} }
-ns.CharPicker = Picker
 
 local function classColor(class)
   return class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class] or nil
