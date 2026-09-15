@@ -609,6 +609,14 @@ end
 
 function Theme:Raise(frame)
   if frame and frame.Raise then frame:Raise() end
+  local P = ns.CharPicker
+  if P and P.frame and P.frame:IsShown() and P.frame ~= frame then
+    local B, K = ns.Bags, ns.Bank
+    if frame == (B and B.frame) or frame == (B and B.bagWindow)
+      or frame == (K and K.frame) then
+      P.frame:Raise()
+    end
+  end
 end
 
 function Theme:LiftArt(frame)

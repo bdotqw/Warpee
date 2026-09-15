@@ -222,6 +222,10 @@ function View:Build()
   end)
   Theme:Window(f, "WarpeeBankFrame")
   Theme:HeaderBand(f, HBAND)
+  f:HookScript("OnMouseDown", function()
+    local P = ns.CharPicker
+    if P and P.frame and P.frame:IsShown() then ns.Theme:Raise(P.frame) end
+  end)
   f:SetScript("OnHide", function()
     ns.ClearSearch(self.search)
     self.depositType = nil
