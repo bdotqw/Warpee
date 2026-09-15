@@ -1293,6 +1293,7 @@ function ns.Fonts:Refresh()
     ns.Bags.styleGen = (ns.Bags.styleGen or 0) + 1
   end
   self:Reapply()
+  if ns.RefreshMoveBars then ns.RefreshMoveBars() end
   return self.active
 end
 

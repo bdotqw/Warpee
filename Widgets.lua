@@ -411,6 +411,22 @@ function ns.ApplyWindowLock()
   end
 end
 
+function ns.RefreshMoveBars()
+  local path = ns.Fonts and ns.Fonts:Current()
+  if not path then return end
+  for _, bar in ipairs(moveBars) do
+    local size
+    if bar.key == "bankPos" and ns.Bank and ns.Bank.CellSize then
+      size = ns.Bank:CellSize()
+    elseif ns.Bags then
+      size = ns.Bags.iconSize
+    end
+    local d = ns.Density(size)
+    bar:Fonts(path, d.font - 4)
+    bar:Size(d.moveH)
+  end
+end
+
 -- The pocket is nudged far more often than it is typed at, and its window can be too narrow
 -- for the band the other two carry. Labels and fields come to about 185px, and a pocket four
 -- columns wide is 180 at factory sizes and 132 at the smallest icon, so the numbers would
