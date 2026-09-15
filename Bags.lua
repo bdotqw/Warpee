@@ -782,6 +782,7 @@ local function shortNumber(n)
       return (string.format("%.1f", r):gsub("%.", form.dec)) .. suf
     end
   end
+  return tostring(math.floor(n + 0.5))
 end
 
 function ns.FormatNumber(n)
