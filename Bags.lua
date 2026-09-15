@@ -457,6 +457,7 @@ end
 function Bags:LayoutBagWindow()
   local w = self.bagWindow
   if not w or not self.bagButtons then return end
+  sizeGlyph(self.bagWinClose, HB - 4)
   local BGAP, BPAD = BAGGAP, BAGPAD
   local BBAND = 26
   local size = self:BagWinButtonSize()
