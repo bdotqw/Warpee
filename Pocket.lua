@@ -839,6 +839,10 @@ function Pocket:PickPaint()
   local list = self:List()
   local n = #POCKET_PICKS
   local path = ns.Fonts:Current()
+  local Bags = ns.Bags
+  local size, gap = ns.GridMetrics(self.frame,
+    (WarpeeDB and tonumber(WarpeeDB.pocketIconSize)) or (Bags and Bags.iconSize) or 37,
+    Bags and Bags.gap or 4)
   local band = Theme:HeaderBand(p, BAND)
   local head = band and (band + 6) or (30 + Theme:TopInset())
   local mid = (band or head) / 2 + Theme:TitleDrop()
@@ -880,17 +884,17 @@ function Pocket:PickPaint()
   for i = n + 1, PICK_MAX do self.pickBtns[i]:Hide() end
   local cols = math.max(1, math.min(PICK_COLS, n))
   local rows = n > 0 and math.ceil(n / cols) or 0
-  local gridH = rows > 0 and (rows * PICK_SIZE + (rows - 1) * PICK_GAP) or 0
-  local pickW = PICK_PAD * 2 + cols * PICK_SIZE + (cols - 1) * PICK_GAP
+  local gridH = rows > 0 and (rows * size + (rows - 1) * gap) or 0
+  local pickW = PICK_PAD * 2 + cols * size + (cols - 1) * gap
   ns.SnapSize(p, math.max(pickW, PICK_MINW), gridTop + gridH + PICK_PAD)
   for i = 1, n do
     local b = self.pickBtns[i]
-    ns.SnapSize(b, PICK_SIZE, PICK_SIZE)
+    ns.SnapSize(b, size, size)
     b:ClearAllPoints()
     local col, row = (i - 1) % cols, math.floor((i - 1) / cols)
     ns.SnapPoint(b, "TOPLEFT", p, "TOPLEFT",
-      PICK_PAD + col * (PICK_SIZE + PICK_GAP),
-      -(gridTop + row * (PICK_SIZE + PICK_GAP)))
+      PICK_PAD + col * (size + gap),
+      -(gridTop + row * (size + gap)))
   end
   local w = self.frame
   if w then
