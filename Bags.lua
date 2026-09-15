@@ -185,6 +185,10 @@ function Bags:Build()
   end)
   Theme:Window(f, "WarpeeFrame")
   Theme:HeaderBand(f, HBAND)
+  f:HookScript("OnMouseDown", function()
+    local P = ns.CharPicker
+    if P and P.frame and P.frame:IsShown() then ns.Theme:Raise(P.frame) end
+  end)
   f:SetScript("OnHide", function()
     -- However the window went away, the auto open is over: the cross, Esc, the bag key
     -- and the game's own sync all land here. Leaving the mark up made the next hand
