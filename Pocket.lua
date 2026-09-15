@@ -667,7 +667,6 @@ function Pocket:Layout()
   end
 
   local gen = ((Bags and Bags.styleGen) or 0) .. ":" .. tostring(path) .. ":" .. size
-  local repaint = self.paintKey ~= gen
   self.paintKey = gen
 
   local R = ns.Recent
@@ -707,7 +706,7 @@ function Pocket:Layout()
         ns.SnapPoint(h, "TOPLEFT", w, "TOPLEFT", PAD + (i - 1) * step, -y)
         h:Show(); b:Show()
         b.wpeForce = R:Got(id)
-        if repaint then b.link = nil end
+        b.link = nil
         ns.UpdateItemButton(b)
         if g then g:Hide() end
       else
@@ -783,7 +782,7 @@ function Pocket:Layout()
         h:ClearAllPoints()
         ns.SnapPoint(h, "TOPLEFT", w, "TOPLEFT", px, -py)
         h:Show(); b:Show()
-        if repaint then b.link = nil end
+        b.link = nil
         ns.UpdateItemButton(b)
         if g then g:Hide() end
       else
