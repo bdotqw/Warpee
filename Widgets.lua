@@ -670,35 +670,6 @@ end
 
 function ns.CreateGlyphButton(parent, glyph, size, dark)
   local b = ns.CreateButton(parent, glyph, size or 22, size or 22, nil, dark)
-  if glyph == "x" then
-    b.Text:SetText("")
-    local lines = {}
-    for i = 1, 2 do
-      local t = b:CreateTexture(nil, "ARTWORK")
-      t:SetColorTexture(1, 1, 1, 1)
-      lines[#lines + 1] = t
-    end
-    b.wpeXLines = lines
-    local function layoutX(s)
-      local bs = s.wpeBoxW or s:GetWidth() or 0
-      if bs <= 0 then return end
-      local len = ns.SnapValue(s, bs * 0.7)
-      local thick = math.max(1, ns.PX(s))
-      for i, t in ipairs(lines) do
-        t:SetSize(len, thick)
-        t:ClearAllPoints()
-        t:SetPoint("CENTER")
-        t:SetRotation((i == 1 and 1 or -1) * math.pi / 4, 0.5, 0.5)
-      end
-      if s.Text then
-        local r, g, bl, a = s.Text:GetTextColor()
-        for _, t in ipairs(lines) do t:SetVertexColor(r, g, bl, a) end
-      end
-    end
-    b:HookScript("OnSizeChanged", layoutX)
-    hooksecurefunc(b.Text, "SetTextColor", function() layoutX(b) end)
-    layoutX(b)
-  end
   -- A font object rather than a raw SetFont. SetFont detaches a string from the font system,
   -- and nothing fonted that way is reached by a later font change: these buttons are made
   -- once, so a font picked in the settings used to arrive for them only after a reload. The
