@@ -627,7 +627,7 @@ function Pocket:Layout()
   local w = self.frame
   if not w then return end
   applyDensity()
-  if w.wpeNudge then w.wpeNudge:Size(ns.Density(pocketSize()).moveH) end
+  if w.wpeNudge then w.wpeNudge:Size(ns.Density(pocketSize()).arrow) end
   local Bags = ns.Bags
   local size, gap, step = ns.GridMetrics(w,
     (WarpeeDB and tonumber(WarpeeDB.pocketIconSize)) or (Bags and Bags.iconSize) or 37,

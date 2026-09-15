@@ -390,9 +390,11 @@ function ns.CreateMoveBar(frame, dbKey)
   bar.Size = function(s, h)
     h = math.max(12, h or 16)
     s:SetHeight(h)
-    for _, b in ipairs({ xm, xp, ym, yp }) do ns.SnapBox(b, h, h) end
-    ns.SnapBox(xf, 40, h)
-    ns.SnapBox(yf, 40, h)
+    for _, b in ipairs({ xm, xp, ym, yp }) do ns.SizeArrow(b, h) end
+    local fw = math.floor(h * 2.5 + 0.5)
+    ns.SnapBox(xf, fw, h)
+    ns.SnapBox(yf, fw, h)
+    s:SetWidth(ns.SnapValue(s, fw * 2 + h * 4 + 32))
   end
 
   bar:SetShown(ns.MoveBarsVisible())
