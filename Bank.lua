@@ -33,7 +33,9 @@ end
 
 local function sizeGlyph(btn, size)
   if not btn then return end
-  if btn.wpeBoxW == size and btn.wpeBoxH == size then return end
+  local fp = ns.Fonts:Current()
+  if btn.wpeBoxW == size and btn.wpeBoxH == size and btn.wpeFont == fp then return end
+  btn.wpeFont = fp
   ns.SnapBox(btn, size, size)
   if btn.Text then btn.Text:SetFontObject(ns.Fonts:Object(math.max(16, math.floor(size * 0.74)))) end
   if btn.icon and btn.iconPct then
