@@ -372,6 +372,14 @@ function ns.CreateMoveBar(frame, dbKey)
     s.yField:SetFont(path, size, "")
   end
 
+  bar.Size = function(s, h)
+    h = math.max(12, h or 16)
+    s:SetHeight(h)
+    for _, b in ipairs({ xm, xp, ym, yp }) do ns.SnapBox(b, h, h) end
+    ns.SnapBox(xf, 40, h)
+    ns.SnapBox(yf, 40, h)
+  end
+
   bar:SetShown(ns.MoveBarsVisible())
   frame.wpeBar = bar
   moveBars[#moveBars + 1] = bar

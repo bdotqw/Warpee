@@ -611,7 +611,10 @@ function Bags:Layout(capture)
     if self.search.Hint then self.search.Hint:SetFont(self.fontPath, FONT - 2, "") end
   end
   if self.charTag then self.charTag.Text:SetFont(self.fontPath, FONT - 3, ns.OutlineFlags()); self:UpdateCharTag() end
-  if self.frame and self.frame.wpeBar then self.frame.wpeBar:Fonts(self.fontPath, FONT - 4) end
+  if self.frame and self.frame.wpeBar then
+    self.frame.wpeBar:Fonts(self.fontPath, FONT - 4)
+    self.frame.wpeBar:Size(ns.Density(self.iconSize).moveH)
+  end
 
   self.recentH = ns.Recent and ns.Recent:Apply(self, PAD, self:BaseTop(), size, gap) or 0
   self.favH = ns.Fav and ns.Fav:Apply(self, PAD, self:BaseTop() + self.recentH, size, gap) or 0
