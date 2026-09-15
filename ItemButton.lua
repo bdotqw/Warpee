@@ -311,7 +311,7 @@ local function tierFit(b)
   if not (t and t:IsShown() and t.wpeW0) then return end
   local src = t.wpeSrc
   if not (src and tierAtlas(src)) then t:Hide(); return end
-  local k = (b:GetHeight() or 37) / 37
+  local k = math.min((b:GetHeight() or 37) / 37, 24 / t.wpeW0)
   t:SetSize(math.max(1, t.wpeW0 * k), math.max(1, t.wpeH0 * k))
   t:ClearAllPoints()
   t:SetPoint("TOPLEFT", b, "TOPLEFT", -3 * k, 2 * k)
@@ -329,6 +329,7 @@ local function tierTake(b, src)
   local w0, h0 = t:GetWidth() or 0, t:GetHeight() or 0
   if w0 > 0 and h0 > 0 then
     t.wpeW0, t.wpeH0, t.wpeSrc = w0, h0, src
+    k = math.min(k, 24 / w0)
     t:SetSize(math.max(1, w0 * k), math.max(1, h0 * k))
   end
   t:ClearAllPoints()
@@ -346,6 +347,11 @@ local function tierHook(t)
   hooksecurefunc(t, "Show", function(s)
     if tierAtlas(s) then tierTake(s:GetParent(), s) end
   end)
+  if t.SetShown then
+    hooksecurefunc(t, "SetShown", function(s, on)
+      if on and tierAtlas(s) then tierTake(s:GetParent(), s) end
+    end)
+  end
 end
 
 local function clearOverlays(b)
