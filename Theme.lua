@@ -1278,6 +1278,7 @@ function ns.Fonts:Settle()
   -- guess: the client font is used instead of boxes for a name the list does not offer there.
   local need = self:Need()
   if need and db.font and DECLARED[need][rawPath(db.font)] == false then db.font = nil end
+  if need and db.font and judgeScript(need, rawPath(db.font)) == false then db.font = nil end
   db.font = db.font or self.DEFAULT
   if ns.Bags then ns.Bags.font = db.font end
   self.active = nil
