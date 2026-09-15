@@ -598,7 +598,7 @@ function ns.EscClose(frame)
   return frame
 end
 
-Theme.WINDOW_STRATA = "HIGH"
+Theme.WINDOW_STRATA = "MEDIUM"
 function Theme:Window(frame, escName)
   frame:SetFrameStrata(self.WINDOW_STRATA)
   frame:SetToplevel(true)
