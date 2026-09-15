@@ -1895,6 +1895,11 @@ function ns.PaintPin(g, pin, t, btn)
     if art then
       ns.PinTierFit(g)
       g.tier:SetAtlas(art, true)
+      local w0, h0 = g.tier:GetWidth() or 0, g.tier:GetHeight() or 0
+      if w0 > 0 and h0 > 0 then
+        local k = (g:GetWidth() or 37) / 37
+        g.tier:SetSize(math.max(1, w0 * k), math.max(1, h0 * k))
+      end
       g.tier:Show()
     else
       g.tier:Hide()
