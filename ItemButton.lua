@@ -281,13 +281,59 @@ end
 
 local function tierAtlas(t)
   local a = t and t.GetAtlas and t:GetAtlas()
-  return (a and a:find("Quality%-Tier")) and true or false
+  return (a and a:lower():find("quality%-tier")) and true or false
+end
+
+-- The craft tier is drawn by the game on a texture of its own making, at the atlas's own
+-- size and never resized, so the rhombus misses the cell by however much the cell has
+-- moved: it hangs over a small one and drowns in a large one. The mark is mirrored and
+-- not recomputed, because a crafted item carries its rhombus only while the professions
+-- window is open and a second opinion would draw it where the game does not. The game's
+-- texture is put away and not silenced: decorated() reads a hidden overlay and one that
+-- carries a tier atlas the same way, so the quality ring keeps the verdict it has today.
+-- The two neighbours are in the list to be safe, not because they carry tiers: the gate
+-- never opens on the decor frames they hold, and those are left exactly as they are.
+local TIER_KEYS = { "ProfessionQualityOverlay", "IconOverlay", "IconOverlay2" }
+
+local function tierTex(b)
+  local t = b.wpeTier
+  if not t then
+    t = b:CreateTexture(nil, "OVERLAY")
+    t:SetDrawLayer("OVERLAY", 7)
+    t:Hide()
+    b.wpeTier = t
+  end
+  return t
+end
+
+local function tierTake(b, src)
+  local t = tierTex(b)
+  local k = (b:GetHeight() or 37) / 37
+  t:SetAtlas(src:GetAtlas(), true)
+  local w0, h0 = t:GetWidth() or 0, t:GetHeight() or 0
+  if w0 > 0 and h0 > 0 then t:SetSize(math.max(1, w0 * k), math.max(1, h0 * k)) end
+  t:ClearAllPoints()
+  t:SetPoint("TOPLEFT", b, "TOPLEFT", -3 * k, 2 * k)
+  t:SetAlpha(ns.SearchBadgeAlpha(b))
+  t:Show()
+  src:Hide()
+end
+
+-- The professions window opening or closing shows the game's rhombus on its own, on a pass
+-- of ours that never runs, so the texture is watched for the show rather than for the pass.
+local function tierHook(t)
+  if t.wpeTierHook then return end
+  t.wpeTierHook = true
+  hooksecurefunc(t, "Show", function(s)
+    if tierAtlas(s) then tierTake(s:GetParent(), s) end
+  end)
 end
 
 local function clearOverlays(b)
   if b.IconOverlay then b.IconOverlay:Hide() end
   if b.IconOverlay2 then b.IconOverlay2:Hide() end
   if b.ProfessionQualityOverlay then b.ProfessionQualityOverlay:Hide() end
+  if b.wpeTier then b.wpeTier:Hide() end
   if b.bind then b.bind:SetText("") end
   if b.outfit then b.outfit:SetText("") end
   if b.junk then b.junk:Hide() end
@@ -735,6 +781,15 @@ function ns.FitOverlays(b)
   end
   fit(b.IconOverlay or _G[nm .. "IconOverlay"])
   fit(b.IconOverlay2 or _G[nm .. "IconOverlay2"])
+  local took = nil
+  for _, key in ipairs(TIER_KEYS) do
+    local t = b[key] or _G[nm .. key]
+    if t then
+      tierHook(t)
+      if not took and t:IsShown() and tierAtlas(t) then took = t end
+    end
+  end
+  if took then tierTake(b, took) elseif b.wpeTier then b.wpeTier:Hide() end
   -- The cell changes size with the window setting, so the mark is measured off the cell on every
   -- pass. The atlas carries a margin of its own, so the texture is laid under the cell at a share
   -- of it rather than at full size: the glyph then lands at the two thirds of the cell the game's
@@ -1462,6 +1517,7 @@ function ns.ApplySearchToButton(b, filters, blocked)
   paintBadgeAlpha(b, b.junk, "junk")
   paintBadgeAlpha(b, b.blocked, "blocked")
   paintBadgeAlpha(b, questTex(b))
+  paintBadgeAlpha(b, b.wpeTier)
   paintBadgeAlpha(b, b.NewItemTexture)
   paintBadgeAlpha(b, b.BattlepayItemTexture)
   paintBadgeAlpha(b, b.cdText)
