@@ -222,13 +222,19 @@ end
 function Vault:WithOwner(list)
   local key = self:Owner()
   if not key then return list end
+  local found = false
   for _, e in ipairs(list) do
-    if e.key == key then return list end
+    if e.key == key then found = true; break end
   end
-  local name, realm = key:match("^(.-)%-(.*)$")
-  local _, class = UnitClass("player")
-  list[#list + 1] = { key = key, name = name or key, realm = realm, class = class }
-  table.sort(list, byRealmName)
+  if not found then
+    local name, realm = key:match("^(.-)%-(.*)$")
+    local _, class = UnitClass("player")
+    list[#list + 1] = { key = key, name = name or key, realm = realm, class = class }
+  end
+  table.sort(list, function(a, b)
+    if (a.key == key) ~= (b.key == key) then return a.key == key end
+    return byRealmName(a, b)
+  end)
   return list
 end
 
