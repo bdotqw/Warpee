@@ -184,10 +184,25 @@ local function barArrow(bar, dir, fn)
   ns.SnapBox(b, 16, 16)
   local glyph = ns.ArrowGlyph(b, dir, 11)
   glyph:SetPoint("CENTER")
+  b.wpeGlyph, b.wpeDir = glyph, dir
   b:SetScript("OnEnter", function(s) s.hover = true; glyph:SetTint("accent") end)
   b:SetScript("OnLeave", function(s) s.hover = nil; glyph:SetTint("dim") end)
   b:SetScript("OnClick", function() fn(IsShiftKeyDown() and 10 or 1) end)
   return b
+end
+
+function ns.SizeArrow(b, px)
+  if not (b and b.wpeGlyph) then return end
+  px = math.max(12, px or 16)
+  if b.wpeArrowSize == px then return end
+  b.wpeArrowSize = px
+  ns.SnapBox(b, px, px)
+  local n = math.max(7, px - 5)
+  local minor = math.max(3, math.floor(n * 0.62 + 0.5))
+  local t = b.wpeGlyph.tri
+  if b.wpeDir == "left" or b.wpeDir == "right" then t:SetSpan(minor, n)
+  else t:SetSpan(n, minor) end
+  b.wpeGlyph:SetSize(t:GetWidth(), t:GetHeight())
 end
 
 local function barField(bar, apply)
@@ -406,16 +421,24 @@ function ns.CreateNudgeRow(frame, dbKey)
   row:SetFrameLevel(frame:GetFrameLevel() + 20)
   row:SetHeight(16)
   row:SetWidth(70)
+  row.wpeArrows = {}
 
   local prev
   for _, spec in ipairs({ { "left", -1, 0 }, { "right", 1, 0 },
-                          { "down", 0, -1 }, { "up", 0, 1 } }) do
+                           { "down", 0, -1 }, { "up", 0, 1 } }) do
     local dir, dx, dy = spec[1], spec[2], spec[3]
     local b = barArrow(row, dir, function(step)
       ns.NudgeWindow(frame, dbKey, dx * step, dy * step)
     end)
+    row.wpeArrows[#row.wpeArrows + 1] = b
     if prev then b:SetPoint("LEFT", prev, "RIGHT", 2, 0) else b:SetPoint("LEFT", 0, 0) end
     prev = b
+  end
+  row.Size = function(s, px)
+    px = math.max(12, px or 16)
+    for _, b in ipairs(s.wpeArrows or {}) do ns.SizeArrow(b, px) end
+    s:SetHeight(px)
+    s:SetWidth(px * 4 + 6)
   end
   frame.wpeNudge = row
   return row
