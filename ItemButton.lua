@@ -720,9 +720,13 @@ function ns.FitOverlays(b)
     if not t then return end
     if tierAtlas(t) then
       local art = t:GetAtlas()
+      local h = b:GetHeight() or 37
+      local k = h / 37
       t:ClearAllPoints()
-      t:SetPoint("TOPLEFT", b, "TOPLEFT", -3, 2)
+      t:SetPoint("TOPLEFT", b, "TOPLEFT", -3 * k, 2 * k)
       t:SetAtlas(art, true)
+      local w0, h0 = t:GetWidth() or 0, t:GetHeight() or 0
+      if w0 > 0 and h0 > 0 then t:SetSize(math.max(1, w0 * k), math.max(1, h0 * k)) end
       t:SetAlpha(ns.SearchBadgeAlpha(b))
       return
     end
