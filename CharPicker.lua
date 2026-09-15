@@ -237,7 +237,7 @@ function Picker:Paint(keepScroll)
   self.sf:ClearAllPoints()
   self.sf:SetPoint("TOPLEFT", PAD, -(PAD + HEAD_H + drop))
   self.sf:SetPoint("BOTTOMRIGHT", -PAD, PAD)
-  local bodyH = math.max(ROW_H, math.min(y, MAX_ROWS * ROW_H))
+  local bodyH = math.max(ROW_H, math.min(y, MAX_ROWS * ROW_H, 10 * ROW_H))
   if self.capH then bodyH = math.min(bodyH, self.capH) end
   ns.SnapSize(self.frame, widest + PAD * 2 + wide, PAD * 2 + HEAD_H + bodyH + drop)
   self.child:SetSize(widest + wide, math.max(1, y))
