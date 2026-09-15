@@ -311,7 +311,10 @@ local function tierTake(b, src)
   local k = (b:GetHeight() or 37) / 37
   t:SetAtlas(src:GetAtlas(), true)
   local w0, h0 = t:GetWidth() or 0, t:GetHeight() or 0
-  if w0 > 0 and h0 > 0 then t:SetSize(math.max(1, w0 * k), math.max(1, h0 * k)) end
+  if w0 > 0 and h0 > 0 then
+    t.wpeW0, t.wpeH0, t.wpeSrc = w0, h0, src
+    t:SetSize(math.max(1, w0 * k), math.max(1, h0 * k))
+  end
   t:ClearAllPoints()
   t:SetPoint("TOPLEFT", b, "TOPLEFT", -3 * k, 2 * k)
   t:SetAlpha(ns.SearchBadgeAlpha(b))
@@ -789,7 +792,18 @@ function ns.FitOverlays(b)
       if not took and t:IsShown() and tierAtlas(t) then took = t end
     end
   end
-  if took then tierTake(b, took) elseif b.wpeTier then b.wpeTier:Hide() end
+  if took then tierTake(b, took)
+  elseif b.wpeTier then
+    local t, src = b.wpeTier, b.wpeTier.wpeSrc
+    if t:IsShown() and t.wpeW0 and src and tierAtlas(src) then
+      local k = (b:GetHeight() or 37) / 37
+      t:SetSize(math.max(1, t.wpeW0 * k), math.max(1, t.wpeH0 * k))
+      t:ClearAllPoints()
+      t:SetPoint("TOPLEFT", b, "TOPLEFT", -3 * k, 2 * k)
+    else
+      t:Hide()
+    end
+  end
   -- The cell changes size with the window setting, so the mark is measured off the cell on every
   -- pass. The atlas carries a margin of its own, so the texture is laid under the cell at a share
   -- of it rather than at full size: the glyph then lands at the two thirds of the cell the game's
