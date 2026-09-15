@@ -384,13 +384,15 @@ function ns.CreateMoveBar(frame, dbKey)
     local o = ns.Fonts:Object(size, "")
     s.xLabel:SetFontObject(o)
     s.yLabel:SetFontObject(o)
-    s.xField:SetFontObject(o)
-    s.yField:SetFontObject(o)
-    -- An edit box accepts a new font object without ever drawing it: it keeps the face it
-    -- had when its text was last written, so the values stayed in whatever was current
-    -- before the font settled while the labels, which follow their object, moved on. Writing
-    -- the numbers again is what repaints them. A field with focus is skipped by Refresh, so
-    -- nothing being typed into it is lost.
+    -- A label follows its font object and a field does not. An edit box takes the object into
+    -- GetFont and goes on drawing whatever face it held when its text was last written, so a
+    -- value that was painted before the font settled stayed in the old face for the rest of
+    -- the session, and re-setting the object changed what GetFont reported without changing
+    -- a pixel. The file is handed over outright instead: it is read back out of the object,
+    -- so the object stays the single source of the face, and every font refresh re-applies it.
+    local fp, fh, ff = o:GetFont()
+    s.xField:SetFont(fp, fh, ff)
+    s.yField:SetFont(fp, fh, ff)
     s:Refresh()
   end
 
