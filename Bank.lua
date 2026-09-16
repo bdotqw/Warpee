@@ -874,12 +874,9 @@ function View:RefreshStrip()
     buy:ClearAllPoints()
     ns.SnapPoint(buy, "BOTTOMLEFT", f, "TOPLEFT", x + #entries * (TAB_SIZE + TAB_GAP), 6)
     if buy.Text then
-      if not buy.wpePlus then
-        buy.wpePlus = true
-        local path, _, flags = buy.Text:GetFont()
-        if path then buy.Text:SetFont(path, 18, flags) end
-      end
+      buy.Text:SetFontObject(ns.Fonts:Object(math.max(16, math.floor(TAB_SIZE * 0.74))))
       buy.Text:SetText("+")
+      if buy.Repaint then buy:Repaint() end
     end
     local cost = (self.bankerOpen and not self.snap) and purchasableCost(bankTypeFor(self.mode)) or nil
     buy:SetShown(cost ~= nil)
@@ -1189,7 +1186,6 @@ function View:Fonts()
   end
   if self.depositBtn then put(self.depositBtn.Text, -1); fit(self.depositBtn, 70, 18) end
   if self.withdrawBtn then put(self.withdrawBtn.Text, -1); fit(self.withdrawBtn, 76, 18) end
-  for _, b in pairs(self.buyBtn or {}) do put(b.Text, -1); b:SetHeight(bh) end
   if self.frame and self.frame.wpeBar then
     self.frame.wpeBar:Fonts(path, math.max(8, base - 2))
     self.frame.wpeBar:Size(ns.Density(self:CellSize()).moveH)
