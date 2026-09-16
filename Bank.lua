@@ -797,6 +797,7 @@ function View:RefreshStrip()
   local entries = self:StripEntries(self.mode)
   if #entries < 2 then
     for _, b in ipairs(self.tabBtns) do b:Hide() end
+    if self.plusTab then self.plusTab:Hide() end
     return
   end
   local meta = (not self.snap) and self:LiveTabMeta(self.mode) or nil
@@ -866,6 +867,49 @@ function View:RefreshStrip()
     b:Show()
   end
   for j = #entries + 1, #self.tabBtns do self.tabBtns[j]:Hide() end
+  local plus = self.plusTab
+  if not plus then
+    plus = CreateFrame("Button", nil, f, "BackdropTemplate")
+    ns.SnapBox(plus, TAB_SIZE, TAB_SIZE)
+    ns.PixelBackdrop(plus)
+    ns.SetBg(plus, Theme:C("panel"))
+    ns.SetEdge(plus, Theme:C("stroke"))
+    Theme:Track(plus, function(s)
+      ns.SetBg(s, Theme:C("panel"))
+      ns.SetEdge(s, Theme:C("stroke"))
+    end)
+    local glyph = Theme:Label(plus, 18, "dim")
+    glyph:SetPoint("CENTER", 0, 1)
+    glyph:SetText("+")
+    plus:SetScript("OnEnter", function(s)
+      ns.SetBg(s, Theme:C("panelHi"))
+      ns.SetEdge(s, Theme:C("accent"))
+    end)
+    plus:SetScript("OnLeave", function(s)
+      ns.SetBg(s, Theme:C("panel"))
+      ns.SetEdge(s, Theme:C("stroke"))
+      GameTooltip:Hide()
+    end)
+    plus:SetScript("OnClick", function()
+      local buy = self.buyBtn and self.buyBtn[self.mode]
+      if buy and self.bankerOpen and not self.snap and not InCombatLockdown() then
+        buy:Click()
+      end
+    end)
+    addTip(plus, function()
+      return self.mode == "warband" and "Buy another Warband bank tab" or "Buy another bank tab"
+    end, function()
+      local cost = (self.bankerOpen and not self.snap) and purchasableCost(bankTypeFor(self.mode)) or nil
+      cost = tonumber(cost) or nil
+      if not cost then return nil end
+      return { { text = (ns.L["Cost: %s"]):format(ns.FormatMoney(cost)), color = "gaugeHi" } }
+    end, "top")
+    self.plusTab = plus
+  end
+  plus:ClearAllPoints()
+  ns.SnapPoint(plus, "BOTTOMLEFT", f, "TOPLEFT", x + #entries * (TAB_SIZE + TAB_GAP), 6)
+  local cost = (self.bankerOpen and not self.snap) and purchasableCost(bankTypeFor(self.mode)) or nil
+  plus:SetShown(cost ~= nil)
 end
 
 -- The tab editor is the game's own settings menu, the same popup the macro and guild bank
@@ -1310,21 +1354,7 @@ function View:UpdateFooter()
     local cost = live and purchasableCost(bt) or nil
     cost = tonumber(cost) or nil
     buy.cost = cost
-    if cost then
-      buy.Text:SetText(ns.L["Buy tab"] .. " " .. ns.FormatGold(cost))
-      buy.Text:SetTextColor(Theme:C("text"))
-      ns.SetEdge(buy, Theme:C("stroke"))
-      buy:SetWidth(math.max(90, math.ceil(buy.Text:GetStringWidth()) + 22))
-      buy:ClearAllPoints()
-      if transfer and self.withdrawBtn then
-        buy:SetPoint("LEFT", self.withdrawBtn, "RIGHT", 8, 0)
-      else
-        buy:SetPoint("BOTTOMLEFT", PAD, 5)
-      end
-      buy:Show()
-    else
-      buy:Hide()
-    end
+    buy:Hide()
   end
 
   if self.money then
