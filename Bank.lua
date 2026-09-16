@@ -862,7 +862,7 @@ function View:RefreshStrip()
     ns.SetBg(b, Theme:C(b.wpeOn and "panelHi" or "panel"))
     ns.SetEdge(b, Theme:C(b.wpeOn and "accent" or "stroke"))
     b:ClearAllPoints()
-    ns.SnapPoint(b, "TOPLEFT", f, "BOTTOMRIGHT", x, -(6 + (#entries - i) * (TAB_SIZE + TAB_GAP)))
+    ns.SnapPoint(b, "BOTTOMLEFT", f, "TOPLEFT", x + (i - 1) * (TAB_SIZE + TAB_GAP), 6)
     b:Show()
   end
   for j = #entries + 1, #self.tabBtns do self.tabBtns[j]:Hide() end
@@ -931,7 +931,7 @@ function View:OpenTabSettings(bag)
   -- instead, and past the window itself when there is no strip to clear.
   local anchor
   for _, b in ipairs(self.tabBtns or {}) do
-    if b:IsShown() then anchor = b break end
+    if b:IsShown() then anchor = b end
   end
   pop:ClearAllPoints()
   if not (self.frame and self.frame:IsShown()) then
