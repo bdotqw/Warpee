@@ -639,10 +639,14 @@ local function coinText(btn, value, letter)
   -- game sets it, digits plus coin, because the three buttons are chained to each other by their
   -- widths and the gold one is two anchors away from the frame's own edge.
   local icon = (btn:GetWidth() or 0) - (fs:GetStringWidth() or 0)
-  -- The colour is read off the string before the face moves and put back after it, because a
-  -- raw SetFont drops the colour the game's font object was carrying, and one of these amounts
-  -- is meant to be red: the price of the next tab, while the guild cannot pay it.
-  local r, g, b, a = fs:GetTextColor()
+  -- The colour is read off the font object the button carries and not off the string, because a
+  -- colour this skin writes on a string is a colour that string keeps: the game paints this amount
+  -- again whenever it looks at whether the guild can pay the next tab, and through our own colour
+  -- that change was never seen, so the price stayed as it was painted the first time until a reload
+  -- put a fresh frame in its place. The string's own colour is only the fallback, for a button whose
+  -- font cannot be read.
+  local r, g, b, a = inkOf(btn.GetNormalFontObject and btn:GetNormalFontObject())
+  if not r then r, g, b, a = fs:GetTextColor() end
   ns.SetOutlined(fs, 12)
   fs:SetText(ns.FormatNumber(value))
   if r then fs:SetTextColor(r, g, b, a) end
@@ -718,7 +722,11 @@ end
 local function dressMoneys()
   for name in pairs(MONEY_FRAMES) do
     local frame = _G[name]
-    if frame then dressMoney(frame, frame.staticMoney) end
+    -- An amount the game has not written yet is not an amount, and dressing one with a zero of our
+    -- own would put a number on the window that the guild bank never said.
+    if frame and type(frame.staticMoney) == "number" then
+      dressMoney(frame, frame.staticMoney)
+    end
   end
 end
 
@@ -736,10 +744,12 @@ local LOG_SIZE = 13
 -- nothing on screen to say why.
 local function inkOf(obj)
   if not (obj and obj.GetTextColor) then return nil end
-  local r, g, b = obj:GetTextColor()
-  if type(r) == "table" and r.GetRGB then r, g, b = r:GetRGB() end
+  local r, g, b, a = obj:GetTextColor()
+  if type(r) == "table" then
+    if r.GetRGBA then r, g, b, a = r:GetRGBA() elseif r.GetRGB then r, g, b = r:GetRGB() end
+  end
   if type(r) ~= "number" then return nil end
-  return r, g or r, b or r
+  return r, g or r, b or r, a or 1
 end
 
 -- The field of the info tab, asked for the way the game's own update asks for it, with the name it
@@ -816,6 +826,18 @@ function Skin:Apply()
     if type(GuildBankFrameMixin.UpdateTabInfo) == "function" then
       hooksecurefunc(GuildBankFrameMixin, "UpdateTabInfo",
                      function(f) try(label, infoField(f), 13) end)
+    end
+    -- The price of the next tab is the one amount of this window the game paints a second time, red
+    -- while the guild cannot pay it and white again once it can, and it paints it on every look it
+    -- takes at that question. The amount is dressed right after that look, so the colour written
+    -- there is the colour of the moment.
+    if type(GuildBankFrameMixin.UpdateTabBuyingInfo) == "function" then
+      hooksecurefunc(GuildBankFrameMixin, "UpdateTabBuyingInfo", function()
+        local cost = _G.GuildBankFrameTabCostMoneyFrame
+        if cost and type(cost.staticMoney) == "number" then
+          try(dressMoney, cost, cost.staticMoney)
+        end
+      end)
     end
   end
 
