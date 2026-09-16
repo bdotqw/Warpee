@@ -7,7 +7,7 @@ ENG
 New
 
 - Guild bank: a plus cell to buy the next tab, the addon's own search, tips above the tabs, and its two money buttons pulled apart
-- Guild bank money reads as the addon's own: gold only, coins written as letters in the coin's own colour, the log, money log and tab info in the chosen font, and the tab title and its price in the addon's colours
+- Guild bank money reads as the addon's own: gold only, coins written as letters in the coin's own colour, and the log, money log and tab info in the chosen font
 - Guild bank cells follow the outline settings: quality, quest and unusable colours, and the thickness slider
 - The bank footer reads your own gold on the Bank tab and the warband's gold on the Warband tab
 - The language list runs by script, with the client's own language first
@@ -23,13 +23,14 @@ Fixes
 - The guild bank's bottom tabs no longer slide into place as the window opens
 - The Warband tab answers while another character's bank is on screen
 - No second line left under the guild bank icons when an outline setting is off
+- The guild bank tab title keeps the colour the game writes into the access word, in any setting change
 
 RU
 
 Новое
 
 - Гильдбанк: плюс-клетка для покупки следующей вкладки, свой поиск, подсказки над вкладками и разнесённые кнопки золота
-- Деньги гильдбанка выглядят как деньги самого аддона: только золото, монеты буквами в цвете самой монеты, журнал, журнал денег и инфо вкладки выбранным шрифтом, а название вкладки и её цена — в цветах аддона
+- Деньги гильдбанка выглядят как деньги самого аддона: только золото, монеты буквами в цвете самой монеты, а журнал, журнал денег и инфо вкладки — выбранным шрифтом
 - Обводки ячеек гильдбанка идут за настройками: цвет качества, метка задания, «нельзя носить» и ползунок толщины
 - В подвале банка на вкладке Банк — золото на руках, на вкладке Отряд — золото отряда
 - Языки в списке идут по письменностям, язык клиента — первым
@@ -45,3 +46,4 @@ RU
 - Нижние вкладки гильдбанка больше не съезжают на место, пока окно открывается
 - Вкладка Отряд переключается, даже когда на экране банк другого персонажа
 - Под иконками гильдбанка больше нет тонкой родной линии, когда обводка выключена
+- Название вкладки гильдбанка держит цвет, который игра пишет в слово доступа, при любой смене настроек

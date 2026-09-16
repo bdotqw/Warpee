@@ -95,20 +95,6 @@ local function box(f, bgKey, strokeKey)
   return f
 end
 
--- The access a player has to a tab is a word the game appends to the tab's own name, and that word
--- carries a colour of its own inside the string. A colour written into the text beats any colour put
--- on the string, which is why that half of the line stood out in the game's own ink while the rest
--- of the window wore ours. The line is taken back the moment the game writes it, stripped of the ink
--- written into it and dressed again, and a line that carries no ink of its own is left as it is.
-local function plainLine(fs, size)
-  if not (fs and fs.GetText and fs.SetText) then return end
-  local t = fs:GetText()
-  if t and t ~= "" then
-    local plain = t:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
-    if plain ~= t then fs:SetText(plain) end
-  end
-  try(label, fs, size)
-end
 
 local function textOf(b)
   if b.Text and b.Text.SetFont then return b.Text end
@@ -805,26 +791,30 @@ function Skin:Apply()
   -- Three lines of the window are written by the game and were never dressed: the tab's own name
   -- over the window, which carries the access the player has to that tab, the line under the
   -- grid that counts what is left of the day's withdrawals, and the words next to the money.
-  try(plainLine, frame.TabTitle, 15)
+  -- The access word is the one part of the window that keeps the game's ink: the game writes the
+  -- colour of an access level into the word itself (green for full access), and ink written into
+  -- the text beats any colour put on the string, so the name wears ours and the word wears the
+  -- game's, the way the game's own window reads. Taking that ink out was tried and taken back: it
+  -- made the word lose its colour the moment anything redressed the line, until the game wrote the
+  -- title again on the next tab move, which is the flicker it was meant to remove.
+  try(label, frame.TabTitle, 15)
   try(label, frame.LimitLabel, 12)
   try(label, frame.ErrorMessage, 12)
   try(skinClose, frame.CloseButton, frame)
 
-  -- The tab title is written again every time a tab is picked, and it is the game's own mixin that
-  -- writes it: standing right after that write is the only way to catch the ink that comes with it,
-  -- and hooking a global table of the game's is the sanctioned way in.
-  if not self.titleHooked and type(GuildBankFrameMixin) == "table"
-     and type(GuildBankFrameMixin.UpdateTabs) == "function" then
-    self.titleHooked = true
-    hooksecurefunc(GuildBankFrameMixin, "UpdateTabs",
-                   function(f) try(plainLine, f and f.TabTitle, 15) end)
+  -- Two lines of this window are written again by the game after the skin has already dressed them,
+  -- and each is dressed right after its own write: the info tab, which is one field the guild's own
+  -- text goes into, and the price of the next tab, which the game repaints red or white on every
+  -- look it takes at whether the guild can pay. Hooking a global table of the game's is the
+  -- sanctioned way in.
+  if not self.writesHooked and type(GuildBankFrameMixin) == "table"
+     and type(GuildBankFrameMixin.UpdateTabInfo) == "function" then
+    self.writesHooked = true
     -- The info tab is one field the game writes the guild's own text into, and it is written again
     -- whenever a tab is picked: dressing it right after that write is the only way to know the face
     -- is on the text that was just put there.
-    if type(GuildBankFrameMixin.UpdateTabInfo) == "function" then
-      hooksecurefunc(GuildBankFrameMixin, "UpdateTabInfo",
-                     function(f) try(label, infoField(f), 13) end)
-    end
+    hooksecurefunc(GuildBankFrameMixin, "UpdateTabInfo",
+                   function(f) try(label, infoField(f), 13) end)
     -- The price of the next tab is the one amount of this window the game paints a second time, red
     -- while the guild cannot pay it and white again once it can, and it paints it on every look it
     -- takes at that question. The amount is dressed right after that look, so the colour written
@@ -1113,9 +1103,8 @@ function Skin:Restyle()
   try(self.PaintSlots, self)
   dressMoneys()
   try(dressLog, frame)
-  -- The title of a tab is written by the game on every update, and if that hook could not be put
-  -- where it belongs, the pass the window already makes on every tab move is the second chance.
-  try(plainLine, frame.TabTitle, 15)
+  -- The tab title needs no pass of its own here: label() records the face on it, and the loop over
+  -- those records at the top of this function is what a moved font or a moved theme reaches it by.
 end
 
 local function markBuy(b, numTabs)
