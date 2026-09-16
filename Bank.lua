@@ -848,7 +848,7 @@ function View:RefreshStrip()
         if button == "RightButton" then self:OpenTabSettings(s.wpeBag)
         else self:SelectTab(s.wpeBag) end
       end)
-      ns.AddTip(b, function(s) return s.wpeTip end, "left", function()
+      ns.AddTip(b, function(s) return s.wpeTip end, "top", function()
         if self.bankerOpen and not self.snap then
           return { { text = ns.L["Right-click to edit"], color = "dim" } }
         end
