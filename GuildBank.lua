@@ -1,7 +1,7 @@
 local addonName, ns = ...
 local Theme = ns.Theme
 
-local Skin = { tabs = {}, panelTabs = {} }
+local Skin = { tabs = {}, panelTabs = {}, texts = {} }
 ns.GuildBankSkin = Skin
 
 local COLUMNS, SLOTS, PANEL_TABS = 7, 14, 4
@@ -33,15 +33,26 @@ local function muteStates(b)
   if d then d:SetAlpha(0) end
 end
 
+-- Every string this skin writes is remembered here, because a font picked in the settings has
+-- to reach a frame the game built: the theme walks its own list, and the guild bank skin is
+-- outside it. The same record is what the theme repaints, so both roads end in one dress.
 local function label(fs, size, key, flags)
   if not (fs and fs.SetFont) then return end
-  local k = key or "text"
-  fs:SetFont(ns.Fonts:Current(), size or 12, flags or "")
-  fs:SetTextColor(Theme:C(k))
-  Theme:Track(fs, function(x)
-    x:SetFont(ns.Fonts:Current(), size or 12, flags or "")
-    x:SetTextColor(Theme:C(k))
-  end)
+  local rec = fs.wpeLabel
+  if not rec then
+    rec = {}
+    fs.wpeLabel = rec
+    Skin.texts[#Skin.texts + 1] = rec
+  end
+  rec.fs, rec.size, rec.key, rec.flags = fs, size or 12, key or "text", flags or ""
+  if not rec.dress then
+    rec.dress = function()
+      rec.fs:SetFont(ns.Fonts:Current(), rec.size, rec.flags)
+      rec.fs:SetTextColor(Theme:C(rec.key))
+    end
+    Theme:Track(fs, rec.dress)
+  end
+  rec.dress()
 end
 
 local function box(f, bgKey, strokeKey)
@@ -190,9 +201,29 @@ local function skinSideTab(tab, index)
   end
   if not box(b, "panel", "stroke") then return end
   b.wpeIndex = index
+  -- The cell that buys the next tab wears the same plus the bank's own strip wears. The game
+  -- draws that one cell with its NewTab art, which is a texture: it cannot follow the theme or
+  -- the addon font, so it is faded out and a glyph is drawn in its place, in the same way and
+  -- with the same size as the buy cell of the bank window.
+  b.wpePlus = b:CreateFontString(nil, "OVERLAY")
+  b.wpePlus:SetPoint("CENTER")
+  b.wpePlus:SetText("+")
+  b.wpePlus:Hide()
+  label(b.wpePlus, 18, "dim")
+  b.wpeIcon = ic
+  b.Text = b.wpePlus
+  b.wpeTextKey = "dim"
   Theme:Track(b, paintToggle)
-  b:HookScript("OnEnter", hotOn)
-  b:HookScript("OnLeave", hotOff)
+  b:HookScript("OnEnter", function(s)
+    hotOn(s)
+    -- The game hangs its own tooltip off the left of the tab. Ours opens above it instead, in
+    -- the addon's own skin, which is where every other cell of the addon says what it is for.
+    -- The wording is the game's: the tab's name, or the line it puts on the buy cell.
+    local name = s.tooltip
+    if GameTooltip then GameTooltip:Hide() end
+    if name and name ~= "" then ns.ShowTip(s, { { text = name } }, "top") end
+  end)
+  b:HookScript("OnLeave", function(s) hotOff(s); ns.HideTip() end)
   b:HookScript("OnClick", function() Skin:Refresh() end)
   Skin.tabs[#Skin.tabs + 1] = b
 end
@@ -381,6 +412,9 @@ local function skinSearch(sb)
   label(sb.Instructions, 13, "dim")
   sb:HookScript("OnEditFocusGained", function(s) ns.SetEdge(s, Theme:C("accent")) end)
   sb:HookScript("OnEditFocusLost", function(s) ns.SetEdge(s, Theme:C("stroke")) end)
+  -- The game's own handler answers this too: it asks the server and dims what comes back
+  -- filtered. Ours runs beside it, in the words the bags know.
+  sb:HookScript("OnTextChanged", function() Skin:Search() end)
 end
 
 local function skinPopup(pop)
@@ -431,8 +465,16 @@ function Skin:Apply()
              or _G.GuildBankFrameTitleText, 15)
   try(skinClose, frame.CloseButton, frame)
 
-  try(skinButton, frame.DepositButton or _G.GuildBankFrameDepositButton)
-  try(skinButton, frame.WithdrawButton or _G.GuildBankFrameWithdrawButton)
+  local dep = frame.DepositButton or _G.GuildBankFrameDepositButton
+  local wdr = frame.WithdrawButton or _G.GuildBankFrameWithdrawButton
+  try(skinButton, dep)
+  try(skinButton, wdr)
+  -- The game puts three pixels between them, and the border of one skinned plate eats into the
+  -- border of the other at that distance. They are pulled apart to a gap that fits both.
+  if dep and wdr then
+    pcall(wdr.ClearAllPoints, wdr)
+    pcall(wdr.SetPoint, wdr, "RIGHT", dep, "LEFT", -8, 0)
+  end
   try(skinButton, _G.GuildBankInfoSaveButton)
   try(skinButton, (frame.BuyInfo and frame.BuyInfo.PurchaseButton)
                   or _G.GuildBankFramePurchaseButton)
@@ -477,6 +519,59 @@ function Skin:Apply()
   skinPopup(_G.GuildBankPopupFrame)
 end
 
+-- The game's own guild bank search asks the server and dims whatever comes back filtered; ours
+-- runs here and knows the words the bags know, which is the search the player already uses in
+-- the other windows. The box is the game's, so the text is read off it, and a cell is dimmed the
+-- way a bag cell is: the button goes translucent and its icon desaturates. Nothing is cached
+-- from a miss, since an item that is not in the cache yet becomes one a moment later.
+local metaCache = {}
+
+local function itemMeta(link)
+  if not link then return nil end
+  local hit = metaCache[link]
+  if hit then return hit end
+  local nm, _, q, ilvl = C_Item.GetItemInfo(link)
+  if not nm then return nil end
+  local id, iType, iSub, iEquipLoc, _, classID, subID = C_Item.GetItemInfoInstant(link)
+  local m = {
+    text = (nm .. " " .. (iType or "") .. " " .. (iSub or "")):lower(),
+    q = q, ilvl = ilvl, classID = classID, subID = subID,
+    equipLoc = iEquipLoc, id = id, link = link,
+    reagent = classID == Enum.ItemClass.Tradegoods or classID == Enum.ItemClass.Reagent,
+    keystone = link:find("keystone:", 1, true) ~= nil,
+  }
+  metaCache[link] = m
+  return m
+end
+
+function Skin:Search()
+  local frame = _G.GuildBankFrame
+  local box = _G.GuildItemSearchBox
+  if not (self.applied and frame and box) then return end
+  local f = ns.ParseSearch(box:GetText())
+  local tab = (GetCurrentGuildBankTab and GetCurrentGuildBankTab()) or 0
+  for i = 1, COLUMNS do
+    local col = frame["Column" .. i] or _G["GuildBankColumn" .. i]
+    if col then
+      for s = 1, SLOTS do
+        local b = col["Button" .. s]
+        if b and b.wpeSkin then
+          local miss = false
+          if not f.empty then
+            local link = GetGuildBankItemLink and GetGuildBankItemLink(tab, (i - 1) * SLOTS + s)
+            miss = not ns.MatchSearch(itemMeta(link), f)
+          end
+          if b.wpeMiss ~= miss then
+            b.wpeMiss = miss
+            b:SetAlpha(miss and 0.2 or 1)
+            if SetItemButtonDesaturated then SetItemButtonDesaturated(b, miss) end
+          end
+        end
+      end
+    end
+  end
+end
+
 local function slotQuality(tab, index)
   if GetGuildBankItemInfo then
     local ok, _, _, _, _, q = pcall(GetGuildBankItemInfo, tab, index)
@@ -499,6 +594,9 @@ function Skin:PaintSlots()
         if b and b.wpeSkin and b.SetBackdropBorderColor then
           local q = slotQuality(tab, (i - 1) * SLOTS + s)
           local c = (q and q >= 2 and ITEM_QUALITY_COLORS) and ITEM_QUALITY_COLORS[q] or nil
+          -- Slots of a tab just switched to carry different items, so the search has to judge
+          -- them again rather than trust what it decided for the tab before.
+          b.wpeMiss = nil
           if c then
             b.wpeQ = { c.r, c.g, c.b }
             ns.SetEdge(b, c.r, c.g, c.b, 1)
@@ -516,6 +614,7 @@ function Skin:Restyle()
   local frame = _G.GuildBankFrame
   if not (self.applied and frame) then return end
   C_Timer.After(0, function() pcall(dressFrame, frame) end)
+  for _, rec in ipairs(self.texts) do try(rec.dress) end
   for i = 1, COLUMNS do
     local col = frame["Column" .. i] or _G["GuildBankColumn" .. i]
     if col then
@@ -531,8 +630,18 @@ function Skin:Refresh()
   if not (self.applied and ready()) then return end
   local frame = _G.GuildBankFrame
   local cur = (GetCurrentGuildBankTab and GetCurrentGuildBankTab()) or 0
+  local numTabs = (GetNumGuildBankTabs and GetNumGuildBankTabs()) or 0
   for _, b in ipairs(self.tabs) do
     b.wpeLit = (b.wpeIndex == cur) or nil
+    -- The game keeps one cell past the last bought tab as the buy cell, and that is the only
+    -- one that should wear the plus: every other tab carries an icon of its own, and the one
+    -- that has just been bought has to get its icon back.
+    local buy = (b.wpeIndex == numTabs + 1) and b:IsShown() and true or nil
+    if b.wpeBuy ~= buy then
+      b.wpeBuy = buy
+      if b.wpePlus then b.wpePlus:SetShown(buy and true or false) end
+      if b.wpeIcon then b.wpeIcon:SetAlpha(buy and 0 or 1) end
+    end
     paintToggle(b)
   end
   local sel = frame and frame.selectedTab
@@ -542,6 +651,7 @@ function Skin:Refresh()
     paintToggle(t)
   end
   self:PaintSlots()
+  self:Search()
 end
 
 local themeHook = CreateFrame("Frame")
