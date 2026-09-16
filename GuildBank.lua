@@ -677,7 +677,11 @@ local function paintBadges(b, tab, index)
     b.ilvl:SetText(shown or "")
     b.ilvl:SetTextColor(Theme:C("overlay"))
   end
-  ns.MarkBind(b, ns.BindLabel(link, itemID, false, ns.IsWueGear(link, itemID)), q)
+  -- The binds that read off the item itself: account binding, and BoE on a piece that is not
+  -- bound. The warbound question is left out on purpose, because it is the one that is answered
+  -- by building a tooltip, and a window that holds ninety-eight items at once is not the place
+  -- to build one per item. BoE and BoA come from the item id, which is already cached.
+  ns.MarkBind(b, ns.BindLabel(link, itemID, false), q)
 end
 
 function Skin:PaintSlots()
