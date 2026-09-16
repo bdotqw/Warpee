@@ -869,7 +869,7 @@ function View:RefreshStrip()
   for j = #entries + 1, #self.tabBtns do self.tabBtns[j]:Hide() end
   local plus = self.plusTab
   if not plus then
-    plus = CreateFrame("Button", nil, f, "BackdropTemplate")
+    plus = CreateFrame("Button", nil, f, "BackdropTemplate, SecureActionButtonTemplate")
     ns.SnapBox(plus, TAB_SIZE, TAB_SIZE)
     ns.PixelBackdrop(plus)
     ns.SetBg(plus, Theme:C("panel"))
@@ -878,6 +878,7 @@ function View:RefreshStrip()
       ns.SetBg(s, Theme:C("panel"))
       ns.SetEdge(s, Theme:C("stroke"))
     end)
+    plus:RegisterForClicks("LeftButtonUp")
     local glyph = Theme:Label(plus, 18, "dim")
     glyph:SetPoint("CENTER", 0, 1)
     glyph:SetText("+")
@@ -890,12 +891,11 @@ function View:RefreshStrip()
       ns.SetEdge(s, Theme:C("stroke"))
       GameTooltip:Hide()
     end)
-    plus:SetScript("OnClick", function()
-      local buy = self.buyBtn and self.buyBtn[self.mode]
-      if buy and self.bankerOpen and not self.snap and not InCombatLockdown() then
-        buy:Click()
-      end
-    end)
+    plus:SetScript("OnClick", nil)
+    if not InCombatLockdown() then
+      plus:SetAttribute("type", "click")
+      plus:SetAttribute("clickbutton", self.buyBtn and self.buyBtn[self.mode])
+    end
     addTip(plus, function()
       return self.mode == "warband" and "Buy another Warband bank tab" or "Buy another bank tab"
     end, function()
@@ -909,6 +909,10 @@ function View:RefreshStrip()
   plus:ClearAllPoints()
   ns.SnapPoint(plus, "BOTTOMLEFT", f, "TOPLEFT", x + #entries * (TAB_SIZE + TAB_GAP), 6)
   local cost = (self.bankerOpen and not self.snap) and purchasableCost(bankTypeFor(self.mode)) or nil
+  if not InCombatLockdown() then
+    plus:SetAttribute("type", "click")
+    plus:SetAttribute("clickbutton", cost and self.buyBtn and self.buyBtn[self.mode] or nil)
+  end
   plus:SetShown(cost ~= nil)
 end
 
