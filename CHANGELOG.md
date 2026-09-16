@@ -12,7 +12,7 @@ Fixes
 - The buy cell stays put on a character that owns no bank tab yet
 - Tooltips open above the cell they describe, in the settings window and on the bank strip
 - A font picked in the settings reaches the close mark, the move bar and the guild bank at once
-- Guild bank: a plus cell to buy the next tab, the addon's own search, tips above the tabs, the addon's badges on its items, and the two money buttons pulled apart
+- Guild bank: a plus cell to buy the next tab, the addon's own search, tips above the tabs, its badges and money format, and the two money buttons pulled apart
 - The language list runs by script, with the client's own language first
 
 RU
@@ -25,5 +25,5 @@ RU
 - Клетка покупки остаётся на месте у персонажа без единого таба банка
 - Подсказки открываются над тем, что описывают: и в настройках, и на полосе табов банка
 - Выбранный шрифт доходит до крестика, полосы перемещения и гильдбанка сразу
-- Гильдбанк: плюс-клетка покупки таба, свой поиск, подсказки над табами, наши баджи на предметах и разведённые кнопки денег
+- Гильдбанк: плюс-клетка покупки таба, свой поиск, подсказки над табами, наши баджи и формат денег, разведённые кнопки денег
 - Список языков идёт по письменностям, язык клиента первым
