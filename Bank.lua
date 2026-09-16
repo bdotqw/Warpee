@@ -790,24 +790,38 @@ function View:StripEntries(mode)
   return list
 end
 
+-- The buy cell follows the last tab, or heads the strip when the character owns no tab at all:
+-- that strip is hidden, and the game's own purchase prompt lives in the panel we keep in the
+-- hidden holder, so this cell is the only way to a first bank tab.
+function View:PlaceBuyCell(x)
+  local buy = self.buyBtn and self.buyBtn[self.mode]
+  if not buy then return end
+  ns.SnapBox(buy, TAB_SIZE, TAB_SIZE)
+  buy:ClearAllPoints()
+  ns.SnapPoint(buy, "BOTTOMLEFT", self.frame, "TOPLEFT", x, 6)
+  if buy.Text then
+    buy.Text:SetFontObject(ns.Fonts:Object(math.max(16, math.floor(TAB_SIZE * 0.74))))
+    buy.Text:SetText("+")
+    if buy.Repaint then buy:Repaint() end
+  end
+  local cost = (self.bankerOpen and not self.snap) and purchasableCost(bankTypeFor(self.mode)) or nil
+  buy:SetShown(cost ~= nil)
+end
+
 function View:RefreshStrip()
   local f = self.frame
   if not f then return end
   self.tabBtns = self.tabBtns or {}
   local entries = self:StripEntries(self.mode)
+  local def = Theme.SkinDef and Theme:SkinDef()
+  local x = 6 + (def and (tonumber(def.outX or def.out) or 0) or 0)
   if #entries < 2 then
     for _, b in ipairs(self.tabBtns) do b:Hide() end
-    local gone = self.buyBtn and self.buyBtn[self.mode]
-    if gone then gone:Hide() end
+    self:PlaceBuyCell(x)
     return
   end
   local meta = (not self.snap) and self:LiveTabMeta(self.mode) or nil
   local sel = self:TabSel(self.mode)
-  local y = ROW1_Y + Theme:TopInset() + Theme:HeadDrop()
-  local out = 0
-  local def = Theme.SkinDef and Theme:SkinDef()
-  if def then out = tonumber(def.outX or def.out) or 0 end
-  local x = 6 + out
   for i, e in ipairs(entries) do
     local b = self.tabBtns[i]
     if not b then
@@ -868,19 +882,7 @@ function View:RefreshStrip()
     b:Show()
   end
   for j = #entries + 1, #self.tabBtns do self.tabBtns[j]:Hide() end
-  local buy = self.buyBtn and self.buyBtn[self.mode]
-  if buy then
-    ns.SnapBox(buy, TAB_SIZE, TAB_SIZE)
-    buy:ClearAllPoints()
-    ns.SnapPoint(buy, "BOTTOMLEFT", f, "TOPLEFT", x + #entries * (TAB_SIZE + TAB_GAP), 6)
-    if buy.Text then
-      buy.Text:SetFontObject(ns.Fonts:Object(math.max(16, math.floor(TAB_SIZE * 0.74))))
-      buy.Text:SetText("+")
-      if buy.Repaint then buy:Repaint() end
-    end
-    local cost = (self.bankerOpen and not self.snap) and purchasableCost(bankTypeFor(self.mode)) or nil
-    buy:SetShown(cost ~= nil)
-  end
+  self:PlaceBuyCell(x + #entries * (TAB_SIZE + TAB_GAP))
 end
 
 -- The tab editor is the game's own settings menu, the same popup the macro and guild bank
