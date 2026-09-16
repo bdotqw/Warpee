@@ -540,34 +540,61 @@ local MONEY_FRAMES = {
   GuildBankFrameTabCostMoneyFrame = true,
 }
 
--- A coin of a money frame is drawn by the game as an icon beside the digits, and the addon has a
--- setting that writes it as a letter instead. The letter is the one the addon's own language gives
--- it, so a client set to Russian reads "з/с/м" and the same client set to English reads "g/s/c",
--- and it wears the coin's own colour, which is what the money of the addon does in every other
--- window. The coin icon is hidden rather than taken away, so it comes back the moment the setting
--- says so, and nothing else about the frame moves: the digits keep the place they have always had,
--- and only what sat beside them changes.
-local function coinMark(letter, tint)
-  local sp = (letter == "g" and WarpeeDB and WarpeeDB.goldFormat == "short") and " " or ""
-  local word = ns.CoinLetter(letter)
-  -- The space is the one the addon's own short money puts before the letter, and it stays outside
-  -- the colour there too: "1.2k g" reads as a number and a unit, "1.2kg" as a weight.
-  if tint then return sp .. "|cff" .. tint .. word .. "|r" end
-  return sp .. word
-end
-
 -- The digits of a money frame are painted by the game, and one of the paints it reaches for is a
--- signal: the price of the next tab goes red while the guild cannot pay it. The coin colour goes on
--- the letter only while the number wears the ordinary number font, so a price the guild cannot pay
--- stays red from the digits to the letter instead of turning red and gold at once. The font is
--- compared and not its colour, because the frame paints through its font object and the ordinary
--- one is a name in the game's own table; a button whose font cannot be read is taken for ordinary,
--- which is what the addon does everywhere else.
+-- signal: the price of the next tab goes red while the guild cannot pay it. The font of the frame
+-- is compared in place of its colour, because the frame paints through its font object and the
+-- ordinary one is a name in the game's own table; a button whose font cannot be read is taken for
+-- ordinary, which is what the addon does everywhere else.
 local function plainInk(btn)
   local fo = btn.GetNormalFontObject and btn:GetNormalFontObject()
   if not fo then return true end
   local plain = _G.NumberFontNormalRight or _G.UserScaledFontNumberNormalRight
   return plain == nil or fo == plain
+end
+
+-- A coin of a money frame is drawn by the game as an icon beside the digits, and the addon has a
+-- setting that writes it as a letter instead. The letter is the one the addon's own language gives
+-- it, so a client set to Russian reads "з/с/м" and the same client set to English reads "g/s/c",
+-- and it wears the coin's own colour, which is what the money of the addon does in every other
+-- window.
+--
+-- The letter is not written into the digits: it takes the seat the coin icon held, anchored to the
+-- icon's own left edge. Written into the string it would push the whole amount along, because the
+-- string is anchored by its right end and a letter added at that end moves every digit before it;
+-- in the icon's seat the digits keep the place they have always had and only what stands beside
+-- them changes, and the width the game gave the button is left as it was.
+local function coinMark(btn, letter, r, g, b, a)
+  local art = btn.GetNormalTexture and btn:GetNormalTexture()
+  local fs = btn.wpeMark
+  if not (ns.Bags and ns.Bags.goldLetters) then
+    if fs then fs:Hide() end
+    if art then art:SetAlpha(1) end
+    return
+  end
+  if art then art:SetAlpha(0) end
+  if not fs then
+    if not (btn.CreateFontString and btn.SetPoint) then return end
+    fs = btn:CreateFontString(nil, "OVERLAY")
+    btn.wpeMark = fs
+  end
+  -- The coin colour goes on the letter only while the number wears the ordinary paint, so a price
+  -- the guild cannot pay stays red from the digits to the letter rather than going red and gold at
+  -- once.
+  local tint = plainInk(btn) and ns.COIN_HEX and ns.COIN_HEX[letter] or nil
+  -- The space is the one the addon's own short money puts before the letter: "1.2k g" reads as a
+  -- number and a unit, where "1.2kg" reads as a weight.
+  local sp = (letter == "g" and WarpeeDB and WarpeeDB.goldFormat == "short") and " " or ""
+  if not fs:GetPoint() then
+    if art then fs:SetPoint("LEFT", art, "LEFT", 0, 0) else fs:SetPoint("RIGHT", btn, "RIGHT", 0, 0) end
+  end
+  ns.SetOutlined(fs, 12)
+  if tint then
+    fs:SetText(sp .. "|cff" .. tint .. ns.CoinLetter(letter) .. "|r")
+  else
+    fs:SetText(sp .. ns.CoinLetter(letter))
+    if r then fs:SetTextColor(r, g, b, a) end
+  end
+  fs:Show()
 end
 
 local function coinText(btn, value, letter)
@@ -582,15 +609,11 @@ local function coinText(btn, value, letter)
   -- raw SetFont drops the colour the game's font object was carrying, and one of these amounts
   -- is meant to be red: the price of the next tab, while the guild cannot pay it.
   local r, g, b, a = fs:GetTextColor()
-  local letters = ns.Bags and ns.Bags.goldLetters
-  local tint
-  if letters and ns.COIN_HEX and plainInk(btn) then tint = ns.COIN_HEX[letter] end
   ns.SetOutlined(fs, 12)
-  fs:SetText(ns.FormatNumber(value) .. ((letters and coinMark(letter, tint)) or ""))
+  fs:SetText(ns.FormatNumber(value))
   if r then fs:SetTextColor(r, g, b, a) end
-  local art = btn.GetNormalTexture and btn:GetNormalTexture()
-  if art then art:SetAlpha(letters and 0 or 1) end
   btn:SetWidth((fs:GetStringWidth() or 0) + math.max(0, icon))
+  coinMark(btn, letter, r, g, b, a)
 end
 
 -- The silver and copper coins of the guild bank do nothing: the pickup dialog one of them opens
