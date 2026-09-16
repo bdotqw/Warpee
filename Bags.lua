@@ -803,6 +803,10 @@ local COIN_ICON = {
   c = "|TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:0|t",
 }
 local COIN_HEX = { g = "ffd700", s = "c7c7cf", c = "eda55f" }
+-- The colour of a coin's letter is the one thing another window can borrow from here: the guild
+-- bank writes its money a coin at a time, so it cannot go through FormatMoney, and the letters of
+-- a coin are the same colour wherever they are written.
+ns.COIN_HEX = COIN_HEX
 
 local function whiteNum(str, deep, plain)
   if plain then return "|cffffffff" .. str .. "|r" end

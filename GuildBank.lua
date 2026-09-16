@@ -543,15 +543,30 @@ local MONEY_FRAMES = {
 -- A coin of a money frame is drawn by the game as an icon beside the digits, and the addon has a
 -- setting that writes it as a letter instead. The letter is the one the addon's own language gives
 -- it, so a client set to Russian reads "з/с/м" and the same client set to English reads "g/s/c",
--- which is what every other window of the addon already does. The coin icon is hidden rather than
--- taken away, so it comes back the moment the setting says so, and nothing else about the frame
--- moves: the digits keep the place they have always had, and only what sat beside them changes.
-local function coinMark(letter)
+-- and it wears the coin's own colour, which is what the money of the addon does in every other
+-- window. The coin icon is hidden rather than taken away, so it comes back the moment the setting
+-- says so, and nothing else about the frame moves: the digits keep the place they have always had,
+-- and only what sat beside them changes.
+local function coinMark(letter, tint)
+  local sp = (letter == "g" and WarpeeDB and WarpeeDB.goldFormat == "short") and " " or ""
   local word = ns.CoinLetter(letter)
-  -- The space is the one the addon's own short money puts before the letter: "1.2k g" reads as a
-  -- number and a unit, where "1.2kg" reads as a weight.
-  if letter == "g" and WarpeeDB and WarpeeDB.goldFormat == "short" then return " " .. word end
-  return word
+  -- The space is the one the addon's own short money puts before the letter, and it stays outside
+  -- the colour there too: "1.2k g" reads as a number and a unit, "1.2kg" as a weight.
+  if tint then return sp .. "|cff" .. tint .. word .. "|r" end
+  return sp .. word
+end
+
+-- The digits of a money frame are painted by the game, and one of the paints it reaches for is a
+-- signal: the price of the next tab goes red while the guild cannot pay it. The coin colour goes on
+-- the letter only while the amount is drawn in the ordinary ink, so a red price stays red through
+-- to the letter instead of turning red and gold at once. That ordinary ink is read off the game's
+-- own number font rather than written down here, and a frame whose paint cannot be read is taken
+-- for ordinary, which is what the addon does everywhere else.
+local function plainInk(r, g, b)
+  local fo = _G.NumberFontNormalRight or _G.UserScaledFontNumberNormalRight
+  local pr, pg, pb = fo and fo.GetTextColor and fo:GetTextColor()
+  if not (pr and r) then return true end
+  return math.abs(r - pr) < 0.02 and math.abs(g - pg) < 0.02 and math.abs(b - pb) < 0.02
 end
 
 local function coinText(btn, value, letter)
@@ -567,8 +582,10 @@ local function coinText(btn, value, letter)
   -- is meant to be red: the price of the next tab, while the guild cannot pay it.
   local r, g, b, a = fs:GetTextColor()
   local letters = ns.Bags and ns.Bags.goldLetters
+  local tint
+  if letters and ns.COIN_HEX and plainInk(r, g, b) then tint = ns.COIN_HEX[letter] end
   ns.SetOutlined(fs, 12)
-  fs:SetText(ns.FormatNumber(value) .. (letters and coinMark(letter) or ""))
+  fs:SetText(ns.FormatNumber(value) .. ((letters and coinMark(letter, tint)) or ""))
   if r then fs:SetTextColor(r, g, b, a) end
   local art = btn.GetNormalTexture and btn:GetNormalTexture()
   if art then art:SetAlpha(letters and 0 or 1) end
