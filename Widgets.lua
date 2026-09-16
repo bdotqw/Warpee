@@ -377,7 +377,28 @@ function ns.CreateMoveBar(frame, dbKey)
   yp:SetPoint("LEFT", ym, "RIGHT", 0, 0)
   bar:SetWidth(176)
 
+  -- An edit box draws the face it held when its text was last written, and a write that
+  -- repeats the value it already holds is not a write as far as the box is concerned, so
+  -- handing the new face over left GetFont answering with the new file while the digits on
+  -- screen stayed in the old one. The values are therefore blanked and put back on the next
+  -- frame, the shortest change the box counts. The blank has to survive the rest of the
+  -- frame: the window lays its fonts on again right after the refresh that changed them, and
+  -- that second pass would fill the fields back in before a frame was ever drawn, which is
+  -- exactly what the bag window does and the bank window does not. One blank is armed at a
+  -- time, and a field with focus is never touched, so a coordinate being typed is safe.
+  local function revalue(s)
+    if s.wpeBlank then return end
+    s.wpeBlank = true
+    if not s.xField:HasFocus() then s.xField:SetText("") end
+    if not s.yField:HasFocus() then s.yField:SetText("") end
+    C_Timer.After(0, function()
+      s.wpeBlank = nil
+      s:Refresh()
+    end)
+  end
+
   bar.Refresh = function(s)
+    if s.wpeBlank then return end
     local l, b = frame:GetLeft(), frame:GetBottom()
     if not (l and b) then return end
     if not s.xField:HasFocus() then s.xField:SetText(tostring(math.floor(l + 0.5))) end
@@ -395,21 +416,7 @@ function ns.CreateMoveBar(frame, dbKey)
     s.yLabel:SetFont(path, size, "")
     s.xField:SetFont(path, size, "")
     s.yField:SetFont(path, size, "")
-    -- The field is the hard half. It draws the face it held when its text was last written,
-    -- and writing the value it already holds is not a write as far as the box is concerned,
-    -- so re-applying the face alone left GetFont answering with the new file while the digits
-    -- on screen stayed in the old one. The fields are blanked and the values are put back on
-    -- the next frame: written in this one they would land in the same frame as the blank, and
-    -- the box would see no change at all. A field with focus is left alone, so a coordinate
-    -- being typed is never lost.
-    if same then
-      s:Refresh()
-      return
-    end
-    local blanked = false
-    if not s.xField:HasFocus() then s.xField:SetText(""); blanked = true end
-    if not s.yField:HasFocus() then s.yField:SetText(""); blanked = true end
-    if blanked then C_Timer.After(0, function() s:Refresh() end) else s:Refresh() end
+    if same then s:Refresh() else revalue(s) end
   end
 
   bar.Size = function(s, h)
