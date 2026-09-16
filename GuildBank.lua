@@ -558,6 +558,31 @@ local function coinText(btn, value)
   btn:SetWidth((fs:GetStringWidth() or 0) + math.max(0, icon))
 end
 
+-- The silver and copper coins of the guild bank are almost always a pair of zeroes, and clicking
+-- one takes nothing out of the bank: what comes out of a guild bank comes out through the
+-- withdrawal dialog, in whatever denominations are typed there. So the money of this window reads
+-- in gold, and the gold coin takes the seat the copper one held.
+local function onlyGold(frame)
+  local gold = frame.GoldButton
+  if not (gold and gold.ClearAllPoints and gold.SetPoint) then return end
+  local silver, copper = frame.SilverButton, frame.CopperButton
+  if silver then silver:Hide() end
+  if copper then copper:Hide() end
+  -- Where the last coin of the line sits is the game's own answer to where a coin goes, so it is
+  -- read off the coin itself instead of written down here: the three are chained right to left,
+  -- and the gold coin lands on the very pixel it would have landed on had the smaller two been
+  -- zero and put away by the game itself.
+  local point, rel, relPoint, x, y
+  if copper and copper.GetPoint then point, rel, relPoint, x, y = copper:GetPoint() end
+  x, y = x or -13, y or 0
+  gold:ClearAllPoints()
+  gold:SetPoint(point or "RIGHT", rel or frame, relPoint or point or "RIGHT", x, y)
+  -- The frame is as wide as the three coins together were, and one of the two frames here is
+  -- anchored by its left edge: left alone, the gold coin would sit at the far right of a frame
+  -- with two coins' worth of nothing in front of it, and that gap is what the next line eats.
+  if frame.SetWidth then frame:SetWidth((gold:GetWidth() or 0) - x) end
+end
+
 local function dressMoney(target, amount)
   local frame = (type(target) == "string" and _G[target]) or target
   -- The game calls its own update with a name in some places and with the frame itself in
@@ -568,6 +593,9 @@ local function dressMoney(target, amount)
   coinText(frame.GoldButton, math.floor(money / 10000))
   coinText(frame.SilverButton, math.floor((money % 10000) / 100))
   coinText(frame.CopperButton, money % 100)
+  -- The game's own update is what puts the two smaller coins back on the line on every money
+  -- event, so the pass that dresses the amounts is also the pass that puts them away.
+  try(onlyGold, frame)
 end
 
 -- The hook only fires when the game puts a new amount there, so the faces are put back on the
@@ -577,6 +605,33 @@ local function dressMoneys()
     local frame = _G[name]
     if frame then dressMoney(frame, frame.staticMoney) end
   end
+end
+
+-- The log and the money log are one widget the game fills with lines of its own, and a widget
+-- that draws its own lines cannot be dressed the way a field is: it takes a font object rather
+-- than a face, and it is the game's own font object that is sitting on it. Ours is made here and
+-- re-pointed by the same pass that re-dresses the window on a font change, because no other list
+-- knows this object exists.
+local LOG_SIZE = 13
+
+local function dressLog(frame)
+  local mf = (frame and frame.Log and frame.Log.MessageFrame) or _G.GuildBankMessageFrame
+  if not (mf and mf.SetFontObject) then return end
+  local fo = Skin.logFont
+  if not fo then
+    fo = CreateFont("WarpeeGuildBankLog")
+    fo.wpeSize, fo.wpeFlags = LOG_SIZE, ""
+    Skin.logFont = fo
+    if fo.SetJustifyH then fo:SetJustifyH("LEFT") end
+    -- The game writes its lines with no colour of its own, so what the lines look like is
+    -- whatever the font object under them carries. The face is ours; the colour is read off the
+    -- game's own object once, before ours takes its place, and kept.
+    local base = mf.GetFontObject and mf:GetFontObject()
+    local r, g, b = base and base.GetTextColor and base:GetTextColor()
+    if r then fo:SetTextColor(r, g, b) end
+  end
+  fo:SetFont(ns.Fonts:Current(), fo.wpeSize, fo.wpeFlags)
+  mf:SetFontObject(fo)
 end
 
 function Skin:Apply()
@@ -616,6 +671,15 @@ function Skin:Apply()
   try(skinButton, _G.GuildBankInfoSaveButton)
   try(skinButton, (frame.BuyInfo and frame.BuyInfo.PurchaseButton)
                   or _G.GuildBankFramePurchaseButton)
+  -- The panel the game opens on the cell that buys a tab is the last of this window whose strings
+  -- were still wearing the game's face: the two that say what is being bought, and the one that
+  -- says what it costs, which sits right beside the price this skin already dresses.
+  local buy = frame.BuyInfo
+  if buy then
+    try(label, buy.TabText, 13)
+    try(label, buy.PurchasedText, 12)
+  end
+  try(label, _G.GuildBankFrameTabCost, 12)
 
   local money = frame.MoneyFrameBG or _G.GuildBankMoneyFrameBG
   if money then
@@ -655,13 +719,19 @@ function Skin:Apply()
 
   try(skinSearch, _G.GuildItemSearchBox)
   try(skinScroll, frame.Log and frame.Log.ScrollBar)
+  -- The lines of the log and of the money log, which are the game's own and are drawn by the
+  -- widget holding them rather than by a string this skin could dress.
+  try(dressLog, frame)
 
   local info = _G.GuildBankInfoScrollFrame
   if info then
     try(muteArt, info)
     try(skinScroll, info.ScrollBar)
   end
-  label(_G.GuildBankInfoEditBox, 13)
+  -- The field of the info tab is named after the tab and not after the panel it sits in, which is
+  -- why it was the one field of this window that never took the font: the name asked for here was
+  -- a name the game never made.
+  try(label, _G.GuildBankTabInfoEditBox, 13)
   skinPopup(_G.GuildBankPopupFrame)
 end
 
@@ -831,6 +901,7 @@ function Skin:Restyle()
     end
   end
   dressMoneys()
+  try(dressLog, frame)
 end
 
 local function markBuy(b, numTabs)

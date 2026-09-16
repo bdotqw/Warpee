@@ -13,6 +13,7 @@ Fixes
 - Tooltips open above the cell they describe, in the settings window and on the bank strip
 - A font picked in the settings reaches the close mark, the move bar and the guild bank at once
 - Guild bank: a plus cell to buy the next tab, the addon's own search, tips above the tabs, its badges and money format, and the two money buttons pulled apart
+- Guild bank money reads in gold, and its log, money log and tab info wear the chosen font
 - The language list runs by script, with the client's own language first
 
 RU
@@ -26,4 +27,5 @@ RU
 - Подсказки открываются над тем, что описывают: и в настройках, и на полосе табов банка
 - Выбранный шрифт доходит до крестика, полосы перемещения и гильдбанка сразу
 - Гильдбанк: плюс-клетка покупки таба, свой поиск, подсказки над табами, наши баджи и формат денег, разведённые кнопки денег
+- Деньги гильдбанка идут в золоте, а лог, лог денег и инфо таба носят выбранный шрифт
 - Список языков идёт по письменностям, язык клиента первым
