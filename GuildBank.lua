@@ -574,6 +574,21 @@ local MONEY_FRAMES = {
   GuildBankFrameTabCostMoneyFrame = true,
 }
 
+-- A colour comes back in two shapes from this client: a font string answers with numbers and a font
+-- object answers with a colour of its own. Both shapes are read here, because the one place that
+-- copies a colour is not a place that may quietly fall over: a call it cannot read threw once, the
+-- whole dressing of the log went with it, and the log stayed in the client's own face with nothing
+-- on screen to say why.
+local function inkOf(obj)
+  if not (obj and obj.GetTextColor) then return nil end
+  local r, g, b, a = obj:GetTextColor()
+  if type(r) == "table" then
+    if r.GetRGBA then r, g, b, a = r:GetRGBA() elseif r.GetRGB then r, g, b = r:GetRGB() end
+  end
+  if type(r) ~= "number" then return nil end
+  return r, g or r, b or r, a or 1
+end
+
 -- The digits of a money frame are painted by the game, and one of the paints it reaches for is a
 -- signal: the price of the next tab goes red while the guild cannot pay it. The font of the frame
 -- is compared in place of its colour, because the frame paints through its font object and the
@@ -736,21 +751,6 @@ end
 -- re-pointed by the same pass that re-dresses the window on a font change, because no other list
 -- knows this object exists.
 local LOG_SIZE = 13
-
--- A colour comes back in two shapes from this client: a font string answers with numbers and a font
--- object answers with a colour of its own. Both shapes are read here, because the one place that
--- copies a colour is not a place that may quietly fall over: a call it cannot read used to throw,
--- the whole dressing of the log went with it, and the log stayed in the client's own face with
--- nothing on screen to say why.
-local function inkOf(obj)
-  if not (obj and obj.GetTextColor) then return nil end
-  local r, g, b, a = obj:GetTextColor()
-  if type(r) == "table" then
-    if r.GetRGBA then r, g, b, a = r:GetRGBA() elseif r.GetRGB then r, g, b = r:GetRGB() end
-  end
-  if type(r) ~= "number" then return nil end
-  return r, g or r, b or r, a or 1
-end
 
 -- The field of the info tab, asked for the way the game's own update asks for it, with the name it
 -- carries in the file as the fallback.
