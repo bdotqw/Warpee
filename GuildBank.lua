@@ -121,29 +121,45 @@ local function skinButton(b, size)
   if not box(b, "panel", "stroke") then return end
   local fs = textOf(b)
   label(fs, size or 12)
-  b:HookScript("OnEnter", function(s)
-    ns.SetBg(s, Theme:C("panelHi"))
-    ns.SetEdge(s, Theme:C("accent"))
-    if fs then fs:SetTextColor(Theme:C("accent")) end
-  end)
-  b:HookScript("OnLeave", function(s)
-    ns.SetBg(s, Theme:C("panel"))
-    ns.SetEdge(s, Theme:C("stroke"))
-    if fs then fs:SetTextColor(Theme:C("text")) end
-  end)
+  -- The game's own art is what told a player whether a button was live: it drew a different
+  -- plate for one it had switched off, and that plate is muted here. So the state is drawn by
+  -- hand instead, and a button the game has turned off says so rather than looking ready and
+  -- doing nothing. The two the guild bank switches off by itself are the purchase of the next
+  -- tab, while the guild cannot afford it, and the withdrawal of money, when the day's limit
+  -- is spent.
+  local function paint(s)
+    local off = s.IsEnabled and not s:IsEnabled()
+    local hot = s.wpeHot and not off
+    ns.SetBg(s, Theme:C(hot and "panelHi" or "panel"))
+    ns.SetEdge(s, Theme:C(hot and "accent" or (off and "strokeSoft" or "stroke")))
+    if fs then fs:SetTextColor(Theme:C(hot and "accent" or (off and "faint" or "text"))) end
+  end
+  Theme:Track(b, paint)
+  b:HookScript("OnEnter", function(s) s.wpeHot = true; paint(s) end)
+  b:HookScript("OnLeave", function(s) s.wpeHot = nil; paint(s) end)
+  b:HookScript("OnEnable", paint)
+  b:HookScript("OnDisable", paint)
+  paint(b)
 end
 
 local function paintToggle(b)
   if not b.SetBackdrop then return end
   local hot = b.wpeLit or b.wpeHot
+  -- The game switches a tab off when it is not one this player may open, and the art that said
+  -- so went with the rest: a tab that is off and is not the one being looked at is drawn faint
+  -- here, instead of looking ready and doing nothing when it is clicked. The lit tab keeps its
+  -- own look, because the game disables that one too.
+  local off = (not hot) and b.IsEnabled and not b:IsEnabled()
   ns.SetBg(b, Theme:C(hot and "panelHi" or "panel"))
-  ns.SetEdge(b, Theme:C(hot and "accent" or "stroke"))
+  ns.SetEdge(b, Theme:C(hot and "accent" or (off and "strokeSoft" or "stroke")))
   if b.wpeHl then
     b.wpeHl:SetColorTexture(Theme:C("accent"))
     b.wpeHl:SetAlpha(0.22)
   end
   local fs = textOf(b)
-  if fs then fs:SetTextColor(Theme:C(hot and "accent" or (b.wpeTextKey or "text"))) end
+  if fs then
+    fs:SetTextColor(Theme:C(hot and "accent" or (off and "faint" or (b.wpeTextKey or "text"))))
+  end
 end
 
 local function hotOn(s) s.wpeHot = true; paintToggle(s) end
@@ -250,28 +266,21 @@ local function putPlus(b)
   -- the addon font, so the icon is faded out and a glyph is drawn in its place, in the same way
   -- and with the same size as the buy cell of the bank window.
   --
-  -- The glyph rides a frame of ours, the way the bank window's own cell is built, and not a
-  -- string hung on the game's button: it takes no mouse, so the click still lands on the tab
-  -- under it, and it sits one level up, where nothing the button draws can cover it.
-  local plus = CreateFrame("Frame", nil, b)
-  plus:SetAllPoints(b)
-  plus:EnableMouse(false)
-  plus:Hide()
-  local glyph = plus:CreateFontString(nil, "OVERLAY")
-  glyph:SetPoint("CENTER")
-  glyph:SetText("+")
-  -- Written once here and once through the record below: the record is what follows a font
-  -- change, and this is what the glyph has even if the record cannot be made.
-  glyph:SetFont(ns.Fonts:Current(), 18, "")
-  glyph:SetTextColor(Theme:C("dim"))
-  label(glyph, 18, "dim")
-  plus.Text = glyph
+  -- Everything the glyph needs goes on it before anything else, and the cell is told it owns a
+  -- glyph the moment there is one. The record that keeps it in step with a font change is the
+  -- last thing here and the only thing allowed to fail, because a plus that cannot follow a
+  -- font change is still a plus, and one that was never announced is no plus at all.
+  local plus = b:CreateFontString(nil, "OVERLAY")
   b.wpePlus = plus
-  b.Text = glyph
-  b.wpeTextKey = "dim"
-  -- The buy mark was read before the glyph existed, so the cell is read again: a plus that
-  -- arrives late still arrives on the right cell.
   b.wpeBuy = nil
+  plus:SetFont(ns.Fonts:Current(), 18, "")
+  plus:SetText("+")
+  plus:SetTextColor(Theme:C("dim"))
+  plus:SetPoint("CENTER")
+  plus:Hide()
+  b.Text = plus
+  b.wpeTextKey = "dim"
+  try(label, plus, 18, "dim")
 end
 
 local function hookTab(b)
@@ -539,8 +548,13 @@ local function coinText(btn, value)
   local fs = btn and btn.Text
   if not fs then return end
   local icon = (btn:GetWidth() or 0) - (fs:GetStringWidth() or 0)
+  -- The colour is read off the string before the face moves and put back after it, because a
+  -- raw SetFont drops the colour the game's font object was carrying, and one of these amounts
+  -- is meant to be red: the price of the next tab, while the guild cannot pay it.
+  local r, g, b, a = fs:GetTextColor()
   ns.SetOutlined(fs, 12)
   fs:SetText(ns.FormatNumber(value))
+  if r then fs:SetTextColor(r, g, b, a) end
   btn:SetWidth((fs:GetStringWidth() or 0) + math.max(0, icon))
 end
 
