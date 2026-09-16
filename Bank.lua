@@ -336,14 +336,14 @@ function View:Build()
   ns.LocalText(dep, "Deposit")
   dep:SetPoint("BOTTOMLEFT", PAD, 5)
   dep:SetScript("OnClick", function() moneyPopup("BANK_MONEY_DEPOSIT", "BANK_MONEY_WITHDRAW") end)
-  addTip(dep, "Put your gold into the Warband bank")
+  addTip(dep, "Put your gold into the Warband bank", nil, "top")
   self.depositBtn = dep
 
   local wdr = ns.CreateButton(f, ns.L["Withdraw"], 76, 20)
   ns.LocalText(wdr, "Withdraw")
   wdr:SetPoint("LEFT", dep, "RIGHT", 4, 0)
   wdr:SetScript("OnClick", function() moneyPopup("BANK_MONEY_WITHDRAW", "BANK_MONEY_DEPOSIT") end)
-  addTip(wdr, "Take gold out of the Warband bank")
+  addTip(wdr, "Take gold out of the Warband bank", nil, "top")
   self.withdrawBtn = wdr
 
   self:BuildBuyButtons()
@@ -489,7 +489,7 @@ function View:BuildBuyButtons()
           local poor = (tonumber(btn.cost) or 0) > GetMoney()
           return { { text = (ns.L["Cost: %s"]):format(ns.FormatMoney(btn.cost)),
                      color = poor and "gaugeHi" or "text" } }
-        end)
+        end, "top")
       self.buyBtn[mode] = b
     end
   end
