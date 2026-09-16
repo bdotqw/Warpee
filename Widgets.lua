@@ -386,19 +386,30 @@ function ns.CreateMoveBar(frame, dbKey)
 
   bar.Fonts = function(s, path, size)
     size = math.max(8, size or 11)
-    local o = ns.Fonts:Object(size, "")
-    s.xLabel:SetFontObject(o)
-    s.yLabel:SetFontObject(o)
-    -- A label follows its font object and a field does not. An edit box takes the object into
-    -- GetFont and goes on drawing whatever face it held when its text was last written, so a
-    -- value that was painted before the font settled stayed in the old face for the rest of
-    -- the session, and re-setting the object changed what GetFont reported without changing
-    -- a pixel. The file is handed over outright instead: it is read back out of the object,
-    -- so the object stays the single source of the face, and every font refresh re-applies it.
-    local fp, fh, ff = o:GetFont()
-    s.xField:SetFont(fp, fh, ff)
-    s.yField:SetFont(fp, fh, ff)
-    s:Refresh()
+    local key = path .. ":" .. size
+    local same = (s.wpeFace == key)
+    s.wpeFace = key
+    -- Both halves take the file, not a font object, for the reason the header glyphs do: a
+    -- string riding an object draws the face that object held when its text was written.
+    s.xLabel:SetFont(path, size, "")
+    s.yLabel:SetFont(path, size, "")
+    s.xField:SetFont(path, size, "")
+    s.yField:SetFont(path, size, "")
+    -- The field is the hard half. It draws the face it held when its text was last written,
+    -- and writing the value it already holds is not a write as far as the box is concerned,
+    -- so re-applying the face alone left GetFont answering with the new file while the digits
+    -- on screen stayed in the old one. The fields are blanked and the values are put back on
+    -- the next frame: written in this one they would land in the same frame as the blank, and
+    -- the box would see no change at all. A field with focus is left alone, so a coordinate
+    -- being typed is never lost.
+    if same then
+      s:Refresh()
+      return
+    end
+    local blanked = false
+    if not s.xField:HasFocus() then s.xField:SetText(""); blanked = true end
+    if not s.yField:HasFocus() then s.yField:SetText(""); blanked = true end
+    if blanked then C_Timer.After(0, function() s:Refresh() end) else s:Refresh() end
   end
 
   bar.Size = function(s, h)
@@ -675,11 +686,14 @@ end
 
 function ns.CreateGlyphButton(parent, glyph, size, dark)
   local b = ns.CreateButton(parent, glyph, size or 22, size or 22, nil, dark)
-  -- A font object rather than a raw SetFont. SetFont detaches a string from the font system,
-  -- and nothing fonted that way is reached by a later font change: these buttons are made
-  -- once, so a font picked in the settings used to arrive for them only after a reload. The
-  -- Repaint on the next line hands back the colour that SetFontObject clears.
-  b.Text:SetFontObject(ns.Fonts:Object(math.max(16, math.floor((size or 22) * 0.74))))
+  -- The face is handed over as a file and never as a font object. A string that rides an
+  -- object goes on drawing the face that object held when its text was written, so a font
+  -- picked in the settings reached these buttons only after a reload: GetFont answered with
+  -- the new file while the mark on screen stayed in the old one. This is the dress at
+  -- creation; the size pass over the header applies the file again on every font change,
+  -- which is what keeps the mark in step with the rest of the window. Repaint puts the ink
+  -- back, since a face change can take the colour with it.
+  b.Text:SetFont(ns.Fonts:Current(), math.max(16, math.floor((size or 22) * 0.74)), "")
   b:Repaint()
   return b
 end

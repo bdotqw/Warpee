@@ -35,13 +35,18 @@ local function applyDensity(size)
   HBAND = d.headerBand
 end
 
+-- The face goes on with SetFont, never with a font object. A string that rides an object keeps
+-- drawing the face that object held when its text was last written, and a glyph is written
+-- once and never again, so a font picked in the settings reached these buttons only after a
+-- reload: GetFont answered with the new file while the mark on screen stayed in the old one.
+-- Every other window of the addon re-applies its fonts the same way, with the file itself.
 local function sizeGlyph(btn, size)
   if not btn then return end
   local fp = ns.Fonts:Current()
   if btn.wpeBoxW == size and btn.wpeBoxH == size and btn.wpeFont == fp then return end
   btn.wpeFont = fp
   ns.SnapBox(btn, size, size)
-  if btn.Text then btn.Text:SetFontObject(ns.Fonts:Object(math.max(16, math.floor(size * 0.74)))) end
+  if btn.Text then btn.Text:SetFont(fp, math.max(16, math.floor(size * 0.74)), "") end
   if btn.icon and btn.iconPct then
     local h = btn.iconPctY or btn.iconPct
     btn.icon:SetSize(math.floor(size * btn.iconPct / 100 + 0.5), math.floor(size * h / 100 + 0.5))

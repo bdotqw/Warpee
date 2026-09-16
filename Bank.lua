@@ -37,7 +37,7 @@ local function sizeGlyph(btn, size)
   if btn.wpeBoxW == size and btn.wpeBoxH == size and btn.wpeFont == fp then return end
   btn.wpeFont = fp
   ns.SnapBox(btn, size, size)
-  if btn.Text then btn.Text:SetFontObject(ns.Fonts:Object(math.max(16, math.floor(size * 0.74)))) end
+  if btn.Text then btn.Text:SetFont(fp, math.max(16, math.floor(size * 0.74)), "") end
   if btn.icon and btn.iconPct then
     local h = btn.iconPctY or btn.iconPct
     btn.icon:SetSize(math.floor(size * btn.iconPct / 100 + 0.5), math.floor(size * h / 100 + 0.5))
@@ -800,7 +800,7 @@ function View:PlaceBuyCell(x)
   buy:ClearAllPoints()
   ns.SnapPoint(buy, "BOTTOMLEFT", self.frame, "TOPLEFT", x, 6)
   if buy.Text then
-    buy.Text:SetFontObject(ns.Fonts:Object(math.max(16, math.floor(TAB_SIZE * 0.74))))
+    buy.Text:SetFont(ns.Fonts:Current(), math.max(16, math.floor(TAB_SIZE * 0.74)), "")
     buy.Text:SetText("+")
     if buy.Repaint then buy:Repaint() end
   end
