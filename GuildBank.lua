@@ -6,8 +6,31 @@ ns.GuildBankSkin = Skin
 
 local COLUMNS, SLOTS, PANEL_TABS = 7, 14, 4
 
+-- The window keeps its own arrays of what it built: BankTabs holds the eight side tabs and
+-- Columns holds the seven columns, each with its Buttons. Both are what the game's own update
+-- walks, and both exist the moment the window does, so they are read first and the globals
+-- only as a fallback. This is the game's window: nothing here should hang on a name.
+local function tabAt(frame, i)
+  local a = frame and frame.BankTabs
+  return (a and a[i]) or _G["GuildBankTab" .. i]
+end
+
+local function colAt(frame, i)
+  local a = frame and frame.Columns
+  return (a and a[i]) or (frame and frame["Column" .. i]) or _G["GuildBankColumn" .. i]
+end
+
+local function slotAt(col, s)
+  local a = col and col.Buttons
+  return (a and a[s]) or (col and col["Button" .. s])
+end
+
 local function ready()
   return Theme.colors and Theme.colors.slot ~= nil
+end
+
+local function try(fn, ...)
+  if fn then pcall(fn, ...) end
 end
 
 local function mute(region)
@@ -126,6 +149,15 @@ end
 local function hotOn(s) s.wpeHot = true; paintToggle(s) end
 local function hotOff(s) s.wpeHot = nil; paintToggle(s) end
 
+-- The game hangs its own tooltip off the side of a tab. Ours opens above it instead, in the
+-- addon's own skin, which is where every other cell of the window says what it is for. The
+-- wording is the game's: the tab's name, or the line it puts on the buy cell.
+local function showTabTip(s)
+  if GameTooltip then GameTooltip:Hide() end
+  local name = s.tooltip
+  if name and name ~= "" then ns.ShowTip(s, { { text = name } }, "top") end
+end
+
 local function slotBg(b)
   if not b.bg then return end
   b.bg:Show()
@@ -172,16 +204,24 @@ local function skinSlot(b)
       s.wpeHl:SetAlpha(0.22)
     end
   end)
-  label(b.Count or _G[(b:GetName() or "") .. "Count"], 12, "text", ns.OutlineFlags())
+  -- The stack count is the game's own string, and it is dressed with the rest of the badges
+  -- when the slots are painted, so that one setting moves it here as it moves it in the bags.
 end
 
-local function skinSideTab(tab, index)
-  if not tab then return end
-  muteArt(tab)
-  local b = tab.Button
-  if not b or b.wpeSkin then return end
-  b.wpeSkin = true
+-- Dressing a tab is cut into three steps, and each of them is asked for on every refresh with
+-- its own latch. This is the one window of the addon that is not ours: the game builds and
+-- rebuilds these cells on its own schedule, and a step that was cut short once must not leave
+-- the cell bare for the whole session. A step that already landed costs one boolean, and a step
+-- that falls over is a step on its own, standing between the player and nothing else.
+local function dressTab(tab, b, index)
+  if b.wpeSkin then return end
+  -- The two things the rest of this file asks about a tab are known before anything is drawn,
+  -- so they are written first: a plate that did not come up is still a cell that knows which
+  -- tab it is, and the plus and the tip do not wait on the plate.
+  b.wpeIndex = index
   local ic = b.IconTexture or _G[(b:GetName() or "") .. "IconTexture"]
+  b.wpeIcon = ic
+  muteArt(tab)
   local tex = ic and ic.GetTexture and ic:GetTexture()
   local hl = b.GetHighlightTexture and b:GetHighlightTexture()
   muteArt(b, ic, hl)
@@ -200,32 +240,45 @@ local function skinSideTab(tab, index)
     b.wpeHl = hl
   end
   if not box(b, "panel", "stroke") then return end
-  b.wpeIndex = index
+  b.wpeSkin = true
+end
+
+local function putPlus(b)
+  if b.wpePlus then return end
   -- The cell that buys the next tab wears the same plus the bank's own strip wears. The game
   -- draws that one cell with its NewTab art, which is a texture: it cannot follow the theme or
-  -- the addon font, so it is faded out and a glyph is drawn in its place, in the same way and
-  -- with the same size as the buy cell of the bank window.
-  b.wpePlus = b:CreateFontString(nil, "OVERLAY")
-  b.wpePlus:SetPoint("CENTER")
-  b.wpePlus:SetText("+")
-  b.wpePlus:Hide()
-  label(b.wpePlus, 18, "dim")
-  b.wpeIcon = ic
-  b.Text = b.wpePlus
+  -- the addon font, so the icon is faded out and a glyph is drawn in its place, in the same way
+  -- and with the same size as the buy cell of the bank window.
+  local plus = b:CreateFontString(nil, "OVERLAY")
+  b.wpePlus = plus
+  plus:SetPoint("CENTER")
+  plus:SetText("+")
+  plus:Hide()
+  label(plus, 18, "dim")
+  b.Text = plus
   b.wpeTextKey = "dim"
+  -- The buy mark was read before the glyph existed, so the cell is read again: a plus that
+  -- arrives late still arrives on the right cell.
+  b.wpeBuy = nil
+end
+
+local function hookTab(b)
+  if b.wpeHooked then return end
+  b.wpeHooked = true
   Theme:Track(b, paintToggle)
-  b:HookScript("OnEnter", function(s)
-    hotOn(s)
-    -- The game hangs its own tooltip off the left of the tab. Ours opens above it instead, in
-    -- the addon's own skin, which is where every other cell of the addon says what it is for.
-    -- The wording is the game's: the tab's name, or the line it puts on the buy cell.
-    local name = s.tooltip
-    if GameTooltip then GameTooltip:Hide() end
-    if name and name ~= "" then ns.ShowTip(s, { { text = name } }, "top") end
-  end)
+  b:HookScript("OnEnter", function(s) hotOn(s); showTabTip(s) end)
   b:HookScript("OnLeave", function(s) hotOff(s); ns.HideTip() end)
   b:HookScript("OnClick", function() Skin:Refresh() end)
   Skin.tabs[#Skin.tabs + 1] = b
+end
+
+local function skinSideTab(tab, index)
+  if not tab then return end
+  local b = tab.Button
+  if not b then return end
+  try(dressTab, tab, b, index)
+  try(putPlus, b)
+  try(hookTab, b)
 end
 
 local TAB_PARTS = { "Left", "Middle", "Right", "LeftActive", "MiddleActive", "RightActive",
@@ -297,8 +350,8 @@ local function skinPanelTab(t, index)
   label(textOf(t), 12)
   t.wpeIndex = index
   Theme:Track(t, function(s) paintToggle(s); lockTab(s) end)
-  t:HookScript("OnEnter", hotOn)
-  t:HookScript("OnLeave", hotOff)
+  t:HookScript("OnEnter", function(s) hotOn(s); showTabTip(s) end)
+  t:HookScript("OnLeave", function(s) hotOff(s); ns.HideTip() end)
   t:HookScript("OnClick", function() Skin:Refresh() end)
   Skin.panelTabs[#Skin.panelTabs + 1] = t
 end
@@ -442,8 +495,16 @@ end
 -- here and the two cannot drift apart.
 ns.SkinIconPopup = skinPopup
 
-local function try(fn, ...)
-  if fn then pcall(fn, ...) end
+-- The eight cells are the game's, and every refresh asks for them by name again. A pass that
+-- could not reach one the first time, because the window had not built it yet or the game
+-- rebuilt it under us, is not a reason to leave that cell bare for the session; a cell that
+-- already wears the skin costs one boolean.
+function Skin:EnsureTabs()
+  local frame = _G.GuildBankFrame
+  if not frame then return end
+  for i = 1, (_G.MAX_GUILDBANK_TABS or 8) do
+    try(skinSideTab, tabAt(frame, i), i)
+  end
 end
 
 function Skin:Apply()
@@ -490,15 +551,13 @@ function Skin:Apply()
     mute(black)
   end
 
-  for i = 1, (_G.MAX_GUILDBANK_TABS or 8) do
-    try(skinSideTab, _G["GuildBankTab" .. i], i)
-  end
+  self:EnsureTabs()
 
   for i = 1, COLUMNS do
-    local col = frame["Column" .. i] or _G["GuildBankColumn" .. i]
+    local col = colAt(frame, i)
     if col then
       try(muteArt, col)
-      for s = 1, SLOTS do try(skinSlot, col["Button" .. s]) end
+      for s = 1, SLOTS do try(skinSlot, slotAt(col, s)) end
     end
   end
 
@@ -551,10 +610,10 @@ function Skin:Search()
   local f = ns.ParseSearch(box:GetText())
   local tab = (GetCurrentGuildBankTab and GetCurrentGuildBankTab()) or 0
   for i = 1, COLUMNS do
-    local col = frame["Column" .. i] or _G["GuildBankColumn" .. i]
+    local col = colAt(frame, i)
     if col then
       for s = 1, SLOTS do
-        local b = col["Button" .. s]
+        local b = slotAt(col, s)
         if b and b.wpeSkin then
           local miss = false
           if not f.empty then
@@ -582,17 +641,57 @@ local function slotQuality(tab, index)
   return select(3, C_Item.GetItemInfo(link))
 end
 
+-- The slots are the game's own item buttons, and the badges are the addon's: the same strings in
+-- the same places, dressed by the same settings, so a piece of gear reads the same here as it
+-- does in the bags. What a cell shows is read off the two calls the game's own tooltip reads,
+-- and nothing is kept: a tab that has just been switched hands back other items, and a link the
+-- client has not cached yet answers nothing and answers properly a moment later.
+local function badgeSlots(b)
+  if b.wpeBadge then return end
+  b.wpeBadge = true
+  ns.BadgeFurniture(b)
+  local h = b:GetHeight() or 37
+  if h > 0 then b.view = b.view or { iconSize = h } end
+end
+
+local function paintBadges(b, tab, index)
+  local link = GetGuildBankItemLink and GetGuildBankItemLink(tab, index)
+  local count, q
+  if GetGuildBankItemInfo then
+    local ok, _, c, _, _, quality = pcall(GetGuildBankItemInfo, tab, index)
+    if ok then count, q = c, quality end
+  end
+  ns.ApplyItemFont(b)
+  ns.FitCount(b, count)
+  ns.MarkJunk(b, q)
+  if not link then
+    if b.ilvl then b.ilvl:SetText("") end
+    ns.MarkBind(b)
+    return
+  end
+  local itemID = C_Item.GetItemInfoInstant(link)
+  local lvl = select(4, C_Item.GetItemInfo(link))
+  local shown = (lvl and lvl > 1) and ns.Badge("ilvl").on and lvl or nil
+  if b.ilvl then
+    ns.FitIlvl(b, shown)
+    b.ilvl:SetText(shown or "")
+    b.ilvl:SetTextColor(Theme:C("overlay"))
+  end
+  ns.MarkBind(b, ns.BindLabel(link, itemID, false, ns.IsWueGear(link, itemID)), q)
+end
+
 function Skin:PaintSlots()
   local frame = _G.GuildBankFrame
   if not frame then return end
   local tab = (GetCurrentGuildBankTab and GetCurrentGuildBankTab()) or 0
   for i = 1, COLUMNS do
-    local col = frame["Column" .. i] or _G["GuildBankColumn" .. i]
+    local col = colAt(frame, i)
     if col then
       for s = 1, SLOTS do
-        local b = col["Button" .. s]
+        local b = slotAt(col, s)
         if b and b.wpeSkin and b.SetBackdropBorderColor then
-          local q = slotQuality(tab, (i - 1) * SLOTS + s)
+          local index = (i - 1) * SLOTS + s
+          local q = slotQuality(tab, index)
           local c = (q and q >= 2 and ITEM_QUALITY_COLORS) and ITEM_QUALITY_COLORS[q] or nil
           -- Slots of a tab just switched to carry different items, so the search has to judge
           -- them again rather than trust what it decided for the tab before.
@@ -604,6 +703,8 @@ function Skin:PaintSlots()
             b.wpeQ = nil
             ns.SetEdge(b, Theme:C("emptyLine"))
           end
+          try(badgeSlots, b)
+          try(paintBadges, b, tab, index)
         end
       end
     end
@@ -616,32 +717,38 @@ function Skin:Restyle()
   C_Timer.After(0, function() pcall(dressFrame, frame) end)
   for _, rec in ipairs(self.texts) do try(rec.dress) end
   for i = 1, COLUMNS do
-    local col = frame["Column" .. i] or _G["GuildBankColumn" .. i]
+    local col = colAt(frame, i)
     if col then
       for s = 1, SLOTS do
-        local b = col["Button" .. s]
+        local b = slotAt(col, s)
         if b and b.bg then slotBg(b) end
       end
     end
   end
 end
 
+local function markBuy(b, numTabs)
+  local buy = (b.wpeIndex == numTabs + 1) and true or nil
+  if b.wpeBuy == buy then return end
+  b.wpeBuy = buy
+  -- The game keeps one cell past the last bought tab as the buy cell, and that is the only one
+  -- that should wear the plus: every other tab carries an icon of its own, and a tab that has
+  -- just been bought has to get its icon back. Whether the cell is up is the game's business
+  -- and not ours: a hidden cell hides its glyph along with itself.
+  if b.wpePlus then b.wpePlus:SetShown(buy and true or false) end
+  if b.wpeIcon then b.wpeIcon:SetAlpha(buy and 0 or 1) end
+end
+
 function Skin:Refresh()
-  if not (self.applied and ready()) then return end
+  if not ready() then return end
+  self:EnsureTabs()
+  if not self.applied then return end
   local frame = _G.GuildBankFrame
   local cur = (GetCurrentGuildBankTab and GetCurrentGuildBankTab()) or 0
   local numTabs = (GetNumGuildBankTabs and GetNumGuildBankTabs()) or 0
   for _, b in ipairs(self.tabs) do
     b.wpeLit = (b.wpeIndex == cur) or nil
-    -- The game keeps one cell past the last bought tab as the buy cell, and that is the only
-    -- one that should wear the plus: every other tab carries an icon of its own, and the one
-    -- that has just been bought has to get its icon back.
-    local buy = (b.wpeIndex == numTabs + 1) and b:IsShown() and true or nil
-    if b.wpeBuy ~= buy then
-      b.wpeBuy = buy
-      if b.wpePlus then b.wpePlus:SetShown(buy and true or false) end
-      if b.wpeIcon then b.wpeIcon:SetAlpha(buy and 0 or 1) end
-    end
+    markBuy(b, numTabs)
     paintToggle(b)
   end
   local sel = frame and frame.selectedTab
@@ -662,6 +769,9 @@ ev:RegisterEvent("PLAYER_LOGIN")
 ev:RegisterEvent("ADDON_LOADED")
 ev:RegisterEvent("GUILDBANKFRAME_OPENED")
 ev:RegisterEvent("GUILDBANKBAGSLOTS_CHANGED")
+-- The tabs move on their own schedule: buying one makes the game hand the plus to the next cell
+-- and put the old tab's icon back, and that arrives as this event and no other.
+ev:RegisterEvent("GUILDBANK_UPDATE_TABS")
 ev:SetScript("OnEvent", function(_, event, arg1)
   if event == "ADDON_LOADED" and arg1 ~= "Blizzard_GuildBankUI" then return end
   pcall(Skin.Apply, Skin)

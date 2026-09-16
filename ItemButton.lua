@@ -423,6 +423,16 @@ function ns.SetRarityRing(b, r, g, bl, a)
   b.iT:SetAlpha(ra); b.iB:SetAlpha(ra); b.iL:SetAlpha(ra); b.iR:SetAlpha(ra)
 end
 
+-- The badges of a cell the addon did not build. The guild bank shows the game's own item
+-- buttons, and the same strings go on them, in the same places, dressed by the same settings:
+-- only the furniture has to be put up first, and this is that. The four edge lines that come
+-- with it stay dark, because that window draws its own edge on the plate under the slot.
+function ns.BadgeFurniture(b)
+  if not b or b.borderFrame then return end
+  attachBorder(b)
+  ns.SetSlotBorder(b, 0, 0, 0, 0)
+end
+
 -- The tooltip build is the expensive half of this and the answer only moves when the item
 -- gets bound, so the verdict is kept here, keyed on the item and on whether it is bound.
 -- It cannot live on the cell meta: every repaint throws the meta's copy away, and while a
