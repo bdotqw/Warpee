@@ -540,31 +540,71 @@ local MONEY_FRAMES = {
   GuildBankFrameTabCostMoneyFrame = true,
 }
 
--- The coin art is what the game made the button wider than the digits in it, and it is read
--- before the face moves so that it stays the coin's own width. The width goes back the way the
--- game sets it, digits plus coin, because the three buttons are chained to each other by their
--- widths and the gold one is two anchors away from the frame's own edge.
-local function coinText(btn, value)
+-- A coin of a money frame is drawn by the game as an icon beside the digits, and the addon has a
+-- setting that writes it as a letter instead. The letter is the one the addon's own language gives
+-- it, so a client set to Russian reads "з/с/м" and the same client set to English reads "g/s/c",
+-- which is what every other window of the addon already does. The coin icon is hidden rather than
+-- taken away, so it comes back the moment the setting says so, and nothing else about the frame
+-- moves: the digits keep the place they have always had, and only what sat beside them changes.
+local function coinMark(letter)
+  local word = ns.CoinLetter(letter)
+  -- The space is the one the addon's own short money puts before the letter: "1.2k g" reads as a
+  -- number and a unit, where "1.2kg" reads as a weight.
+  if letter == "g" and WarpeeDB and WarpeeDB.goldFormat == "short" then return " " .. word end
+  return word
+end
+
+local function coinText(btn, value, letter)
   local fs = btn and btn.Text
   if not fs then return end
+  -- The coin art is what the game made the button wider than the digits in it, and it is read
+  -- before the face moves so that it stays the coin's own width. The width goes back the way the
+  -- game sets it, digits plus coin, because the three buttons are chained to each other by their
+  -- widths and the gold one is two anchors away from the frame's own edge.
   local icon = (btn:GetWidth() or 0) - (fs:GetStringWidth() or 0)
   -- The colour is read off the string before the face moves and put back after it, because a
   -- raw SetFont drops the colour the game's font object was carrying, and one of these amounts
   -- is meant to be red: the price of the next tab, while the guild cannot pay it.
   local r, g, b, a = fs:GetTextColor()
+  local letters = ns.Bags and ns.Bags.goldLetters
   ns.SetOutlined(fs, 12)
-  fs:SetText(ns.FormatNumber(value))
+  fs:SetText(ns.FormatNumber(value) .. (letters and coinMark(letter) or ""))
   if r then fs:SetTextColor(r, g, b, a) end
+  local art = btn.GetNormalTexture and btn:GetNormalTexture()
+  if art then art:SetAlpha(letters and 0 or 1) end
   btn:SetWidth((fs:GetStringWidth() or 0) + math.max(0, icon))
 end
 
--- The silver and copper coins of the guild bank are almost always a pair of zeroes, and clicking
--- one takes nothing out of the bank: what comes out of a guild bank comes out through the
--- withdrawal dialog, in whatever denominations are typed there. So the money of this window reads
--- in gold, and the gold coin takes the seat the copper one held.
+-- The silver and copper coins of the guild bank do nothing: the pickup dialog one of them opens
+-- takes money from the player rather than from the guild, and the money of the withdraw frame has
+-- its mouse switched off by the game altogether, because what comes out of a guild bank comes out
+-- through the withdrawal dialog. Which frames of the window read in gold is written down here.
+--
+-- The two amounts follow the addon's own money setting, the same one that decides how the money in
+-- the bags' header is written, so a player who wants the smaller coins back asks for them where
+-- they ask for them everywhere else. The price of the next tab is always gold instead: a tab is
+-- quoted in whole gold, and this is the one frame here the game never lays out again, so a shape
+-- taken away from it could not be given back.
+local GOLD_ANYWAY = { GuildBankFrameTabCostMoneyFrame = true }
+local GOLD_BY_SETTING = { GuildBankMoneyFrame = true, GuildBankWithdrawMoneyFrame = true }
+
 local function onlyGold(frame)
+  local name = frame.GetName and frame:GetName()
+  if not GOLD_ANYWAY[name] and not (GOLD_BY_SETTING[name] and ns.Bags and ns.Bags.goldOnly) then
+    -- The two coins of a frame that was read in gold a moment ago and is not any more are put
+    -- back by the game's own update and by nothing else, so it is asked for one. The frame is
+    -- dressed by that same update a moment later, which is why the flag goes first.
+    if frame.wpeGold then
+      frame.wpeGold = nil
+      if type(MoneyFrame_Update) == "function" then
+        try(MoneyFrame_Update, name, frame.staticMoney)
+      end
+    end
+    return
+  end
   local gold = frame.GoldButton
   if not (gold and gold.ClearAllPoints and gold.SetPoint) then return end
+  frame.wpeGold = true
   local silver, copper = frame.SilverButton, frame.CopperButton
   if silver then silver:Hide() end
   if copper then copper:Hide() end
@@ -590,9 +630,9 @@ local function dressMoney(target, amount)
   -- runs on every money update in the whole interface, so the first thing it does is leave.
   if not (frame and frame.GetName and MONEY_FRAMES[frame:GetName()]) then return end
   local money = amount or 0
-  coinText(frame.GoldButton, math.floor(money / 10000))
-  coinText(frame.SilverButton, math.floor((money % 10000) / 100))
-  coinText(frame.CopperButton, money % 100)
+  coinText(frame.GoldButton, math.floor(money / 10000), "g")
+  coinText(frame.SilverButton, math.floor((money % 10000) / 100), "s")
+  coinText(frame.CopperButton, money % 100, "c")
   -- The game's own update is what puts the two smaller coins back on the line on every money
   -- event, so the pass that dresses the amounts is also the pass that puts them away.
   try(onlyGold, frame)
