@@ -635,9 +635,9 @@ end
 --     insets ate most of a 52 pixel tab;
 --   the strata is copied because frame level only orders frames within one strata, and our
 --     windows sit in a higher strata than BankFrame does;
---   our own tab gives its mouse up while a game button is pinned over it, so a click can
---     never land on ours by accident, and takes it back when nothing is pinned, which is what
---     keeps the tabs working on a saved snapshot with no banker open;
+--   our own tab gives its mouse up whenever the game's button is pinned over it and can take
+--     the click, and takes it back where that button is not shown, where no banker is open, or
+--     where the click would only walk our own view (see the loop);
 --   everything else in that strip loses its mouse, because it is invisible inside our window
 --     and must not catch anything.
 function View:PinBlizzTabs()
@@ -645,7 +645,7 @@ function View:PinBlizzTabs()
   local TS = BankFrame and BankFrame.TabSystem
   local host = self.frame
   if not (TS and host) then return end
-  local live = self.bankerOpen and not self.snap
+  local blizzMode = self.bankerOpen and self:BlizzMode() or nil
   if TS:GetParent() ~= host then TS:SetParent(host) end
   TS:Show()
   TS:SetAlpha(0)
@@ -658,7 +658,16 @@ function View:PinBlizzTabs()
   for mode, btn in pairs(BLIZZ_TAB) do
     local own = (mode == "bank") and self.bankTab or self.wbTab
     if own then
-      local on = (live and own:IsShown()) and true or false
+      -- A click that switches the bank belongs to the game: only its own tab may set the bank
+      -- type the deposit follows, so the invisible game button takes that click and our view is
+      -- walked over to match (Activate follows the same type from the other side). Two cases
+      -- stay ours: the game's button is not shown when this realm cannot view that bank, and
+      -- with no banker open the strip is dead and a click only moves our own snapshot. While
+      -- another character's bank is on screen the same rule keeps one tab each, the game's
+      -- button holding the bank our view is not on, ours holding the tab of the bank the panel
+      -- already has, which is the way back to the live bank (SetMode on the mode already shown).
+      local on = (self.bankerOpen and btn:IsShown() and own:IsShown()
+                  and not (self.snap and mode == blizzMode)) and true or false
       if btn:GetParent() ~= TS then btn:SetParent(TS) end
       btn:ClearAllPoints()
       btn:SetAllPoints(own)
