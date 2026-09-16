@@ -631,14 +631,18 @@ function Skin:Search()
   end
 end
 
-local function slotQuality(tab, index)
-  if GetGuildBankItemInfo then
-    local ok, _, _, _, _, q = pcall(GetGuildBankItemInfo, tab, index)
-    if ok and q then return q end
-  end
+-- One read of a cell, off the two calls the game's own tooltip reads. The quality falls back to
+-- the item itself for a cell the server has not answered for yet, and the count is the stack the
+-- window shows.
+local function slotInfo(tab, index)
   local link = GetGuildBankItemLink and GetGuildBankItemLink(tab, index)
-  if not link then return nil end
-  return select(3, C_Item.GetItemInfo(link))
+  local count, q
+  if GetGuildBankItemInfo then
+    local ok, _, c, _, _, quality = pcall(GetGuildBankItemInfo, tab, index)
+    if ok then count, q = c, quality end
+  end
+  if not q and link then q = select(3, C_Item.GetItemInfo(link)) end
+  return link, count, q
 end
 
 -- The slots are the game's own item buttons, and the badges are the addon's: the same strings in
@@ -654,13 +658,7 @@ local function badgeSlots(b)
   if h > 0 then b.view = b.view or { iconSize = h } end
 end
 
-local function paintBadges(b, tab, index)
-  local link = GetGuildBankItemLink and GetGuildBankItemLink(tab, index)
-  local count, q
-  if GetGuildBankItemInfo then
-    local ok, _, c, _, _, quality = pcall(GetGuildBankItemInfo, tab, index)
-    if ok then count, q = c, quality end
-  end
+local function paintBadges(b, link, count, q)
   ns.ApplyItemFont(b)
   ns.FitCount(b, count)
   ns.MarkJunk(b, q)
@@ -695,7 +693,7 @@ function Skin:PaintSlots()
         local b = slotAt(col, s)
         if b and b.wpeSkin and b.SetBackdropBorderColor then
           local index = (i - 1) * SLOTS + s
-          local q = slotQuality(tab, index)
+          local link, count, q = slotInfo(tab, index)
           local c = (q and q >= 2 and ITEM_QUALITY_COLORS) and ITEM_QUALITY_COLORS[q] or nil
           -- Slots of a tab just switched to carry different items, so the search has to judge
           -- them again rather than trust what it decided for the tab before.
@@ -708,7 +706,7 @@ function Skin:PaintSlots()
             ns.SetEdge(b, Theme:C("emptyLine"))
           end
           try(badgeSlots, b)
-          try(paintBadges, b, tab, index)
+          try(paintBadges, b, link, count, q)
         end
       end
     end
