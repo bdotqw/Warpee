@@ -183,6 +183,7 @@ function ns.NudgeWindow(frame, dbKey, dx, dy)
 end
 
 local moveBars = {}
+local barFace
 
 local function barArrow(bar, dir, fn)
   local b = CreateFrame("Button", nil, bar)
@@ -377,28 +378,7 @@ function ns.CreateMoveBar(frame, dbKey)
   yp:SetPoint("LEFT", ym, "RIGHT", 0, 0)
   bar:SetWidth(176)
 
-  -- An edit box draws the face it held when its text was last written, and a write that
-  -- repeats the value it already holds is not a write as far as the box is concerned, so
-  -- handing the new face over left GetFont answering with the new file while the digits on
-  -- screen stayed in the old one. The values are therefore blanked and put back on the next
-  -- frame, the shortest change the box counts. The blank has to survive the rest of the
-  -- frame: the window lays its fonts on again right after the refresh that changed them, and
-  -- that second pass would fill the fields back in before a frame was ever drawn, which is
-  -- exactly what the bag window does and the bank window does not. One blank is armed at a
-  -- time, and a field with focus is never touched, so a coordinate being typed is safe.
-  local function revalue(s)
-    if s.wpeBlank then return end
-    s.wpeBlank = true
-    if not s.xField:HasFocus() then s.xField:SetText("") end
-    if not s.yField:HasFocus() then s.yField:SetText("") end
-    C_Timer.After(0, function()
-      s.wpeBlank = nil
-      s:Refresh()
-    end)
-  end
-
   bar.Refresh = function(s)
-    if s.wpeBlank then return end
     local l, b = frame:GetLeft(), frame:GetBottom()
     if not (l and b) then return end
     if not s.xField:HasFocus() then s.xField:SetText(tostring(math.floor(l + 0.5))) end
@@ -408,15 +388,18 @@ function ns.CreateMoveBar(frame, dbKey)
   bar.Fonts = function(s, path, size)
     size = math.max(8, size or 11)
     local key = path .. ":" .. size
-    local same = (s.wpeFace == key)
-    s.wpeFace = key
-    -- Both halves take the file, not a font object, for the reason the header glyphs do: a
-    -- string riding an object draws the face that object held when its text was written.
-    s.xLabel:SetFont(path, size, "")
-    s.yLabel:SetFont(path, size, "")
-    s.xField:SetFont(path, size, "")
-    s.yField:SetFont(path, size, "")
-    if same then s:Refresh() else revalue(s) end
+    -- Only when the face or the size moves: SetFont re-lays the text out on every call, and a
+    -- relayout that changes neither would pay for it on each pass.
+    if s.wpeFace ~= key then
+      s.wpeFace = key
+      -- Both halves take the file, not a font object, for the reason the header glyphs do: a
+      -- string riding an object draws the face that object held when its text was written.
+      s.xLabel:SetFont(path, size, "")
+      s.yLabel:SetFont(path, size, "")
+      s.xField:SetFont(path, size, "")
+      s.yField:SetFont(path, size, "")
+    end
+    s:Refresh()
   end
 
   bar.Size = function(s, h)
@@ -443,9 +426,32 @@ function ns.ApplyWindowLock()
   end
 end
 
+-- An edit box does not take a new face while it lives. The file reaches GetFont and the pixels
+-- stay as they were: writing the values again does not move them, and neither does a size the
+-- box has already drawn. What draws the new face is a box built after the change, which is why
+-- a reload put the digits right and why the bank's bar, built on its first open, was never the
+-- one complained about. The bars are therefore built again on a face change, by the same code
+-- that built them the first time. Only the face is compared, so a relayout or a theme change
+-- leaves them alone, and a font picked a handful of times a session costs a handful of bars.
+function ns.RebuildMoveBars()
+  if #moveBars == 0 then return end
+  local old = moveBars
+  moveBars = {}
+  for _, bar in ipairs(old) do
+    local parent, key = bar:GetParent(), bar.key
+    bar:Hide()
+    if parent and key then
+      parent.wpeBar = nil
+      ns.CreateMoveBar(parent, key)
+    end
+  end
+end
+
 function ns.RefreshMoveBars()
   local path = ns.Fonts and ns.Fonts:Current()
   if not path then return end
+  if barFace and barFace ~= path then ns.RebuildMoveBars() end
+  barFace = path
   for _, bar in ipairs(moveBars) do
     local size
     if bar.key == "bankPos" and ns.Bank and ns.Bank.CellSize then
