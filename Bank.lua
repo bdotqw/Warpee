@@ -1311,10 +1311,9 @@ function View:UpdateFooter()
     cost = tonumber(cost) or nil
     buy.cost = cost
     if cost then
-      local poor = cost > GetMoney()
-      buy.Text:SetText((ns.L["Buy tab · %s"]):format(ns.FormatGold(cost)))
-      buy.Text:SetTextColor(Theme:C(poor and "gaugeHi" or "text"))
-      ns.SetEdge(buy, Theme:C(poor and "gaugeHi" or "stroke"))
+      buy.Text:SetText(ns.L["Buy tab"] .. " " .. ns.FormatGold(cost))
+      buy.Text:SetTextColor(Theme:C("text"))
+      ns.SetEdge(buy, Theme:C("stroke"))
       buy:SetWidth(math.max(90, math.ceil(buy.Text:GetStringWidth()) + 22))
       buy:ClearAllPoints()
       if transfer and self.withdrawBtn then

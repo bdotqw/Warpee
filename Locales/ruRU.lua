@@ -344,7 +344,6 @@ local STRINGS = {
   ["Tab %d"] = "Вкладка %d",
   ["Right-click to edit"] = "ПКМ — изменить",
   ["Buy tab"] = "Купить",
-  ["Buy tab · %s"] = "Купить · %s",
   ["Cost: %s"] = "Цена: %s",
   ["Hidden"] = "Скрытые",
   ["Visit a banker to record this bank"] = "Данные банка появятся после визита к банкиру",

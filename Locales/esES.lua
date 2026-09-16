@@ -341,7 +341,6 @@ local STRINGS = {
   ["Tab %d"] = "Pestaña %d",
   ["Right-click to edit"] = "Clic derecho: editar",
   ["Buy tab"] = "Comprar pestaña",
-  ["Buy tab · %s"] = "Comprar pestaña · %s",
   ["Cost: %s"] = "Coste: %s",
   ["Hidden"] = "Ocultos",
   ["Visit a banker to record this bank"] = "Visita a un banquero para registrar este banco",

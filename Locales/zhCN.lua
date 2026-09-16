@@ -281,7 +281,6 @@ local STRINGS = {
   ["Tab %d"] = "标签页 %d",
   ["Right-click to edit"] = "右键点击编辑",
   ["Buy tab"] = "购买标签页",
-  ["Buy tab · %s"] = "购买 · %s",
   ["Cost: %s"] = "花费：%s",
   ["Hidden"] = "已隐藏",
   ["Visit a banker to record this bank"] = "去银行才能记录这个银行",

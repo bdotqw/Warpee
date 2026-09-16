@@ -344,7 +344,6 @@ local STRINGS = {
   ["Tab %d"] = "Onglet %d",
   ["Right-click to edit"] = "Clic droit : modifier",
   ["Buy tab"] = "Acheter un onglet",
-  ["Buy tab · %s"] = "Acheter un onglet · %s",
   ["Cost: %s"] = "Coût : %s",
   ["Hidden"] = "Masqués",
   ["Visit a banker to record this bank"] =

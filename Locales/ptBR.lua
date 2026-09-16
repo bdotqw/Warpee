@@ -334,7 +334,6 @@ local STRINGS = {
   ["Tab %d"] = "Aba %d",
   ["Right-click to edit"] = "Clique direito para editar",
   ["Buy tab"] = "Comprar aba",
-  ["Buy tab · %s"] = "Comprar aba · %s",
   ["Cost: %s"] = "Custo: %s",
   ["Hidden"] = "Ocultos",
   ["Visit a banker to record this bank"] = "Visite um banqueiro para registrar este banco",
