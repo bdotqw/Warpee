@@ -558,15 +558,16 @@ end
 
 -- The digits of a money frame are painted by the game, and one of the paints it reaches for is a
 -- signal: the price of the next tab goes red while the guild cannot pay it. The coin colour goes on
--- the letter only while the amount is drawn in the ordinary ink, so a red price stays red through
--- to the letter instead of turning red and gold at once. That ordinary ink is read off the game's
--- own number font rather than written down here, and a frame whose paint cannot be read is taken
--- for ordinary, which is what the addon does everywhere else.
-local function plainInk(r, g, b)
-  local fo = _G.NumberFontNormalRight or _G.UserScaledFontNumberNormalRight
-  local pr, pg, pb = fo and fo.GetTextColor and fo:GetTextColor()
-  if not (pr and r) then return true end
-  return math.abs(r - pr) < 0.02 and math.abs(g - pg) < 0.02 and math.abs(b - pb) < 0.02
+-- the letter only while the number wears the ordinary number font, so a price the guild cannot pay
+-- stays red from the digits to the letter instead of turning red and gold at once. The font is
+-- compared and not its colour, because the frame paints through its font object and the ordinary
+-- one is a name in the game's own table; a button whose font cannot be read is taken for ordinary,
+-- which is what the addon does everywhere else.
+local function plainInk(btn)
+  local fo = btn.GetNormalFontObject and btn:GetNormalFontObject()
+  if not fo then return true end
+  local plain = _G.NumberFontNormalRight or _G.UserScaledFontNumberNormalRight
+  return plain == nil or fo == plain
 end
 
 local function coinText(btn, value, letter)
@@ -583,7 +584,7 @@ local function coinText(btn, value, letter)
   local r, g, b, a = fs:GetTextColor()
   local letters = ns.Bags and ns.Bags.goldLetters
   local tint
-  if letters and ns.COIN_HEX and plainInk(r, g, b) then tint = ns.COIN_HEX[letter] end
+  if letters and ns.COIN_HEX and plainInk(btn) then tint = ns.COIN_HEX[letter] end
   ns.SetOutlined(fs, 12)
   fs:SetText(ns.FormatNumber(value) .. ((letters and coinMark(letter, tint)) or ""))
   if r then fs:SetTextColor(r, g, b, a) end
