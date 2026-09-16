@@ -992,6 +992,12 @@ end
 local function badgeSlots(b)
   if b.wpeBadge then return end
   b.wpeBadge = true
+  -- The game's own border of an icon is put back on every item update of every slot of every tab,
+  -- so it is killed outright rather than faded once when the cell is skinned: what outlines a cell
+  -- in this window is the ring, and the thin line a player sees under it the moment the quality
+  -- border is switched off is the game's own, coming back the way it came back every time.
+  hush(b.IconBorder)
+  hush(_G[(b:GetName() or "") .. "IconBorder"])
   ns.BadgeFurniture(b)
   local h = b:GetHeight() or 37
   if h > 0 then b.view = b.view or { iconSize = h } end
@@ -1100,6 +1106,11 @@ function Skin:Restyle()
       end
     end
   end
+  -- The colour of a cell is the ring, and the ring is painted by the pass that reads the items, so
+  -- that pass is what a moved outline setting needs: the settings of the outline (its colour, the
+  -- unusable one, the thickness) all land through here, and without it a checkbox took hold only
+  -- the next time the window was opened.
+  try(self.PaintSlots, self)
   dressMoneys()
   try(dressLog, frame)
   -- The title of a tab is written by the game on every update, and if that hook could not be put
