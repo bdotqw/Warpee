@@ -339,6 +339,7 @@ local STRINGS = {
   ["REAGENTS"] = "РЕАГЕНТЫ",
   ["BAGS"] = "СУМКИ",
   ["WARBAND BANK"] = "БАНК ОТРЯДА",
+  ["ON HAND"] = "НА РУКАХ",
   ["Warband"] = "Отряд",
   ["Everything"] = "Всё",
   ["Tab %d"] = "Вкладка %d",

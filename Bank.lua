@@ -1329,15 +1329,23 @@ function View:UpdateFooter()
   end
 
   if self.money then
-    local abt = Enum and Enum.BankType and Enum.BankType.Account
+    -- The character bank holds no money of its own, so its footer reads the purse the player
+    -- carries, while the warband footer reads what the warband holds. The caption is the only
+    -- thing that tells the two apart, so it follows the number and not the window.
+    local warband = bt == (Enum and Enum.BankType and Enum.BankType.Account)
     local sum
-    if self.bankerOpen and abt and C_Bank and C_Bank.FetchDepositedMoney then
-      local ok, v = pcall(C_Bank.FetchDepositedMoney, abt)
-      if ok then sum = v end
+    if warband then
+      local abt = Enum and Enum.BankType and Enum.BankType.Account
+      if self.bankerOpen and abt and C_Bank and C_Bank.FetchDepositedMoney then
+        local ok, v = pcall(C_Bank.FetchDepositedMoney, abt)
+        if ok then sum = v end
+      end
+      if sum == nil then sum = ns.Vault:WarbandMoney() end
+    else
+      sum = GetMoney()
     end
-    if sum == nil then sum = ns.Vault:WarbandMoney() end
     self.money:SetText(sum and ns.FormatMoney(sum, nil, Theme:IsLight()) or "—")
-    self.moneyCaption:SetText(ns.L["WARBAND BANK"])
+    self.moneyCaption:SetText(ns.L[warband and "WARBAND BANK" or "ON HAND"])
   end
 
   local need = PAD * 2 + 12

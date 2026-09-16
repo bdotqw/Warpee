@@ -339,6 +339,7 @@ local STRINGS = {
   ["REAGENTS"] = "COMPOSANTS",
   ["BAGS"] = "SACS",
   ["WARBAND BANK"] = "BANQUE DE BATAILLON",
+  ["ON HAND"] = "SUR SOI",
   ["Warband"] = "Bataillon",
   ["Everything"] = "Tout",
   ["Tab %d"] = "Onglet %d",

@@ -276,6 +276,7 @@ local STRINGS = {
   ["REAGENTS"] = "材料",
   ["BAGS"] = "背包",
   ["WARBAND BANK"] = "战团银行",
+  ["ON HAND"] = "随身携带",
   ["Warband"] = "战团",
   ["Everything"] = "全部",
   ["Tab %d"] = "标签页 %d",

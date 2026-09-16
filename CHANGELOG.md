@@ -14,6 +14,7 @@ Fixes
 - A font picked in the settings reaches the close mark, the move bar and the guild bank at once
 - Guild bank: a plus cell to buy the next tab, the addon's own search, tips above the tabs, its badges and money format, and the two money buttons pulled apart
 - Guild bank money reads as the addon's own money does, gold only, with the coins written as letters in the coin's own colour, and its log, money log and tab info wear the chosen font
+- The bank footer reads the gold you carry on its Bank tab and the warband's gold on its Warband tab
 - The language list runs by script, with the client's own language first
 
 RU
@@ -28,4 +29,5 @@ RU
 - Выбранный шрифт доходит до крестика, полосы перемещения и гильдбанка сразу
 - Гильдбанк: плюс-клетка покупки таба, свой поиск, подсказки над табами, наши баджи и формат денег, разведённые кнопки денег
 - Деньги гильдбанка читаются как деньги самого аддона: только золото, монеты буквами и в цвете самой монеты, а лог, лог денег и инфо таба носят выбранный шрифт
+- В подвале банка на вкладке Банк видны деньги на руках, а на вкладке Отряд золото отряда
 - Список языков идёт по письменностям, язык клиента первым
