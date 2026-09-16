@@ -547,8 +547,9 @@ end
 local function dressMoney(target, amount)
   local frame = (type(target) == "string" and _G[target]) or target
   -- The game calls its own update with a name in some places and with the frame itself in
-  -- others, which is why the answer is looked up either way before anything is touched.
-  if not (frame and MONEY_FRAMES[frame:GetName()]) then return end
+  -- others, which is why the answer is looked up either way before anything is touched. This
+  -- runs on every money update in the whole interface, so the first thing it does is leave.
+  if not (frame and frame.GetName and MONEY_FRAMES[frame:GetName()]) then return end
   local money = amount or 0
   coinText(frame.GoldButton, math.floor(money / 10000))
   coinText(frame.SilverButton, math.floor((money % 10000) / 100))
