@@ -95,6 +95,21 @@ local function box(f, bgKey, strokeKey)
   return f
 end
 
+-- The access a player has to a tab is a word the game appends to the tab's own name, and that word
+-- carries a colour of its own inside the string. A colour written into the text beats any colour put
+-- on the string, which is why that half of the line stood out in the game's own ink while the rest
+-- of the window wore ours. The line is taken back the moment the game writes it, stripped of the ink
+-- written into it and dressed again, and a line that carries no ink of its own is left as it is.
+local function plainLine(fs, size)
+  if not (fs and fs.GetText and fs.SetText) then return end
+  local t = fs:GetText()
+  if t and t ~= "" then
+    local plain = t:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    if plain ~= t then fs:SetText(plain) end
+  end
+  try(label, fs, size)
+end
+
 local function textOf(b)
   if b.Text and b.Text.SetFont then return b.Text end
   if b.GetFontString then return b:GetFontString() end
@@ -735,9 +750,20 @@ function Skin:Apply()
   -- Three lines of the window are written by the game and were never dressed: the tab's own name
   -- over the window, which carries the access the player has to that tab, the line under the
   -- grid that counts what is left of the day's withdrawals, and the words next to the money.
-  try(label, frame.TabTitle, 15)
+  try(plainLine, frame.TabTitle, 15)
   try(label, frame.LimitLabel, 12)
+  try(label, frame.ErrorMessage, 12)
   try(skinClose, frame.CloseButton, frame)
+
+  -- The tab title is written again every time a tab is picked, and it is the game's own mixin that
+  -- writes it: standing right after that write is the only way to catch the ink that comes with it,
+  -- and hooking a global table of the game's is the sanctioned way in.
+  if not self.titleHooked and type(GuildBankFrameMixin) == "table"
+     and type(GuildBankFrameMixin.UpdateTabs) == "function" then
+    self.titleHooked = true
+    hooksecurefunc(GuildBankFrameMixin, "UpdateTabs",
+                   function(f) try(plainLine, f and f.TabTitle, 15) end)
+  end
 
   local dep = frame.DepositButton or _G.GuildBankFrameDepositButton
   local wdr = frame.WithdrawButton or _G.GuildBankFrameWithdrawButton
@@ -983,6 +1009,9 @@ function Skin:Restyle()
   end
   dressMoneys()
   try(dressLog, frame)
+  -- The title of a tab is written by the game on every update, and if that hook could not be put
+  -- where it belongs, the pass the window already makes on every tab move is the second chance.
+  try(plainLine, frame.TabTitle, 15)
 end
 
 local function markBuy(b, numTabs)
