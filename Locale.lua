@@ -1,6 +1,7 @@
 local addonName, ns = ...
 
 local TABLES, COINS, SHORTS, WORDS, ALIAS = {}, {}, {}, {}, {}
+local order
 
 local L = setmetatable({}, { __index = function(_, k)
   local t = TABLES[ns.LocalePick()]
@@ -26,6 +27,7 @@ function ns.AddLocale(code, label, def)
   if def.words then WORDS[#WORDS + 1] = def.words end
   for _, c in ipairs(def.also or {}) do ALIAS[c] = code end
   aliasMap = nil
+  order = nil
 end
 
 local watched, globals = {}, {}
@@ -111,8 +113,48 @@ end
 
 function ns.LocalePick()
   return supported(WarpeeDB and WarpeeDB.locale)
-      or supported(GetLocale and GetLocale())
+      or ns.ClientLocale()
       or "enUS"
+end
+
+function ns.ClientLocale()
+  return supported(GetLocale and GetLocale()) or "enUS"
+end
+
+-- The dropdown is read in scripts and not in the alphabet. The latin languages sit together, so
+-- a player looking for their own scans one block instead of the whole list; cyrillic follows;
+-- Han comes last, where the fonts that can draw it already are. Within a block the order is the
+-- alphabet of the names, which is the one thing everybody already knows how to read. The
+-- client's own language is lifted out of its block to the very top, because that is the one being
+-- looked for in almost every visit, and a language nobody has placed yet falls to the end, where
+-- a new one is easy to find.
+local SCRIPT_RANK = {
+  enUS = 1, deDE = 1, esES = 1, frFR = 1, itIT = 1, ptBR = 1,
+  ruRU = 2,
+  zhCN = 3,
+}
+
+local function byScript(a, b)
+  local ra, rb = SCRIPT_RANK[a] or 9, SCRIPT_RANK[b] or 9
+  if ra ~= rb then return ra < rb end
+  return (ns.LOCALE_LABELS[a] or a) < (ns.LOCALE_LABELS[b] or b)
+end
+
+function ns.LocaleOrder()
+  if order then return order end
+  local list = {}
+  for _, code in ipairs(ns.LOCALES) do list[#list + 1] = code end
+  table.sort(list, byScript)
+  local client = ns.ClientLocale()
+  for i, code in ipairs(list) do
+    if code == client then
+      table.remove(list, i)
+      table.insert(list, 1, code)
+      break
+    end
+  end
+  order = list
+  return order
 end
 
 function ns.CoinLetter(key)

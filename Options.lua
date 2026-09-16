@@ -87,7 +87,7 @@ local function localeSet(v)
   relayout()
   if Options.ApplyFont then Options:ApplyFont() end
 end
-local function localeKeys() return ns.LOCALES end
+local function localeKeys() return ns.LocaleOrder() end
 local function localeLabel(k) return ns.L[ns.LOCALE_LABELS[k] or k] end
 
 local function sClearGet() return WarpeeDB.searchClear ~= false end
