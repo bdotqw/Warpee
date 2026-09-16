@@ -862,7 +862,7 @@ function View:RefreshStrip()
     ns.SetBg(b, Theme:C(b.wpeOn and "panelHi" or "panel"))
     ns.SetEdge(b, Theme:C(b.wpeOn and "accent" or "stroke"))
     b:ClearAllPoints()
-    ns.SnapPoint(b, "TOPLEFT", f, "TOPRIGHT", x, -(y + (i - 1) * (TAB_SIZE + TAB_GAP)))
+    ns.SnapPoint(b, "BOTTOMLEFT", f, "TOPLEFT", x + (i - 1) * (TAB_SIZE + TAB_GAP), 6)
     b:Show()
   end
   for j = #entries + 1, #self.tabBtns do self.tabBtns[j]:Hide() end
