@@ -53,7 +53,7 @@ local DEFAULTS = {
                vendor = true, guildbank = true, professions = false },
   bagWinPos = NONE,
   pos = { p = "BOTTOMRIGHT", rp = "BOTTOMRIGHT", x = -8, y = 20 },
-  bankPos = { p = "TOPLEFT", rp = "TOPLEFT", x = 5, y = -20 },
+  bankPos = { p = "BOTTOMLEFT", rp = "BOTTOMLEFT", x = 5, y = 20 },
   pocketPos = { p = "CENTER", rp = "CENTER", x = 163, y = 80.5 },
 }
 
