@@ -249,13 +249,25 @@ local function putPlus(b)
   -- draws that one cell with its NewTab art, which is a texture: it cannot follow the theme or
   -- the addon font, so the icon is faded out and a glyph is drawn in its place, in the same way
   -- and with the same size as the buy cell of the bank window.
-  local plus = b:CreateFontString(nil, "OVERLAY")
-  b.wpePlus = plus
-  plus:SetPoint("CENTER")
-  plus:SetText("+")
+  --
+  -- The glyph rides a frame of ours, the way the bank window's own cell is built, and not a
+  -- string hung on the game's button: it takes no mouse, so the click still lands on the tab
+  -- under it, and it sits one level up, where nothing the button draws can cover it.
+  local plus = CreateFrame("Frame", nil, b)
+  plus:SetAllPoints(b)
+  plus:EnableMouse(false)
   plus:Hide()
-  label(plus, 18, "dim")
-  b.Text = plus
+  local glyph = plus:CreateFontString(nil, "OVERLAY")
+  glyph:SetPoint("CENTER")
+  glyph:SetText("+")
+  -- Written once here and once through the record below: the record is what follows a font
+  -- change, and this is what the glyph has even if the record cannot be made.
+  glyph:SetFont(ns.Fonts:Current(), 18, "")
+  glyph:SetTextColor(Theme:C("dim"))
+  label(glyph, 18, "dim")
+  plus.Text = glyph
+  b.wpePlus = plus
+  b.Text = glyph
   b.wpeTextKey = "dim"
   -- The buy mark was read before the glyph existed, so the cell is read again: a plus that
   -- arrives late still arrives on the right cell.
@@ -507,6 +519,51 @@ function Skin:EnsureTabs()
   end
 end
 
+-- The money lines are the game's own frames and the coins are its own buttons, so what can be
+-- taken from them is the way the numbers are written: the grouping is a setting of the addon,
+-- and the face is ours. The game's own update is the only place that sees every amount it puts
+-- there, including the ones it writes back after a withdrawal and the ones it writes on a
+-- money event, so that is what is hooked. Only these three frames are touched, and the hook
+-- leaves everything that is not one of them alone.
+local MONEY_FRAMES = {
+  GuildBankMoneyFrame = true,          -- what the guild bank holds, bottom right
+  GuildBankWithdrawMoneyFrame = true,  -- what this player may take out, bottom left
+  GuildBankFrameTabCostMoneyFrame = true,
+}
+
+-- The coin art is what the game made the button wider than the digits in it, and it is read
+-- before the face moves so that it stays the coin's own width. The width goes back the way the
+-- game sets it, digits plus coin, because the three buttons are chained to each other by their
+-- widths and the gold one is two anchors away from the frame's own edge.
+local function coinText(btn, value)
+  local fs = btn and btn.Text
+  if not fs then return end
+  local icon = (btn:GetWidth() or 0) - (fs:GetStringWidth() or 0)
+  ns.SetOutlined(fs, 12)
+  fs:SetText(ns.FormatNumber(value))
+  btn:SetWidth((fs:GetStringWidth() or 0) + math.max(0, icon))
+end
+
+local function dressMoney(target, amount)
+  local frame = (type(target) == "string" and _G[target]) or target
+  -- The game calls its own update with a name in some places and with the frame itself in
+  -- others, which is why the answer is looked up either way before anything is touched.
+  if not (frame and MONEY_FRAMES[frame:GetName()]) then return end
+  local money = amount or 0
+  coinText(frame.GoldButton, math.floor(money / 10000))
+  coinText(frame.SilverButton, math.floor((money % 10000) / 100))
+  coinText(frame.CopperButton, money % 100)
+end
+
+-- The hook only fires when the game puts a new amount there, so the faces are put back on the
+-- amounts already on screen by the same pass that re-dresses the rest of the window.
+local function dressMoneys()
+  for name in pairs(MONEY_FRAMES) do
+    local frame = _G[name]
+    if frame then dressMoney(frame, frame.staticMoney) end
+  end
+end
+
 function Skin:Apply()
   local frame = _G.GuildBankFrame
   if self.applied or not frame or not ready() then return end
@@ -524,6 +581,11 @@ function Skin:Apply()
 
   try(label, (frame.TitleContainer and frame.TitleContainer.TitleText)
              or _G.GuildBankFrameTitleText, 15)
+  -- Three lines of the window are written by the game and were never dressed: the tab's own name
+  -- over the window, which carries the access the player has to that tab, the line under the
+  -- grid that counts what is left of the day's withdrawals, and the words next to the money.
+  try(label, frame.TabTitle, 15)
+  try(label, frame.LimitLabel, 12)
   try(skinClose, frame.CloseButton, frame)
 
   local dep = frame.DepositButton or _G.GuildBankFrameDepositButton
@@ -541,7 +603,17 @@ function Skin:Apply()
                   or _G.GuildBankFramePurchaseButton)
 
   local money = frame.MoneyFrameBG or _G.GuildBankMoneyFrameBG
-  if money then try(muteArt, money) end
+  if money then
+    try(muteArt, money)
+    -- The two words on that plate sit with the money they describe, so they are dressed with it.
+    try(label, money.LimitLabel, 12)
+    try(label, money.UnlimitedLabel, 12)
+  end
+  -- A global function, so hooking it is the sanctioned way in and nothing of the game's own is
+  -- replaced. It is installed once, with the rest of the skin.
+  if type(MoneyFrame_Update) == "function" then
+    hooksecurefunc("MoneyFrame_Update", dressMoney)
+  end
 
   local black = frame.BlackBG
   if black and black.IsObjectType and black:IsObjectType("Frame") then
@@ -667,19 +739,34 @@ local function paintBadges(b, link, count, q)
     ns.MarkBind(b)
     return
   end
-  local itemID = C_Item.GetItemInfoInstant(link)
-  local lvl = select(4, C_Item.GetItemInfo(link))
+  local m = itemMeta(link)
+  -- An item level belongs to a piece of gear and to nothing else. A stack of cloth and a
+  -- profession reagent both carry one, and printing it on them says nothing about what they are
+  -- worth; the bags read the same rule off the item class and show it only for armor and
+  -- weapons. The keystone is the other case the bags know, and it is left out here: its level
+  -- comes from the player's own keystone, which is not the one sitting in the guild bank.
+  local gear = m and (m.classID == Enum.ItemClass.Armor or m.classID == Enum.ItemClass.Weapon)
+  local lvl = gear and m.ilvl or nil
   local shown = (lvl and lvl > 1) and ns.Badge("ilvl").on and lvl or nil
   if b.ilvl then
     ns.FitIlvl(b, shown)
     b.ilvl:SetText(shown or "")
-    b.ilvl:SetTextColor(Theme:C("overlay"))
+    local c = (shown and ns.Bags.qualityColorIlvl and q) and ITEM_QUALITY_COLORS[q] or nil
+    if c then b.ilvl:SetTextColor(c.r, c.g, c.b) else b.ilvl:SetTextColor(Theme:C("overlay")) end
   end
   -- The binds that read off the item itself: account binding, and BoE on a piece that is not
   -- bound. The warbound question is left out on purpose, because it is the one that is answered
   -- by building a tooltip, and a window that holds ninety-eight items at once is not the place
   -- to build one per item. BoE and BoA come from the item id, which is already cached.
-  ns.MarkBind(b, ns.BindLabel(link, itemID, false), q)
+  ns.MarkBind(b, ns.BindLabel(link, m and m.id or nil, false), q)
+end
+
+-- A badge face is not a string this file wrote, it is one the badges wrote, and the pass that
+-- re-dresses the skin on a font change has to reach them too: without this the badges kept the
+-- face they were built with until something asked for a slot again, which only happened when
+-- the player switched tabs.
+local function badgeFace(b)
+  for _, d in ipairs(ns.BADGES) do try(ns.ApplyBadge, b, d.key) end
 end
 
 function Skin:PaintSlots()
@@ -724,9 +811,11 @@ function Skin:Restyle()
       for s = 1, SLOTS do
         local b = slotAt(col, s)
         if b and b.bg then slotBg(b) end
+        if b and b.wpeBadge then badgeFace(b) end
       end
     end
   end
+  dressMoneys()
 end
 
 local function markBuy(b, numTabs)
@@ -763,6 +852,22 @@ function Skin:Refresh()
   self:Search()
 end
 
+-- A cell whose link the client has not cached yet answers nothing, and answers a moment later:
+-- the tab's items and the item data itself are two different messages. Without this the badges
+-- of such a cell stayed bare until something else painted the slots, which in practice meant
+-- switching tabs. The flag keeps a burst of these messages, one per item, down to one pass.
+local infoPending = false
+
+local function infoLanded()
+  if infoPending then return end
+  infoPending = true
+  C_Timer.After(0, function()
+    infoPending = false
+    local frame = _G.GuildBankFrame
+    if frame and frame:IsShown() then pcall(Skin.PaintSlots, Skin) end
+  end)
+end
+
 local themeHook = CreateFrame("Frame")
 Theme:Track(themeHook, function() pcall(Skin.Restyle, Skin) end)
 
@@ -774,8 +879,16 @@ ev:RegisterEvent("GUILDBANKBAGSLOTS_CHANGED")
 -- The tabs move on their own schedule: buying one makes the game hand the plus to the next cell
 -- and put the old tab's icon back, and that arrives as this event and no other.
 ev:RegisterEvent("GUILDBANK_UPDATE_TABS")
+-- Item data arrives after the tab it belongs to does, and a badge cannot be read off a link the
+-- client does not have yet.
+ev:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 ev:SetScript("OnEvent", function(_, event, arg1)
   if event == "ADDON_LOADED" and arg1 ~= "Blizzard_GuildBankUI" then return end
+  if event == "GET_ITEM_INFO_RECEIVED" then
+    local frame = _G.GuildBankFrame
+    if frame and frame:IsShown() then infoLanded() end
+    return
+  end
   pcall(Skin.Apply, Skin)
   pcall(Skin.Refresh, Skin)
 end)
