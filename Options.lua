@@ -157,10 +157,14 @@ local function fontKeys()
   return ns.Fonts:List()
 end
 
-local function tip(frame, text, side)
+-- Every tip in the options window opens above its control, and this is the one place that
+-- decides it. Rows here are full width or half of it, so a tip hung on the side lands past
+-- the window edge with nothing under it, and two rows written months apart end up pointing
+-- two different ways. Above reads the same for a checkbox, a slider, a dropdown and a row.
+local function tip(frame, text)
   if not text then return end
   if frame.EnableMouse then frame:EnableMouse(true) end
-  ns.AddTip(frame, function() return T(text) end, side or "right")
+  ns.AddTip(frame, function() return T(text) end, "top")
 end
 
 local fonts = {}
@@ -318,7 +322,7 @@ local function makeMenuRow(parent, index, rowH)
   r:SetScript("OnEnter", function(s)
     s.bg:Show()
     if dropdown and dropdown.desc then
-      ns.ShowTip(s, { { text = dropdown.desc } }, "right")
+      ns.ShowTip(s, { { text = dropdown.desc } }, "top")
     end
   end)
   r:SetScript("OnLeave", function(s) s.bg:Hide(); ns.HideTip() end)
@@ -964,7 +968,7 @@ function factories.select(parent, spec)
     end
     openDropdown(s, spec, row.Refresh)
   end)
-  tip(row, spec.desc, "top")
+  tip(row, spec.desc)
   return row
 end
 
@@ -1437,7 +1441,7 @@ function factories.badges(parent, spec)
       end
       Options:ReflowPages()
     end)
-    tip(c, d.t, "top")
+    tip(c, d.t)
     chips[#chips + 1] = c
   end
 
