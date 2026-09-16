@@ -361,6 +361,25 @@ local function lockTab(t)
   end
 end
 
+-- The game moves the text of a panel tab every time a tab is picked or left, and it moves it through
+-- its own three functions: the picked tab is given a font object for its disabled look, the others
+-- are enabled again, and every one of them has its text put on a further anchor without the old one
+-- being cleared. The guild bank presses its first tab on every open, so the four tabs of this window
+-- are moved about as the window comes up, which is the slide a player sees, and the font object the
+-- button hands its own text is the game's, which is why the face can come back on its own. Standing
+-- right after those three moves turns both into nothing, and a tab that is not ours is one boolean
+-- away from being left alone.
+local function relock(tab)
+  if not (tab and tab.wpeSkin) then return end
+  lockTab(tab)
+  label(textOf(tab), 12)
+end
+
+for _, name in ipairs({ "PanelTemplates_SelectTab", "PanelTemplates_DeselectTab",
+                        "PanelTemplates_SetDisabledTabState" }) do
+  if type(_G[name]) == "function" then hooksecurefunc(name, relock) end
+end
+
 local function skinPanelTab(t, index)
   if not t or t.wpeSkin then return end
   t.wpeSkin = true
@@ -710,23 +729,51 @@ end
 -- knows this object exists.
 local LOG_SIZE = 13
 
+-- A colour comes back in two shapes from this client: a font string answers with numbers and a font
+-- object answers with a colour of its own. Both shapes are read here, because the one place that
+-- copies a colour is not a place that may quietly fall over: a call it cannot read used to throw,
+-- the whole dressing of the log went with it, and the log stayed in the client's own face with
+-- nothing on screen to say why.
+local function inkOf(obj)
+  if not (obj and obj.GetTextColor) then return nil end
+  local r, g, b = obj:GetTextColor()
+  if type(r) == "table" and r.GetRGB then r, g, b = r:GetRGB() end
+  if type(r) ~= "number" then return nil end
+  return r, g or r, b or r
+end
+
+-- The field of the info tab, asked for the way the game's own update asks for it, with the name it
+-- carries in the file as the fallback.
+local function infoField(frame)
+  local info = frame and frame.Info
+  local sf = info and info.ScrollFrame
+  return (sf and sf.EditBox) or _G.GuildBankTabInfoEditBox
+end
+
 local function dressLog(frame)
   local mf = (frame and frame.Log and frame.Log.MessageFrame) or _G.GuildBankMessageFrame
   if not (mf and mf.SetFontObject) then return end
+  local path = ns.Fonts:Current()
   local fo = Skin.logFont
-  if not fo then
+  if not fo or fo.wpePath ~= path then
+    -- The lines of a log are the widget's own and they are drawn with the font object under them,
+    -- and a face picked in the settings has to reach lines that are already written. A widget
+    -- re-reads its lines when the object under it is replaced, so a font move hands it a new one
+    -- rather than writing a new face into the object it already holds.
+    local old = fo
     fo = CreateFont("WarpeeGuildBankLog")
-    fo.wpeSize, fo.wpeFlags = LOG_SIZE, ""
+    fo.wpePath, fo.wpeSize, fo.wpeFlags = path, LOG_SIZE, ""
     Skin.logFont = fo
     if fo.SetJustifyH then fo:SetJustifyH("LEFT") end
-    -- The game writes its lines with no colour of its own, so what the lines look like is
-    -- whatever the font object under them carries. The face is ours; the colour is read off the
-    -- game's own object once, before ours takes its place, and kept.
-    local base = mf.GetFontObject and mf:GetFontObject()
-    local r, g, b = base and base.GetTextColor and base:GetTextColor()
+    -- The game writes its lines with no colour of its own, so what the lines look like is whatever
+    -- the font object under them carries. The face is ours; the colour is the one the window has
+    -- always drawn them in, read off the object that is being replaced, or off the game's own the
+    -- first time.
+    local r, g, b = inkOf(old)
+    if not r then r, g, b = inkOf(mf.GetFontObject and mf:GetFontObject()) end
     if r then fo:SetTextColor(r, g, b) end
   end
-  fo:SetFont(ns.Fonts:Current(), fo.wpeSize, fo.wpeFlags)
+  fo:SetFont(path, fo.wpeSize, fo.wpeFlags)
   mf:SetFontObject(fo)
 end
 
@@ -763,6 +810,13 @@ function Skin:Apply()
     self.titleHooked = true
     hooksecurefunc(GuildBankFrameMixin, "UpdateTabs",
                    function(f) try(plainLine, f and f.TabTitle, 15) end)
+    -- The info tab is one field the game writes the guild's own text into, and it is written again
+    -- whenever a tab is picked: dressing it right after that write is the only way to know the face
+    -- is on the text that was just put there.
+    if type(GuildBankFrameMixin.UpdateTabInfo) == "function" then
+      hooksecurefunc(GuildBankFrameMixin, "UpdateTabInfo",
+                     function(f) try(label, infoField(f), 13) end)
+    end
   end
 
   local dep = frame.DepositButton or _G.GuildBankFrameDepositButton
@@ -837,8 +891,9 @@ function Skin:Apply()
   end
   -- The field of the info tab is named after the tab and not after the panel it sits in, which is
   -- why it was the one field of this window that never took the font: the name asked for here was
-  -- a name the game never made.
-  try(label, _G.GuildBankTabInfoEditBox, 13)
+  -- a name the game never made. It is asked for the way the game itself asks for it, and the name
+  -- is only the fallback.
+  try(label, infoField(frame), 13)
   skinPopup(_G.GuildBankPopupFrame)
 end
 
