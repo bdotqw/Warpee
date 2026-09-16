@@ -224,12 +224,10 @@ local function skinSlot(b)
   Theme:Track(b, function(s)
     ns.SetBg(s, 0, 0, 0, 0)
     slotBg(s)
-    local q = s.wpeQ
-    if q then
-      ns.SetEdge(s, q[1], q[2], q[3], 1)
-    else
-      ns.SetEdge(s, Theme:C("emptyLine"))
-    end
+    -- The plate keeps the plain line it always had: the colour of a cell is the ring's business
+    -- here as it is in every other window, and the ring is painted by the pass that reads the
+    -- items, not by the pass that follows a theme.
+    ns.SetEdge(s, Theme:C("emptyLine"))
     if s.wpeHl then
       s.wpeHl:SetColorTexture(Theme:C("accent"))
       s.wpeHl:SetAlpha(0.22)
@@ -1038,6 +1036,30 @@ local function badgeFace(b)
   for _, d in ipairs(ns.BADGES) do try(ns.ApplyBadge, b, d.key) end
 end
 
+-- The colour of a cell is the business of the outline settings, and it is drawn here with the same
+-- ring the rest of the addon draws it with, on the furniture BadgeFurniture puts up: the quality
+-- colour while the quality border is on, the red of a thing this character cannot wear while that
+-- border is on, the quest yellow for a quest item, and nothing but the plate's own plain line
+-- otherwise. The ring reads the border thickness on every pass, so that slider moves this window
+-- along with the others, and the verdict about what can be worn is the same cached one the bags
+-- use: one look at a link per session, not one per paint. A link the client has not answered for
+-- yet is left alone rather than judged, because a verdict taken on an item nobody has described is
+-- a verdict kept for the rest of the session.
+local function paintRing(b, link, q)
+  local m = link and itemMeta(link)
+  if ns.Bags.qualityBorder and m and m.classID == Enum.ItemClass.Questitem then
+    ns.SetRarityRing(b, QUEST_YELLOW[1], QUEST_YELLOW[2], QUEST_YELLOW[3], 1)
+  elseif ns.Bags.unusableBorder and m and ns.IsLinkUnusable(link) then
+    local R = RED_FONT_COLOR
+    ns.SetRarityRing(b, R.r, R.g, R.b, 1)
+  elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q] then
+    local c = ITEM_QUALITY_COLORS[q]
+    ns.SetRarityRing(b, c.r, c.g, c.b, 1)
+  else
+    ns.SetRarityRing(b)
+  end
+end
+
 function Skin:PaintSlots()
   local frame = _G.GuildBankFrame
   if not frame then return end
@@ -1050,19 +1072,13 @@ function Skin:PaintSlots()
         if b and b.wpeSkin and b.SetBackdropBorderColor then
           local index = (i - 1) * SLOTS + s
           local link, count, q = slotInfo(tab, index)
-          local c = (q and q >= 2 and ITEM_QUALITY_COLORS) and ITEM_QUALITY_COLORS[q] or nil
           -- Slots of a tab just switched to carry different items, so the search has to judge
           -- them again rather than trust what it decided for the tab before.
           b.wpeMiss = nil
-          if c then
-            b.wpeQ = { c.r, c.g, c.b }
-            ns.SetEdge(b, c.r, c.g, c.b, 1)
-          else
-            b.wpeQ = nil
-            ns.SetEdge(b, Theme:C("emptyLine"))
-          end
+          ns.SetEdge(b, Theme:C("emptyLine"))
           try(badgeSlots, b)
           try(paintBadges, b, link, count, q)
+          try(paintRing, b, link, q)
         end
       end
     end
