@@ -542,59 +542,23 @@ function Theme:ApplyGridAlpha()
   if ns.Pocket and ns.Pocket.gridBg then ns.Pocket.gridBg:SetAlpha(a) end
 end
 
-local escFrames = {}
-
-local function escArm(f)
-  if not f.wpeEscArm or InCombatLockdown() then return end
-  f.wpeEscArm = nil
-  f:EnableKeyboard(true)
-  f:SetPropagateKeyboardInput(true)
-end
-
-local function escFree(f)
-  if not f.wpeEscEat or InCombatLockdown() then return end
-  f.wpeEscEat = nil
-  f:SetPropagateKeyboardInput(true)
-end
-
-function ns.EscRestore()
-  for i = 1, #escFrames do
-    escArm(escFrames[i])
-    escFree(escFrames[i])
-  end
-end
-
+-- Escape is the game's own key, not ours. A named frame only has to sit in
+-- UISpecialFrames: the client's handler walks that whole list on one press and hides every
+-- entry that is shown, so a single press still closes every Warpee window at once, the
+-- frame's own OnHide carrying its cleanup, the bank's included. Asking for the keyboard
+-- instead was the old shape, and it is the one thing the bag addons beside us never do: a
+-- keyboard enabled frame that does not propagate stops the WorldFrame from handling any
+-- binding, and the call that sets that flag has been restricted for addons since 10.1.5,
+-- so a window left holding it could not give the keyboard back until the fight ended.
 function ns.EscClose(frame)
-  if not (frame and frame.EnableKeyboard) or frame.wpeEsc then return frame end
+  if not frame or frame.wpeEsc then return frame end
+  local name = frame.GetName and frame:GetName()
+  if not (name and _G[name] == frame and type(UISpecialFrames) == "table") then return frame end
   frame.wpeEsc = true
-  frame.wpeEscArm = true
-  escFrames[#escFrames + 1] = frame
-  escArm(frame)
-  frame:HookScript("OnShow", function(s) escArm(s); escFree(s) end)
-  -- The key reaches the topmost armed window first and stops there, so hiding only the
-  -- frame it landed on would leave the rest for the next press. One press closes every
-  -- Warpee window at once; each frame's own OnHide carries its cleanup, the bank's
-  -- included, which closes the banker session with it.
-  local function closeAll()
-    for i = 1, #escFrames do
-      local f = escFrames[i]
-      if f:IsShown() then f:Hide() end
-    end
+  for i = 1, #UISpecialFrames do
+    if UISpecialFrames[i] == name then return frame end
   end
-  frame:HookScript("OnKeyDown", function(s, key)
-    if key ~= "ESCAPE" then
-      if not InCombatLockdown() then escFree(s) end
-      return
-    end
-    if InCombatLockdown() then
-      closeAll()
-      return
-    end
-    s.wpeEscEat = true
-    s:SetPropagateKeyboardInput(false)
-    closeAll()
-    C_Timer.After(0, function() escFree(s) end)
-  end)
+  UISpecialFrames[#UISpecialFrames + 1] = name
   return frame
 end
 
