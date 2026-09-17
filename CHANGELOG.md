@@ -30,6 +30,7 @@ Fixes
 - The lines about pins are translated in all seven languages
 - A pin tooltip names one way to clear the cell: the chosen key when one is bound, the middle click when none is, and asks for a key when the middle button is taken too
 - A bank or a vault opened in combat no longer stops the script: the layout paints in slices and the tooltip reads it wants are rationed by time
+- Esc stops holding the keyboard: the windows go back to the game's own escape list, so key bindings keep working with a window open in a fight
 
 RU
 
@@ -59,6 +60,7 @@ RU
 - Строки про ячейки избранного и кармана переведены на все семь языков
 - Тултип ячейки называет один способ освободить её: выбранную клавишу, если она есть, средний клик, если её нет, и просит назначить клавишу, если занята и средняя кнопка
 - Банк и снапшот, открытые в бою, больше не роняют скрипт: раскладка рисуется порциями, а чтения тултипа ограничены по времени
+- Esc больше не держит клавиатуру: окна снова в родном списке игры, так что бинды работают с открытым окном в бою
 
 ## 8.0
 
