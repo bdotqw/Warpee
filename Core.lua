@@ -752,13 +752,14 @@ local function itemTooltip(tt, data)
   end
   if pinSlot(tt) then
     if not drew then tt:AddLine(" ") end
+    -- The key alone when there is one: it is the binding the player chose, and the middle
+    -- click keeps working under it whether or not this line names it. With no key bound the
+    -- middle click is the whole story, and it steps aside only if the player bound it.
     local name = ns.PinKeyName()
-    local midFree = (GetBindingAction("BUTTON3") or "") == ""
     local msg
     if name then
-      if midFree then msg = TT("Press %s or middle-click to clear the slot"):format(name)
-      else msg = TT("Press %s to clear the slot"):format(name) end
-    elseif midFree then
+      msg = TT("Press %s to clear the slot"):format(name)
+    elseif (GetBindingAction("BUTTON3") or "") == "" then
       msg = TT("Middle-click to clear the slot")
     else
       msg = TT("Bind a key to clear the slot")

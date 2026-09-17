@@ -352,7 +352,6 @@ local STRINGS = {
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; a slot under the pointer can be cleared with a key of its own."] = "网格上方的一行格子，一直看得见。把物品拖到上面就能随时点到；把鼠标停在格子上可以用自己的按键清空。",
   ["Drag an item here to keep it one click away"] = "把物品拖到这里，一键就能拿到",
   ["Press %s to clear the slot"] = "按 %s 清空格子",
-  ["Press %s or middle-click to clear the slot"] = "按 %s 或鼠标中键清空格子",
   ["Middle-click to clear the slot"] = "鼠标中键清空格子",
   ["Bind a key to clear the slot"] = "绑定一个按键来清空格子",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."] = "口袋是背包旁边的一个收藏小窗口。按 %s 或点标题栏上的网格按钮打开。",

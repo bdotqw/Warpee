@@ -431,7 +431,6 @@ local STRINGS = {
   ["Remove pin"] = "Убрать пин",
   ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "Клавиша, освобождающая ячейку избранного или кармана под курсором. Нажмите кнопку, затем клавишу, кнопку мыши или колесо; правый клик очищает поле, Escape отменяет.",
   ["Press %s to clear the slot"] = "Нажмите %s, чтобы освободить ячейку",
-  ["Press %s or middle-click to clear the slot"] = "Нажмите %s или средний клик, чтобы освободить ячейку",
   ["Middle-click to clear the slot"] = "Средний клик освобождает ячейку",
   ["Bind a key to clear the slot"] = "Назначьте клавишу, чтобы освобождать ячейку",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."] =

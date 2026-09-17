@@ -419,7 +419,6 @@ local STRINGS = {
   ["Drag an item here to keep it one click away"] =
     "Arraste um item para cá para mantê-lo a um clique",
   ["Press %s to clear the slot"] = "Pressione %s para limpar o espaço",
-  ["Press %s or middle-click to clear the slot"] = "Pressione %s ou clique com o botão do meio do mouse para limpar o espaço",
   ["Middle-click to clear the slot"] = "O botão do meio do mouse limpa o espaço",
   ["Bind a key to clear the slot"] = "Atribua uma tecla para limpar o espaço",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."] =

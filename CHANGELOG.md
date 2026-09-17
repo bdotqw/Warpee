@@ -28,6 +28,7 @@ Fixes
 - Adding or swapping a pin redraws its tooltip on the spot instead of waiting for the pointer to leave the cell
 - The pocket's Recent row runs left to right like the bags', the newest at the right
 - The lines about pins are translated in all seven languages
+- A pin tooltip names one way to clear the cell: the chosen key when one is bound, the middle click when none is, and asks for a key when the middle button is taken too
 
 RU
 
@@ -55,6 +56,7 @@ RU
 - Новый или заменённый предмет в ячейке пина обновляет тултип на месте, без того чтобы уводить мышь
 - «Недавнее» в кармане идёт слева направо, как в сумках, новое справа
 - Строки про пины переведены на все семь языков
+- Тултип пина называет один способ освободить ячейку: выбранную клавишу, если она есть, средний клик, если её нет, и просит назначить клавишу, если занята и средняя кнопка
 
 ## 8.0
 
