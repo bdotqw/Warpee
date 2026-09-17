@@ -2139,8 +2139,11 @@ local function keyWord(part)
 end
 
 function ns.PinKeyName()
-  local k = GetBindingKey and GetBindingKey("WARPEE_UNPIN")
-  if not k or k == "" then return nil end
+  -- Both slots: the key settings hand a second binding a slot of its own, and a player who
+  -- put theirs in the second one is as bound as any other.
+  local k1, k2 = GetBindingKey and GetBindingKey("WARPEE_UNPIN")
+  local k = (k1 ~= "" and k1) or (k2 ~= "" and k2) or nil
+  if not k then return nil end
   local out = {}
   for part in tostring(k):gmatch("[^-]+") do
     local word = keyWord(part)
