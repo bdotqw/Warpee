@@ -362,7 +362,14 @@ local function ensureDropdown()
 
   m.rows, m.sf, m.child, m.catcher = {}, sf, child, catcher
   m:SetScript("OnHide", function() catcher:Hide(); ns.HideTip() end)
-  catcher:SetScript("OnClick", closeDropdown)
+  catcher:SetScript("OnClick", function()
+    local owner = dropdown and dropdown.owner
+    closeDropdown()
+    local f = GetMouseFocus and GetMouseFocus()
+    if f and f ~= owner and f.wpeDrop and (not f.IsEnabled or f:IsEnabled()) then
+      ns.OpenDropdown(f, f.wpeDrop.spec, f.wpeDrop.onPick)
+    end
+  end)
   ns.EscClose(m)
   dropdown = m
   return m
@@ -941,6 +948,7 @@ function factories.select(parent, spec)
     arrowColor(off and "faint" or "dim")
     btn:SetEnabled(not off)
   end
+  btn.wpeDrop = { spec = spec, onPick = row.Refresh }
   row.Refresh()
 
   btn:SetScript("OnEnter", function(s)

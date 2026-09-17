@@ -454,21 +454,24 @@ function P:BuildPanel()
   arrow:SetPoint("RIGHT", dd, "RIGHT", -8, 0)
   f.ddArrow = arrow
   tintButton(dd, "accent")
+  local ddSpec = {
+    get = function() return P:Active() end,
+    set = function(name)
+      -- Re-picking the entry that is already active would re-apply it, and for a profile
+      -- with no stored copy of its own, Default among them, that wipes back to factory.
+      if name ~= P:Active() then P:ApplyLive(name) end
+    end,
+    keys = function() return P:List() end,
+    label = function(k) return k == RESERVED and T("Default") or k end,
+  }
+  local ddPick = function()
+    P:Paint()
+    if ns.Options and ns.Options.Refresh then ns.Options:Refresh() end
+  end
+  dd.wpeDrop = { spec = ddSpec, onPick = ddPick }
   dd:SetScript("OnClick", function(s)
     if not ns.OpenDropdown then return end
-    ns.OpenDropdown(s, {
-      get = function() return P:Active() end,
-      set = function(name)
-        -- Re-picking the entry that is already active would re-apply it, and for a profile
-        -- with no stored copy of its own, Default among them, that wipes back to factory.
-        if name ~= P:Active() then P:ApplyLive(name) end
-      end,
-      keys = function() return P:List() end,
-      label = function(k) return k == RESERVED and T("Default") or k end,
-    }, function()
-      P:Paint()
-      if ns.Options and ns.Options.Refresh then ns.Options:Refresh() end
-    end)
+    ns.OpenDropdown(s, ddSpec, ddPick)
   end)
   f.dd = dd
 
