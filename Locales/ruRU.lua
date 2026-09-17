@@ -428,7 +428,7 @@ local STRINGS = {
     "Ряд ячеек над сеткой, всегда на виду. Перетащите предмет в ячейку, чтобы держать его под рукой; ячейку под курсором можно освободить своей клавишей.",
   ["Drag an item here to keep it one click away"] =
     "Перетащите сюда предмет, чтобы использовать его в один клик",
-  ["Remove pin"] = "Убрать пин",
+  ["Remove pin"] = "Освободить ячейку",
   ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "Клавиша, освобождающая ячейку избранного или кармана под курсором. Нажмите кнопку, затем клавишу, кнопку мыши или колесо; правый клик очищает поле, Escape отменяет.",
   ["%s clears the slot"] = "%s освобождает ячейку",
   ["Middle-click to clear the slot"] = "Средняя кнопка мыши освобождает ячейку",
@@ -475,8 +475,8 @@ local STRINGS = {
   ["ilvl %d-%d"] = "илвл %d-%d",
   ["ilvl %d+"] = "илвл %d+",
   ["ilvl <%d"] = "илвл <%d",
-  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Your keyboard key still works, only the mouse one is cleared."] = "«Снять пин» не работает с кнопками мыши — игра съедает их над ячейками. Клавиша клавиатуры осталась, снята только мышиная.",
-  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Nothing is bound now, pick any keyboard key in the key settings."] = "«Снять пин» не работает с кнопками мыши — игра съедает их над ячейками. Сейчас не назначено ничего, выбери любую клавишу клавиатуры в настройках.",
+  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Your keyboard key still works, only the mouse one is cleared."] = "Действие «Освободить ячейку» не берёт кнопки мыши: игра съедает их над ячейками. Клавиша клавиатуры осталась, снята только мышиная.",
+  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Nothing is bound now, pick any keyboard key in the key settings."] = "Действие «Освободить ячейку» не берёт кнопки мыши: игра съедает их над ячейками. Сейчас не назначено ничего, выбери любую клавишу клавиатуры в настройках.",
   ["Right-click to unbind"] = "ПКМ — снять бинд",
 }
 
