@@ -59,6 +59,7 @@ end
 -- Every string this skin writes is remembered here, because a font picked in the settings has
 -- to reach a frame the game built: the theme walks its own list, and the guild bank skin is
 -- outside it. The same record is what the theme repaints, so both roads end in one dress.
+local BLIZZ_YELLOW = { 1, 0.824, 0 }
 local function label(fs, size, key, flags)
   if not (fs and fs.SetFont) then return end
   local rec = fs.wpeLabel
@@ -71,7 +72,9 @@ local function label(fs, size, key, flags)
   if not rec.dress then
     rec.dress = function()
       rec.fs:SetFont(ns.Fonts:Current(), rec.size, rec.flags)
-      rec.fs:SetTextColor(Theme:C(rec.key))
+      local k = rec.key
+      if type(k) == "table" then rec.fs:SetTextColor(k[1], k[2], k[3])
+      else rec.fs:SetTextColor(Theme:C(k)) end
     end
     Theme:Track(fs, rec.dress)
   end
@@ -793,12 +796,13 @@ function Skin:Apply()
   -- grid that counts what is left of the day's withdrawals, and the words next to the money.
   -- The access word is the one part of the window that keeps the game's ink: the game writes the
   -- colour of an access level into the word itself (green for full access), and ink written into
-  -- the text beats any colour put on the string, so the name wears ours and the word wears the
-  -- game's, the way the game's own window reads. Taking that ink out was tried and taken back: it
-  -- made the word lose its colour the moment anything redressed the line, until the game wrote the
-  -- title again on the next tab move, which is the flicker it was meant to remove.
-  try(label, frame.TabTitle, 15)
-  try(label, frame.LimitLabel, 12)
+  -- the text beats any colour put on the string, so the name wears the game's yellow and
+  -- the word wears the game's, the way the game's own window reads. Taking that ink out was
+  -- tried and taken back: it made the word lose its colour the moment anything redressed the
+  -- line, until the game wrote the title again on the next tab move, which is the flicker it
+  -- was meant to remove.
+  try(label, frame.TabTitle, 15, BLIZZ_YELLOW)
+  try(label, frame.LimitLabel, 12, BLIZZ_YELLOW)
   try(label, frame.ErrorMessage, 12)
   try(skinClose, frame.CloseButton, frame)
 
@@ -856,8 +860,8 @@ function Skin:Apply()
   if money then
     try(muteArt, money)
     -- The two words on that plate sit with the money they describe, so they are dressed with it.
-    try(label, money.LimitLabel, 12)
-    try(label, money.UnlimitedLabel, 12)
+    try(label, money.LimitLabel, 12, BLIZZ_YELLOW)
+    try(label, money.UnlimitedLabel, 12, BLIZZ_YELLOW)
   end
   -- A global function, so hooking it is the sanctioned way in and nothing of the game's own is
   -- replaced. It is installed once, with the rest of the skin.
