@@ -622,8 +622,29 @@ function ns.CreateVaultButton(parent)
   end)
   return b
 end
+-- The cell the badge numbers below are written for, and the one every window scales away
+-- from. It is not the bags' own default size (DEFAULTS.iconSize): that one is a setting a
+-- player can move, and a reference that moved with it would drag every other window along
+-- the moment the bags were resized. This one is a constant, so a badge tuned to 13px stays
+-- 13px in the bags whatever the bags are set to, and reads as the same share of the cell
+-- everywhere else.
+ns.DEFAULT_CELL = 37
+local DEFAULT_CELL = ns.DEFAULT_CELL
+-- Outside this a number is not a cell size but a broken save or a profile code written by
+-- hand, and it would end up as a divisor.
+local REF_MIN, REF_MAX = 16, 64
+
+local function validRef(r)
+  return type(r) == "number" and r == r and r >= REF_MIN and r <= REF_MAX
+end
+
 local function cellOf(b)
-  return (b.view and b.view.iconSize) or ns.Bags.iconSize or 37
+  -- pxSize is the size the grid settled on after pixel snapping, which is the cell the badge
+  -- is actually drawn in; the setting it came from can be half a pixel away from it. wpeCell is
+  -- for a window whose cells are neither the bags' nor its own view's, which is the pocket: a
+  -- pocket set to another size would otherwise have its badges measured against the bags.
+  return b.wpeCell or (b.view and b.view.iconSize)
+         or ns.Bags.pxSize or ns.Bags.iconSize or DEFAULT_CELL
 end
 
 -- The placement and the size columns here are the factory values themselves, not a second
@@ -632,18 +653,22 @@ end
 -- table from them. They used to be a copy that had drifted, so a profile created before a
 -- badge key existed got one placement for that key and a freshly installed profile got
 -- another for the same badge. Change a number here and every one of those paths moves.
+-- The text rows carry two more columns than they used to. m is the smallest size the badge
+-- may be drawn at, the same kind of floor the two textures below already had, and ref is the
+-- cell their s, x and y are written against. Read the pair together: s is pixels at a cell
+-- of ref, and ns.BadgeSize turns that into pixels at the cell the badge actually lands in.
 local BADGES = {
   { key = "ilvl",   n = "Item level",  p = "447",  c = "BOTTOMRIGHT", x = 0,  y = 0,  s = 13,
-    a = "right",
+    a = "right", m = 8, ref = DEFAULT_CELL,
     t = "Item level on gear, and a keystone's level." },
   { key = "count",  n = "Stack count", p = "1000", c = "BOTTOMRIGHT", x = 0,  y = 0,  s = 13,
-    a = "right",
+    a = "right", m = 8, ref = DEFAULT_CELL,
     t = "How many items the stack holds." },
   { key = "bind",   n = "Binding",     p = "BoE",  c = "TOPLEFT",     x = 17, y = -2, s = 12,
-    a = "center",
+    a = "center", m = 8, ref = DEFAULT_CELL,
     t = "BoE while unbound, WuE for warbound until equipped, BoA for account bound." },
   { key = "outfit", n = "Gear set",    p = "Myth", c = "TOPLEFT",     x = 2,  y = -2, s = 10,
-    k = 4, a = "left",
+    k = 4, a = "left", m = 8, ref = DEFAULT_CELL,
     t = "The equipment set the item belongs to, cut to a few letters." },
   { key = "junk",    n = "Junk coin",   tex = true,
     c = "TOPLEFT",  x =  1, y = -1, s = 0.42, m = 8,
@@ -670,7 +695,7 @@ function ns.BadgePoint(g)
   return row[g.a or ""] or c
 end
 
-local BADGE_FIELDS = { "c", "x", "y", "s" }
+local BADGE_FIELDS = { "c", "x", "y", "s", "ref" }
 local BADGE_LEGACY = {
   ilvl  = { c = "ilvlAnchor",  x = "ilvlX",  y = "ilvlY",  s = "ilvlSize"  },
   count = { c = "countAnchor", x = "countX", y = "countY", s = "countSize" },
@@ -679,7 +704,7 @@ local BADGE_LEGACY = {
 function ns.BadgeDefaults()
   local t = {}
   for _, d in ipairs(BADGES) do
-    t[d.key] = { c = d.c, x = d.x, y = d.y, s = d.s, k = d.k, a = d.a, on = true }
+    t[d.key] = { c = d.c, x = d.x, y = d.y, s = d.s, k = d.k, a = d.a, ref = d.ref, on = true }
   end
   return t
 end
@@ -689,9 +714,24 @@ function ns.BadgeMigrate(db, t)
     local g = t[d.key]
     if type(g) ~= "table" then g = {}; t[d.key] = g end
     local old = BADGE_LEGACY[d.key]
+    -- ref is not in BADGE_LEGACY and never had a top-level key of its own, so the legacy
+    -- read below has to ask whether this field has one before it indexes with it.
+    local hadRef = g.ref ~= nil
     for _, f in ipairs(BADGE_FIELDS) do
-      if g[f] == nil and old then g[f] = db[old[f]] end
+      if g[f] == nil and old and old[f] then g[f] = db[old[f]] end
       if g[f] == nil then g[f] = d[f] end
+    end
+    if not d.tex then
+      -- A badge saved before the column existed was written while looking at the bags, and
+      -- the bags of that profile are its own iconSize. Read it from the profile and not from
+      -- the live grid: this runs before Core.lua pushes a profile into Bags, so the live
+      -- number still belongs to the profile being left.
+      if not hadRef then
+        local r = tonumber(db and db.iconSize)
+        g.ref = validRef(r) and r or DEFAULT_CELL
+      end
+      -- The other way in is a profile code pasted by hand, and this number becomes a divisor.
+      if not validRef(g.ref) then g.ref = DEFAULT_CELL end
     end
     if not ns.BADGE_CORNERS[g.c] then g.c = d.c end
     if d.a then
@@ -711,6 +751,45 @@ end
 function ns.Badge(key)
   local t = ns.Bags and ns.Bags.badge
   return (t and t[key]) or BADGE[key]
+end
+
+-- The cell a badge's numbers were written for. Asked twice in a row it answers the same
+-- thing, so nothing downstream can move on its own.
+function ns.BadgeRef(d, g)
+  local r = g and tonumber(g.ref)
+  if not validRef(r) then r = d and tonumber(d.ref) end
+  if not validRef(r) then r = DEFAULT_CELL end
+  return r
+end
+
+-- The only place a text badge's pixel size is worked out, so the grid, the panel preview and
+-- the panel's hint cannot come apart. The second return says whether the floor is what holds
+-- it: at or under the floor the badge stops shrinking with the cell, which is the one case
+-- where the drawing parts company with the share of the cell everything else here follows.
+function ns.BadgeSize(key, cell, g)
+  local d = BADGE[key]
+  if not d then return 0, false end
+  g = g or ns.Badge(key)
+  if not (cell and cell > 0) then cell = DEFAULT_CELL end
+  local raw = (tonumber(g and g.s) or d.s) * cell / ns.BadgeRef(d, g)
+  local m = d.m or 8
+  local px = math.floor(raw + 0.5)
+  -- At the floor as well as under it: a badge drawn at the floor is one that will not shrink
+  -- with the next smaller cell, whether the floor raised it or the share happened to land on it.
+  if px <= m then return m, true end
+  return px, false
+end
+
+-- How far the stored offsets travel with the cell. It is the cell's own ratio and not the one
+-- the finished font size works out to: at a cell small enough to reach the floor the glyphs
+-- stop shrinking while the cell keeps going, and a badge pinned to a corner has to keep going
+-- with the cell or it drifts inwards. Textures keep their own offsets, which are the one-pixel
+-- nudges they are drawn with.
+function ns.BadgeScale(cell, key, g)
+  local d = BADGE[key]
+  if not d or d.tex then return 1 end
+  if not (cell and cell > 0) then return 1 end
+  return cell / ns.BadgeRef(d, g or ns.Badge(key))
 end
 
 local function utf8cut(s, n)
@@ -744,15 +823,28 @@ function ns.ApplyBadge(b, key)
   local o = badgeObj(b, key)
   if not o then return end
   local d, g = BADGE[key], ns.Badge(key)
+  local cell = cellOf(b)
+  -- A texture's size is already a share of the cell and its offsets are the nudge it is drawn
+  -- with, so it keeps the ratio of one and nothing about it moves.
+  local k = 1
   if d.tex then
-    local sz = math.max(d.m or 8, math.floor(cellOf(b) * (g.s or d.s) + 0.5))
+    local sz = math.max(d.m or 8, math.floor(cell * (g.s or d.s) + 0.5))
     o:SetSize(sz, sz)
   else
-    ns.SetOutlined(o, g.s or d.s)
+    k = ns.BadgeScale(cell, key, g)
+    ns.SetOutlined(o, ns.BadgeSize(key, cell, g))
   end
   o:ClearAllPoints()
-  o:SetPoint(ns.BadgePoint(g), b, g.c, g.x, g.y)
+  o:SetPoint(ns.BadgePoint(g), b, g.c,
+             math.floor((g.x or 0) * k + 0.5), math.floor((g.y or 0) * k + 0.5))
   o:SetAlpha(g.on and ns.SearchBadgeAlpha(b) or 0)
+end
+
+-- A window that lands on a new cell size has to ask for a re-dress, because the badges are
+-- dressed behind this counter: without the bump a window that resized its cells keeps its
+-- badges drawn for the size it had before.
+function ns.BumpCellSize()
+  if ns.Bags then ns.Bags.styleGen = (ns.Bags.styleGen or 0) + 1 end
 end
 
 local function decorated(t)
@@ -869,13 +961,16 @@ end
 function ns.FitCount(b, count)
   local c = b.Count or _G[(b:GetName() or "") .. "Count"]
   if not c then return end
-  ns.SetOutlined(c, ns.Badge("count").s)
+  -- Size through the same call the badge is placed by. These three used to set the stored
+  -- number straight onto the string, which is the size for the reference cell and not for the
+  -- cell in front of them, and whichever of the two passes ran last is what the player saw.
+  ns.SetOutlined(c, ns.BadgeSize("count", cellOf(b)))
   if not ns.Badge("count").on then c:SetText("") end
 end
 
 function ns.FitIlvl(b, lvl)
   if not b.ilvl then return end
-  ns.SetOutlined(b.ilvl, ns.Badge("ilvl").s)
+  ns.SetOutlined(b.ilvl, ns.BadgeSize("ilvl", cellOf(b)))
 end
 
 local function fmtCooldown(s)
@@ -886,7 +981,7 @@ end
 
 local function cdFont(b)
   if not b.cdText then return end
-  ns.SetOutlined(b.cdText, ns.Badge("count").s)
+  ns.SetOutlined(b.cdText, ns.BadgeSize("count", cellOf(b)))
 end
 
 local function cdSay(b, text)
@@ -1057,7 +1152,7 @@ function ns.MarkBind(b, label, quality)
   local fs = b.bind
   if not fs then return end
   if not label then fs:SetText(""); return end
-  ns.SetOutlined(fs, ns.Badge("bind").s)
+  ns.SetOutlined(fs, ns.BadgeSize("bind", cellOf(b)))
   fs:SetText(label)
   if label == ns.L["BoE"] and quality and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality] then
     local c = ITEM_QUALITY_COLORS[quality]
@@ -1144,7 +1239,7 @@ end
 
 function ns.MarkOutfit(b, label)
   if not b.outfit then return end
-  if label then ns.SetOutlined(b.outfit, ns.Badge("outfit").s) end
+  if label then ns.SetOutlined(b.outfit, ns.BadgeSize("outfit", cellOf(b))) end
   b.outfit:SetText(label or "")
 end
 
@@ -1936,7 +2031,7 @@ function ns.PaintPin(g, pin, t, btn)
       g.tier:SetAtlas(art, true)
       local w0, h0 = g.tier:GetWidth() or 0, g.tier:GetHeight() or 0
       if w0 > 0 and h0 > 0 then
-        local k = (g:GetWidth() or 37) / 37
+        local k = (g:GetWidth() or DEFAULT_CELL) / DEFAULT_CELL
         g.tier:SetSize(math.max(1, w0 * k), math.max(1, h0 * k))
       end
       g.tier:Show()
@@ -1978,11 +2073,164 @@ function ns.PaintPin(g, pin, t, btn)
     if g.outfit then g.outfit:Hide() end
     if g.cnt then
       local cb = ns.Badge("count")
-      ns.SetOutlined(g.cnt, cb.s)
+      local cell = cellOf(g)
+      local k = ns.BadgeScale(cell, "count", cb)
+      -- The count on a ghost is its own string and not the one badgeObj looks for, so it is
+      -- placed by hand here and has to take the same two numbers the badge would have.
+      ns.SetOutlined(g.cnt, ns.BadgeSize("count", cell, cb))
       g.cnt:ClearAllPoints()
-      g.cnt:SetPoint(ns.BadgePoint(cb), g, cb.c, cb.x, cb.y)
+      g.cnt:SetPoint(ns.BadgePoint(cb), g, cb.c,
+                     math.floor((cb.x or 0) * k + 0.5), math.floor((cb.y or 0) * k + 0.5))
       g.cnt:SetText("0")
       g.cnt:Show()
     end
   end
 end
+
+-- The overlay above a pinned cell owns the left button, so the game's own modified click
+-- never runs on a pinned cell and dress-up has to be finished by hand. HandleModifiedItemClick
+-- is not a protected call, and its dress-up branch is the very one the container template
+-- reaches with the same arguments, so the cell asks for it directly and gets what the grid
+-- would have got. A live pin asks with its location as well as its link, which is what the
+-- branch prefers; a ghost has no slot to point at and asks with the link alone. An item the
+-- client has never cached has neither, and then nothing happens -- there is nothing honest
+-- to show, and a picture of an item nobody can name would not be one.
+function ns.PinDressUp(bag, slot, pin)
+  if not HandleModifiedItemClick then return end
+  if bag and slot and C_Container and C_Container.GetContainerItemLink then
+    local link = C_Container.GetContainerItemLink(bag, slot)
+    if link then
+      local loc
+      if ItemLocation and ItemLocation.CreateFromBagAndSlot then
+        loc = ItemLocation:CreateFromBagAndSlot(bag, slot)
+      end
+      HandleModifiedItemClick(link, loc)
+      return
+    end
+  end
+  local id = ns.ItemStubID(pin)
+  local link = id and select(2, C_Item.GetItemInfo(id))
+  if link then HandleModifiedItemClick(link) end
+end
+
+-- Emptying a pinned cell lives on a key and not on a modifier, because the left button of a
+-- pinned cell already carries all the gestures it can: a fourth modifier would have to be
+-- taken from one of the three that are spoken for, and Ctrl is the game's own dress-up.
+--
+-- The key is a real binding and not a keyboard frame. A binding is owned by the client: it
+-- shows in the game's own key list, the player can move it there, and one keypress fires one
+-- binding, so the double hit a watched key would give is impossible by construction.
+-- The action is called by the client, so the guards sit here: a fight, and a keyboard that
+-- is being used for something else. An edit box with the keyboard focus owns the keystroke,
+-- and the chat line and an IME composing in one are both edit boxes.
+ns.LocalGlobal("BINDING_NAME_WARPEE_UNPIN", "Remove pin")
+
+-- The key as the player reads it, or nil when nothing is bound. Read at the moment it is
+-- asked for and never kept: the binding can move at any time and a name captured at load
+-- would go on naming the old key. The client hands a chord back in one piece, "SHIFT-BUTTON4"
+-- or "ALT-R", which is how it is stored and not how a key is written out, so the parts are
+-- asked one at a time and joined with a plus: "SHIFT + BUTTON4" rather than "S-B4".
+local MODS = { SHIFT = true, CTRL = true, ALT = true, META = true }
+
+local function keyWord(part)
+  local s = GetBindingText and GetBindingText(part)
+  if type(s) ~= "string" or s == "" or s == part then return nil end
+  return s
+end
+
+function ns.PinKeyName()
+  local k = GetBindingKey and GetBindingKey("WARPEE_UNPIN")
+  if not k or k == "" then return nil end
+  local out = {}
+  for part in tostring(k):gmatch("[^-]+") do
+    local word = keyWord(part)
+    -- A single letter is the client's own shorthand for a modifier, and this line is not the
+    -- place for it: the token itself is the word the game writes.
+    if MODS[part] and (not word or #word < 2) then word = part end
+    out[#out + 1] = word or part
+  end
+  if #out == 0 then return nil end
+  return table.concat(out, " + ")
+end
+
+function ns.PinUnpin()
+  if InCombatLockdown() then return end
+  if GetCurrentKeyBoardFocus() then return end
+  -- The hover first: a mouse-button press re-resolves what is under it for the buttons the
+  -- frames listen to, so asking at press time stops seeing a catcher that never signed up
+  -- for that button, while a keypress asks nothing and leaves a stale answer behind. Enter
+  -- and Leave come from motion and not from presses, so they read the same for either.
+  local over = ns.PinHover
+  if not (over and over:IsShown() and over:IsMouseOver()) then over = nil end
+  if not over and GetMouseFoci then
+    local foci = GetMouseFoci()
+    over = (type(foci) == "table") and foci[1] or nil
+  end
+  local remove = over and over.wpeUnpin
+  if remove then remove() end
+end
+
+-- Bindings.xml can only call a global, and the two rows that draw pinned cells cannot call
+-- each other, so the binding lands here and the row that owns the cell answers through
+-- wpeUnpin.
+function WarpeeUnpin()
+  ns.PinUnpin()
+end
+
+-- The catcher hands over both the fact that it is a pinned cell and what emptying it means,
+-- so the two rows that draw them share the one key and neither has to know about the other.
+-- It also reports its own hover: motion, unlike presses, reads the same for keys and buttons.
+function ns.PinWatch(catcher, remove)
+  catcher.wpeUnpin = remove
+  if catcher.HookScript then
+    catcher:HookScript("OnEnter", function(s) ns.PinHover = s end)
+    catcher:HookScript("OnLeave", function(s) if ns.PinHover == s then ns.PinHover = nil end end)
+  end
+end
+
+-- The key arrives set on the first login that has this code, and only when Delete is free:
+-- a Delete already spoken for is left where it was. The mark is written either way, the way
+-- the pocket writes its own: the question is asked once and there is nothing to say later.
+local function defaultPinKey()
+  if not WarpeeDB or WarpeeDB.pinBind then return end
+  if InCombatLockdown() then return end
+  WarpeeDB.pinBind = true
+  if not (GetBindingKey and GetBindingAction and SetBinding and SaveBindings) then return end
+  if GetBindingKey("WARPEE_UNPIN") then return end
+  if (GetBindingAction("DELETE") or "") ~= "" then return end
+  SetBinding("DELETE", "WARPEE_UNPIN")
+  SaveBindings((GetCurrentBindingSet and GetCurrentBindingSet()) or 1)
+end
+
+-- Mouse chords never reach this binding: the client eats them over our
+-- cells, so any such bind is cleared with a warning, not left to fail quiet.
+local function guardPinKey()
+  if InCombatLockdown() then return end
+  if not (GetBindingKey and GetBindingAction and SetBinding and SaveBindings) then return end
+  local keys = { GetBindingKey("WARPEE_UNPIN") }
+  local dirty = false
+  for i = 1, #keys do
+    local k = keys[i]
+    if k and k:find("BUTTON[345]") and (GetBindingAction(k) or "") == "WARPEE_UNPIN" then
+      SetBinding(k)
+      dirty = true
+    end
+  end
+  if dirty then
+    SaveBindings((GetCurrentBindingSet and GetCurrentBindingSet()) or 1)
+    local keep = GetBindingKey("WARPEE_UNPIN")
+    if keep then
+      print("|cffd9a85fWarpee|r |cffffffff" .. ns.L["Remove pin cannot use mouse buttons, the game eats them over pin cells. Your keyboard key still works, only the mouse one is cleared."] .. "|r")
+    else
+      print("|cffd9a85fWarpee|r |cffffffff" .. ns.L["Remove pin cannot use mouse buttons, the game eats them over pin cells. Nothing is bound now, pick any keyboard key in the key settings."] .. "|r")
+    end
+  end
+end
+
+local pinEv = CreateFrame("Frame")
+pinEv:RegisterEvent("PLAYER_LOGIN")
+pinEv:RegisterEvent("UPDATE_BINDINGS")
+pinEv:SetScript("OnEvent", function(_, ev)
+  if ev == "UPDATE_BINDINGS" then guardPinKey()
+  else C_Timer.After(1, function() defaultPinKey(); guardPinKey() end) end
+end)

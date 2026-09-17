@@ -995,6 +995,7 @@ local function badgeSlots(b)
   ns.BadgeFurniture(b)
   local h = b:GetHeight() or 37
   if h > 0 then b.view = b.view or { iconSize = h } end
+  if h > 0 then Skin.guildCell = h end
 end
 
 local function paintBadges(b, link, count, q)

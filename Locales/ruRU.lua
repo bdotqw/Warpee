@@ -340,6 +340,7 @@ local STRINGS = {
   ["BAGS"] = "СУМКИ",
   ["WARBAND BANK"] = "БАНК ОТРЯДА",
   ["ON HAND"] = "НА РУКАХ",
+  ["(min)"] = "(мин)",
   ["Warband"] = "Отряд",
   ["Everything"] = "Всё",
   ["Tab %d"] = "Вкладка %d",
@@ -416,14 +417,23 @@ local STRINGS = {
   ["Already in the pocket"] = "Уже в кармане",
   ["Clear"] = "Очистить",
   ["Equipped"] = "Надето",
-  ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =
-    "Маленькое окно с ячейками-закладками рядом с сумками, открывается кнопкой-сеткой в шапке. Перетащите предмет в ячейку, и она будет держать его, куда бы он ни переехал в сумках. Перетаскивание ячейки на ячейку меняет их местами, Ctrl + ЛКМ освобождает ячейку.",
+  ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and hovering a cell and pressing %s empties it."] =
+    "Маленькое окно с ячейками-закладками рядом с сумками, открывается кнопкой-сеткой в шапке. Перетащите предмет в ячейку, и она будет держать его, куда бы он ни переехал в сумках. Перетаскивание ячейки на ячейку меняет их местами, а ячейка под курсором освобождается нажатием %s.",
+  ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and a cell under the pointer can be emptied with a key of its own."] =
+    "Маленькое окно с ячейками-закладками рядом с сумками, открывается кнопкой-сеткой в шапке. Перетащите предмет в ячейку, и она будет держать его, куда бы он ни переехал в сумках. Перетаскивание ячейки на ячейку меняет их местами, а ячейку под курсором можно освободить своей клавишей.",
   ["Favorite slots"] = "Ячейки избранного",
-  ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
-    "Ряд ячеек над сеткой, всегда на виду. Перетащите предмет в ячейку, чтобы держать его под рукой; Ctrl + ЛКМ освобождает ячейку.",
+  ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; hovering a slot and pressing %s clears it."] =
+    "Ряд ячеек над сеткой, всегда на виду. Перетащите предмет в ячейку, чтобы держать его под рукой; ячейка под курсором освобождается нажатием %s.",
+  ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; a slot under the pointer can be cleared with a key of its own."] =
+    "Ряд ячеек над сеткой, всегда на виду. Перетащите предмет в ячейку, чтобы держать его под рукой; ячейку под курсором можно освободить своей клавишей.",
   ["Drag an item here to keep it one click away"] =
     "Перетащите сюда предмет, чтобы использовать его в один клик",
-  ["Ctrl + left click clears the slot"] = "Ctrl + ЛКМ освобождает ячейку",
+  ["Remove pin"] = "Убрать пин",
+  ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "Клавиша, освобождающая ячейку избранного или кармана под курсором. Нажмите кнопку, затем клавишу, кнопку мыши или колесо; правый клик очищает поле, Escape отменяет.",
+  ["Press %s to clear the slot"] = "Нажмите %s, чтобы освободить ячейку",
+  ["Press %s or middle-click to clear the slot"] = "Нажмите %s или средний клик, чтобы освободить ячейку",
+  ["Middle-click to clear the slot"] = "Средний клик освобождает ячейку",
+  ["Bind a key to clear the slot"] = "Назначьте клавишу, чтобы освобождать ячейку",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."] =
     "Карман — небольшое окно с ячейками-закладками рядом с сумками. Откройте его по %s или кнопкой-сеткой в шапке.",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."] =
@@ -467,6 +477,9 @@ local STRINGS = {
   ["ilvl %d-%d"] = "илвл %d-%d",
   ["ilvl %d+"] = "илвл %d+",
   ["ilvl <%d"] = "илвл <%d",
+  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Your keyboard key still works, only the mouse one is cleared."] = "«Снять пин» не работает с кнопками мыши — игра съедает их над ячейками. Клавиша клавиатуры осталась, снята только мышиная.",
+  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Nothing is bound now, pick any keyboard key in the key settings."] = "«Снять пин» не работает с кнопками мыши — игра съедает их над ячейками. Сейчас не назначено ничего, выбери любую клавишу клавиатуры в настройках.",
+  ["Right-click to unbind"] = "ПКМ — снять бинд",
 }
 
 ns.AddLocale("ruRU", "Russian", {

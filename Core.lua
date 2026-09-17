@@ -752,7 +752,18 @@ local function itemTooltip(tt, data)
   end
   if pinSlot(tt) then
     if not drew then tt:AddLine(" ") end
-    tt:AddLine(TT("Ctrl + left click clears the slot"), 0.6, 0.6, 0.6)
+    local name = ns.PinKeyName()
+    local midFree = (GetBindingAction("BUTTON3") or "") == ""
+    local msg
+    if name then
+      if midFree then msg = TT("Press %s or middle-click to clear the slot"):format(name)
+      else msg = TT("Press %s to clear the slot"):format(name) end
+    elseif midFree then
+      msg = TT("Middle-click to clear the slot")
+    else
+      msg = TT("Bind a key to clear the slot")
+    end
+    tt:AddLine(msg, 0.6, 0.6, 0.6)
     tt:AddLine(TT("Drag moves it to another slot"), 0.6, 0.6, 0.6)
     drew = true
   end

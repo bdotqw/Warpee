@@ -140,8 +140,6 @@ local function ownSlotFocus()
   if GetMouseFoci then
     local list = GetMouseFoci()
     f = type(list) == "table" and list[1] or nil
-  elseif GetMouseFocus then
-    f = GetMouseFocus()
   end
   for _ = 1, 4 do
     if not f or f == UIParent then return false end

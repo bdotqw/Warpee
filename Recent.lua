@@ -3,7 +3,7 @@ local Theme = ns.Theme
 
 local Rec = {}
 ns.Recent = Rec
-Rec.slots, Rec.ghosts, Rec.catchers = {}, {}, {}
+Rec.slots, Rec.ghosts = {}, {}
 
 local MAX_SLOTS = 24
 local SETTLE = 5
@@ -318,93 +318,25 @@ local function detect()
   for g in pairs(guidNow) do guidHad[g] = true end
 end
 
--- The row is a stack of live container buttons and it keeps the right button alone, so a
--- left click cannot lift an item off it. That also costs the two left-click gestures a slot
--- normally answers, and this overlay buys those two back without buying back the rest.
+-- The row hands the whole cell to the game. Its cells are live container buttons off the same
+-- template the grid draws with, registered for the same two buttons and the same drag, so a
+-- left click lifts the item, a drag lifts it too, a right click uses it, and shift, ctrl and
+-- alt reach the container handler's own modified-click branch with no line of ours in the way.
+-- The row used to keep the left button on an overlay above the cell so that nothing could be
+-- picked up off it, and what that bought was a re-implementation of the two gestures it had
+-- just taken away from the template. The overlay is gone and so is the mouthful of guards that
+-- came with it, including the link check: a cell whose item moved on stays on the row for a
+-- few updates by design, and acting on the new occupant of that slot is what a right click on
+-- the row has always done anyway.
 --
--- The overlay owns the left button and passes the right one down to the cell, so a right
--- click still reaches the game's own handler with no addon code in its path.
--- SetPassThroughButtons is refused during combat lockdown, so it is set once, here, when the
--- overlay is built, and never touched again: a pool that was not ready before the fight
--- cannot be made ready during it, and the whole pool is built beside the cells in Warm.
---
--- What it adds is a modified left click, and only the two kinds the row wants: dress up and
--- insert into chat. Everything else is swallowed deliberately. An ordinary left click does
--- nothing, so no item is picked up; nothing is registered for drag, so the overlay cannot be
--- dragged; there is no receive handler, so an item dragged in from the grid is not dropped
--- onto the row and stays on the cursor; middle and extra buttons die here as well.
---
--- The link is read from the live slot at the moment of the click rather than from anything
--- the row remembered, and it has to be the link the cell is showing. A cell whose item moved
--- on stays on the row for a few updates by design, and acting on the new occupant of that
--- slot would be acting on the wrong item. An emptied slot reads no link and does nothing.
---
--- The list is drawn in two windows and each keeps its own cells, so the pool and the two
--- field names that answer for a cell come in from the row that owns it. Everything above is
--- the same for both, which is the point of building them here rather than twice.
-local function makeCatcher(parent, index, pool, bagKey, slotKey)
-  local c = CreateFrame("Button", nil, parent)
-  c.recIndex = index
-  c.recPool, c.recBagKey, c.recSlotKey = pool, bagKey, slotKey
-  c:RegisterForClicks("LeftButtonUp")
-  c:RegisterForDrag("LeftButton")
-  c:SetFrameLevel(parent:GetFrameLevel() + 30)
-  c:EnableMouse(true)
-  c:EnableKeyboard(false)
-  if c.SetPassThroughButtons then c:SetPassThroughButtons("RightButton") end
-  -- Hover is not the overlay's to take: the cell's own OnEnter owns the tooltip, and this
-  -- lets the motion through to it instead of stopping here.
-  if c.SetPropagateMouseMotion then c:SetPropagateMouseMotion(true) end
-  c:SetScript("OnClick", function(s, button)
-    if button ~= "LeftButton" or GetCursorInfo() then return end
-    if not (IsModifiedClick("DRESSUP") or IsModifiedClick("CHATLINK")) then return end
-    local b = s.recPool and s.recPool[s.recIndex]
-    local bag, slot = b and b[s.recBagKey], b and b[s.recSlotKey]
-    if not (bag and slot) then return end
-    local link = C_Container.GetContainerItemLink(bag, slot)
-    if not (link and link == b.link) then return end
-    -- The location goes with the link because that is how the game calls it, and its
-    -- dress-up branch reaches for the location before it falls back to parsing the link.
-    local loc
-    if ItemLocation and ItemLocation.CreateFromBagAndSlot then
-      loc = ItemLocation:CreateFromBagAndSlot(bag, slot)
-    end
-    HandleModifiedItemClick(link, loc)
-  end)
-  -- Outgoing drag only, and only the plain kind. C_Container.PickupContainerItem is
-  -- not a protected call, but it runs here solely from this hardware drag event, out
-  -- of combat, with an empty cursor, no item targeting and no modified click held, so
-  -- no secure path can read anything this handler wrote. A stale cell refuses on a
-  -- link mismatch, and there is deliberately no receive handler: nothing from the
-  -- grid may be dropped onto the row.
-  c:SetScript("OnDragStart", function(s, button)
-    if button and button ~= "LeftButton" then return end
-    if IsModifiedClick() then return end
-    if InCombatLockdown() then return end
-    if CursorHasItem() then return end
-    if GetCursorInfo() then return end
-    if ns.ItemTargeting() then return end
-    local b = s.recPool and s.recPool[s.recIndex]
-    local bag, slot = b and b[s.recBagKey], b and b[s.recSlotKey]
-    if not (bag and slot) then return end
-    local link = C_Container.GetContainerItemLink(bag, slot)
-    if not (link and link == b.link) then return end
-    C_Container.PickupContainerItem(bag, slot)
-  end)
-  return c
-end
-
--- The pocket draws the same list in cells of its own, and takes the overlay from here so
--- there is one copy of the click rules and one place that sets the pass-through.
-function Rec:NewCatcher(parent, index, pool, bagKey, slotKey)
-  return makeCatcher(parent, index, pool, bagKey, slotKey)
-end
+-- The list is drawn in two windows and each keeps its own pool of cells, so the two field
+-- names that answer for a cell come in from the row that owns it. Everything above is the
+-- same for both, which is why the cells are built the same way in both.
 
 -- The cells are container slot buttons, so they are built here, out of combat, and a
 -- redraw only moves and re-ids them after that. A button made during a fight is
--- tainted for good. The row keeps the right button for using the item and leaves the
--- template's own drag alone, and the left button lives on the overlay above each cell,
--- which is the only place in this file that calls SetPassThroughButtons.
+-- tainted for good. There is no overlay above a cell any more: the cell answers every
+-- button itself, which is the whole point of the row behaving like the grid.
 function Rec:Warm()
   local bags = ns.Bags
   local frame = bags and bags.frame
@@ -412,9 +344,10 @@ function Rec:Warm()
   if InCombatLockdown() then self.cold = true; return end
   for i = 1, MAX_SLOTS do
     if not self.slots[i] then
+      -- The registration and the drag come from the factory: the row wants exactly what the
+      -- grid wants. wpeClicks has to say so, because the vendor lock re-registers from it.
       local b = ns.CreateItemButton(frame, 0, 1)
-      b:RegisterForClicks(unpack(ns.CLICKS_USE))
-      b.wpeClicks, b.wpeLockable, b.wpeTotal = ns.CLICKS_USE, nil, nil
+      b.wpeClicks, b.wpeLockable, b.wpeTotal = ns.CLICKS_SLOT, nil, nil
       b.wpeNoNew, b.wpeNoReagent = true, true
       b.holder:Hide()
       self.slots[i] = b
@@ -426,11 +359,6 @@ function Rec:Warm()
       ns.RecMark(g)
       g:Hide()
       self.ghosts[i] = g
-    end
-    if not self.catchers[i] then
-      local c = makeCatcher(frame, i, self.slots, "recBag", "recSlot")
-      c:Hide()
-      self.catchers[i] = c
     end
   end
   if not self.clear then
@@ -461,10 +389,9 @@ function Rec:Hide()
   if self.label then self.label:Hide() end
   if self.clear then self.clear:Hide() end
   for i = 1, MAX_SLOTS do
-    local b, g, c = self.slots[i], self.ghosts[i], self.catchers[i]
+    local b, g = self.slots[i], self.ghosts[i]
     if b then b.holder:Hide(); b.recBag = nil end
     if g then g:Hide() end
-    if c then c:Hide() end
   end
 end
 
@@ -477,11 +404,18 @@ end
 function Rec:Feed(n)
   local out = {}
   if not self:PocketOn() then return out end
+  local ids = {}
   for i = 1, MAX_SLOTS do
-    if cells[i] then out[#out + 1] = cells[i] end
+    if cells[i] then ids[#ids + 1] = cells[i] end
   end
-  table.sort(out, function(a, b) return (seq[a] or 0) > (seq[b] or 0) end)
-  for i = #out, (tonumber(n) or 0) + 1, -1 do out[i] = nil end
+  -- Oldest first, the newest at the right, which is how the row reads in the bags: the two
+  -- windows show one list in one order, and only the window under it is different. Reading
+  -- this backwards is what put the newest at the left of the pocket while the bags put it
+  -- at the right.
+  table.sort(ids, function(a, b) return (seq[a] or 0) < (seq[b] or 0) end)
+  local cut = #ids - (tonumber(n) or 0)
+  if cut < 0 then cut = 0 end
+  for k = cut + 1, #ids do out[#out + 1] = ids[k] end
   return out
 end
 
@@ -538,7 +472,7 @@ function Rec:Apply(bags, x, top, size, gap)
   for i = 1, MAX_SLOTS do
     local id = (i <= n) and cells[i] or nil
     local bag, slot = id and locBag[id], id and locSlot[id]
-    local b, g, c = self.slots[i], self.ghosts[i], self.catchers[i]
+    local b, g = self.slots[i], self.ghosts[i]
     local px = x + (i - 1) * (size + gap)
     if id and bag and not b then self.cold = true end
     local live = (id and bag and b) and true or false
@@ -569,18 +503,6 @@ function Rec:Apply(bags, x, top, size, gap)
         g:Show()
       elseif g then
         g:Hide()
-      end
-    end
-    -- The overlay exists only where a live cell does. An empty cell of the row is a ghost
-    -- rather than a drop target, so it gets no overlay and answers no click.
-    if c then
-      if live then
-        ns.SnapBox(c, size, size)
-        c:ClearAllPoints()
-        ns.SnapPoint(c, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
-        c:Show()
-      else
-        c:Hide()
       end
     end
   end

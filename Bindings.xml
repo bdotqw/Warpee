@@ -2,4 +2,7 @@
   <Binding name="WARPEE_POCKET" category="Warpee">
     WarpeePocketToggle()
   </Binding>
+  <Binding name="WARPEE_UNPIN" category="Warpee">
+    WarpeeUnpin()
+  </Binding>
 </Bindings>

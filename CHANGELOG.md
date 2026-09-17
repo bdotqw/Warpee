@@ -1,5 +1,61 @@
 # Warpee
 
+## 9.0
+
+ENG
+
+New
+
+- Popular: Goblin Glider Kit and Void-Shrouded Tincture, the current invisibility potion
+- Conjured Mana Bun moved up to the food in Popular
+- Badges keep their share of the cell in every window: tune once in bags, bank, warband, guild bank and pocket follow; the editor shows what each window gets
+- Recent is the slot itself again, in bags and in the pocket: left click, drag, right click, the link and the dress-up shortcut all behave the way they do in the grid
+- Ctrl-click a pin cell to try the item on, through the same branch the grid reaches
+
+Removed
+
+- Plain Royal Roast left Popular, Hearty stays
+
+Fixes
+
+- Short gold format truncates down: 2.5K now means at least 2500
+- Switching dropdowns takes one click: opening another list no longer eats the first click
+- An open list no longer slips behind the settings window
+- Guild bank labels wear the game's yellow again: tab name, daily withdrawals, available amount
+- Remove pin refuses mouse buttons: the game eats them over pin cells, so the binding stays on Delete and any keyboard key
+- Middle-click a pin cell to remove it, unless middle is key-bound to something else
+- A pin tooltip names the key in full, "ALT + R" and not "A-R", and reads it while the tooltip is showing, so a fresh binding shows at once
+- Adding or swapping a pin redraws its tooltip on the spot instead of waiting for the pointer to leave the cell
+- The pocket's Recent row runs left to right like the bags', the newest at the right
+- The lines about pins are translated in all seven languages
+
+RU
+
+Новое
+
+- В Популярном — глайдер Goblin Glider Kit и актуальный инвиз-пот Void-Shrouded Tincture
+- Conjured Mana Bun встал рядом с едой в Популярном
+- Значки масштабируются вместе с ячейкой во всех окнах: настроил в сумках — банк, отряд, гильдбанк и карман подхватят; редактор показывает итог для каждого окна
+- «Недавнее» снова сам слот, и в сумках, и в кармане: левый клик, перетаскивание, правый клик, ссылка и примерка ведут себя как в сетке
+- Ctrl+клик по ячейке пина примеряет предмет, через ту же ветку, что и в сетке
+
+Убрано
+
+- Обычный Royal Roast ушёл из Популярного, остался Hearty
+
+Исправления
+
+- Краткий формат золота показывает не больше, чем есть: «2,5к» — это минимум 2500
+- Списки переключаются с первого клика: открытие другого списка больше не съедает клик
+- Открытый список больше не уезжает за окно настроек
+- Надписи гильдбанка снова жёлтые, как в игре: имя вкладки, дневной вывод, доступная сумма
+- «Снять пин» не берёт кнопки мыши: игра съедает их над ячейками, остаются Delete и любая клавиша клавиатуры
+- Средний клик по ячейке пина снимает его, если средняя не занята другим биндом
+- Тултип пина называет клавишу целиком, «ALT + R», а не «A-R», и читает её в момент показа, так что новый бинд виден сразу
+- Новый или заменённый предмет в ячейке пина обновляет тултип на месте, без того чтобы уводить мышь
+- «Недавнее» в кармане идёт слева направо, как в сумках, новое справа
+- Строки про пины переведены на все семь языков
+
 ## 8.0
 
 ENG

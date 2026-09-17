@@ -164,7 +164,15 @@ end
 local function tip(frame, text)
   if not text then return end
   if frame.EnableMouse then frame:EnableMouse(true) end
-  ns.AddTip(frame, function() return T(text) end, "top")
+  ns.AddTip(frame, function() return (type(text) == "function") and text() or T(text) end, "top")
+end
+
+local function pinHint(bound, unbound)
+  return function()
+    local name = ns.PinKeyName()
+    if not name then return T(unbound) end
+    return (T(bound)):format(name)
+  end
 end
 
 local fonts = {}
@@ -231,6 +239,10 @@ bg.sGet = bg.getter("s")
 bg.sSet = function(v)
   local g = bg.cur()
   g.s = v
+  -- The number in the field is pixels in the cell this page draws against, so that is the cell
+  -- it is written for. Spelling it out here keeps the pair honest even if the field is reached
+  -- before the badge has been through a paint.
+  if bg.isText() then g.ref = bg.cell() end
   bg.bump()
   local x, y = bg.pin("x", g.x), bg.pin("y", g.y)
   if x ~= g.x or y ~= g.y then g.x, g.y = x, y; bg.bump() end
@@ -248,6 +260,103 @@ bg.clamp   = function(v)
   if v > bg.max then return bg.max elseif v < -bg.max then return -bg.max end
   return v
 end
+-- The cell the editor draws against and the cell the badge numbers are stored for. It is the
+-- bags, and it is read the same way the grid reads it, so a badge dragged here is drawn where
+-- the grid will draw it: a number written against one cell and drawn in another is how the
+-- two come apart.
+bg.cell = function()
+  return (Bags and Bags.pxSize) or (Bags and Bags.iconSize) or ns.DEFAULT_CELL
+end
+
+local function bagsCell() return bg.cell() end
+local function bankCell(mode)
+  local V = ns.Bank
+  local st = V and V.state and V.state[mode]
+  if st and (st.iconSize or 0) > 0 then return st.iconSize end
+  if V and V.CellSize then return V:CellSize() end
+  return ns.DEFAULT_CELL
+end
+local function pocketCell()
+  return (WarpeeDB and tonumber(WarpeeDB.pocketIconSize))
+         or (Bags and Bags.iconSize) or ns.DEFAULT_CELL
+end
+
+-- The windows a badge has to read the same way in. The guild bank reads its cell off its own
+-- live buttons, which the skin measures as it dresses them; until one is measured there is no
+-- number to quote and the window stays out of the line.
+local function guildCell()
+  local S = ns.GuildBankSkin
+  local h = S and S.guildCell
+  if h and h > 0 then return h end
+end
+bg.windows = {
+  { n = "Bags",    cell = bagsCell },
+  { n = "Bank",    cell = function() return bankCell("bank") end },
+  { n = "Warband", cell = function() return bankCell("warband") end },
+  { n = "Pocket",  cell = pocketCell },
+  { n = "Guild bank", cell = guildCell },
+}
+
+-- The editor draws a badge against the bags and stores what it drew, so the cell those numbers
+-- are written for is the bags' cell. When the bags have moved since the badge was last touched,
+-- say it again in the new cell. This changes no pixels: round(round(s * B / ref) * B / B) is
+-- already what the grid was drawing, so nothing has to be repainted and nothing on screen
+-- moves. It is done on every paint rather than when the page opens, because the bags can be
+-- resized from another page while this one is the page being looked at.
+bg.normalize = function()
+  local B = bg.cell()
+  if not (B and B > 0) then return end
+  for _, d in ipairs(ns.BADGES) do
+    if not d.tex then
+      local g = ns.Badge(d.key)
+      local ref = ns.BadgeRef(d, g)
+      if ref ~= B then
+        local k = B / ref
+        g.x = math.floor((g.x or 0) * k + 0.5)
+        g.y = math.floor((g.y or 0) * k + 0.5)
+        g.s = math.floor((tonumber(g.s) or d.s) * k + 0.5)
+        g.ref = B
+      end
+    end
+  end
+end
+
+-- What the badge works out to in each window, through the same helper the grid draws with, so
+-- the number the panel promises is the number that lands on the cell. The floor is called out
+-- where it is what decided the size, since that is the one place the badge stops following the
+-- share of the cell the rest of this page is about.
+bg.hintText = function()
+  if bg.isTex() then return "" end
+  local key = bg.sel
+  -- The cell is what the line shows and the pixels are what the badge will be, and two windows
+  -- whose cells round to the same number can still land on different pixels: each grid snaps to
+  -- its own pixel unit, so 36.0 and 35.56 both read as 36 and do not draw alike. The group is
+  -- the pair, so a line only ever promises a number that every window under it draws.
+  local function at(cell)
+    local shown = math.floor(cell + 0.5)
+    local px, floored = ns.BadgeSize(key, cell)
+    return ("%d:%d"):format(shown, px), shown, px, floored
+  end
+  local seen, parts = {}, {}
+  for _, w in ipairs(bg.windows) do
+    local cell = w.cell()
+    if cell and cell > 0 then
+      local bucket, shown, px, floored = at(cell)
+      if not seen[bucket] then
+        seen[bucket] = true
+        local names = {}
+        for _, w2 in ipairs(bg.windows) do
+          local c2 = w2.cell()
+          if c2 and c2 > 0 and at(c2) == bucket then names[#names + 1] = T(w2.n) end
+        end
+        parts[#parts + 1] = ("%s (%d): %dpx%s"):format(table.concat(names, ", "), shown, px,
+          floored and (" " .. T("(min)")) or "")
+      end
+    end
+  end
+  return table.concat(parts, "   ")
+end
+
 bg.shown = function()
   local n = 0
   for _, d in ipairs(ns.BADGES) do if ns.Badge(d.key).on then n = n + 1 end end
@@ -365,7 +474,11 @@ local function ensureDropdown()
   catcher:SetScript("OnClick", function()
     local owner = dropdown and dropdown.owner
     closeDropdown()
-    local f = GetMouseFocus and GetMouseFocus()
+    local f
+    if GetMouseFoci then
+      local foci = GetMouseFoci()
+      f = (type(foci) == "table") and foci[1] or nil
+    end
     if f and f ~= owner and f.wpeDrop and (not f.IsEnabled or f:IsEnabled()) then
       ns.OpenDropdown(f, f.wpeDrop.spec, f.wpeDrop.onPick)
     end
@@ -731,6 +844,7 @@ function factories.keybind(parent, spec)
   btn:SetScript("OnHide", stop)
   row:SetScript("OnHide", stop)
   tip(row, spec.desc)
+  tip(btn, "Right-click to unbind")
   paint()
   return row
 end
@@ -1315,6 +1429,9 @@ function factories.badges(parent, spec)
   local readout = track(Theme:Label(row, BASE_FONT - 1, "accentInk"), -1)
   readout:SetJustifyH("LEFT")
 
+  local hint = track(Theme:Label(row, BASE_FONT - 3, "dim"), -3)
+  hint:SetJustifyH("LEFT")
+
   local art, chips = {}, {}
   for _, d in ipairs(ns.BADGES) do
     if d.tex then
@@ -1326,7 +1443,7 @@ function factories.badges(parent, spec)
     end
   end
 
-  local function factor() return PREV / (Bags.iconSize or 40) end
+  local function factor() return PREV / bg.cell() end
 
   local function measure(key)
     local d = ns.BADGE[key] or ns.BADGES[1]
@@ -1377,6 +1494,7 @@ function factories.badges(parent, spec)
   end
 
   local function paint()
+    bg.normalize()
     local f, solo = factor(), bg.soloGet()
     ns.SetBg(cell, Theme:C("panel"))
     ns.SetEdge(cell, Theme:C("stroke"))
@@ -1392,7 +1510,9 @@ function factories.badges(parent, spec)
         o:SetVertexColor(1, 1, 1, dim)
       else
         local cr, cg, cb = Theme:C("overlay")
-        ns.SetOutlined(o, math.max(6, math.floor((g.s or d.s) * f + 0.5)))
+        -- Through the same helper the grid draws with, so the preview shows the floor where
+        -- the floor is what decides the size. It is magnified by f, not drawn at f.
+        ns.SetOutlined(o, math.floor(ns.BadgeSize(d.key, bg.cell(), g) * f + 0.5))
         o:SetText(ns.BadgeSample(d.key) or d.key)
         o:SetTextColor(cr, cg, cb, dim)
       end
@@ -1418,6 +1538,7 @@ function factories.badges(parent, spec)
     readout:SetText(("%s\nx %d\ny %d")
       :format(T(ANCHOR_LABELS[g.c] or g.c), g.x or 0, g.y or 0))
     readout:SetTextColor(Theme:C("accentInk"))
+    hint:SetText(bg.hintText())
     for _, c in ipairs(chips) do paintChip(c) end
   end
 
@@ -1549,7 +1670,14 @@ function factories.badges(parent, spec)
       math.floor((CONTENT_W - PREV) / 2), -(h + 16))
     readout:ClearAllPoints()
     readout:SetPoint("LEFT", row, "TOPLEFT", 2, -(h + 16 + PREV / 2))
+    hint:ClearAllPoints()
+    hint:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -(h + 16 + PREV + 3))
+    hint:SetWidth(CONTENT_W)
     paint()
+    local hh = 0
+    if (hint:GetText() or "") ~= "" then
+      hh = math.max(14, math.ceil(hint:GetStringHeight() or 14))
+    end
     local moved = false
     for _, d in ipairs(ns.BADGES) do
       local g = ns.Badge(d.key)
@@ -1557,7 +1685,7 @@ function factories.badges(parent, spec)
       if x ~= g.x or y ~= g.y then g.x, g.y = x, y; moved = true end
     end
     if moved then bg.bump() end
-    row:SetHeight(h + PREV + 26)
+    row:SetHeight(h + PREV + 18 + hh)
   end
   row.Rebuild = row.Refresh
   bg.repaint = paint
@@ -1705,7 +1833,11 @@ local function makeScrollArea(parent, list)
 end
 
 local colsGet, colsSet       = field("cols")
-local sizeGet, sizeSet       = field("iconSize")
+local sizeGet, bagSizeSet    = field("iconSize")
+-- A window's cell is what its badges are sized against, so a window that lands on a new one
+-- has to reach them and not just its own grid. The bump comes first: the restyle that follows
+-- is the pass that dresses them, and it reads the counter on its way through.
+local function sizeSet(v) ns.BumpCellSize(); bagSizeSet(v) end
 local gapGet, gapSet         = field("gap")
 local styleGet, styleSet     = styleField("slotStyle")
 local fontGet, fontSet       = styleField("font")
@@ -1780,6 +1912,7 @@ fav.pkSizeGet = function()
 end
 fav.pkSizeSet = function(v)
   WarpeeDB.pocketIconSize = tonumber(v) or 40
+  ns.BumpCellSize()
   if ns.Pocket then ns.Pocket:Refresh() end
 end
 local lettersGet, lettersSet = field("goldLetters")
@@ -1798,7 +1931,8 @@ local qColorGet, qColorSet   = styleField("qualityColorIlvl")
 local qBorderGet, qBorderSet = styleField("qualityBorder")
 local bankColsGet, bankColsSet = dbField("bankCols")
 local wbColsGet, wbColsSet     = dbField("warbandCols")
-local bankSizeGet, bankSizeSet = dbField("bankIconSize")
+local bankSizeGet, bankIconSizeSet = dbField("bankIconSize")
+local function bankSizeSet(v) ns.BumpCellSize(); bankIconSizeSet(v) end
 
 local function anchorKeys() return ANCHORS end
 local function anchorLabel(k) return ANCHOR_LABELS[k] or k end
@@ -1883,7 +2017,9 @@ local GENERAL_PAGE = {
 local POCKET_PAGE = {
   { type = "header", name = "Pocket" },
   { type = "toggle", name = "Pocket window", col = 1, get = fav.pkGet, set = fav.pkSet,
-    desc = "A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one." },
+    desc = pinHint(
+      "A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and hovering a cell and pressing %s empties it.",
+      "A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and a cell under the pointer can be emptied with a key of its own." ) },
   { type = "toggle", name = "Open with bags", col = 2, get = fav.pkWithGet, set = fav.pkWithSet,
     disabled = function() return not fav.pkGet() end,
     desc = "The pocket opens together with the bags. A window that opens the bags on its own, the auction house or the mail, pushes the pocket aside until you open it yourself." },
@@ -2020,7 +2156,11 @@ local GRID_PAGE = {
     get = fav.recentBagsGet, set = fav.recentBagsSet,
     desc = "A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload." },
   { type = "toggle", name = "Favorite slots", col = 2, get = fav.showGet, set = fav.showSet,
-    desc = "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot." },
+    desc = pinHint(
+      "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; hovering a slot and pressing %s clears it.",
+      "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; a slot under the pointer can be cleared with a key of its own." ) },
+  { type = "keybind", name = "Remove pin", binding = "WARPEE_UNPIN",
+    desc = "The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels." },
   { type = "header", name = "Bank and Warband grid", key = "bankgrid",
     state = function() return (L["%d and %d wide"]):format(bankColsGet(), wbColsGet()) end },
   { type = "description", section = "bankgrid",

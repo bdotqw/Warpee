@@ -65,14 +65,20 @@ local function favSound(kind, bag, slot)
 end
 ns.ItemSound = favSound
 
-local deferred = false
+local deferred, tipDirty = false, false
 
-local function later()
+-- The tooltip is rebuilt only when a pin changed, never on a plain refresh: this runs on
+-- every list write, and a tooltip set under the cursor on each of them would blink. The
+-- placement is a frame late, so the rebuild waits for it: by then the cursor has let go of
+-- the item and IsMouseOver answers about the cell instead of about a drag still in flight.
+local function later(tip)
+  if tip then tipDirty = true end
   if deferred then return end
   deferred = true
   C_Timer.After(0, function()
     deferred = false
     Fav:Refresh()
+    if tipDirty then tipDirty = false; Fav:Tip() end
   end)
 end
 
@@ -157,11 +163,23 @@ local function tipFor(c, index)
   GameTooltip:Show()
 end
 
+-- A pin that lands or moves changes what the cell under the pointer is showing, and the
+-- placement itself is a frame late, so the tooltip is rebuilt after the refresh and not at
+-- the moment of the change: by then the cursor has let go of the item, and IsMouseOver
+-- answers about the cell instead of about a drag still in flight.
+function Fav:Tip()
+  for i = 1, (self.max or 0) do
+    local c = self.catchers[i]
+    if c and c:IsShown() and c:IsMouseOver() then tipFor(c, i) end
+  end
+end
+
 -- The overlay owns the left button for good and passes the right button down to the
 -- slot, so a right click reaches the game's handler with no addon code in the path.
 -- SetPassThroughButtons is refused during combat lockdown, so it is set here, once,
--- and never touched again. That is why clearing a slot lives on Ctrl + left click:
--- taking the right button back would mean calling it again mid fight.
+-- and never touched again. Emptying a slot is on a key rather than on a fourth modifier,
+-- because Ctrl is the game's own dress-up and this cell can have it back: the overlay hands
+-- the modified click to HandleModifiedItemClick, which is the same branch the grid reaches.
 -- The overlay must never finish a pending item spell itself: C_Container.UseContainerItem
 -- from addon code is refused as ADDON_ACTION_FORBIDDEN, traceback 2026-09-05. An enchant
 -- or a gem lands only in the bag grid: the game runs that from the left button of its
@@ -169,7 +187,7 @@ end
 local function makeCatcher(parent, index)
   local c = CreateFrame("Button", nil, parent)
   c.favIndex = index
-  c:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  c:RegisterForClicks("LeftButtonUp", "MiddleButtonUp", "RightButtonUp")
   c:RegisterForDrag("LeftButton")
   c:SetFrameLevel(parent:GetFrameLevel() + 30)
   c:EnableMouse(true)
@@ -178,6 +196,12 @@ local function makeCatcher(parent, index)
   c:SetScript("OnDragStop", function() Fav:Drop() end)
   c:SetScript("OnReceiveDrag", function(s) Fav:PinFromCursor(s.favIndex) end)
   c:SetScript("OnClick", function(s, button)
+    if button == "MiddleButton" then
+      -- Direct click, not a binding: mouse chords never reach us, and a
+      -- key-bound middle keeps its owner.
+      if (GetBindingAction("BUTTON3") or "") == "" then Fav:Unpin(s.favIndex) end
+      return
+    end
     if button ~= "LeftButton" then return end
     if GetCursorInfo() then
       Fav:PinFromCursor(s.favIndex)
@@ -191,9 +215,12 @@ local function makeCatcher(parent, index)
       Fav:Lock(s.favIndex)
       return
     end
-    if IsControlKeyDown() and not (IsShiftKeyDown() or IsAltKeyDown()) then
-      Fav:Set(s.favIndex, nil)
-      tipFor(s, s.favIndex)
+    -- The cell wears a live slot when the item is with you and a ghost when it is not, and
+    -- the location comes off the cell either way: a ghost carries none and the shared call
+    -- falls back to the link.
+    if IsModifiedClick("DRESSUP") then
+      local b = Fav.slots[s.favIndex]
+      ns.PinDressUp(b and b.favBag, b and b.favSlot, Fav:List()[s.favIndex])
     end
   end)
   c:SetScript("OnEnter", function(s)
@@ -206,6 +233,7 @@ local function makeCatcher(parent, index)
     if b then ns.SetSlotHighlight(b, false) end
     GameTooltip:Hide()
   end)
+  ns.PinWatch(c, function() Fav:Unpin(index) end)
   return c
 end
 
@@ -231,7 +259,12 @@ function Fav:Set(index, pin)
   end
   list[index] = pin or nil
   locsDirty = true
-  later()
+  later(true)
+end
+
+function Fav:Unpin(index)
+  if not self:List()[index] then return end
+  self:Set(index, nil)
 end
 
 function Fav:Lock(index)
@@ -255,6 +288,7 @@ function Fav:Lift(index)
   f:SetSize(sz, sz)
   f.icon:SetTexture(ns.PinIcon(ns.ItemStubID(pin)))
   f:Show()
+  GameTooltip:Hide()
 end
 
 function Fav:Drop()
@@ -270,8 +304,8 @@ function Fav:Drop()
     local c = self.catchers[i]
     if i ~= from and c and c:IsShown() and c:IsMouseOver() then
       list[from], list[i] = list[i], list[from]
-      later()
-      return
+      later(true)
+      break
     end
   end
 end

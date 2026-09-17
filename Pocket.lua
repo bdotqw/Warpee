@@ -4,7 +4,7 @@ local Theme = ns.Theme
 local Pocket = {}
 ns.Pocket = Pocket
 Pocket.slots, Pocket.ghosts, Pocket.catchers = {}, {}, {}
-Pocket.recSlots, Pocket.recGhosts, Pocket.recCatchers = {}, {}, {}
+Pocket.recSlots, Pocket.recGhosts = {}, {}
 
 local PAD, BAND = 12, 26
 local NUDGE_BAND = 24
@@ -36,10 +36,11 @@ local POCKET_PICKS = {
   248137, -- M3DDY
   269586, -- Emergency Soul Link
   248486, -- Emergency Soul Link
+  109076, -- Goblin Glider Kit
   272195, -- Vantus Rune: Tides
   243734, -- Thalassian Phoenix Oil
+  113509, -- Conjured Mana Bun
   242747, -- Hearty Royal Roast
-  242275, -- Royal Roast
   271884, -- Concentrated Silvermoon Health Potion
   271883, -- Concentrated Silvermoon Health Potion
   241300, -- Lightfused Mana Potion
@@ -69,6 +70,8 @@ local POCKET_PICKS = {
   241320, -- Flask of Thalassian Resistance
   241321, -- Flask of Thalassian Resistance
   245926, -- Fleeting Flask of Thalassian Resistance
+  241302, -- Void-Shrouded Tincture
+  241303, -- Void-Shrouded Tincture
   241334, -- Vicious Thalassian Flask of Honor
 }
 
@@ -150,14 +153,20 @@ local function worn(pin)
   return ns.PinWorn(pin, pins)
 end
 
-local deferred = false
+local deferred, tipDirty = false, false
 
-local function later()
+-- The tooltip is rebuilt only when a pin changed, never on a plain refresh: this runs on
+-- every list write, and a tooltip set under the cursor on each of them would blink. The
+-- placement is a frame late, so the rebuild waits for it: by then the cursor has let go of
+-- the item and IsMouseOver answers about the cell instead of about a drag still in flight.
+local function later(tip)
+  if tip then tipDirty = true end
   if deferred then return end
   deferred = true
   C_Timer.After(0, function()
     deferred = false
     Pocket:Refresh()
+    if tipDirty then tipDirty = false; Pocket:Tip() end
   end)
 end
 
@@ -208,10 +217,23 @@ local function tipFor(c, index)
   GameTooltip:Show()
 end
 
+-- A pin that lands or moves changes what the cell under the pointer is showing, and the
+-- placement itself is a frame late, so the tooltip is rebuilt after the refresh and not at
+-- the moment of the change: by then the cursor has let go of the item, and IsMouseOver
+-- answers about the cell instead of about a drag still in flight.
+function Pocket:Tip()
+  for i = 1, (self.max or 0) do
+    local c = self.catchers[i]
+    if c and c:IsShown() and c:IsMouseOver() then tipFor(c, i) end
+  end
+end
+
 -- The overlay owns the left button for good and passes the right button down to the
 -- slot, so a right click reaches the game's handler with no addon code in the path.
 -- SetPassThroughButtons is refused during combat lockdown, so it is set here, once,
--- and never touched again. That is why clearing a cell lives on Ctrl + left click.
+-- and never touched again. Emptying a cell is on a key rather than on a fourth modifier,
+-- because Ctrl is the game's own dress-up and this cell can have it back: the overlay hands
+-- the modified click to HandleModifiedItemClick, which is the same branch the grid reaches.
 -- The overlay must never finish a pending item spell itself: C_Container.UseContainerItem
 -- from addon code is refused as ADDON_ACTION_FORBIDDEN, traceback 2026-09-05. An enchant
 -- or a gem lands only in the bag grid: the game runs that from the left button of its
@@ -219,7 +241,7 @@ end
 local function makeCatcher(parent, index)
   local c = CreateFrame("Button", nil, parent)
   c.pkIndex = index
-  c:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  c:RegisterForClicks("LeftButtonUp", "MiddleButtonUp", "RightButtonUp")
   c:RegisterForDrag("LeftButton")
   c:SetFrameLevel(parent:GetFrameLevel() + 30)
   c:EnableMouse(true)
@@ -228,6 +250,12 @@ local function makeCatcher(parent, index)
   c:SetScript("OnDragStop", function() Pocket:Drop() end)
   c:SetScript("OnReceiveDrag", function(s) Pocket:PinFromCursor(s.pkIndex) end)
   c:SetScript("OnClick", function(s, button)
+    if button == "MiddleButton" then
+      -- Direct click, not a binding: mouse chords never reach us, and a
+      -- key-bound middle keeps its owner.
+      if (GetBindingAction("BUTTON3") or "") == "" then Pocket:Unpin(s.pkIndex) end
+      return
+    end
     if button ~= "LeftButton" then return end
     if GetCursorInfo() then
       Pocket:PinFromCursor(s.pkIndex)
@@ -241,9 +269,12 @@ local function makeCatcher(parent, index)
       Pocket:Lock(s.pkIndex)
       return
     end
-    if IsControlKeyDown() and not (IsShiftKeyDown() or IsAltKeyDown()) then
-      Pocket:Set(s.pkIndex, nil)
-      tipFor(s, s.pkIndex)
+    -- The cell wears a live slot when the item is with you and a ghost when it is not, and
+    -- the location comes off the cell either way: a ghost carries none and the shared call
+    -- falls back to the link.
+    if IsModifiedClick("DRESSUP") then
+      local b = Pocket.slots[s.pkIndex]
+      ns.PinDressUp(b and b.pkBag, b and b.pkSlot, Pocket:List()[s.pkIndex])
     end
   end)
   c:SetScript("OnEnter", function(s)
@@ -256,6 +287,7 @@ local function makeCatcher(parent, index)
     if b then ns.SetSlotHighlight(b, false) end
     GameTooltip:Hide()
   end)
+  ns.PinWatch(c, function() Pocket:Unpin(index) end)
   return c
 end
 
@@ -281,7 +313,12 @@ function Pocket:Set(index, pin)
   end
   list[index] = pin or nil
   keyDirty = true
-  later()
+  later(true)
+end
+
+function Pocket:Unpin(index)
+  if not self:List()[index] then return end
+  self:Set(index, nil)
 end
 
 function Pocket:Lock(index)
@@ -305,6 +342,7 @@ function Pocket:Lift(index)
   f:SetSize(sz, sz)
   f.icon:SetTexture(ns.PinIcon(ns.ItemStubID(pin)))
   f:Show()
+  GameTooltip:Hide()
 end
 
 function Pocket:Drop()
@@ -320,8 +358,8 @@ function Pocket:Drop()
     local c = self.catchers[i]
     if i ~= from and c and c:IsShown() and c:IsMouseOver() then
       list[from], list[i] = list[i], list[from]
-      later()
-      return
+      later(true)
+      break
     end
   end
 end
@@ -594,9 +632,11 @@ function Pocket:Warm()
   local m = self:Cols()
   for i = 1, m do
     if not self.recSlots[i] then
+      -- The same cells the bag row draws, and the pocket had them a button short of
+      -- it: the factory registers both mouse buttons and the drag, and this row wants
+      -- all three now that the cell answers for itself.
       local b = ns.CreateItemButton(w, 0, 1)
-      b:RegisterForClicks(unpack(ns.CLICKS_USE))
-      b.wpeClicks, b.wpeLockable, b.wpeTotal = ns.CLICKS_USE, nil, nil
+      b.wpeClicks, b.wpeLockable, b.wpeTotal = ns.CLICKS_SLOT, nil, nil
       b.wpeNoNew, b.wpeNoReagent = true, true
       b.holder:Hide()
       self.recSlots[i] = b
@@ -608,11 +648,6 @@ function Pocket:Warm()
       ns.RecMark(g)
       g:Hide()
       self.recGhosts[i] = g
-    end
-    if not self.recCatchers[i] then
-      local c = ns.Recent:NewCatcher(w, i, self.recSlots, "pkBag", "pkSlot")
-      c:Hide()
-      self.recCatchers[i] = c
     end
   end
   self.cold = nil
@@ -691,7 +726,9 @@ function Pocket:Layout()
     self.recWipe:SetOn(feed[1] and true or false)
     self.recWipe:Show()
     for i = 1, math.max(cols, self.recMax or 0) do
-      local b, g, c = self.recSlots[i], self.recGhosts[i], self.recCatchers[i]
+      local b, g = self.recSlots[i], self.recGhosts[i]
+      if b then b.wpeCell = size end
+      if g then g.wpeCell = size end
       local id = (i <= cols) and feed[i] or nil
       local bag, slot = R:Where(id)
       if id and bag and not b then self.cold = true end
@@ -724,18 +761,6 @@ function Pocket:Layout()
           g:Hide()
         end
       end
-      -- The same overlay the bag row carries, on the same terms: it exists only where a live
-      -- cell does, and an empty cell of the row is a ghost with no click of its own.
-      if c then
-        if live then
-          ns.SnapBox(c, size, size)
-          c:ClearAllPoints()
-          ns.SnapPoint(c, "TOPLEFT", w, "TOPLEFT", PAD + (i - 1) * step, -y)
-          c:Show()
-        else
-          c:Hide()
-        end
-      end
     end
     self.recMax = cols
     y = y + size + SPLIT
@@ -743,10 +768,9 @@ function Pocket:Layout()
     self.recLabel:Hide()
     self.recWipe:Hide()
     for i = 1, (self.recMax or 0) do
-      local b, g, c = self.recSlots[i], self.recGhosts[i], self.recCatchers[i]
+      local b, g = self.recSlots[i], self.recGhosts[i]
       if b then b.holder:Hide(); b.pkBag, b.wpeForce = nil, nil end
       if g then g:Hide() end
-      if c then c:Hide() end
     end
   end
 
@@ -770,6 +794,11 @@ function Pocket:Layout()
       if key then seen[key] = true end
       local px = PAD + ((i - 1) % cols) * step
       local py = gridTop + math.floor((i - 1) / cols) * step
+      -- The badges of this window are measured against its own cell. The pocket has a size of
+      -- its own and its cells belong to no view the badge reader could ask, so without this a
+      -- pocket set to another size would draw its badges at the bags' measure.
+      if b then b.wpeCell = size end
+      if g then g.wpeCell = size end
       local bag, slot = locate(pin)
       if bag and not b then self.cold = true end
       local live = (bag and b) and true or false

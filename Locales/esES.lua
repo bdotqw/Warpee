@@ -337,6 +337,7 @@ local STRINGS = {
   ["BAGS"] = "BOLSAS",
   ["WARBAND BANK"] = "BANCO DE BANDA GUERRERA",
   ["ON HAND"] = "EN MANO",
+  ["(min)"] = "(mín.)",
   ["Warband"] = "Banda guerrera",
   ["Everything"] = "Todo",
   ["Tab %d"] = "Pestaña %d",
@@ -413,14 +414,21 @@ local STRINGS = {
   ["Already in the pocket"] = "Ya en el bolsillo",
   ["Clear"] = "Vaciar",
   ["Equipped"] = "Equipado",
-  ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and Ctrl + left click empties one."] =
-    "Una pequeña ventana de casillas marcadas junto a las bolsas, abierta con el botón de rejilla de la cabecera. Arrastra un objeto a una casilla y la casilla lo mantiene, dondequiera que se mueva en tus bolsas. Arrastrar una casilla sobre otra las intercambia, y Ctrl + clic izquierdo vacía una.",
+  ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and hovering a cell and pressing %s empties it."] =
+    "Una pequeña ventana de casillas marcadas junto a las bolsas, abierta con el botón de rejilla de la cabecera. Arrastra un objeto a una casilla y la casilla lo mantiene, dondequiera que se mueva en tus bolsas. Arrastrar una casilla sobre otra las intercambia, y con el cursor sobre una casilla, %s la vacía.",
+  ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and a cell under the pointer can be emptied with a key of its own."] =
+    "Una pequeña ventana de casillas marcadas junto a las bolsas, abierta con el botón de rejilla de la cabecera. Arrastra un objeto a una casilla y la casilla lo mantiene, dondequiera que se mueva en tus bolsas. Arrastrar una casilla sobre otra las intercambia, y una casilla bajo el puntero se puede vaciar con una tecla propia.",
   ["Favorite slots"] = "Espacios favoritos",
-  ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away, Ctrl + left click clears a slot."] =
-    "Una fila de espacios sobre la cuadrícula, siempre a la vista. Arrastra un objeto a uno de ellos para tenerlo a un clic; Ctrl + clic izquierdo vacía un espacio.",
+  ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; hovering a slot and pressing %s clears it."] =
+    "Una fila de espacios sobre la cuadrícula, siempre a la vista. Arrastra un objeto a uno de ellos para tenerlo a un clic; con el cursor sobre un espacio, %s lo vacía.",
+  ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; a slot under the pointer can be cleared with a key of its own."] =
+    "Una fila de espacios sobre la cuadrícula, siempre a la vista. Arrastra un objeto a uno de ellos para tenerlo a un clic; un espacio bajo el puntero se puede vaciar con una tecla propia.",
   ["Drag an item here to keep it one click away"] =
     "Arrastra un objeto aquí para tenerlo a un clic",
-  ["Ctrl + left click clears the slot"] = "Ctrl + clic izquierdo vacía el espacio",
+  ["Press %s to clear the slot"] = "Pulsa %s para vaciar el espacio",
+  ["Press %s or middle-click to clear the slot"] = "Pulsa %s o haz clic con el botón central del ratón para vaciar el espacio",
+  ["Middle-click to clear the slot"] = "El botón central del ratón vacía el espacio",
+  ["Bind a key to clear the slot"] = "Asigna una tecla para vaciar el espacio",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."] =
     "El bolsillo es una pequeña ventana de casillas marcadas junto a las bolsas. Ábrelo con %s o con el botón de rejilla de la cabecera.",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."] =
@@ -464,6 +472,11 @@ local STRINGS = {
   ["ilvl %d-%d"] = "niv. objeto %d-%d",
   ["ilvl %d+"] = "niv. objeto %d+",
   ["ilvl <%d"] = "niv. objeto <%d",
+  ["Remove pin"] = "Quitar marcador",
+  ["Right-click to unbind"] = "Clic derecho para desasignar",
+  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Your keyboard key still works, only the mouse one is cleared."] = "«Quitar marcador» no puede usar botones del ratón, el juego se los come encima de las casillas. La tecla del teclado sigue funcionando, solo se ha quitado la del ratón.",
+  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Nothing is bound now, pick any keyboard key in the key settings."] = "«Quitar marcador» no puede usar botones del ratón, el juego se los come encima de las casillas. Ahora no hay nada asignado, elige cualquier tecla del teclado en los ajustes de teclas.",
+  ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "La tecla que vacía una casilla de favoritos o del bolsillo bajo el puntero. Haz clic y luego pulsa una tecla, un botón del ratón o la rueda; el clic derecho borra la asignación, Escape cancela.",
 }
 
 ns.AddLocale("esES", "Spanish", {
