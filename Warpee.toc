@@ -1,6 +1,6 @@
 ## Interface: 120100
 ## Title: Warpee
-## Notes: Bag and bank windows with search filters, cross-character snapshots and a themed guild bank.
+## Notes: Bags for farmers and alt collectors
 ## Author: Naavo
 ## Version: 9.0
 ## SavedVariables: WarpeeDB
@@ -8,6 +8,7 @@
 ## IconTexture: Interface\AddOns\Warpee\Media\Icons\logo.tga
 ## X-Curse-Project-ID: 1678202
 ## X-Wago-ID: n6VLb8Gd
+## X-License: All Rights Reserved
 
 Libs\LibStub.lua
 Libs\CallbackHandler-1.0.lua
