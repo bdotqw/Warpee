@@ -771,23 +771,23 @@ local function groupNumber(n, sep)
 end
 
 local function shortNumber(n)
-  n = math.floor((n or 0) + 0.5)
+  n = math.floor(n or 0)
   if n < 1000 then return tostring(n) end
   local form = ns.ShortForm()
   local units = form.units
   for i, u in ipairs(units) do
     local scale, suf = u[1], u[2]
     if n >= scale then
-      local r = math.floor(n / scale * 10 + 0.5) / 10
+      local r = math.floor(n / scale * 10 + 1e-9) / 10
       if r >= 1000 and i > 1 then
         scale, suf = units[i - 1][1], units[i - 1][2]
-        r = math.floor(n / scale * 10 + 0.5) / 10
+        r = math.floor(n / scale * 10 + 1e-9) / 10
       end
       if r == math.floor(r) then return string.format("%d%s", r, suf) end
       return (string.format("%.1f", r):gsub("%.", form.dec)) .. suf
     end
   end
-  return tostring(math.floor(n + 0.5))
+  return tostring(n)
 end
 
 function ns.FormatNumber(n)
