@@ -188,6 +188,20 @@ function ns.ApplyAll()
   if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
 end
 
+-- A pass that paints a whole bank is not a fixed number of cells, and a cell nobody has seen
+-- before costs a tooltip read on top of its paint, so the budget is time and not a count. A
+-- pass records the moment it started, and every caller that can afford to stop asks before
+-- it takes on more: the cost of a cell is whatever the moment makes it, so a count that
+-- fits one machine starves another.
+local BUDGET = 0.1
+local lastEntry = GetTimePreciseSec()
+function ns.ReportEntry()
+  lastEntry = GetTimePreciseSec()
+end
+function ns.OutOfTime()
+  return (GetTimePreciseSec() - lastEntry) > BUDGET
+end
+
 local function repaintItems()
   ns.ClearItemPaint()
   if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end

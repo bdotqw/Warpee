@@ -1125,8 +1125,28 @@ function View:Plan(st, size, cols, gap)
 end
 
 function View:Drip(st, tag, list, count, each, done)
-  for i = 1, count do each(list[i], i) end
-  if done then done() end
+  -- A slice per frame, measured in time rather than counted in cells, and for a reason: what a
+  -- cell costs is whatever its paint happens to need, and a vault nobody has seen yet pays for
+  -- a tooltip read on top of that. The whole plan in one call is more than the client sits
+  -- through, and it stops the pass with "script ran too long" and leaves the window half
+  -- drawn. The token drops a pass that a newer layout has already replaced.
+  local token = (st.dripToken or 0) + 1
+  st.dripToken = token
+  local i = 0
+  local function step()
+    if st.dripToken ~= token then return end
+    ns.ReportEntry()
+    while i < count and not ns.OutOfTime() do
+      i = i + 1
+      each(list[i], i)
+    end
+    if i < count then
+      C_Timer.After(0, step)
+      return
+    end
+    if done then done() end
+  end
+  step()
 end
 
 function View:Run(st, repaint, tag)

@@ -601,6 +601,7 @@ end
 
 function Bags:Layout(capture)
   applyDensity(self.iconSize)
+  ns.ReportEntry()
   self:Build()
   if not (self.frame and self.content and self.gaugeBg and self.gaugeFill
           and self.gridBg and self.money and self.reagentLabel) then return end

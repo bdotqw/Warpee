@@ -48,11 +48,9 @@ end
 
 -- Asking for a verdict costs a tooltip read, and a layout asks for one per cell: a full bank
 -- or a vault is hundreds of them inside one script, which is more than the client sits
--- through before it stops the pass with "script ran too long". A single pass is allowed a
--- handful of reads and the rest of the links wait their turn, so the answer arrives over the
--- next few frames and the cells are repainted once it has.
-local SCAN_QUOTA = 8
-local quota = SCAN_QUOTA
+-- through before it stops the pass with "script ran too long". So a pass only scans while it
+-- has time left, the rest of the links wait their turn, and the answer arrives over the next
+-- few frames with a single repaint once the queue is empty.
 local queue, queued, armed = {}, {}, false
 
 local drain
@@ -74,9 +72,9 @@ end
 
 drain = function()
   armed = false
-  quota = SCAN_QUOTA
+  ns.ReportEntry()
   local hit, done = false, 0
-  while done < #queue and quota > 0 do
+  while done < #queue and not ns.OutOfTime() do
     done = done + 1
     local e = queue[done]
     local bad
@@ -151,8 +149,7 @@ function ns.IsItemUnusable(bag, slot, link)
   if hit ~= nil then return hit end
   if not checkable(link) then keepVerdict(link, false); return false end
   if not (C_TooltipInfo and C_TooltipInfo.GetBagItem) then return false end
-  if quota <= 0 then askNextFrame(link, bag, slot); return false end
-  quota = quota - 1
+  if ns.OutOfTime() then askNextFrame(link, bag, slot); return false end
   local data = C_TooltipInfo.GetBagItem(bag, slot)
   if not (data and data.lines) then return false end
   local bad = scanRequirements(link, data)
@@ -166,8 +163,7 @@ function ns.IsLinkUnusable(link)
   if hit ~= nil then return hit end
   if not checkable(link) then keepVerdict(link, false); return false end
   if not (C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return false end
-  if quota <= 0 then askNextFrame(link); return false end
-  quota = quota - 1
+  if ns.OutOfTime() then askNextFrame(link); return false end
   local data = C_TooltipInfo.GetHyperlink(link)
   if not (data and data.lines) then return false end
   local bad = scanRequirements(link, data)
