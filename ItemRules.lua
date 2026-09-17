@@ -46,6 +46,58 @@ local function keepVerdict(link, bad)
   unusableCache[link] = bad
 end
 
+-- Asking for a verdict costs a tooltip read, and a layout asks for one per cell: a full bank
+-- or a vault is hundreds of them inside one script, which is more than the client sits
+-- through before it stops the pass with "script ran too long". A single pass is allowed a
+-- handful of reads and the rest of the links wait their turn, so the answer arrives over the
+-- next few frames and the cells are repainted once it has.
+local SCAN_QUOTA = 8
+local quota = SCAN_QUOTA
+local queue, queued, armed = {}, {}, false
+
+local drain
+
+local function askNextFrame(link, bag, slot)
+  local e = queued[link]
+  if e then
+    if bag and not e.bag then e.bag, e.slot = bag, slot end
+    return
+  end
+  e = { link = link, bag = bag, slot = slot }
+  queued[link] = e
+  queue[#queue + 1] = e
+  if not armed then
+    armed = true
+    C_Timer.After(0, drain)
+  end
+end
+
+drain = function()
+  armed = false
+  quota = SCAN_QUOTA
+  local hit, done = false, 0
+  while done < #queue and quota > 0 do
+    done = done + 1
+    local e = queue[done]
+    local bad
+    if e.bag then bad = ns.IsItemUnusable(e.bag, e.slot, e.link)
+    else bad = ns.IsLinkUnusable(e.link) end
+    if bad then hit = true end
+    queued[e.link] = nil
+  end
+  if done > 0 then
+    local rest = {}
+    for i = done + 1, #queue do rest[#rest + 1] = queue[i] end
+    queue = rest
+  end
+  if #queue > 0 then
+    armed = true
+    C_Timer.After(0, drain)
+  elseif hit and ns.RepaintSoon then
+    ns.RepaintSoon()
+  end
+end
+
 local function scanRequirements(link, data)
   local _, _, subType, equipLoc = C_Item.GetItemInfoInstant(link)
   local slotName = (equipLoc and equipLoc ~= "" and _G[equipLoc]) or nil
@@ -99,6 +151,8 @@ function ns.IsItemUnusable(bag, slot, link)
   if hit ~= nil then return hit end
   if not checkable(link) then keepVerdict(link, false); return false end
   if not (C_TooltipInfo and C_TooltipInfo.GetBagItem) then return false end
+  if quota <= 0 then askNextFrame(link, bag, slot); return false end
+  quota = quota - 1
   local data = C_TooltipInfo.GetBagItem(bag, slot)
   if not (data and data.lines) then return false end
   local bad = scanRequirements(link, data)
@@ -112,6 +166,8 @@ function ns.IsLinkUnusable(link)
   if hit ~= nil then return hit end
   if not checkable(link) then keepVerdict(link, false); return false end
   if not (C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return false end
+  if quota <= 0 then askNextFrame(link); return false end
+  quota = quota - 1
   local data = C_TooltipInfo.GetHyperlink(link)
   if not (data and data.lines) then return false end
   local bad = scanRequirements(link, data)

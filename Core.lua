@@ -204,6 +204,8 @@ local function repaintSoon()
   end)
 end
 
+ns.RepaintSoon = repaintSoon
+
 local repaintLate
 local function repaintLater()
   if repaintLate then return end
