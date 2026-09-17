@@ -429,8 +429,10 @@ local function openDropdown(anchor, spec, onPick)
   else
     m:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -2)
   end
+  m.catcher:SetFrameLevel(anchor:GetFrameLevel() + 1)
   m.catcher:Show()
   m:Show()
+  m:Raise()
 end
 
 ns.OpenDropdown = openDropdown
