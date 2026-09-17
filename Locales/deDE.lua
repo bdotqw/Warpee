@@ -417,14 +417,13 @@ local STRINGS = {
     "Eine Reihe Plätze über dem Raster, immer im Blick. Zieh einen Gegenstand darauf, um ihn mit einem Klick zu nutzen; ein Platz unter dem Zeiger lässt sich mit einer eigenen Taste leeren.",
   ["Drag an item here to keep it one click away"] =
     "Zieht einen Gegenstand hierher, um ihn mit einem Klick zu nutzen",
-  ["Press %s to clear the slot"] = "Drücke %s, um den Platz zu leeren",
+  ["%s clears the slot"] = "%s leert den Platz",
   ["Middle-click to clear the slot"] = "Die mittlere Maustaste leert den Platz",
   ["Bind a key to clear the slot"] = "Belege eine Taste, um den Platz zu leeren",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."] =
     "Die Ablage ist ein kleines Fenster mit Merkfeldern neben den Taschen. Öffne sie mit %s oder der Gitterschaltfläche in der Kopfzeile.",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."] =
     "Die Ablage ist ein kleines Fenster mit Merkfeldern neben den Taschen. Öffne sie über die Gitterschaltfläche in der Kopfzeile oder lege eine Taste in den Einstellungen fest.",
-  ["Drag moves it to another slot"] = "Ziehen verschiebt ihn auf einen anderen Platz",
   ["No gold recorded yet"] = "Noch kein Gold erfasst",
   ["Delete mode"] = "Löschmodus",
   ["Alt-click an item in your bags while this tab is open."] =

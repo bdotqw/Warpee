@@ -430,14 +430,13 @@ local STRINGS = {
     "Перетащите сюда предмет, чтобы использовать его в один клик",
   ["Remove pin"] = "Убрать пин",
   ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "Клавиша, освобождающая ячейку избранного или кармана под курсором. Нажмите кнопку, затем клавишу, кнопку мыши или колесо; правый клик очищает поле, Escape отменяет.",
-  ["Press %s to clear the slot"] = "Нажмите %s, чтобы освободить ячейку",
+  ["%s clears the slot"] = "%s освобождает ячейку",
   ["Middle-click to clear the slot"] = "Средняя кнопка мыши освобождает ячейку",
   ["Bind a key to clear the slot"] = "Назначьте клавишу, чтобы освобождать ячейку",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."] =
     "Карман — небольшое окно с ячейками-закладками рядом с сумками. Откройте его по %s или кнопкой-сеткой в шапке.",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."] =
     "Карман — небольшое окно с ячейками-закладками рядом с сумками. Откройте его кнопкой-сеткой в шапке или назначьте клавишу в настройках.",
-  ["Drag moves it to another slot"] = "Перетаскивание переносит в другую ячейку",
   ["No gold recorded yet"] = "Данных о золоте пока нет",
   ["Delete mode"] = "Режим удаления",
   ["Alt-click an item in your bags while this tab is open."] =

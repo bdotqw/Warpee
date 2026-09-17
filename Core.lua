@@ -740,16 +740,6 @@ local function itemTooltip(tt, data)
   if tt.wpeCounted then return end
   local drew = false
   if not (WarpeeDB and WarpeeDB.tipCounts == false) then drew = countRows(tt, id) end
-  if ownSlot(tt) then
-    local V = ns.Vendor
-    local locked = (V and V.Blocked and V:Blocked(id)) and true or false
-    local r, g, b = 0.5, 0.5, 0.5
-    if locked and V and V.IsOpen and V:IsOpen() then r, g, b = 1, 0.4, 0.4 end
-    if not drew then tt:AddLine(" ") end
-    tt:AddLine(TT(locked and "Locked from the vendor. Alt-click to unlock"
-                          or "Alt-click to lock it from the vendor"), r, g, b)
-    drew = true
-  end
   if pinSlot(tt) then
     if not drew then tt:AddLine(" ") end
     -- The key alone when there is one: it is the binding the player chose, and the middle
@@ -758,14 +748,23 @@ local function itemTooltip(tt, data)
     local name = ns.PinKeyName()
     local msg
     if name then
-      msg = TT("Press %s to clear the slot"):format(name)
+      msg = TT("%s clears the slot"):format(name)
     elseif (GetBindingAction("BUTTON3") or "") == "" then
       msg = TT("Middle-click to clear the slot")
     else
       msg = TT("Bind a key to clear the slot")
     end
     tt:AddLine(msg, 0.6, 0.6, 0.6)
-    tt:AddLine(TT("Drag moves it to another slot"), 0.6, 0.6, 0.6)
+    drew = true
+  end
+  if ownSlot(tt) then
+    local V = ns.Vendor
+    local locked = (V and V.Blocked and V:Blocked(id)) and true or false
+    local r, g, b = 0.5, 0.5, 0.5
+    if locked and V and V.IsOpen and V:IsOpen() then r, g, b = 1, 0.4, 0.4 end
+    if not drew then tt:AddLine(" ") end
+    tt:AddLine(TT(locked and "Locked from the vendor. Alt-click to unlock"
+                          or "Alt-click to lock it from the vendor"), r, g, b)
     drew = true
   end
   tt.wpeCounted = drew or nil

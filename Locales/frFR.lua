@@ -430,14 +430,13 @@ local STRINGS = {
     "Une rangée d'emplacements au-dessus de la grille, toujours visible. Glissez un objet dessus pour le garder à portée de clic ; un emplacement sous le curseur peut être vidé avec une touche dédiée.",
   ["Drag an item here to keep it one click away"] =
     "Glissez un objet ici pour l'avoir à portée de clic",
-  ["Press %s to clear the slot"] = "Appuyez sur %s pour vider l'emplacement",
+  ["%s clears the slot"] = "%s vide l'emplacement",
   ["Middle-click to clear the slot"] = "Le bouton du milieu de la souris vide l'emplacement",
   ["Bind a key to clear the slot"] = "Attribuez une touche pour vider l'emplacement",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."] =
     "La poche est une petite fenêtre de cases-repères à côté des sacs. Ouvrez-la avec %s ou avec le bouton en grille de l'en-tête.",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."] =
     "La poche est une petite fenêtre de cases-repères à côté des sacs. Ouvrez-la avec le bouton en grille de l'en-tête, ou assignez une touche dans les options.",
-  ["Drag moves it to another slot"] = "Glisser le déplace vers un autre emplacement",
   ["No gold recorded yet"] = "Aucun or enregistré pour l'instant",
   ["Delete mode"] = "Mode suppression",
   ["Alt-click an item in your bags while this tab is open."] =

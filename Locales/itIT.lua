@@ -420,14 +420,13 @@ local STRINGS = {
     "Una riga di scomparti sopra la griglia, sempre visibile. Trascina un oggetto su uno scomparto per tenerlo a portata di clic; uno scomparto sotto il puntatore si può svuotare con un tasto dedicato.",
   ["Drag an item here to keep it one click away"] =
     "Trascina qui un oggetto per tenerlo a portata di clic",
-  ["Press %s to clear the slot"] = "Premi %s per svuotare lo scomparto",
+  ["%s clears the slot"] = "%s svuota lo scomparto",
   ["Middle-click to clear the slot"] = "Il pulsante centrale del mouse svuota lo scomparto",
   ["Bind a key to clear the slot"] = "Assegna un tasto per svuotare lo scomparto",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."] =
     "La tasca è una piccola finestra di celle-segnalibro accanto alle borse. Aprila con %s o con il pulsante a griglia nell'intestazione.",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."] =
     "La tasca è una piccola finestra di celle-segnalibro accanto alle borse. Aprila con il pulsante a griglia nell'intestazione oppure assegna un tasto nelle opzioni.",
-  ["Drag moves it to another slot"] = "Trascina per spostarlo in un altro scomparto",
   ["No gold recorded yet"] = "Nessun oro registrato",
   ["Delete mode"] = "Modalità eliminazione",
   ["Alt-click an item in your bags while this tab is open."] =

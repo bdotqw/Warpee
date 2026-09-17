@@ -425,14 +425,13 @@ local STRINGS = {
     "Una fila de espacios sobre la cuadrícula, siempre a la vista. Arrastra un objeto a uno de ellos para tenerlo a un clic; un espacio bajo el puntero se puede vaciar con una tecla propia.",
   ["Drag an item here to keep it one click away"] =
     "Arrastra un objeto aquí para tenerlo a un clic",
-  ["Press %s to clear the slot"] = "Pulsa %s para vaciar el espacio",
+  ["%s clears the slot"] = "%s vacía el espacio",
   ["Middle-click to clear the slot"] = "El botón central del ratón vacía el espacio",
   ["Bind a key to clear the slot"] = "Asigna una tecla para vaciar el espacio",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."] =
     "El bolsillo es una pequeña ventana de casillas marcadas junto a las bolsas. Ábrelo con %s o con el botón de rejilla de la cabecera.",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."] =
     "El bolsillo es una pequeña ventana de casillas marcadas junto a las bolsas. Ábrelo con el botón de rejilla de la cabecera o asigna una tecla en los ajustes.",
-  ["Drag moves it to another slot"] = "Arrastrar lo mueve a otro espacio",
   ["No gold recorded yet"] = "Todavía no hay datos de oro",
   ["Delete mode"] = "Modo de borrado",
   ["Alt-click an item in your bags while this tab is open."] =
