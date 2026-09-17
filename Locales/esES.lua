@@ -240,9 +240,9 @@ local STRINGS = {
     "Colorea el nivel de objeto con el color de su calidad.",
   ["Alt-click an item to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Works in the bags, the bank, the favorites row and the pocket. Alt-click again, or the cross here, to unlock."] =
     "Alt + clic izquierdo en un objeto lo protege: aparece un candado y el objeto ya no se puede vender, ni automáticamente ni con un clic derecho ante el mercader. Funciona en las bolsas, el banco, la fila de favoritos y el bolsillo. Otro Alt + clic izquierdo, o la cruz de esta lista, quita la protección.",
-  ["Alt-click to lock it from the vendor"] = "Alt + clic izquierdo para protegerlo de la venta",
+  ["Alt-click to lock it from the vendor"] = "Alt + clic izquierdo bloquea la venta",
   ["Locked from the vendor. Alt-click to unlock"] =
-    "Protegido de la venta. Alt + clic izquierdo quita la protección",
+    "No vendible. Alt + clic izquierdo lo libera",
   ["Count across characters"] = "Contar en todos los personajes",
   ["Include bank"] = "Incluir el banco",
   ["Include Warband"] = "Incluir la banda guerrera",

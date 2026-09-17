@@ -237,7 +237,7 @@ local STRINGS = {
     "Alt + clic su un oggetto per proteggerlo: appare un lucchetto e non può più essere venduto, né automaticamente né con clic destro da un mercante. Funziona nelle borse, in banca, nei preferiti e in tasca. Ripeti Alt + clic o usa la croce qui per sbloccarlo.",
   ["Alt-click to lock it from the vendor"] = "Alt + clic per proteggerlo dalla vendita",
   ["Locked from the vendor. Alt-click to unlock"] =
-    "Protetto dalla vendita. Alt + clic per sbloccare",
+    "Protetto dalla vendita. Alt + clic sblocca",
   ["Count across characters"] = "Conta tra i personaggi",
   ["Include bank"] = "Includi la banca",
   ["Include Warband"] = "Includi la Brigata",
@@ -420,9 +420,9 @@ local STRINGS = {
     "Una riga di scomparti sopra la griglia, sempre visibile. Trascina un oggetto su uno scomparto per tenerlo a portata di clic; uno scomparto sotto il puntatore si può svuotare con un tasto dedicato.",
   ["Drag an item here to keep it one click away"] =
     "Trascina qui un oggetto per tenerlo a portata di clic",
-  ["%s clears the slot"] = "%s svuota lo scomparto",
-  ["Middle-click to clear the slot"] = "Il pulsante centrale del mouse svuota lo scomparto",
-  ["Bind a key to clear the slot"] = "Assegna un tasto per svuotare lo scomparto",
+  ["%s clears the slot"] = "%s svuota la cella",
+  ["Middle-click to clear the slot"] = "Il pulsante centrale del mouse svuota la cella",
+  ["Bind a key to clear the slot"] = "Assegna un tasto per svuotare la cella",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."] =
     "La tasca è una piccola finestra di celle-segnalibro accanto alle borse. Aprila con %s o con il pulsante a griglia nell'intestazione.",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."] =
@@ -465,10 +465,10 @@ local STRINGS = {
   ["ilvl %d-%d"] = "liv. oggetto %d-%d",
   ["ilvl %d+"] = "liv. oggetto %d+",
   ["ilvl <%d"] = "liv. oggetto <%d",
-  ["Clear the cell"] = "Svuota lo scomparto",
+  ["Clear the cell"] = "Svuota la cella",
   ["Right-click to unbind"] = "Clic destro per rimuovere l'assegnazione",
-  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "«Svuota lo scomparto» non può usare i pulsanti del mouse, il gioco se li mangia sopra le celle. Il tasto della tastiera funziona ancora, è stato rimosso solo quello del mouse.",
-  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] = "«Svuota lo scomparto» non può usare i pulsanti del mouse, il gioco se li mangia sopra le celle. Ora non c'è nulla di assegnato, scegli un tasto qualsiasi della tastiera nelle impostazioni dei tasti.",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "«Svuota la cella» non può usare i pulsanti del mouse, il gioco se li mangia sopra le celle. Il tasto della tastiera funziona ancora, è stato rimosso solo quello del mouse.",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] = "«Svuota la cella» non può usare i pulsanti del mouse, il gioco se li mangia sopra le celle. Ora non c'è nulla di assegnato, scegli un tasto qualsiasi della tastiera nelle impostazioni dei tasti.",
   ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "Il tasto che svuota una cella dei preferiti o della tasca sotto il puntatore. Fai clic, poi premi un tasto, un pulsante del mouse o la rotellina; il clic destro cancella l'assegnazione, Esc annulla.",
 }
 

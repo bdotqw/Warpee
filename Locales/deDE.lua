@@ -232,9 +232,9 @@ local STRINGS = {
     "Färbt die Gegenstandsstufe in der Qualitätsfarbe des Gegenstands.",
   ["Alt-click an item to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Works in the bags, the bank, the favorites row and the pocket. Alt-click again, or the cross here, to unlock."] =
     "Alt + Linksklick auf einen Gegenstand schützt ihn: ein Schloss erscheint, und der Gegenstand lässt sich nicht mehr verkaufen, weder automatisch noch mit einem Rechtsklick beim Händler. Funktioniert in den Taschen, der Bank, der Favoritenreihe und der Ablage. Ein erneuter Alt + Linksklick oder das Kreuz in dieser Liste hebt den Schutz auf.",
-  ["Alt-click to lock it from the vendor"] = "Alt + Linksklick, um ihn vor dem Verkauf zu schützen",
+  ["Alt-click to lock it from the vendor"] = "Alt + Linksklick sperrt den Verkauf",
   ["Locked from the vendor. Alt-click to unlock"] =
-    "Vor dem Verkauf geschützt. Alt + Linksklick hebt den Schutz auf",
+    "Verkauf gesperrt. Alt + Linksklick entsperrt",
   ["Count across characters"] = "Über alle Charaktere zählen",
   ["Include bank"] = "Bank einbeziehen",
   ["Include Warband"] = "Kriegsmeutenbank einbeziehen",
@@ -418,8 +418,8 @@ local STRINGS = {
   ["Drag an item here to keep it one click away"] =
     "Zieht einen Gegenstand hierher, um ihn mit einem Klick zu nutzen",
   ["%s clears the slot"] = "%s leert den Platz",
-  ["Middle-click to clear the slot"] = "Die mittlere Maustaste leert den Platz",
-  ["Bind a key to clear the slot"] = "Belege eine Taste, um den Platz zu leeren",
+  ["Middle-click to clear the slot"] = "Mittlere Maustaste leert den Platz",
+  ["Bind a key to clear the slot"] = "Taste zum Leeren belegen",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."] =
     "Die Ablage ist ein kleines Fenster mit Merkfeldern neben den Taschen. Öffne sie mit %s oder der Gitterschaltfläche in der Kopfzeile.",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."] =

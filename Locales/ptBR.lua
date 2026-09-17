@@ -235,7 +235,7 @@ local STRINGS = {
     "Alt + clique em um item para protegê-lo: um cadeado aparece e ele não pode mais ser vendido, nem automaticamente nem com o clique direito em um comerciante. Funciona nas bolsas, no banco, nos favoritos e no bolso. Repita Alt + clique ou use a cruz aqui para desbloquear.",
   ["Alt-click to lock it from the vendor"] = "Alt + clique para proteger contra venda",
   ["Locked from the vendor. Alt-click to unlock"] =
-    "Protegido contra venda. Alt + clique para desbloquear",
+    "Protegido da venda. Alt + clique desbloqueia",
   ["Count across characters"] = "Contar entre personagens",
   ["Include bank"] = "Incluir banco",
   ["Include Warband"] = "Incluir Bando de Guerra",

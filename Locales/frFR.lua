@@ -243,9 +243,9 @@ local STRINGS = {
     "Colore le niveau d'objet selon la qualité de l'objet.",
   ["Alt-click an item to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Works in the bags, the bank, the favorites row and the pocket. Alt-click again, or the cross here, to unlock."] =
     "Alt + clic gauche sur un objet le protège : un cadenas apparaît et l'objet ne peut plus être vendu, ni automatiquement ni par un clic droit chez le marchand. Fonctionne dans les sacs, la banque, la rangée des favoris et la poche. Un nouvel Alt + clic gauche, ou la croix dans cette liste, retire la protection.",
-  ["Alt-click to lock it from the vendor"] = "Alt + clic gauche pour le protéger de la vente",
+  ["Alt-click to lock it from the vendor"] = "Alt + clic gauche bloque la vente",
   ["Locked from the vendor. Alt-click to unlock"] =
-    "Protégé de la vente. Alt + clic gauche retire la protection",
+    "Vente bloquée. Alt + clic gauche la débloque",
   ["Count across characters"] = "Compter sur tous les personnages",
   ["Include bank"] = "Inclure la banque",
   ["Include Warband"] = "Inclure le bataillon",
@@ -430,9 +430,9 @@ local STRINGS = {
     "Une rangée d'emplacements au-dessus de la grille, toujours visible. Glissez un objet dessus pour le garder à portée de clic ; un emplacement sous le curseur peut être vidé avec une touche dédiée.",
   ["Drag an item here to keep it one click away"] =
     "Glissez un objet ici pour l'avoir à portée de clic",
-  ["%s clears the slot"] = "%s vide l'emplacement",
-  ["Middle-click to clear the slot"] = "Le bouton du milieu de la souris vide l'emplacement",
-  ["Bind a key to clear the slot"] = "Attribuez une touche pour vider l'emplacement",
+  ["%s clears the slot"] = "%s vide la case",
+  ["Middle-click to clear the slot"] = "Bouton du milieu de la souris vide la case",
+  ["Bind a key to clear the slot"] = "Assignez une touche pour vider la case",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."] =
     "La poche est une petite fenêtre de cases-repères à côté des sacs. Ouvrez-la avec %s ou avec le bouton en grille de l'en-tête.",
   ["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."] =
@@ -475,10 +475,10 @@ local STRINGS = {
   ["ilvl %d-%d"] = "niv. objet %d-%d",
   ["ilvl %d+"] = "niv. objet %d+",
   ["ilvl <%d"] = "niv. objet <%d",
-  ["Clear the cell"] = "Vider l'emplacement",
+  ["Clear the cell"] = "Vider la case",
   ["Right-click to unbind"] = "Clic droit pour dissocier",
-  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "«Vider l'emplacement» ne peut pas utiliser les boutons de la souris, le jeu les intercepte au-dessus des cases. La touche du clavier fonctionne toujours, seule celle de la souris a été retirée.",
-  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] = "«Vider l'emplacement» ne peut pas utiliser les boutons de la souris, le jeu les intercepte au-dessus des cases. Rien n'est attribué pour l'instant, choisissez une touche du clavier dans les raccourcis.",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "«Vider la case» ne peut pas utiliser les boutons de la souris, le jeu les intercepte au-dessus des cases. La touche du clavier fonctionne toujours, seule celle de la souris a été retirée.",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] = "«Vider la case» ne peut pas utiliser les boutons de la souris, le jeu les intercepte au-dessus des cases. Rien n'est attribué pour l'instant, choisissez une touche du clavier dans les raccourcis.",
   ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "La touche qui vide une case de favori ou de poche sous le curseur. Cliquez, puis appuyez sur une touche, un bouton de la souris ou la molette ; un clic droit efface l'attribution, Échap annule.",
 }
 
