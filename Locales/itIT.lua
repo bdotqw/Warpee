@@ -465,10 +465,10 @@ local STRINGS = {
   ["ilvl %d-%d"] = "liv. oggetto %d-%d",
   ["ilvl %d+"] = "liv. oggetto %d+",
   ["ilvl <%d"] = "liv. oggetto <%d",
-  ["Remove pin"] = "Rimuovi segnalibro",
+  ["Clear the cell"] = "Svuota lo scomparto",
   ["Right-click to unbind"] = "Clic destro per rimuovere l'assegnazione",
-  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Your keyboard key still works, only the mouse one is cleared."] = "«Rimuovi segnalibro» non può usare i pulsanti del mouse, il gioco se li mangia sopra le celle. Il tasto della tastiera funziona ancora, è stato rimosso solo quello del mouse.",
-  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Nothing is bound now, pick any keyboard key in the key settings."] = "«Rimuovi segnalibro» non può usare i pulsanti del mouse, il gioco se li mangia sopra le celle. Ora non c'è nulla di assegnato, scegli un tasto qualsiasi della tastiera nelle impostazioni dei tasti.",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "«Svuota lo scomparto» non può usare i pulsanti del mouse, il gioco se li mangia sopra le celle. Il tasto della tastiera funziona ancora, è stato rimosso solo quello del mouse.",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] = "«Svuota lo scomparto» non può usare i pulsanti del mouse, il gioco se li mangia sopra le celle. Ora non c'è nulla di assegnato, scegli un tasto qualsiasi della tastiera nelle impostazioni dei tasti.",
   ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "Il tasto che svuota una cella dei preferiti o della tasca sotto il puntatore. Fai clic, poi premi un tasto, un pulsante del mouse o la rotellina; il clic destro cancella l'assegnazione, Esc annulla.",
 }
 

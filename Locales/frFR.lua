@@ -475,10 +475,10 @@ local STRINGS = {
   ["ilvl %d-%d"] = "niv. objet %d-%d",
   ["ilvl %d+"] = "niv. objet %d+",
   ["ilvl <%d"] = "niv. objet <%d",
-  ["Remove pin"] = "Retirer l'épingle",
+  ["Clear the cell"] = "Vider l'emplacement",
   ["Right-click to unbind"] = "Clic droit pour dissocier",
-  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Your keyboard key still works, only the mouse one is cleared."] = "«Retirer l'épingle» ne peut pas utiliser les boutons de la souris, le jeu les intercepte au-dessus des cases. La touche du clavier fonctionne toujours, seule celle de la souris a été retirée.",
-  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Nothing is bound now, pick any keyboard key in the key settings."] = "«Retirer l'épingle» ne peut pas utiliser les boutons de la souris, le jeu les intercepte au-dessus des cases. Rien n'est attribué pour l'instant, choisissez une touche du clavier dans les raccourcis.",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "«Vider l'emplacement» ne peut pas utiliser les boutons de la souris, le jeu les intercepte au-dessus des cases. La touche du clavier fonctionne toujours, seule celle de la souris a été retirée.",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] = "«Vider l'emplacement» ne peut pas utiliser les boutons de la souris, le jeu les intercepte au-dessus des cases. Rien n'est attribué pour l'instant, choisissez une touche du clavier dans les raccourcis.",
   ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "La touche qui vide une case de favori ou de poche sous le curseur. Cliquez, puis appuyez sur une touche, un bouton de la souris ou la molette ; un clic droit efface l'attribution, Échap annule.",
 }
 

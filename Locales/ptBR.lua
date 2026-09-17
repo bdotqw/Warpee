@@ -463,10 +463,10 @@ local STRINGS = {
   ["ilvl %d-%d"] = "nvl. item %d-%d",
   ["ilvl %d+"] = "nvl. item %d+",
   ["ilvl <%d"] = "nvl. item <%d",
-  ["Remove pin"] = "Remover marcação",
+  ["Clear the cell"] = "Limpar o espaço",
   ["Right-click to unbind"] = "Clique com o botão direito para remover a atribuição",
-  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Your keyboard key still works, only the mouse one is cleared."] = "«Remover marcação» não pode usar botões do mouse, o jogo os engole sobre as células. A tecla do teclado continua funcionando, só a do mouse foi removida.",
-  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Nothing is bound now, pick any keyboard key in the key settings."] = "«Remover marcação» não pode usar botões do mouse, o jogo os engole sobre as células. Agora não há nada atribuído, escolha qualquer tecla do teclado nas configurações de teclas.",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "«Limpar o espaço» não pode usar botões do mouse, o jogo os engole sobre as células. A tecla do teclado continua funcionando, só a do mouse foi removida.",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] = "«Limpar o espaço» não pode usar botões do mouse, o jogo os engole sobre as células. Agora não há nada atribuído, escolha qualquer tecla do teclado nas configurações de teclas.",
   ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "A tecla que limpa uma célula de favorito ou do bolso sob o cursor. Clique e pressione uma tecla, um botão do mouse ou a roda; o clique com o botão direito apaga a atribuição, Esc cancela.",
 }
 

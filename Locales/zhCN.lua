@@ -392,10 +392,10 @@ local STRINGS = {
   ["ilvl %d-%d"] = "装等 %d-%d", -- ?
   ["ilvl %d+"] = "装等 %d+",
   ["ilvl <%d"] = "装等 <%d",
-  ["Remove pin"] = "移除固定",
+  ["Clear the cell"] = "清空格子",
   ["Right-click to unbind"] = "右键点击取消绑定",
-  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Your keyboard key still works, only the mouse one is cleared."] = "「移除固定」不能用鼠标键，游戏会在格子上吃掉它们。键盘按键仍然可用，只清掉了鼠标键。",
-  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Nothing is bound now, pick any keyboard key in the key settings."] = "「移除固定」不能用鼠标键，游戏会在格子上吃掉它们。现在没有绑定任何按键，在按键设置里选一个键盘按键。",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "「清空格子」不能用鼠标键，游戏会在格子上吃掉它们。键盘按键仍然可用，只清掉了鼠标键。",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] = "「清空格子」不能用鼠标键，游戏会在格子上吃掉它们。现在没有绑定任何按键，在按键设置里选一个键盘按键。",
   ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "清空鼠标指向的收藏或口袋格子的按键。点一下，然后按键盘、鼠标键或滚轮；右键点击清除绑定，Esc 取消。",
 }
 

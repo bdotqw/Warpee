@@ -2159,7 +2159,7 @@ local GRID_PAGE = {
     desc = pinHint(
       "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; hovering a slot and pressing %s clears it.",
       "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; a slot under the pointer can be cleared with a key of its own." ) },
-  { type = "keybind", name = "Remove pin", binding = "WARPEE_UNPIN",
+  { type = "keybind", name = "Clear the cell", binding = "WARPEE_UNPIN",
     desc = "The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels." },
   { type = "header", name = "Bank and Warband grid", key = "bankgrid",
     state = function() return (L["%d and %d wide"]):format(bankColsGet(), wbColsGet()) end },

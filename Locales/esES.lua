@@ -470,10 +470,10 @@ local STRINGS = {
   ["ilvl %d-%d"] = "niv. objeto %d-%d",
   ["ilvl %d+"] = "niv. objeto %d+",
   ["ilvl <%d"] = "niv. objeto <%d",
-  ["Remove pin"] = "Quitar marcador",
+  ["Clear the cell"] = "Vaciar el espacio",
   ["Right-click to unbind"] = "Clic derecho para desasignar",
-  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Your keyboard key still works, only the mouse one is cleared."] = "«Quitar marcador» no puede usar botones del ratón, el juego se los come encima de las casillas. La tecla del teclado sigue funcionando, solo se ha quitado la del ratón.",
-  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Nothing is bound now, pick any keyboard key in the key settings."] = "«Quitar marcador» no puede usar botones del ratón, el juego se los come encima de las casillas. Ahora no hay nada asignado, elige cualquier tecla del teclado en los ajustes de teclas.",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "«Vaciar el espacio» no puede usar botones del ratón, el juego se los come encima de las casillas. La tecla del teclado sigue funcionando, solo se ha quitado la del ratón.",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] = "«Vaciar el espacio» no puede usar botones del ratón, el juego se los come encima de las casillas. Ahora no hay nada asignado, elige cualquier tecla del teclado en los ajustes de teclas.",
   ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "La tecla que vacía una casilla de favoritos o del bolsillo bajo el puntero. Haz clic y luego pulsa una tecla, un botón del ratón o la rueda; el clic derecho borra la asignación, Escape cancela.",
 }
 

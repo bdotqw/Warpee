@@ -462,10 +462,10 @@ local STRINGS = {
   ["ilvl %d-%d"] = "GS %d-%d",
   ["ilvl %d+"] = "GS ab %d",
   ["ilvl <%d"] = "GS unter %d",
-  ["Remove pin"] = "Markierung entfernen",
+  ["Clear the cell"] = "Platz leeren",
   ["Right-click to unbind"] = "Rechtsklick hebt die Belegung auf",
-  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Your keyboard key still works, only the mouse one is cleared."] = "„Markierung entfernen“ lässt sich nicht auf Maustasten legen, das Spiel schluckt sie über den Feldern. Die Tastaturtaste funktioniert weiter, nur die Maustaste wurde entfernt.",
-  ["Remove pin cannot use mouse buttons, the game eats them over pin cells. Nothing is bound now, pick any keyboard key in the key settings."] = "„Markierung entfernen“ lässt sich nicht auf Maustasten legen, das Spiel schluckt sie über den Feldern. Jetzt ist nichts belegt, wähle eine beliebige Tastaturtaste in den Tasteneinstellungen.",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "„Platz leeren“ lässt sich nicht auf Maustasten legen, das Spiel schluckt sie über den Feldern. Die Tastaturtaste funktioniert weiter, nur die Maustaste wurde entfernt.",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] = "„Platz leeren“ lässt sich nicht auf Maustasten legen, das Spiel schluckt sie über den Feldern. Jetzt ist nichts belegt, wähle eine beliebige Tastaturtaste in den Tasteneinstellungen.",
   ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "Die Taste, die einen Favoriten- oder Ablageplatz unter dem Zeiger leert. Klicke, dann drücke eine Taste, eine Maustaste oder das Rad; ein Rechtsklick hebt die Belegung auf, Escape bricht ab.",
 }
 

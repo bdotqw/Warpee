@@ -2123,7 +2123,7 @@ end
 -- The action is called by the client, so the guards sit here: a fight, and a keyboard that
 -- is being used for something else. An edit box with the keyboard focus owns the keystroke,
 -- and the chat line and an IME composing in one are both edit boxes.
-ns.LocalGlobal("BINDING_NAME_WARPEE_UNPIN", "Remove pin")
+ns.LocalGlobal("BINDING_NAME_WARPEE_UNPIN", "Clear the cell")
 
 -- The key as the player reads it, or nil when nothing is bound. Read at the moment it is
 -- asked for and never kept: the binding can move at any time and a name captured at load
@@ -2223,9 +2223,9 @@ local function guardPinKey()
     SaveBindings((GetCurrentBindingSet and GetCurrentBindingSet()) or 1)
     local keep = GetBindingKey("WARPEE_UNPIN")
     if keep then
-      print("|cffd9a85fWarpee|r |cffffffff" .. ns.L["Remove pin cannot use mouse buttons, the game eats them over pin cells. Your keyboard key still works, only the mouse one is cleared."] .. "|r")
+      print("|cffd9a85fWarpee|r |cffffffff" .. ns.L["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] .. "|r")
     else
-      print("|cffd9a85fWarpee|r |cffffffff" .. ns.L["Remove pin cannot use mouse buttons, the game eats them over pin cells. Nothing is bound now, pick any keyboard key in the key settings."] .. "|r")
+      print("|cffd9a85fWarpee|r |cffffffff" .. ns.L["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] .. "|r")
     end
   end
 end

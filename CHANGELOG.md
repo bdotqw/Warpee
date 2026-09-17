@@ -22,7 +22,7 @@ Fixes
 - Switching dropdowns takes one click: opening another list no longer eats the first click
 - An open list no longer slips behind the settings window
 - Guild bank labels wear the game's yellow again: tab name, daily withdrawals, available amount
-- Remove pin refuses mouse buttons: the game eats them over pin cells, so the binding stays on Delete and any keyboard key
+- Clear the cell refuses mouse buttons: the game eats them over pin cells, so the binding stays on Delete and any keyboard key
 - Middle-click a pin cell to remove it, unless middle is key-bound to something else
 - A pin tooltip names the key in full, "ALT + R" and not "A-R", and reads it while the tooltip is showing, so a fresh binding shows at once
 - Adding or swapping a pin redraws its tooltip on the spot instead of waiting for the pointer to leave the cell
