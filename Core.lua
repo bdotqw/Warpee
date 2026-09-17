@@ -763,8 +763,8 @@ local function itemTooltip(tt, data)
     local r, g, b = 0.5, 0.5, 0.5
     if locked and V and V.IsOpen and V:IsOpen() then r, g, b = 1, 0.4, 0.4 end
     if not drew then tt:AddLine(" ") end
-    tt:AddLine(TT(locked and "Locked from the vendor. Alt-click to unlock"
-                          or "Alt-click to lock it from the vendor"), r, g, b)
+    tt:AddLine(TT(locked and "Locked from the vendor. ALT-click to unlock"
+                          or "ALT-click to lock it from the vendor"), r, g, b)
     drew = true
   end
   tt.wpeCounted = drew or nil

@@ -243,9 +243,9 @@ local STRINGS = {
     "Окрашивать уровень предмета в цвет его качества.",
   ["Alt-click an item to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Works in the bags, the bank, the favorites row and the pocket. Alt-click again, or the cross here, to unlock."] =
     "Alt + ЛКМ по предмету защищает его: появляется замок, и предмет больше не продать, ни автоматически, ни через ПКМ у торговца. Работает в сумках, банке, ряду избранного и в кармане. Повторный Alt + ЛКМ или крестик в этом списке снимает защиту.",
-  ["Alt-click to lock it from the vendor"] = "Alt + ЛКМ, чтобы защитить от продажи",
-  ["Locked from the vendor. Alt-click to unlock"] =
-    "Защищено от продажи. Alt + ЛКМ снимает защиту",
+  ["ALT-click to lock it from the vendor"] = "ALT + ЛКМ, чтобы защитить от продажи",
+  ["Locked from the vendor. ALT-click to unlock"] =
+    "Защищено от продажи. ALT + ЛКМ снимает защиту",
   ["Count across characters"] = "Считать по всем персонажам",
   ["Include bank"] = "Учитывать банк",
   ["Include Warband"] = "Учитывать банк отряда",
