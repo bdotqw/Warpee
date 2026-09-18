@@ -286,7 +286,8 @@ end
 -- actually holds: first match wins in list order, exactly like Buckets, so a slot is tallied once
 -- to the first active category that claims it. A disabled or blank row is not a section, so it
 -- counts 0, matching isActive and the layout. buildMeta runs once per slot, not once per slot per
--- category. Returned by list index since the editor draws every row, inactive ones included.
+-- category. Returns the per index array and, second, how many occupied slots matched nothing and
+-- would fall to Other, so the editor can show the coverage the rules leave behind.
 function Cats:Counts()
   local list = self:List()
   local filters, out = {}, {}
@@ -296,19 +297,22 @@ function Cats:Counts()
     end
     out[i] = 0
   end
+  local other = 0
   for _, bag in ipairs(countBags()) do
     local num = C_Container.GetContainerNumSlots(bag) or 0
     for slot = 1, num do
       local info = C_Container.GetContainerItemInfo(bag, slot)
       if info and (info.hyperlink or info.itemID) then
         local m = buildMeta(bag, slot, info)
+        local hit = false
         for i = 1, #list do
-          if filters[i] and ns.MatchSearch(m, filters[i]) then out[i] = out[i] + 1; break end
+          if filters[i] and ns.MatchSearch(m, filters[i]) then out[i] = out[i] + 1; hit = true; break end
         end
+        if not hit then other = other + 1 end
       end
     end
   end
-  return out
+  return out, other
 end
 
 -- The resolved caption per list row, by list index: a saved name if set, else the shipped label

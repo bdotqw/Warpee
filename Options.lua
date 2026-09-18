@@ -2026,7 +2026,7 @@ function factories.catlist(parent, spec)
 
   row.Rebuild = function()
     local list = Cats:List()
-    local counts = Cats:Counts()
+    local counts, other = Cats:Counts()
     local names = Cats:Names()
     local half = math.floor((CONTENT_W - 96) / 2)
     local y = 0
@@ -2063,6 +2063,18 @@ function factories.catlist(parent, spec)
       y = y + CAT_ROW_H + 2
     end
     for i = #list + 1, #row.items do row.items[i]:Hide() end
+    -- The catch-all read out, so the coverage the rules leave behind is visible: everything that
+    -- matched no category lands in Other in the window, and the editor says how much that is. It is
+    -- a summary, not a row, so no checkbox or fields, dimmed and left where the names sit.
+    if not row.otherFS then
+      row.otherFS = track(Theme:Label(row, BASE_FONT - 2, "dim"), -2)
+      row.otherFS:SetJustifyH("LEFT")
+    end
+    row.otherFS:SetText(ns.Upper(ns.L["Other"]) .. "   " .. tostring(other or 0))
+    row.otherFS:ClearAllPoints()
+    row.otherFS:SetPoint("TOPLEFT", 25, -(y + 3))
+    row.otherFS:Show()
+    y = y + CAT_ROW_H + 2
     y = y + 4
     add:ClearAllPoints()
     add:SetPoint("TOPLEFT", 0, -y)
