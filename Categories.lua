@@ -122,6 +122,13 @@ function Cats:Bump()
   filterStamp = nil
 end
 
+-- A row classifies items only when it is a real record, switched on, and carries a search. A
+-- blank search parses to the match-everything filter, so an empty row would silently become a
+-- second catch-all and starve Other; until it is given a rule it is inert, not a category yet.
+local function isActive(c)
+  return type(c) == "table" and c.enabled ~= false and (c.search or ""):find("%S") ~= nil
+end
+
 local function ensureFilters()
   local list = Cats:List()
   local parts = {}
@@ -138,7 +145,7 @@ local function ensureFilters()
   wipe(FILTERS)
   wipe(ACTIVE)
   for _, c in ipairs(list) do
-    if type(c) == "table" and c.enabled ~= false then
+    if isActive(c) then
       local idx = #ACTIVE + 1
       ACTIVE[idx] = c
       FILTERS[idx] = ns.ParseSearch((c.search or ""):lower())
@@ -256,8 +263,11 @@ local function countBags()
   return out
 end
 
--- Count for one search as it is typed: how many occupied slots it would claim, on its own.
+-- Count for one search as it is typed: how many occupied slots it would claim, on its own. A
+-- blank box reads 0, not the whole bag: an empty search is inert in the layout, so the preview
+-- says the same instead of flashing the match-everything total.
 function Cats:Preview(search)
+  if not (search or ""):find("%S") then return 0 end
   local filter = ns.ParseSearch((search or ""):lower())
   local n = 0
   for _, bag in ipairs(countBags()) do
@@ -274,14 +284,14 @@ end
 
 -- The whole editor list in one slot pass, and the number beside each row is what its section
 -- actually holds: first match wins in list order, exactly like Buckets, so a slot is tallied once
--- to the first enabled category that claims it. A disabled row is not a section, so it counts 0.
--- buildMeta runs once per slot, not once per slot per category. Returned by list index since the
--- editor draws every row, disabled ones included.
+-- to the first active category that claims it. A disabled or blank row is not a section, so it
+-- counts 0, matching isActive and the layout. buildMeta runs once per slot, not once per slot per
+-- category. Returned by list index since the editor draws every row, inactive ones included.
 function Cats:Counts()
   local list = self:List()
   local filters, out = {}, {}
   for i, c in ipairs(list) do
-    if type(c) == "table" and c.enabled ~= false then
+    if isActive(c) then
       filters[i] = ns.ParseSearch((c.search or ""):lower())
     end
     out[i] = 0
