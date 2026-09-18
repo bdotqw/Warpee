@@ -1850,6 +1850,209 @@ flow.hideGet, flow.hideSet = field("hideReagents")
 flow.offGet = function() return mergeGet() or flow.hideGet() end
 flow.revGet, flow.revSet = field("revFill")
 flow.upGet, flow.upSet   = field("fillUp")
+-- The view is a string on disk, the row a toggle, so the pair maps bool to "grid"/"cat".
+flow.catGet = function() return Bags.bagView == "cat" end
+flow.catSet = function(v)
+  local mode = v and "cat" or "grid"
+  Bags.bagView = mode
+  WarpeeDB.bagView = mode
+  relayout()
+end
+
+-- One editable row per category: a checkbox, the reorder carets, a name and a search field, the
+-- live count, and a delete. The list is dynamic so the page rebuilds it on every relayout; the
+-- pool of rows is reused and rebound to a list index each pass, exactly like the character grid.
+function factories.catlist(parent, spec)
+  local Cats = ns.Categories
+  local CAT_ROW_H = 26
+  local row = CreateFrame("Frame", nil, parent)
+  row.items = {}
+  row.dynamic = true
+
+  local function pageOpen() return Options.frame and Options.frame:IsShown() end
+
+  -- Debounce: a text field runs a full bag scan for its count and a bag relayout, so a per
+  -- keystroke run would lag the typing. Each change bumps the token and schedules the commit
+  -- 0.3s out; only the last one, and only while the page is still open, actually fires.
+  local token = 0
+  local function debounce(fn)
+    token = token + 1
+    local mine = token
+    C_Timer.After(0.3, function()
+      if mine == token and pageOpen() then fn() end
+    end)
+  end
+  local function cancelPending() token = token + 1 end
+
+  local function blur()
+    for _, c in ipairs(row.items) do
+      if c.nameBox:HasFocus() then c.nameBox:ClearFocus() end
+      if c.searchBox:HasFocus() then c.searchBox:ClearFocus() end
+    end
+  end
+
+  -- The structural actions do not debounce: one click, one immediate rebuild and relayout. Blur
+  -- first so a field mid-edit commits and drops focus before the pool is rebound underneath it.
+  local function act(fn)
+    blur()
+    cancelPending()
+    fn()
+    Options:ReflowPages()
+    relayout()
+  end
+
+  local function makeBox(c, hint, maxLen)
+    local box = CreateFrame("EditBox", nil, c, "BackdropTemplate")
+    ns.SnapBox(box, 60, 22, true)
+    ns.PixelBackdrop(box)
+    ns.SetBg(box, Theme:C("bg"))
+    ns.SetEdge(box, Theme:C("stroke"))
+    Theme:Track(box, function(s)
+      ns.SetBg(s, Theme:C("bg"))
+      s:SetTextColor(Theme:C("text"))
+      if not s:HasFocus() then ns.SetEdge(s, Theme:C("stroke")) end
+    end)
+    box:SetFont(dropdownFont(), BASE_FONT - 1, "")
+    box:SetTextColor(Theme:C("text"))
+    box:SetTextInsets(6, 6, 0, 0)
+    box:SetAutoFocus(false)
+    box:SetMaxLetters(maxLen)
+    local ph = Theme:Label(box, BASE_FONT - 2, "faint")
+    ph:SetPoint("LEFT", 6, 0)
+    ph:SetText(ns.L[hint])
+    box.ph = ph
+    box:SetScript("OnEnterPressed", function(s) s:ClearFocus() end)
+    box:SetScript("OnEscapePressed", function(s) s:ClearFocus() end)
+    box:SetScript("OnEditFocusGained", function(s) ns.SetEdge(s, Theme:C("accent")) end)
+    return box
+  end
+
+  local function makeCaret(c, dir)
+    local b = CreateFrame("Button", nil, c)
+    ns.SnapBox(b, 14, 14, true)
+    local tri = ns.Triangle(b, dir, 9, 6, "dim")
+    tri:SetPoint("CENTER")
+    b.tri = tri
+    b:SetScript("OnEnter", function() tri:SetTint("accent") end)
+    b:SetScript("OnLeave", function() tri:SetTint("dim") end)
+    return b
+  end
+
+  local function catRow(i)
+    local c = row.items[i]
+    if c then return c end
+    c = CreateFrame("Frame", nil, row)
+    c:SetHeight(CAT_ROW_H)
+
+    local box = ns.CreateCheckBox(c, 16)
+    ns.SnapPoint(box, "LEFT", c, "LEFT", 1, 0)
+    local hit = CreateFrame("Button", nil, c)
+    hit:SetAllPoints(box)
+    hit:SetScript("OnClick", function() act(function() Cats:Toggle(c.idx) end) end)
+    c.chk = box
+
+    local up = makeCaret(c, "up")
+    ns.SnapPoint(up, "LEFT", box, "RIGHT", 4, 5)
+    up:SetScript("OnClick", function() act(function() Cats:Move(c.idx, -1) end) end)
+    local down = makeCaret(c, "down")
+    ns.SnapPoint(down, "LEFT", box, "RIGHT", 4, -5)
+    down:SetScript("OnClick", function() act(function() Cats:Move(c.idx, 1) end) end)
+
+    local del = ns.CreateGlyphButton(c, "\195\151", 18)
+    ns.SnapPoint(del, "RIGHT", c, "RIGHT", -1, 0)
+    del:SetScript("OnClick", function() act(function() Cats:Remove(c.idx) end) end)
+    c.del = del
+
+    local count = track(Theme:Label(c, BASE_FONT - 2, "dim"), -2)
+    count:SetJustifyH("RIGHT")
+    count:SetPoint("RIGHT", del, "LEFT", -6, 0)
+    count:SetWidth(30)
+    c.count = count
+
+    local name = makeBox(c, "Name", 24)
+    ns.SnapPoint(name, "LEFT", box, "RIGHT", 24, 0)
+    name:SetScript("OnEditFocusLost", function(s)
+      ns.SetEdge(s, Theme:C("stroke")); s.ph:SetShown(s:GetText() == "")
+      cancelPending(); Cats:SetName(c.idx, s:GetText()); relayout()
+    end)
+    name:SetScript("OnTextChanged", function(s)
+      s.ph:SetShown(s:GetText() == "")
+      if not s:HasFocus() then return end
+      debounce(function() Cats:SetName(c.idx, s:GetText()); relayout() end)
+    end)
+    c.nameBox = name
+
+    local search = makeBox(c, "Search", 60)
+    search:SetScript("OnEditFocusLost", function(s)
+      ns.SetEdge(s, Theme:C("stroke")); s.ph:SetShown(s:GetText() == "")
+      cancelPending()
+      Cats:SetSearch(c.idx, s:GetText())
+      c.count:SetText(tostring(Cats:Preview(s:GetText())))
+      relayout()
+    end)
+    search:SetScript("OnTextChanged", function(s)
+      s.ph:SetShown(s:GetText() == "")
+      if not s:HasFocus() then return end
+      debounce(function()
+        Cats:SetSearch(c.idx, s:GetText())
+        c.count:SetText(tostring(Cats:Preview(s:GetText())))
+        relayout()
+      end)
+    end)
+    c.searchBox = search
+
+    row.items[i] = c
+    return c
+  end
+
+  local add = ns.CreateButton(row, ns.L["Add category"], 120, 22)
+  ns.LocalText(add, "Add category")
+  add:SetScript("OnClick", function() act(function() Cats:Add() end) end)
+  row.add = add
+  local reset = ns.CreateButton(row, ns.L["Reset categories"], 120, 22)
+  ns.LocalText(reset, "Reset categories")
+  reset:SetScript("OnClick", function() act(function() Cats:Reset() end) end)
+  row.reset = reset
+
+  row.Rebuild = function()
+    local list = Cats:List()
+    local half = math.floor((CONTENT_W - 96) / 2)
+    local y = 0
+    for i, c in ipairs(list) do
+      local r = catRow(i)
+      r.idx = i
+      r.chk.mark:SetShown(c.enabled ~= false)
+      r.nameBox:SetWidth(half - 24)
+      r.searchBox:ClearAllPoints()
+      ns.SnapPoint(r.searchBox, "LEFT", r.nameBox, "RIGHT", 6, 0)
+      r.searchBox:SetWidth(half)
+      if not r.nameBox:HasFocus() then
+        r.nameBox:SetText(c.name or "")
+        r.nameBox.ph:SetShown((c.name or "") == "")
+      end
+      if not r.searchBox:HasFocus() then
+        r.searchBox:SetText(c.search or "")
+        r.searchBox.ph:SetShown((c.search or "") == "")
+      end
+      r.count:SetText(tostring(Cats:Preview(c.search or "")))
+      r:ClearAllPoints()
+      r:SetPoint("TOPLEFT", 0, -y)
+      r:SetPoint("TOPRIGHT", 0, -y)
+      r:Show()
+      y = y + CAT_ROW_H + 2
+    end
+    for i = #list + 1, #row.items do row.items[i]:Hide() end
+    y = y + 4
+    add:ClearAllPoints()
+    add:SetPoint("TOPLEFT", 0, -y)
+    reset:ClearAllPoints()
+    reset:SetPoint("TOPLEFT", add, "TOPRIGHT", 8, 0)
+    row:SetHeight(y + 22)
+  end
+  row.Refresh = row.Rebuild
+  row.Rebuild()
+  return row
+end
 local questGet, questSet     = styleField("questMarks")
 local newGet, newSet         = styleField("newItemGlow")
 local unusableGet, unusableSet = styleField("unusableBorder")
@@ -2136,6 +2339,9 @@ local GRID_PAGE = {
     get = zoomGet, set = zoomSet, half = "right",
     desc = "1.00 fills the slot. Less shrinks the icon, more crops it." },
   { type = "header", name = "Bag arrangement", key = "arrange" },
+  { type = "toggle", name = "Group by category", section = "arrange",
+    get = flow.catGet, set = flow.catSet,
+    desc = "Lay the items out in labelled sections instead of one grid: equipment, consumables, reagents and the rest, with anything left over under Other. The favorites and recent rows stay." },
   { type = "toggle", name = "Hide reagents", col = 1, of = 2, section = "arrange",
     get = flow.hideGet, set = flow.hideSet,
     desc = "Leave the reagent bag out of the window. Its slots still count in the header, and reagents still go into it." },
@@ -2151,6 +2357,10 @@ local GRID_PAGE = {
   { type = "toggle", name = "Reverse slot order", col = 2, of = 2, section = "arrange",
     get = flow.revGet, set = flow.revSet,
     desc = "The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in." },
+  { type = "header", name = "Categories", key = "categories" },
+  { type = "description", section = "categories",
+    name = "Each category is a search, run top to bottom, and an item joins the first it matches. Drag the carets to change the order, the box on the left turns one off, and the count is how many items in your bags it holds now." },
+  { type = "catlist", section = "categories" },
   { type = "header", name = "Quick access" },
   { type = "toggle", name = "Recent in bags", col = 1,
     get = fav.recentBagsGet, set = fav.recentBagsSet,

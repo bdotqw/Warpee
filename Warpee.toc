@@ -29,6 +29,7 @@ Tooltip.lua
 ItemRules.lua
 ItemButton.lua
 Bags.lua
+Categories.lua
 Favorites.lua
 Recent.lua
 Pocket.lua

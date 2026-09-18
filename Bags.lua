@@ -60,6 +60,7 @@ local Bags = { pool = {}, vpool = {}, cols = COLS_DEFAULT, gap = GAP_DEFAULT, ic
                badge = ns.BadgeDefaults(),
                qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, reagentTint = true, unusableBorder = true,
                revFill = false, fillUp = false, reagentTop = false, hideReagents = false,
+               bagView = "grid",
                styleGen = 1 }
 ns.Bags = Bags
 
@@ -668,61 +669,68 @@ function Bags:Layout(capture)
     self.byKey[bag * 1000 + slot] = b
   end
 
-  local n = 0
-  local hide = self.hideReagents and true or false
-  local merge = (not hide) and self.mergeReagents and true or false
-  local rnum = self:Slots(ns.reagentBag)
-  self.bagSlots[ns.reagentBag] = rnum
-  local split = (not hide) and (not merge) and rnum > 0
-  local mainCount = merge and rnum or 0
-  for _, bag in ipairs(ns.playerBags) do mainCount = mainCount + self:Slots(bag) end
-  local mainRows = math.max(1, math.ceil(mainCount / cols))
-  local rRows = split and math.max(1, math.ceil(rnum / cols)) or 0
-  local rBlock = split and ((rRows - 1) * step + size) or 0
-  local onTop = split and self.reagentTop and true or false
-  local mainTop = onTop and (rBlock + DIV * 2) or 0
-  local mainBottom = mainTop + (mainRows - 1) * step + size
-  local rTop = onTop and DIV or (mainBottom + DIV)
+  local contentH
+  if self:CatMode() then
+    self.reagentLabel:Hide()
+    contentH, used, total = self:LayoutCats(place, size, gap, step, cols)
+  else
+    self:HideCatLabels(0)
+    local n = 0
+    local hide = self.hideReagents and true or false
+    local merge = (not hide) and self.mergeReagents and true or false
+    local rnum = self:Slots(ns.reagentBag)
+    self.bagSlots[ns.reagentBag] = rnum
+    local split = (not hide) and (not merge) and rnum > 0
+    local mainCount = merge and rnum or 0
+    for _, bag in ipairs(ns.playerBags) do mainCount = mainCount + self:Slots(bag) end
+    local mainRows = math.max(1, math.ceil(mainCount / cols))
+    local rRows = split and math.max(1, math.ceil(rnum / cols)) or 0
+    local rBlock = split and ((rRows - 1) * step + size) or 0
+    local onTop = split and self.reagentTop and true or false
+    local mainTop = onTop and (rBlock + DIV * 2) or 0
+    local mainBottom = mainTop + (mainRows - 1) * step + size
+    local rTop = onTop and DIV or (mainBottom + DIV)
 
-  local function cellXY(k, count, rows, top)
-    local j = self.revFill and (count - k + 1) or k
-    local col, row = (j - 1) % cols, math.floor((j - 1) / cols)
-    if self.fillUp then row = rows - 1 - row end
-    return col * step, -(top + row * step)
-  end
-
-  for _, bag in ipairs(ns.playerBags) do
-    local num = self:Slots(bag)
-    self.bagSlots[bag] = num
-    for slot = 1, num do
-      n = n + 1
-      place(bag, slot, cellXY(n, mainCount, mainRows, mainTop))
+    local function cellXY(k, count, rows, top)
+      local j = self.revFill and (count - k + 1) or k
+      local col, row = (j - 1) % cols, math.floor((j - 1) / cols)
+      if self.fillUp then row = rows - 1 - row end
+      return col * step, -(top + row * step)
     end
-    total = total + num
-    used = used + self:Taken(bag)
-  end
-  if rnum > 0 then
-    total = total + rnum
-    used = used + self:Taken(ns.reagentBag)
-    if merge then
-      for slot = 1, rnum do
+
+    for _, bag in ipairs(ns.playerBags) do
+      local num = self:Slots(bag)
+      self.bagSlots[bag] = num
+      for slot = 1, num do
         n = n + 1
-        place(ns.reagentBag, slot, cellXY(n, mainCount, mainRows, mainTop))
+        place(bag, slot, cellXY(n, mainCount, mainRows, mainTop))
+      end
+      total = total + num
+      used = used + self:Taken(bag)
+    end
+    if rnum > 0 then
+      total = total + rnum
+      used = used + self:Taken(ns.reagentBag)
+      if merge then
+        for slot = 1, rnum do
+          n = n + 1
+          place(ns.reagentBag, slot, cellXY(n, mainCount, mainRows, mainTop))
+        end
       end
     end
-  end
 
-  local contentH = mainBottom
-  if split then
-    self.reagentLabel:ClearAllPoints()
-    self.reagentLabel:SetPoint("TOPLEFT", self.content, "TOPLEFT", 2, -(rTop - DIV + 6))
-    self.reagentLabel:Show()
-    for slot = 1, rnum do
-      place(ns.reagentBag, slot, cellXY(slot, rnum, rRows, rTop))
+    contentH = mainBottom
+    if split then
+      self.reagentLabel:ClearAllPoints()
+      self.reagentLabel:SetPoint("TOPLEFT", self.content, "TOPLEFT", 2, -(rTop - DIV + 6))
+      self.reagentLabel:Show()
+      for slot = 1, rnum do
+        place(ns.reagentBag, slot, cellXY(slot, rnum, rRows, rTop))
+      end
+      if not onTop then contentH = rTop + rBlock end
+    else
+      self.reagentLabel:Hide()
     end
-    if not onTop then contentH = rTop + rBlock end
-  else
-    self.reagentLabel:Hide()
   end
 
   local active, idle = self:Pool(), (self.snap and self.pool or self.vpool)
@@ -746,6 +754,62 @@ function Bags:Layout(capture)
   self:ApplySearch()
   if ns.Pocket then ns.Pocket:Refresh() end
 end
+
+-- Taint: the category view makes no cell of its own. It reuses the same pooled container
+-- buttons the grid places, re-bound to their slot by the shared placer, so the secure right
+-- click and drag stay intact and no new taint surface appears. Live window only: a snapshot
+-- carries no live container to bucket.
+function Bags:CatMode()
+  return (not self.snap) and self.bagView == "cat"
+end
+
+-- One pooled caption per section, kept on the content frame so it moves with the cells.
+function Bags:CatLabel(i)
+  self.catLabels = self.catLabels or {}
+  local fs = self.catLabels[i]
+  if not fs then
+    fs = Theme:Label(self.content, FONT - 4, "dim")
+    fs:SetJustifyH("LEFT")
+    self.catLabels[i] = fs
+  end
+  return fs
+end
+
+function Bags:HideCatLabels(from)
+  if not self.catLabels then return end
+  for i = (from or 0) + 1, #self.catLabels do
+    if self.catLabels[i] then self.catLabels[i]:Hide() end
+  end
+end
+
+-- Sections stacked down the window, each cells wrapped on the grid's own column count.
+function Bags:LayoutCats(place, size, gap, step, cols)
+  local buckets, used, total = ns.Categories:Buckets(self)
+  local d = ns.Density(size)
+  local capH = d.labelH + d.labelGap
+  local y = 0
+  for bi, b in ipairs(buckets) do
+    local label = self:CatLabel(bi)
+    -- Set as a file every layout so a font change reaches the caption.
+    label:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, "")
+    label:SetText(ns.Upper(b.name))
+    label:ClearAllPoints()
+    ns.SnapPoint(label, "TOPLEFT", self.content, "TOPLEFT", 2, -y)
+    label:Show()
+    local cellsTop = y + capH
+    for k, s in ipairs(b.slots) do
+      local col = (k - 1) % cols
+      local row = math.floor((k - 1) / cols)
+      place(s.bag, s.slot, col * step, -(cellsTop + row * step))
+    end
+    local rows = math.max(1, math.ceil(#b.slots / cols))
+    y = cellsTop + (rows - 1) * step + size + DIV
+  end
+  self:HideCatLabels(#buckets)
+  local contentH = (#buckets > 0) and (y - DIV) or size
+  return contentH, used, total
+end
+
 function Bags:Resize(contentH)
   local seam = ns.SeamWatch(self.frame)
   local gw = gridWidth(self.pxSize or self.iconSize, self.cols, self.pxGap or self.gap)
@@ -1344,6 +1408,13 @@ function Bags:UpdateDirty()
   if not self.byKey then
     self.dirty = {}
     self:Layout(true)
+    return
+  end
+  -- Cat mode rebuilds the whole pass because a changed slot can leave its section, and
+  -- Layout(true) captures the bags itself, so the incremental capture here would be thrown
+  -- away a line later. Skip it and let the full pass do the one capture.
+  if self:CatMode() then
+    if next(self.dirty) then self.dirty = {}; self:Layout(true) end
     return
   end
   if next(self.dirty) then ns.Vault:Capture("bags", self.dirty) end

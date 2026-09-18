@@ -33,6 +33,7 @@ local DEFAULTS = {
   pocketLock = NONE,
   revFill = false, fillUp = false, questMarks = true, newItemGlow = false,
   reagentTint = true, unusableBorder = true,
+  bagView = "grid", categoryVer = 0, categories = {},
   goldFormat = "short", goldLetters = true, goldOnly = true,
   vendorIlvl = 100, vendorIlvlMin = 10, vendorConsum = false, vendorAuto = false,
   vendorTokens = false, vendorTokenExp = {},
@@ -48,7 +49,7 @@ local DEFAULTS = {
   -- panel preview from the same numbers. A second copy here is how the two drifted.
   badge = ns.BadgeDefaults(),
   optSections = { interface = false, bankgrid = false, badges = true, autoopen = false,
-                  tokenexp = false, arrange = true, pocketsize = true },
+                  tokenexp = false, arrange = true, pocketsize = true, categories = false },
   autoOpen = { auction = true, bank = true, mail = true, trade = true,
                vendor = true, guildbank = true, professions = false },
   bagWinPos = NONE,
@@ -150,6 +151,7 @@ function ns.PushConfig()
   Bags.newItemGlow      = WarpeeDB.newItemGlow
   Bags.reagentTint      = WarpeeDB.reagentTint
   Bags.unusableBorder   = WarpeeDB.unusableBorder
+  Bags.bagView          = WarpeeDB.bagView
 end
 
 function ns.ApplyAll()
