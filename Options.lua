@@ -1857,6 +1857,8 @@ flow.catSet = function(v)
   Bags.bagView = mode
   WarpeeDB.bagView = mode
   relayout()
+  -- The reagent rows are gated on the view, so reflow the page to add or drop them at the switch.
+  if Options.ReflowPages then Options:ReflowPages() end
 end
 
 -- One editable row per category: a checkbox, the reorder carets, a name and a search field, the
@@ -1946,8 +1948,16 @@ function factories.catlist(parent, spec)
 
     local box = ns.CreateCheckBox(c, 16)
     ns.SnapPoint(box, "LEFT", c, "LEFT", 1, 0)
+    -- The checkbox art is mouse transparent, so a button carries the click. It needs a real rect
+    -- and a raised level of its own: sharing the row frame's level, a pooled sibling would not
+    -- reliably take the click. Full row height makes an easy target either side of the 16px box.
     local hit = CreateFrame("Button", nil, c)
-    hit:SetAllPoints(box)
+    hit:SetSize(16, CAT_ROW_H)
+    ns.SnapPoint(hit, "LEFT", c, "LEFT", 1, 0)
+    hit:SetFrameLevel(c:GetFrameLevel() + 5)
+    hit:RegisterForClicks("LeftButtonUp")
+    hit:SetScript("OnEnter", function() box:SetKeys(nil, "accent", nil) end)
+    hit:SetScript("OnLeave", function() box:SetKeys(nil, "stroke", nil) end)
     hit:SetScript("OnClick", function() act(function() Cats:Toggle(c.idx) end) end)
     c.chk = box
 
@@ -2017,16 +2027,22 @@ function factories.catlist(parent, spec)
   row.Rebuild = function()
     local list = Cats:List()
     local counts = Cats:Counts()
+    local names = Cats:Names()
     local half = math.floor((CONTENT_W - 96) / 2)
     local y = 0
     for i, c in ipairs(list) do
+      if type(c) ~= "table" then c = {} end
+      local on = c.enabled ~= false
       local r = catRow(i)
       r.idx = i
-      r.chk.mark:SetShown(c.enabled ~= false)
+      r.chk.mark:SetShown(on)
       r.nameBox:SetWidth(half - 24)
       r.searchBox:ClearAllPoints()
       ns.SnapPoint(r.searchBox, "LEFT", r.nameBox, "RIGHT", 6, 0)
       r.searchBox:SetWidth(half)
+      -- The name field carries only a custom override; its placeholder is the resolved caption
+      -- (a default's shipped label, a new row's fallback), so an unnamed row still reads as itself.
+      r.nameBox.ph:SetText(names[i] or ns.L["Name"])
       if not r.nameBox:HasFocus() then
         r.nameBox:SetText(c.name or "")
         r.nameBox.ph:SetShown((c.name or "") == "")
@@ -2036,6 +2052,10 @@ function factories.catlist(parent, spec)
         r.searchBox.ph:SetShown((c.search or "") == "")
       end
       r.count:SetText(tostring(counts[i] or 0))
+      -- A disabled row is not classified into any section, so dim its fields to read as off; the
+      -- controls stay lit so it can be re-enabled, reordered or removed.
+      local a = on and 1 or 0.4
+      r.nameBox:SetAlpha(a); r.searchBox:SetAlpha(a); r.count:SetAlpha(a)
       r:ClearAllPoints()
       r:SetPoint("TOPLEFT", 0, -y)
       r:SetPoint("TOPRIGHT", 0, -y)
@@ -2344,13 +2364,13 @@ local GRID_PAGE = {
     get = flow.catGet, set = flow.catSet,
     desc = "Lay the items out in labelled sections instead of one grid: equipment, consumables, reagents and the rest, with anything left over under Other. The favorites and recent rows stay." },
   { type = "toggle", name = "Hide reagents", col = 1, of = 2, section = "arrange",
-    get = flow.hideGet, set = flow.hideSet,
+    get = flow.hideGet, set = flow.hideSet, hidden = flow.catGet,
     desc = "Leave the reagent bag out of the window. Its slots still count in the header, and reagents still go into it." },
   { type = "toggle", name = "Merge reagents", col = 2, of = 2, get = mergeGet, set = mergeSet,
-    section = "arrange", disabled = flow.hideGet,
+    section = "arrange", disabled = flow.hideGet, hidden = flow.catGet,
     desc = "Lay the reagent bag out with the main bags, without its caption." },
   { type = "toggle", name = "Reagents on top", section = "arrange",
-    get = flow.topGet, set = flow.topSet, disabled = flow.offGet,
+    get = flow.topGet, set = flow.topSet, disabled = flow.offGet, hidden = flow.catGet,
     desc = "Draw the reagent bag above the main bags instead of below them." },
   { type = "toggle", name = "Fill grid upwards", col = 1, of = 2, section = "arrange",
     get = flow.upGet, set = flow.upSet,

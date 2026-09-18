@@ -675,6 +675,7 @@ function Bags:Layout(capture)
     contentH, used, total = self:LayoutCats(place, size, gap, step, cols)
   else
     self:HideCatLabels(0)
+    self:HideCatCounts(0)
     local n = 0
     local hide = self.hideReagents and true or false
     local merge = (not hide) and self.mergeReagents and true or false
@@ -782,11 +783,32 @@ function Bags:HideCatLabels(from)
   end
 end
 
+-- The count that rides opposite each caption, one pooled fontstring per section like the label,
+-- right justified so it lands on the grid's own edge.
+function Bags:CatCount(i)
+  self.catCounts = self.catCounts or {}
+  local fs = self.catCounts[i]
+  if not fs then
+    fs = Theme:Label(self.content, FONT - 4, "faint")
+    fs:SetJustifyH("RIGHT")
+    self.catCounts[i] = fs
+  end
+  return fs
+end
+
+function Bags:HideCatCounts(from)
+  if not self.catCounts then return end
+  for i = (from or 0) + 1, #self.catCounts do
+    if self.catCounts[i] then self.catCounts[i]:Hide() end
+  end
+end
+
 -- Sections stacked down the window, each cells wrapped on the grid's own column count.
 function Bags:LayoutCats(place, size, gap, step, cols)
   local buckets, used, total = ns.Categories:Buckets(self)
   local d = ns.Density(size)
   local capH = d.labelH + d.labelGap
+  local gridW = gridWidth(size, cols, gap)
   local y = 0
   for bi, b in ipairs(buckets) do
     local label = self:CatLabel(bi)
@@ -796,6 +818,12 @@ function Bags:LayoutCats(place, size, gap, step, cols)
     label:ClearAllPoints()
     ns.SnapPoint(label, "TOPLEFT", self.content, "TOPLEFT", 2, -y)
     label:Show()
+    local count = self:CatCount(bi)
+    count:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, "")
+    count:SetText(tostring(#b.slots))
+    count:ClearAllPoints()
+    ns.SnapPoint(count, "TOPRIGHT", self.content, "TOPLEFT", gridW, -y)
+    count:Show()
     local cellsTop = y + capH
     for k, s in ipairs(b.slots) do
       local col = (k - 1) % cols
@@ -806,6 +834,7 @@ function Bags:LayoutCats(place, size, gap, step, cols)
     y = cellsTop + (rows - 1) * step + size + DIV
   end
   self:HideCatLabels(#buckets)
+  self:HideCatCounts(#buckets)
   local contentH = (#buckets > 0) and (y - DIV) or size
   return contentH, used, total
 end
@@ -1063,11 +1092,21 @@ function Bags:FitHeader()
   self:FlowHeader()
   local w = self.frame:GetWidth()
   self.search:Show()
+  -- The reagent switch hides the reagent block, which is a grid-only idea: cat-view always groups
+  -- the full inventory, so the button has nothing to gate there. It comes off the header in
+  -- cat-view and the count slides back onto the tag where the button used to sit.
+  if self.reagentBtn and self.slotText and self.charTag then
+    local catMode = self:CatMode()
+    self.reagentBtn:SetShown(not catMode)
+    self.slotText:ClearAllPoints()
+    self.slotText:SetPoint("LEFT", catMode and self.charTag or self.reagentBtn, "RIGHT", 10, 0)
+  end
   if self.slotText and self.charTag then
     local edge = self.headEdge and self.headEdge:GetLeft()
-    -- The count reads after the reagent switch now, so that is the edge it has to clear. The
-    -- tag is the fallback for a frame built before that button existed.
-    local anchor = self.reagentBtn or self.charTag
+    -- The count reads after the reagent switch now, so that is the edge it has to clear. The tag
+    -- is the fallback for a frame built before that button existed, and for cat-view where the
+    -- switch is hidden.
+    local anchor = (self.reagentBtn and self.reagentBtn:IsShown()) and self.reagentBtn or self.charTag
     local from = anchor:GetRight()
     local show = true
     if edge and from then

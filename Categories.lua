@@ -32,17 +32,24 @@ function Cats:List()
   return DEFAULTS
 end
 
+-- A fresh independent copy of the shipped list, so the save never shares a table with the
+-- constant and editing one profile cannot bleed into another or into the defaults.
+local function seed()
+  local db = {}
+  for i, c in ipairs(DEFAULTS) do
+    db[i] = { id = c.id, search = c.search, name = c.name, enabled = c.enabled }
+  end
+  return db
+end
+
 -- Seed: List() hands back the shared DEFAULTS until a custom list exists, and mutating that
--- would corrupt the constant for every profile. So every mutator calls this first: it deep
--- copies DEFAULTS into the save the once, and after that returns the save to edit in place.
+-- would corrupt the constant for every profile. So every mutator calls this first: it copies
+-- DEFAULTS into the save the once, and after that returns the save to edit in place.
 function Cats:EnsureCustom()
   if not WarpeeDB then return DEFAULTS end
   local db = WarpeeDB.categories
   if type(db) == "table" and #db > 0 then return db end
-  db = {}
-  for i, c in ipairs(DEFAULTS) do
-    db[i] = { id = c.id, search = c.search, name = c.name, enabled = c.enabled }
-  end
+  db = seed()
   WarpeeDB.categories = db
   return db
 end
@@ -80,15 +87,20 @@ function Cats:SetSearch(i, text)
   if list[i] then list[i].search = text or "" end
 end
 
--- enabled is nil for on, so a fresh category and a shipped default both read as on.
+-- enabled is nil for on, so a fresh category and a shipped default both read as on. A plain
+-- branch, not `x and false or nil`: that idiom yields nil for both cases, since its true-value is
+-- itself false and the or falls through, so on could never flip to off.
 function Cats:Toggle(i)
   local list = self:EnsureCustom()
   local c = list[i]
-  if c then c.enabled = (c.enabled ~= false) and false or nil end
+  if not c then return end
+  if c.enabled == false then c.enabled = nil else c.enabled = false end
 end
 
+-- Restore the shipped list in full, not a blank save: Reset means "give me the defaults back",
+-- so the save holds the seven named categories again and the editor and dump both read clean.
 function Cats:Reset()
-  if WarpeeDB then WarpeeDB.categories = {} end
+  if WarpeeDB then WarpeeDB.categories = seed() end
 end
 
 local function catName(c)
@@ -114,7 +126,11 @@ local function ensureFilters()
   local list = Cats:List()
   local parts = {}
   for i, c in ipairs(list) do
-    parts[i] = (c.id or "") .. "\1" .. (c.search or "") .. "\1" .. tostring(c.enabled)
+    if type(c) == "table" then
+      parts[i] = (c.id or "") .. "\1" .. (c.search or "") .. "\1" .. tostring(c.enabled)
+    else
+      parts[i] = "\1\1"
+    end
   end
   local stamp = table.concat(parts, "\2")
   if stamp == filterStamp then return end
@@ -122,7 +138,7 @@ local function ensureFilters()
   wipe(FILTERS)
   wipe(ACTIVE)
   for _, c in ipairs(list) do
-    if c.enabled ~= false then
+    if type(c) == "table" and c.enabled ~= false then
       local idx = #ACTIVE + 1
       ACTIVE[idx] = c
       FILTERS[idx] = ns.ParseSearch((c.search or ""):lower())
@@ -145,6 +161,7 @@ local function buildMeta(bag, slot, info)
   end
   local isGear = iClassID == Enum.ItemClass.Armor or iClassID == Enum.ItemClass.Weapon
   local nm = (hl and hl:match("%[(.-)%]")) or ""
+  m.name = nm
   m.text = (nm .. " " .. (iType or "") .. " " .. (iSub or "")):lower()
   m.q = info.quality
   m.classID, m.subID, m.id, m.equipLoc = iClassID, iSubID, iItemID, iEquipLoc
@@ -179,8 +196,8 @@ local function classify(m)
 end
 
 -- Every occupied slot into its section, sections that hold anything returned in ACTIVE order with
--- the catch-all last. A hidden reagent bag still counts toward used and total so the footer does
--- not jump when it is switched off, but its items are only bucketed while it is shown.
+-- the catch-all last. The reagent bag is always bucketed here: cat-view is a full inventory grouping,
+-- the grid's hide-reagents toggle does not gate it.
 function Cats:Buckets(bags)
   ensureFilters()
   local order = {}
@@ -189,41 +206,53 @@ function Cats:Buckets(bags)
   end
   local other = { id = "other", name = ns.L["Other"], slots = {} }
   local used, total = 0, 0
-  local hide = bags.hideReagents and true or false
-  local function tally(bag, bucket)
+  local function tally(bag)
     local num = C_Container.GetContainerNumSlots(bag) or 0
     total = total + num
     for slot = 1, num do
       local info = C_Container.GetContainerItemInfo(bag, slot)
       if info and (info.hyperlink or info.itemID) then
         used = used + 1
-        if bucket then
-          local m = buildMeta(bag, slot, info)
-          local idx = classify(m)
-          local dest = (idx and order[idx]) or other
-          dest.slots[#dest.slots + 1] = { bag = bag, slot = slot }
-        end
+        local m = buildMeta(bag, slot, info)
+        local idx = classify(m)
+        local dest = (idx and order[idx]) or other
+        -- The sort keys ride on the slot entry, read off the scratch meta now, since the meta is
+        -- reused on the next slot and would be gone by the time the bucket is sorted.
+        dest.slots[#dest.slots + 1] = {
+          bag = bag, slot = slot, q = m.q or -1, ilvl = m.ilvl or 0, name = m.name or "",
+        }
       end
     end
   end
-  for _, bag in ipairs(ns.playerBags) do tally(bag, true) end
-  if ns.reagentBag then tally(ns.reagentBag, not hide) end
+  for _, bag in ipairs(ns.playerBags) do tally(bag) end
+  if ns.reagentBag then tally(ns.reagentBag) end
   local out = {}
   for i = 1, #order do
     if #order[i].slots > 0 then out[#out + 1] = order[i] end
   end
   if #other.slots > 0 then out[#out + 1] = other end
+  -- Inside a section, best first: quality, then item level, then name, and bag and slot last so the
+  -- order is stable and never flickers between two items that tie on all three. The cell still binds
+  -- its real bag and slot, this only reorders the draw, so the secure right-click is untouched.
+  for _, b in ipairs(out) do
+    table.sort(b.slots, function(a, z)
+      if a.q ~= z.q then return a.q > z.q end
+      if a.ilvl ~= z.ilvl then return a.ilvl > z.ilvl end
+      if a.name ~= z.name then return a.name < z.name end
+      if a.bag ~= z.bag then return a.bag < z.bag end
+      return a.slot < z.slot
+    end)
+  end
   return out, used, total
 end
 
--- The bags the editor's counts read: the reagent bag drops out when it is hidden, so the count
--- beside a search matches what the sections actually show and does not tally slots that are off.
+-- The bags the editor's counts read: cat-view always includes the reagent bag, so the count
+-- beside a search matches the sections, which classify every occupied slot the same way.
 local function countBags()
-  local hide = ns.Bags and ns.Bags.hideReagents
   local n = #ns.playerBags
   local out = {}
   for i = 1, n do out[i] = ns.playerBags[i] end
-  if ns.reagentBag and not hide then out[n + 1] = ns.reagentBag end
+  if ns.reagentBag then out[n + 1] = ns.reagentBag end
   return out
 end
 
@@ -243,15 +272,18 @@ function Cats:Preview(search)
   return n
 end
 
--- The whole editor list in one slot pass: buildMeta runs once per slot, not once per slot per
--- category, and each item is tested against every category's filter. Standalone counts, not the
--- first-match the sections use, so the number says what a search catches on its own. Returned by
--- list index, disabled rows included, since the editor draws them too.
+-- The whole editor list in one slot pass, and the number beside each row is what its section
+-- actually holds: first match wins in list order, exactly like Buckets, so a slot is tallied once
+-- to the first enabled category that claims it. A disabled row is not a section, so it counts 0.
+-- buildMeta runs once per slot, not once per slot per category. Returned by list index since the
+-- editor draws every row, disabled ones included.
 function Cats:Counts()
   local list = self:List()
   local filters, out = {}, {}
   for i, c in ipairs(list) do
-    filters[i] = ns.ParseSearch((c.search or ""):lower())
+    if type(c) == "table" and c.enabled ~= false then
+      filters[i] = ns.ParseSearch((c.search or ""):lower())
+    end
     out[i] = 0
   end
   for _, bag in ipairs(countBags()) do
@@ -260,11 +292,23 @@ function Cats:Counts()
       local info = C_Container.GetContainerItemInfo(bag, slot)
       if info and (info.hyperlink or info.itemID) then
         local m = buildMeta(bag, slot, info)
-        for i = 1, #filters do
-          if ns.MatchSearch(m, filters[i]) then out[i] = out[i] + 1 end
+        for i = 1, #list do
+          if filters[i] and ns.MatchSearch(m, filters[i]) then out[i] = out[i] + 1; break end
         end
       end
     end
+  end
+  return out
+end
+
+-- The resolved caption per list row, by list index: a saved name if set, else the shipped label
+-- for a default id, else the New category fallback. The editor shows these as the name field's
+-- placeholder so a row without a custom name still reads as what it is instead of a blank "Name".
+function Cats:Names()
+  local list = self:List()
+  local out = {}
+  for i, c in ipairs(list) do
+    out[i] = (type(c) == "table") and catName(c) or ""
   end
   return out
 end
