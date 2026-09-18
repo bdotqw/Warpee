@@ -2016,6 +2016,7 @@ function factories.catlist(parent, spec)
 
   row.Rebuild = function()
     local list = Cats:List()
+    local counts = Cats:Counts()
     local half = math.floor((CONTENT_W - 96) / 2)
     local y = 0
     for i, c in ipairs(list) do
@@ -2034,7 +2035,7 @@ function factories.catlist(parent, spec)
         r.searchBox:SetText(c.search or "")
         r.searchBox.ph:SetShown((c.search or "") == "")
       end
-      r.count:SetText(tostring(Cats:Preview(c.search or "")))
+      r.count:SetText(tostring(counts[i] or 0))
       r:ClearAllPoints()
       r:SetPoint("TOPLEFT", 0, -y)
       r:SetPoint("TOPRIGHT", 0, -y)

@@ -52,9 +52,11 @@ local function newId()
   return "u" .. tostring(math.floor(t * 1000))
 end
 
+-- name is left unset, never a translated literal: a string written here would freeze in the
+-- language it was made in and outlive any later relocalize. catName resolves the caption live.
 function Cats:Add()
   local list = self:EnsureCustom()
-  list[#list + 1] = { id = newId(), search = "", name = ns.L["New category"] }
+  list[#list + 1] = { id = newId(), search = "" }
 end
 
 function Cats:Remove(i)
@@ -85,11 +87,6 @@ function Cats:Toggle(i)
   if c then c.enabled = (c.enabled ~= false) and false or nil end
 end
 
-function Cats:IsEnabled(i)
-  local c = self:List()[i]
-  return c ~= nil and c.enabled ~= false
-end
-
 function Cats:Reset()
   if WarpeeDB then WarpeeDB.categories = {} end
 end
@@ -97,10 +94,8 @@ end
 local function catName(c)
   if c.name and c.name ~= "" then return c.name end
   local key = NAMEKEY[c.id]
-  return (key and ns.L[key]) or c.id or "?"
+  return (key and ns.L[key]) or ns.L["New category"]
 end
-
-Cats.Name = catName
 
 -- ACTIVE and FILTERS are kept 1:1: FILTERS[i] is the parsed search of ACTIVE[i], so the index
 -- classify returns reads straight back through order[i] built from ACTIVE. Filtering the
@@ -221,11 +216,22 @@ function Cats:Buckets(bags)
   return out, used, total
 end
 
--- Count for the editor: how many occupied slots one search string would claim, on its own.
+-- The bags the editor's counts read: the reagent bag drops out when it is hidden, so the count
+-- beside a search matches what the sections actually show and does not tally slots that are off.
+local function countBags()
+  local hide = ns.Bags and ns.Bags.hideReagents
+  local n = #ns.playerBags
+  local out = {}
+  for i = 1, n do out[i] = ns.playerBags[i] end
+  if ns.reagentBag and not hide then out[n + 1] = ns.reagentBag end
+  return out
+end
+
+-- Count for one search as it is typed: how many occupied slots it would claim, on its own.
 function Cats:Preview(search)
   local filter = ns.ParseSearch((search or ""):lower())
   local n = 0
-  local function tally(bag)
+  for _, bag in ipairs(countBags()) do
     local num = C_Container.GetContainerNumSlots(bag) or 0
     for slot = 1, num do
       local info = C_Container.GetContainerItemInfo(bag, slot)
@@ -234,7 +240,31 @@ function Cats:Preview(search)
       end
     end
   end
-  for _, bag in ipairs(ns.playerBags) do tally(bag) end
-  if ns.reagentBag then tally(ns.reagentBag) end
   return n
+end
+
+-- The whole editor list in one slot pass: buildMeta runs once per slot, not once per slot per
+-- category, and each item is tested against every category's filter. Standalone counts, not the
+-- first-match the sections use, so the number says what a search catches on its own. Returned by
+-- list index, disabled rows included, since the editor draws them too.
+function Cats:Counts()
+  local list = self:List()
+  local filters, out = {}, {}
+  for i, c in ipairs(list) do
+    filters[i] = ns.ParseSearch((c.search or ""):lower())
+    out[i] = 0
+  end
+  for _, bag in ipairs(countBags()) do
+    local num = C_Container.GetContainerNumSlots(bag) or 0
+    for slot = 1, num do
+      local info = C_Container.GetContainerItemInfo(bag, slot)
+      if info and (info.hyperlink or info.itemID) then
+        local m = buildMeta(bag, slot, info)
+        for i = 1, #filters do
+          if ns.MatchSearch(m, filters[i]) then out[i] = out[i] + 1 end
+        end
+      end
+    end
+  end
+  return out
 end
