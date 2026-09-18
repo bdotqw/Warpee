@@ -49,7 +49,7 @@ local DEFAULTS = {
   -- panel preview from the same numbers. A second copy here is how the two drifted.
   badge = ns.BadgeDefaults(),
   optSections = { interface = false, bankgrid = false, badges = true, autoopen = false,
-                  tokenexp = false, arrange = true, pocketsize = true, categories = false },
+                  tokenexp = false, arrange = true, pocketsize = true, categories = true },
   autoOpen = { auction = true, bank = true, mail = true, trade = true,
                vendor = true, guildbank = true, professions = false },
   bagWinPos = NONE,

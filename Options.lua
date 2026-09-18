@@ -2358,10 +2358,6 @@ local GRID_PAGE = {
   { type = "toggle", name = "Reverse slot order", col = 2, of = 2, section = "arrange",
     get = flow.revGet, set = flow.revSet,
     desc = "The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in." },
-  { type = "header", name = "Categories", key = "categories" },
-  { type = "description", section = "categories",
-    name = "Each category is a search, run top to bottom, and an item joins the first it matches. Drag the carets to change the order, the box on the left turns one off, and the count is how many items in your bags it holds now." },
-  { type = "catlist", section = "categories" },
   { type = "header", name = "Quick access" },
   { type = "toggle", name = "Recent in bags", col = 1,
     get = fav.recentBagsGet, set = fav.recentBagsSet,
@@ -2587,9 +2583,17 @@ do
   end
 end
 
+local CATS_PAGE = {
+  { type = "header", name = "Categories", key = "categories" },
+  { type = "description", section = "categories",
+    name = "Each category is a search, run top to bottom, and an item joins the first it matches. Drag the carets to change the order, the box on the left turns one off, and the count is how many items in your bags it holds now." },
+  { type = "catlist", section = "categories" },
+}
+
 local PAGES = {
   { name = "General", list = GENERAL_PAGE },
   { name = "Grid", list = GRID_PAGE },
+  { name = "Categories", list = CATS_PAGE },
   { name = "Items", list = ITEMS_PAGE },
   { name = "Pocket", list = POCKET_PAGE },
   { name = "Vendor", list = VENDOR_PAGE },
