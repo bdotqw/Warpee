@@ -119,6 +119,19 @@ function Cats:ToggleCollapse(id)
   t[id] = (not t[id]) or nil
 end
 
+-- Fold or open every section at once, for the shift click on a caption. Covers every category id
+-- in the list plus the "other" catch-all, so a section that is currently empty and unshown still
+-- takes the state and honours it the moment it fills. Kept sparse like the single toggle.
+function Cats:SetAllCollapsed(state)
+  if not WarpeeDB then return end
+  local t = WarpeeDB.catCollapsed
+  if type(t) ~= "table" then t = {}; WarpeeDB.catCollapsed = t end
+  for _, c in ipairs(self:List()) do
+    if type(c) == "table" and c.id then t[c.id] = state and true or nil end
+  end
+  t.other = state and true or nil
+end
+
 local function catName(c)
   if c.name and c.name ~= "" then return c.name end
   local key = NAMEKEY[c.id]

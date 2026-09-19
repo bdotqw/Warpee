@@ -834,7 +834,13 @@ function Bags:CatHeader(i)
     btn:RegisterForClicks("LeftButtonUp")
     btn:SetScript("OnClick", function(s)
       if s.wpeId == nil then return end
-      ns.Categories:ToggleCollapse(s.wpeId)
+      -- Shift folds or opens the lot at once, taking its cue from the section clicked: an open one
+      -- folds all, a folded one opens all. A plain click toggles just this section.
+      if IsShiftKeyDown() then
+        ns.Categories:SetAllCollapsed(not ns.Categories:Collapsed(s.wpeId))
+      else
+        ns.Categories:ToggleCollapse(s.wpeId)
+      end
       self:Layout()
     end)
     btn:SetScript("OnEnter", function(s)
