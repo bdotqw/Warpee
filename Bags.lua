@@ -1495,6 +1495,11 @@ local function classify(f, token)
     f.ilvlMin = tonumber(gt) + (token:find(">=", 1, true) and 0 or 1)
   elseif lt then
     f.ilvlMax = tonumber(lt) - (token:find("<=", 1, true) and 0 or 1)
+  elseif token:match("^id(%d+)$") then
+    -- Match one exact itemID. A bare number is already ilvl, so the id is prefixed; several ids in
+    -- one string OR together like kinds do, so a rule can name a small set (a Hearthstone category).
+    f.ids = f.ids or {}
+    f.ids[tonumber(token:match("^id(%d+)$"))] = true
   elseif num then
     f.ilvl = tonumber(num)
   elseif QUALITY_WORDS[token] then
@@ -1519,6 +1524,8 @@ local function classify(f, token)
     f.soulbound = true
   elseif token == "boe" or token == "unbound" then
     f.boe = true
+  elseif token == "boa" or token == "accountbound" then
+    f.boa = true
   elseif token == "token" or token == "tier" then
     f.token = true
   elseif token == "locked" or token == "blocked" then
@@ -1575,6 +1582,15 @@ function ns.MetaExp(m)
   return m.exp
 end
 
+-- Lazy like MetaExp: the account-bind lookup and its cache live in ItemButton.lua, so this is only
+-- read when a BoA rule is present. IsAccountBound loads late, so the call is guarded.
+function ns.MetaBoA(m)
+  if m.boa == nil then
+    m.boa = (m.link and ns.IsAccountBound and ns.IsAccountBound(m.link, m.id)) and true or false
+  end
+  return m.boa
+end
+
 function ns.MatchSearch(m, f)
   if not f or f.empty then return true end
   if not m then return false end
@@ -1586,6 +1602,7 @@ function ns.MatchSearch(m, f)
   for _, t in ipairs(f.text) do
     if not (m.text and m.text:find(t, 1, true)) then return false end
   end
+  if f.ids and not (m.id and f.ids[m.id]) then return false end
   if f.quality ~= nil and m.q ~= f.quality then return false end
   if f.ilvl and m.ilvl ~= f.ilvl then return false end
   if f.ilvlMin and not (m.ilvl and m.ilvl >= f.ilvlMin) then return false end
@@ -1612,6 +1629,7 @@ function ns.MatchSearch(m, f)
   if f.warbound and not ns.MetaWarbound(m) then return false end
   if f.soulbound and not (m.bound and not ns.MetaWarbound(m)) then return false end
   if f.boe and not (m.isGear and not m.bound) then return false end
+  if f.boa and not ns.MetaBoA(m) then return false end
   if f.token and not (m.id and ns.TIER_TOKENS and ns.TIER_TOKENS[m.id]) then return false end
   if f.locked and not (m.id and ns.Vendor and ns.Vendor:Blocked(m.id)) then return false end
   if f.reagent and not m.reagent then return false end

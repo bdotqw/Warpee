@@ -265,6 +265,7 @@ local function buildMeta(bag, slot, info)
   m.loc = nil
   m.wb = nil
   m.exp = nil
+  m.boa = nil
   if isGear and scratchLoc then
     scratchLoc:SetBagAndSlot(bag, slot)
     m.loc = scratchLoc

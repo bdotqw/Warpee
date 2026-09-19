@@ -1126,6 +1126,13 @@ local function bindType(link, itemID)
   return bt
 end
 
+-- Account bound in the Battle.net or WoW-account sense, told apart from warbound-until-equipped.
+-- The category engine reads this for its BoA rule; the bind lookup and its cache are shared with
+-- the badge, so no second per-item call is spent.
+function ns.IsAccountBound(link, itemID)
+  return accountBind(bindType(link, itemID))
+end
+
 -- Warbound until equipped, told apart from plain account binding. ns.IsLinkWarbound answers
 -- yes to both, so the plain account binds are subtracted. Only a reader holding a record that
 -- predates the stored flag needs this: the badge asks the same question on the screen.
