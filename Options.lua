@@ -1869,7 +1869,11 @@ function factories.catlist(parent, spec)
   local CAT_ROW_H = 26
   local row = CreateFrame("Frame", nil, parent)
   row.items = {}
+  row.pins = {}
   row.dynamic = true
+  -- Which rows have their pin panel open, keyed by category id so it survives a reorder and a
+  -- rebuild rebinds the pooled panels to the right rows. Purely a view state, never saved.
+  local openPins = {}
 
   local function pageOpen() return Options.frame and Options.frame:IsShown() end
 
@@ -1901,6 +1905,15 @@ function factories.catlist(parent, spec)
     fn()
     Options:ReflowPages()
     relayout()
+  end
+
+  -- Opening or closing a pin panel changes only the editor's own height, not what any bag holds,
+  -- so it reflows the page but skips the bag relayout that act does.
+  local function actUI(fn)
+    blur()
+    cancelPending()
+    fn()
+    Options:ReflowPages()
   end
 
   local function makeBox(c, hint, maxLen)
@@ -1938,6 +1951,99 @@ function factories.catlist(parent, spec)
     b:SetScript("OnEnter", function() tri:SetTint("accent") end)
     b:SetScript("OnLeave", function() tri:SetTint("dim") end)
     return b
+  end
+
+  -- The pinned ids of a list row, in id order so the chips keep a stable place across rebuilds.
+  -- Read straight off the saved record like the editor reads name and search; nil pins means none.
+  local function pinIds(c)
+    local out = {}
+    if type(c) == "table" and type(c.pins) == "table" then
+      for id in pairs(c.pins) do out[#out + 1] = id end
+      table.sort(out)
+    end
+    return out
+  end
+
+  local CHIP = 22
+  -- One pinned item as an icon: hover shows the item, a click lifts the pin. The click only edits a
+  -- saved table and relayouts, no protected call, so it is taint free like the drag that made the pin.
+  local function makeChip(panel, k)
+    local b = panel.chips[k]
+    if b then return b end
+    b = CreateFrame("Button", nil, panel, "BackdropTemplate")
+    ns.SnapBox(b, CHIP, CHIP)
+    ns.PixelBackdrop(b)
+    ns.SetBg(b, Theme:C("bg"))
+    ns.SetEdge(b, Theme:C("stroke"))
+    local ic = b:CreateTexture(nil, "ARTWORK")
+    ic:SetPoint("TOPLEFT", 2, -2)
+    ic:SetPoint("BOTTOMRIGHT", -2, 2)
+    ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    b.ic = ic
+    b:SetScript("OnEnter", function(s)
+      ns.SetEdge(s, Theme:C("accent"))
+      if s.wpeId then
+        GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
+        GameTooltip:SetItemByID(s.wpeId)
+        GameTooltip:AddLine(ns.L["Click to remove"], 0.6, 0.6, 0.6)
+        GameTooltip:Show()
+      end
+    end)
+    b:SetScript("OnLeave", function(s) ns.SetEdge(s, Theme:C("stroke")); GameTooltip:Hide() end)
+    b:SetScript("OnClick", function(s)
+      if s.wpeId then act(function() Cats:PinItem(s.wpeId, nil) end) end
+    end)
+    panel.chips[k] = b
+    return b
+  end
+
+  -- The panel that drops under an open row: a strip of pinned chips and, at the end, a box to pin an
+  -- item by typing its id. Pooled by row index and rebound each pass; wpeId is the category it edits.
+  local function pinPanel(i)
+    local p = row.pins[i]
+    if p then return p end
+    p = CreateFrame("Frame", nil, row)
+    p.chips = {}
+    local add = makeBox(p, "Item ID", 9)
+    add:SetNumeric(true)
+    add:SetWidth(70)
+    add:SetScript("OnEnterPressed", function(s)
+      local id = tonumber(s:GetText())
+      s:SetText("")
+      s:ClearFocus()
+      if id and id > 0 and p.wpeId then act(function() Cats:PinItem(id, p.wpeId) end) end
+    end)
+    add:SetScript("OnEditFocusLost", function(s)
+      ns.SetEdge(s, Theme:C("stroke")); s.ph:SetShown(s:GetText() == "")
+    end)
+    p.addBox = add
+    row.pins[i] = p
+    return p
+  end
+
+  -- Lay the chips left to right, wrapping at the panel width, with the add box after the last one.
+  -- Returns the panel height so Rebuild can advance its running y by exactly what the panel takes.
+  local function layoutPins(p, ids, width)
+    local pad, gap = 25, 4
+    local avail = width - pad
+    local x, yy, rowN = 0, 0, 0
+    for k = 1, #ids do
+      local chip = makeChip(p, k)
+      chip.wpeId = ids[k]
+      chip.ic:SetTexture(ns.PinIcon(ids[k]))
+      if x > 0 and x + CHIP > avail then x = 0; yy = yy + CHIP + gap; rowN = 0 end
+      chip:ClearAllPoints()
+      chip:SetPoint("TOPLEFT", pad + x, -yy)
+      chip:Show()
+      x = x + CHIP + gap; rowN = rowN + 1
+    end
+    for k = #ids + 1, #p.chips do p.chips[k]:Hide() end
+    -- The add box sits after the last chip, or wraps to a fresh line if the row is full.
+    if x > 0 and x + 70 > avail then x = 0; yy = yy + CHIP + gap end
+    p.addBox:ClearAllPoints()
+    p.addBox:SetPoint("TOPLEFT", pad + x, -yy)
+    p.addBox.ph:SetShown(p.addBox:GetText() == "")
+    return yy + CHIP + 4
   end
 
   local function catRow(i)
@@ -1978,6 +2084,19 @@ function factories.catlist(parent, spec)
     count:SetPoint("RIGHT", del, "LEFT", -6, 0)
     count:SetWidth(30)
     c.count = count
+
+    -- A caret between the search field and the count opens the row's pin panel. Faint when the
+    -- row has no pins, dim when it does, so the row hints whether there is anything filed by hand.
+    local pin = makeCaret(c, "right")
+    ns.SnapPoint(pin, "RIGHT", count, "LEFT", -6, 0)
+    pin:SetScript("OnEnter", function() pin.tri:SetTint("accent") end)
+    pin:SetScript("OnLeave", function() pin.tri:SetTint(pin.wpeHasP and "dim" or "faint") end)
+    pin:SetScript("OnClick", function()
+      local id = c.catId
+      if not id then return end
+      actUI(function() openPins[id] = (not openPins[id]) or nil end)
+    end)
+    c.pinBtn = pin
 
     local name = makeBox(c, "Name", 24)
     ns.SnapPoint(name, "LEFT", box, "RIGHT", 24, 0)
@@ -2028,13 +2147,16 @@ function factories.catlist(parent, spec)
     local list = Cats:List()
     local counts, other = Cats:Counts()
     local names = Cats:Names()
-    local half = math.floor((CONTENT_W - 96) / 2)
+    -- Wider gutter than before, to seat the pin caret between the search field and the count.
+    local half = math.floor((CONTENT_W - 116) / 2)
+    for _, p in pairs(row.pins) do p:Hide() end
     local y = 0
     for i, c in ipairs(list) do
       if type(c) ~= "table" then c = {} end
       local on = c.enabled ~= false
       local r = catRow(i)
       r.idx = i
+      r.catId = c.id
       r.chk.mark:SetShown(on)
       r.nameBox:SetWidth(half - 24)
       r.searchBox:ClearAllPoints()
@@ -2056,11 +2178,31 @@ function factories.catlist(parent, spec)
       -- controls stay lit so it can be re-enabled, reordered or removed.
       local a = on and 1 or 0.4
       r.nameBox:SetAlpha(a); r.searchBox:SetAlpha(a); r.count:SetAlpha(a)
+      -- The caret opens down when this row's panel is showing and points right when it is shut, and
+      -- reads faint until the row actually holds a pin so a filed section stands out at a glance. The
+      -- span swaps with the direction: a down caret is wide and short, a right caret narrow and tall.
+      local ids = pinIds(c)
+      local isOpen = c.id and openPins[c.id]
+      r.pinBtn.wpeHasP = #ids > 0
+      if isOpen then r.pinBtn.tri:SetDir("down"); r.pinBtn.tri:SetSpan(9, 6)
+      else r.pinBtn.tri:SetDir("right"); r.pinBtn.tri:SetSpan(6, 9) end
+      r.pinBtn.tri:SetTint(r.pinBtn.wpeHasP and "dim" or "faint")
       r:ClearAllPoints()
       r:SetPoint("TOPLEFT", 0, -y)
       r:SetPoint("TOPRIGHT", 0, -y)
       r:Show()
       y = y + CAT_ROW_H + 2
+      if isOpen then
+        local p = pinPanel(i)
+        p.wpeId = c.id
+        local h = layoutPins(p, ids, CONTENT_W)
+        p:ClearAllPoints()
+        p:SetPoint("TOPLEFT", 0, -y)
+        p:SetPoint("TOPRIGHT", 0, -y)
+        p:SetHeight(h)
+        p:Show()
+        y = y + h + 2
+      end
     end
     for i = #list + 1, #row.items do row.items[i]:Hide() end
     -- The catch-all read out, so the coverage the rules leave behind is visible: everything that
