@@ -681,6 +681,7 @@ function Bags:Layout(capture)
   else
     self:HideCatLabels(0)
     self:HideCatCounts(0)
+    if self.catFree then self.catFree:Hide() end
     local n = 0
     local hide = self.hideReagents and true or false
     local merge = (not hide) and self.mergeReagents and true or false
@@ -949,11 +950,21 @@ function Bags:LayoutCats(place, size, gap, step, cols)
       y = cellsTop + (rows - 1) * step + size + DIV
     end
   end
+  -- A quiet line under the sections with the free slot count. The grid shows free space as the empty
+  -- cells at the end; grouped view has none to eyeball, so the number stands in. Always shown, so an
+  -- empty bag still reads its free count. Sits one DIV below the last section (y already carries it).
+  local free = math.max(0, (total or 0) - (used or 0))
+  self.catFree = self.catFree or Theme:Label(self.content, FONT - 4, "dim")
+  self.catFree:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, "")
+  self.catFree:SetText(ns.Upper(ns.L["Free space"]) .. "   " .. tostring(free))
+  self.catFree:ClearAllPoints()
+  ns.SnapPoint(self.catFree, "TOPLEFT", self.content, "TOPLEFT", labelX, -y)
+  self.catFree:Show()
+  local contentH = y + capH
   self:HideCatLabels(#buckets)
   self:HideCatCounts(#buckets)
   self:HideCatCarets(#buckets)
   self:HideCatHeaders(#buckets)
-  local contentH = (#buckets > 0) and (y - DIV) or size
   return contentH, used, total
 end
 
