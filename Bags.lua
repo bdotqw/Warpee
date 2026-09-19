@@ -382,12 +382,12 @@ function Bags:Build()
   local search = ns.CreateSearchBox(f, function(text)
     self.query = (text or ""):lower()
     self.filters = ns.ParseSearch(self.query)
-    -- Grid only paints the miss dim; the cells never move, so a repaint is enough. Category view
-    -- folds a section by whether the query hits it, so the query has to be re-bucketed: a full
-    -- layout, not just a paint. buildMeta is a cheap per-slot read (no tooltip scan), so a relayout
-    -- per keystroke over the player bags is a couple of ms, and the sections opening as you type is
-    -- the point of it.
-    if self:CatMode() then self:Layout() else self:ApplySearch() end
+    -- The dim on a miss is instant either way, it only repaints cells in place. Category view also
+    -- re-folds a section by whether the query hits it, but doing that on every keystroke made the
+    -- sections jump open and shut mid-word. So the fold is deferred to a short pause after the last
+    -- key: you type freely, the layout settles once. Grid never folds, so it only ever repaints.
+    self:ApplySearch()
+    if self:CatMode() then self:ScheduleCatFold() end
     ns.MirrorSearch("bags", text)
   end)
   search:SetPoint("TOPLEFT", PAD, -ROW2_Y)
@@ -742,7 +742,9 @@ function Bags:Layout(capture)
   local active, idle = self:Pool(), (self.snap and self.pool or self.vpool)
   for j = i + 1, #active do active[j].holder:Hide() end
   for _, b in ipairs(idle) do if b.holder:IsShown() then b.holder:Hide() end end
-  if self.sortBtn then self.sortBtn:SetShown(not self.snap) end
+  -- Sorting is a grid idea: it reorders the live bag slots. Category view groups by rule and draws
+  -- each section in its own order, so the button has nothing to act on there and is hidden.
+  if self.sortBtn then self.sortBtn:SetShown(not self.snap and not self:CatMode()) end
   if self.reagentBtn then self:PaintReagents() end
   if self.pocketBtn then
     self.pocketBtn:SetShown((ns.Pocket and ns.Pocket:Enabled()) and true or false)
@@ -1491,6 +1493,19 @@ function ns.MatchSearch(m, f)
   if f.gear and not (m.classID == Enum.ItemClass.Armor
      or m.classID == Enum.ItemClass.Weapon) then return false end
   return true
+end
+
+-- A search in category view re-folds sections by hit, but a fold per keystroke jumps the layout as
+-- similar prefixes match and drop. So the relayout waits out a short quiet after the last key: each
+-- keystroke re-arms the timer and only the final one fires, folding once against the settled query.
+-- A token guards it so a stale timer that outlived the window or another relayout does nothing.
+function Bags:ScheduleCatFold()
+  self.catFoldToken = (self.catFoldToken or 0) + 1
+  local mine = self.catFoldToken
+  C_Timer.After(0.25, function()
+    if self.catFoldToken ~= mine then return end
+    if self.frame and self.frame:IsShown() and self:CatMode() then self:Layout() end
+  end)
 end
 
 function Bags:ApplySearch()
