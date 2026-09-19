@@ -382,7 +382,12 @@ function Bags:Build()
   local search = ns.CreateSearchBox(f, function(text)
     self.query = (text or ""):lower()
     self.filters = ns.ParseSearch(self.query)
-    self:ApplySearch()
+    -- Grid only paints the miss dim; the cells never move, so a repaint is enough. Category view
+    -- folds a section by whether the query hits it, so the query has to be re-bucketed: a full
+    -- layout, not just a paint. buildMeta is a cheap per-slot read (no tooltip scan), so a relayout
+    -- per keystroke over the player bags is a couple of ms, and the sections opening as you type is
+    -- the point of it.
+    if self:CatMode() then self:Layout() else self:ApplySearch() end
     ns.MirrorSearch("bags", text)
   end)
   search:SetPoint("TOPLEFT", PAD, -ROW2_Y)
@@ -834,6 +839,10 @@ function Bags:CatHeader(i)
     btn:RegisterForClicks("LeftButtonUp")
     btn:SetScript("OnClick", function(s)
       if s.wpeId == nil then return end
+      -- While a search runs the fold is driven by the hits, so a click must not write to the saved
+      -- state: doing so used to stamp every section collapsed under a query and only show it once the
+      -- box was cleared. The caption is inert during a search; folding is the search's to decide.
+      if (self.query or "") ~= "" then return end
       -- Shift folds or opens the lot at once, taking its cue from the section clicked: an open one
       -- folds all, a folded one opens all. A plain click toggles just this section.
       if IsShiftKeyDown() then
@@ -876,7 +885,11 @@ function Bags:LayoutCats(place, size, gap, step, cols)
   local labelX = 14
   local y = 0
   for bi, b in ipairs(buckets) do
-    local folded = Cats:Collapsed(b.id) and not searching
+    -- While a search runs the fold follows the hits, not the saved state: a section with a match
+    -- opens, one without stays shut to its caption, so a query reveals exactly where the item lives.
+    -- With no search the saved fold rules as before.
+    local folded
+    if searching then folded = (b.hits or 0) == 0 else folded = Cats:Collapsed(b.id) end
     local label = self:CatLabel(bi)
     -- Set as a file every layout so a font change reaches the caption.
     label:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, "")

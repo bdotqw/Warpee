@@ -261,11 +261,16 @@ end
 -- the grid's hide-reagents toggle does not gate it.
 function Cats:Buckets(bags)
   ensureFilters()
+  -- The live search decides which sections open while it runs, so the count of hits per section is
+  -- taken here in the one pass that already builds each slot's meta, not a second scan. The window
+  -- hands us its parsed filter; a blank query leaves it nil and every section keeps its saved fold.
+  local q = bags and bags.query or ""
+  local find = (q ~= "") and bags.filters or nil
   local order = {}
   for i = 1, #ACTIVE do
-    order[i] = { id = ACTIVE[i].id, name = catName(ACTIVE[i]), slots = {} }
+    order[i] = { id = ACTIVE[i].id, name = catName(ACTIVE[i]), slots = {}, hits = 0 }
   end
-  local other = { id = "other", name = ns.L["Other"], slots = {} }
+  local other = { id = "other", name = ns.L["Other"], slots = {}, hits = 0 }
   local used, total = 0, 0
   local function tally(bag)
     local num = C_Container.GetContainerNumSlots(bag) or 0
@@ -282,6 +287,7 @@ function Cats:Buckets(bags)
         dest.slots[#dest.slots + 1] = {
           bag = bag, slot = slot, q = m.q or -1, ilvl = m.ilvl or 0, name = m.name or "",
         }
+        if find and ns.MatchSearch(m, find) then dest.hits = dest.hits + 1 end
       end
     end
   end
