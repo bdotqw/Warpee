@@ -103,6 +103,22 @@ function Cats:Reset()
   if WarpeeDB then WarpeeDB.categories = seed() end
 end
 
+-- A section's fold state lives by category id, so it survives a reorder and rides the profile.
+-- The save is kept sparse: only a collapsed id is written, an open one is cleared out, so the
+-- dump lists exactly what the player folded and nothing for the default open state. "other" is a
+-- real id here, so the catch-all folds like any section.
+function Cats:Collapsed(id)
+  local t = WarpeeDB and WarpeeDB.catCollapsed
+  return (type(t) == "table" and id ~= nil and t[id]) and true or false
+end
+
+function Cats:ToggleCollapse(id)
+  if not (WarpeeDB and id ~= nil) then return end
+  local t = WarpeeDB.catCollapsed
+  if type(t) ~= "table" then t = {}; WarpeeDB.catCollapsed = t end
+  t[id] = (not t[id]) or nil
+end
+
 local function catName(c)
   if c.name and c.name ~= "" then return c.name end
   local key = NAMEKEY[c.id]

@@ -33,7 +33,7 @@ local DEFAULTS = {
   pocketLock = NONE,
   revFill = false, fillUp = false, questMarks = true, newItemGlow = false,
   reagentTint = true, unusableBorder = true,
-  bagView = "grid", categoryVer = 0, categories = {},
+  bagView = "grid", categoryVer = 0, categories = {}, catCollapsed = {},
   goldFormat = "short", goldLetters = true, goldOnly = true,
   vendorIlvl = 100, vendorIlvlMin = 10, vendorConsum = false, vendorAuto = false,
   vendorTokens = false, vendorTokenExp = {},

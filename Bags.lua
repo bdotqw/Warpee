@@ -803,38 +803,119 @@ function Bags:HideCatCounts(from)
   end
 end
 
--- Sections stacked down the window, each cells wrapped on the grid's own column count.
+-- The fold caret at the head of each caption: down when the section is open, right when it is
+-- folded, the tree convention. One pooled triangle per section like the label.
+function Bags:CatCaret(i)
+  self.catCarets = self.catCarets or {}
+  local t = self.catCarets[i]
+  if not t then
+    t = ns.Triangle(self.content, "down", 8, 8, "dim")
+    self.catCarets[i] = t
+  end
+  return t
+end
+
+function Bags:HideCatCarets(from)
+  if not self.catCarets then return end
+  for i = (from or 0) + 1, #self.catCarets do
+    if self.catCarets[i] then self.catCarets[i]:Hide() end
+  end
+end
+
+-- The click target over a caption strip: a transparent pooled button covering the caption row so
+-- a click anywhere on the header folds or opens that section. It carries the section id, set fresh
+-- each layout, and toggles the saved fold state, then relays out. Hover tints the caret and label
+-- so the whole strip reads as one control.
+function Bags:CatHeader(i)
+  self.catHeaders = self.catHeaders or {}
+  local btn = self.catHeaders[i]
+  if not btn then
+    btn = CreateFrame("Button", nil, self.content)
+    btn:RegisterForClicks("LeftButtonUp")
+    btn:SetScript("OnClick", function(s)
+      if s.wpeId == nil then return end
+      ns.Categories:ToggleCollapse(s.wpeId)
+      self:Layout()
+    end)
+    btn:SetScript("OnEnter", function(s)
+      if s.wpeCaret then s.wpeCaret:SetTint("accent") end
+      if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("accent")) end
+    end)
+    btn:SetScript("OnLeave", function(s)
+      if s.wpeCaret then s.wpeCaret:SetTint("dim") end
+      if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("dim")) end
+    end)
+    self.catHeaders[i] = btn
+  end
+  return btn
+end
+
+function Bags:HideCatHeaders(from)
+  if not self.catHeaders then return end
+  for i = (from or 0) + 1, #self.catHeaders do
+    if self.catHeaders[i] then self.catHeaders[i]:Hide() end
+  end
+end
+
+-- Sections stacked down the window, each cells wrapped on the grid's own column count. Every
+-- caption folds: its saved state hides the cells and leaves just the header with a right caret.
+-- A live search overrides the fold and opens every section, so a match can never hide behind one.
 function Bags:LayoutCats(place, size, gap, step, cols)
   local buckets, used, total = ns.Categories:Buckets(self)
+  local Cats = ns.Categories
   local d = ns.Density(size)
   local capH = d.labelH + d.labelGap
   local gridW = gridWidth(size, cols, gap)
+  local searching = (self.query or "") ~= ""
+  local labelX = 14
   local y = 0
   for bi, b in ipairs(buckets) do
+    local folded = Cats:Collapsed(b.id) and not searching
     local label = self:CatLabel(bi)
     -- Set as a file every layout so a font change reaches the caption.
     label:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, "")
     label:SetText(ns.Upper(b.name))
+    label:SetTextColor(Theme:C("dim"))
     label:ClearAllPoints()
-    ns.SnapPoint(label, "TOPLEFT", self.content, "TOPLEFT", 2, -y)
+    ns.SnapPoint(label, "TOPLEFT", self.content, "TOPLEFT", labelX, -y)
     label:Show()
+    local caret = self:CatCaret(bi)
+    caret:SetDir(folded and "right" or "down")
+    caret:SetTint("dim")
+    caret:ClearAllPoints()
+    -- Right edge to the label's left, so the caret sits just ahead of the text and shares its
+    -- vertical centre whatever the caption font height is.
+    ns.SnapPoint(caret, "RIGHT", label, "LEFT", -4, 0)
+    caret:Show()
     local count = self:CatCount(bi)
     count:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, "")
     count:SetText(tostring(#b.slots))
     count:ClearAllPoints()
     ns.SnapPoint(count, "TOPRIGHT", self.content, "TOPLEFT", gridW, -y)
     count:Show()
-    local cellsTop = y + capH
-    for k, s in ipairs(b.slots) do
-      local col = (k - 1) % cols
-      local row = math.floor((k - 1) / cols)
-      place(s.bag, s.slot, col * step, -(cellsTop + row * step))
+    local head = self:CatHeader(bi)
+    head.wpeId, head.wpeCaret, head.wpeLabel = b.id, caret, label
+    head:ClearAllPoints()
+    ns.SnapPoint(head, "TOPLEFT", self.content, "TOPLEFT", 0, -y)
+    head:SetSize(math.max(1, gridW), capH)
+    head:Show()
+    if folded then
+      y = y + capH + DIV
+    else
+      local cellsTop = y + capH
+      for k, s in ipairs(b.slots) do
+        local col = (k - 1) % cols
+        local row = math.floor((k - 1) / cols)
+        place(s.bag, s.slot, col * step, -(cellsTop + row * step))
+      end
+      local rows = math.max(1, math.ceil(#b.slots / cols))
+      y = cellsTop + (rows - 1) * step + size + DIV
     end
-    local rows = math.max(1, math.ceil(#b.slots / cols))
-    y = cellsTop + (rows - 1) * step + size + DIV
   end
   self:HideCatLabels(#buckets)
   self:HideCatCounts(#buckets)
+  self:HideCatCarets(#buckets)
+  self:HideCatHeaders(#buckets)
   local contentH = (#buckets > 0) and (y - DIV) or size
   return contentH, used, total
 end
