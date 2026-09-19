@@ -891,6 +891,86 @@ function Bags:HideCatHeaders(from)
   end
 end
 
+-- The drop target for filing an item by hand. Dropping on the thin caption alone was the "where do
+-- I even aim" complaint, so while an item rides the cursor the whole section lights up as one zone:
+-- release anywhere on it to file the held item under that section. The zone sits above the cells
+-- and shows only mid drag (SyncDropZones on CURSOR_CHANGED), so with no item held a click still
+-- reaches the cell beneath. The item was lifted by the cell's own secure drag, the player's
+-- hardware click; here we only read the cursor and clear it, no protected call. A drop on Other has
+-- no real id, so PinItem just unfiles.
+function Bags:CatZone(i)
+  self.catZones = self.catZones or {}
+  local z = self.catZones[i]
+  if not z then
+    z = CreateFrame("Button", nil, self.content)
+    z:SetFrameLevel(self.content:GetFrameLevel() + 60)
+    z:RegisterForClicks("LeftButtonUp")
+    local fill = Theme:Rect(z, "accent", "BACKGROUND")
+    fill:SetAllPoints(z)
+    z.fill = fill
+    local tag = Theme:Label(z, FONT, "accent")
+    tag:SetPoint("CENTER")
+    tag:SetJustifyH("CENTER")
+    tag:Hide()
+    z.tag = tag
+    local function drop(s)
+      local ctype, id = GetCursorInfo()
+      if ctype == "item" and id then
+        ns.Categories:PinItem(id, s.wpeId)
+        ClearCursor()
+      end
+      self:Layout()
+    end
+    z:SetScript("OnReceiveDrag", drop)
+    z:SetScript("OnClick", drop)
+    -- Faint wash on all zones says "these take a drop"; the section name shows only under the cursor
+    -- so a tall section still names its target without a name printed over every icon at once.
+    z:SetScript("OnEnter", function(s)
+      s.fill:SetAlpha(0.22)
+      s.tag:Show()
+    end)
+    z:SetScript("OnLeave", function(s)
+      s.fill:SetAlpha(0.08)
+      s.tag:Hide()
+    end)
+    self.catZones[i] = z
+  end
+  return z
+end
+
+function Bags:HideCatZones(from)
+  if not self.catZones then return end
+  for i = (from or 0) + 1, #self.catZones do
+    local z = self.catZones[i]
+    if z then z.wpeActive = false; z:Hide() end
+  end
+end
+
+-- Flip every section drop zone at once: on while an item rides the cursor and the grouped view is
+-- up, off the rest of the time so the cells click through as normal. Called on each cursor change
+-- and at the tail of a grouped layout, in case the window opened with an item already on the cursor.
+function Bags:SyncDropZones()
+  if not self.catZones then return end
+  local on = self:CatMode() and self.frame and self.frame:IsShown() and CursorHasItem()
+  for _, z in ipairs(self.catZones) do
+    if on and z.wpeActive then
+      z.fill:SetAlpha(0.08)
+      z.tag:Hide()
+      z:Show()
+    else
+      z.tag:Hide()
+      z:Hide()
+    end
+  end
+end
+
+-- One watcher flips the zones the moment the cursor picks up or sets down an item, so the highlight
+-- tracks the drag with no per-frame polling. Safe before the window exists: SyncDropZones no-ops
+-- until the zones are built.
+local dropWatch = CreateFrame("Frame")
+dropWatch:RegisterEvent("CURSOR_CHANGED")
+dropWatch:SetScript("OnEvent", function() Bags:SyncDropZones() end)
+
 -- Sections stacked down the window, each cells wrapped on the grid's own column count. Every
 -- caption folds: its saved state hides the cells and leaves just the header with a right caret.
 -- A live search overrides the fold and opens every section, so a match can never hide behind one.
@@ -904,6 +984,7 @@ function Bags:LayoutCats(place, size, gap, step, cols)
   local labelX = 14
   local y = 0
   for bi, b in ipairs(buckets) do
+    local yTop = y
     -- While a search runs the fold follows the hits, not the saved state: a section with a match
     -- opens, one without stays shut to its caption, so a query reveals exactly where the item lives.
     -- With no search the saved fold rules as before.
@@ -949,6 +1030,17 @@ function Bags:LayoutCats(place, size, gap, step, cols)
       local rows = math.max(1, math.ceil(#b.slots / cols))
       y = cellsTop + (rows - 1) * step + size + DIV
     end
+    -- The section's own drop zone, sized to its drawn extent (caption through last cell row, the DIV
+    -- gap left out). Positioned every layout but kept hidden; the cursor watcher shows it mid drag.
+    local zone = self:CatZone(bi)
+    zone.wpeId = b.id
+    zone.wpeActive = true
+    zone.tag:SetFont(self.fontPath or ns.Fonts:Current(), FONT, "")
+    zone.tag:SetText(ns.Upper(b.name))
+    zone:ClearAllPoints()
+    ns.SnapPoint(zone, "TOPLEFT", self.content, "TOPLEFT", 0, -yTop)
+    zone:SetSize(math.max(1, gridW), math.max(capH, (y - DIV) - yTop))
+    zone:Hide()
   end
   -- A quiet line under the sections with the free slot count. The grid shows free space as the empty
   -- cells at the end; grouped view has none to eyeball, so the number stands in. Always shown, so an
@@ -965,6 +1057,9 @@ function Bags:LayoutCats(place, size, gap, step, cols)
   self:HideCatCounts(#buckets)
   self:HideCatCarets(#buckets)
   self:HideCatHeaders(#buckets)
+  self:HideCatZones(#buckets)
+  -- Opened with an item already on the cursor? Light the zones now; otherwise this hides them.
+  self:SyncDropZones()
   return contentH, used, total
 end
 
