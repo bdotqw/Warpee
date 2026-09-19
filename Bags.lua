@@ -1448,6 +1448,12 @@ local KIND_WORDS = {
   tradegoods = kind(IC.Tradegoods),
   misc     = kind(IC.Miscellaneous),
   enhancement = kind(IC.ItemEnhancement),
+  -- Consumable subclasses by number, the way Vendor.lua already keys them (1 potion, 3 flask/phial,
+  -- 5 food/drink). A number can never be a wrong-name nil the way Enum.ItemConsumableSubclass.X
+  -- would, and a nil sub would widen kind() to every consumable.
+  potion   = kind(IC.Consumable, 1),
+  flask    = kind(IC.Consumable, 3),
+  food     = kind(IC.Consumable, 5),
 }
 local EXP_WORDS = {
   classic = 0, vanilla = 0,
