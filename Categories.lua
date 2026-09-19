@@ -97,6 +97,42 @@ function Cats:Toggle(i)
   if c.enabled == false then c.enabled = nil else c.enabled = false end
 end
 
+-- Pin an item to the category with this id. An item lives in one manual home, so it is lifted from
+-- every other section's pin set first, then added here; a drop on a section it already sits in is a
+-- no-op after the lift. id is the plain numeric itemID. targetId nil or an id no section owns just
+-- clears the pin everywhere, which is how a drop on Other unfiles a piece. The classify cache is
+-- keyed on the pin sets, so a change nils the stamp to force a reclassify on the next pass.
+function Cats:PinItem(itemID, targetId)
+  if not itemID then return end
+  local list = self:EnsureCustom()
+  for _, c in ipairs(list) do
+    if type(c) == "table" and type(c.pins) == "table" then
+      c.pins[itemID] = nil
+      if next(c.pins) == nil then c.pins = nil end
+    end
+  end
+  if targetId then
+    for _, c in ipairs(list) do
+      if type(c) == "table" and c.id == targetId then
+        c.pins = c.pins or {}
+        c.pins[itemID] = true
+        break
+      end
+    end
+  end
+  filterStamp = nil
+end
+
+-- The category id an item is pinned to, or nil. Read side for the editor and any caller that wants
+-- to show or clear a pin without walking the list itself.
+function Cats:PinnedTo(itemID)
+  if not itemID then return nil end
+  for _, c in ipairs(self:List()) do
+    if type(c) == "table" and type(c.pins) == "table" and c.pins[itemID] then return c.id end
+  end
+  return nil
+end
+
 -- Restore the shipped list in full, not a blank save: Reset means "give me the defaults back",
 -- so the save holds the seven named categories again and the editor and dump both read clean.
 function Cats:Reset()
@@ -142,7 +178,10 @@ end
 -- classify returns reads straight back through order[i] built from ACTIVE. Filtering the
 -- disabled out of one array but not the other would slide the indices apart and file items
 -- under the wrong section, so both are built in the same pass and the stamp folds enabled in.
-local FILTERS, ACTIVE, filterStamp = {}, {}, nil
+-- PINS[i] is the manual pin set of ACTIVE[i], carried 1:1 like FILTERS. A pinned item is filed by
+-- id before any search runs, so a piece the player dropped on a section stays there whatever the
+-- rules say. FILTERS[i] is nil for a section that has pins but no search, so it never search-matches.
+local FILTERS, PINS, ACTIVE, filterStamp = {}, {}, {}, nil
 
 function Cats:Version() return (WarpeeDB and WarpeeDB.categoryVer) or 0 end
 
@@ -151,11 +190,25 @@ function Cats:Bump()
   filterStamp = nil
 end
 
--- A row classifies items only when it is a real record, switched on, and carries a search. A
--- blank search parses to the match-everything filter, so an empty row would silently become a
--- second catch-all and starve Other; until it is given a rule it is inert, not a category yet.
+local function hasSearch(c) return (c.search or ""):find("%S") ~= nil end
+local function hasPins(c) return type(c.pins) == "table" and next(c.pins) ~= nil end
+
+-- A pin fingerprint for the cache stamp: the ids a section holds, in id order so the same set reads
+-- the same string whatever order they were added. A pin change through the mutator also nils the
+-- stamp outright, this covers the paths that swap the whole list at once (profile, import, wipe).
+local function pinPrint(c)
+  if not hasPins(c) then return "" end
+  local ids = {}
+  for id in pairs(c.pins) do ids[#ids + 1] = id end
+  table.sort(ids)
+  return table.concat(ids, ",")
+end
+
+-- A row classifies items when it is a real record, switched on, and carries either a search or at
+-- least one pin. A blank search parses to the match-everything filter, so a row with neither would
+-- silently become a second catch-all and starve Other; until given a rule or a pin it is inert.
 local function isActive(c)
-  return type(c) == "table" and c.enabled ~= false and (c.search or ""):find("%S") ~= nil
+  return type(c) == "table" and c.enabled ~= false and (hasSearch(c) or hasPins(c))
 end
 
 local function ensureFilters()
@@ -164,6 +217,7 @@ local function ensureFilters()
   for i, c in ipairs(list) do
     if type(c) == "table" then
       parts[i] = (c.id or "") .. "\1" .. (c.search or "") .. "\1" .. tostring(c.enabled)
+                 .. "\1" .. pinPrint(c)
     else
       parts[i] = "\1\1"
     end
@@ -172,12 +226,14 @@ local function ensureFilters()
   if stamp == filterStamp then return end
   filterStamp = stamp
   wipe(FILTERS)
+  wipe(PINS)
   wipe(ACTIVE)
   for _, c in ipairs(list) do
     if isActive(c) then
       local idx = #ACTIVE + 1
       ACTIVE[idx] = c
-      FILTERS[idx] = ns.ParseSearch((c.search or ""):lower())
+      FILTERS[idx] = hasSearch(c) and ns.ParseSearch((c.search or ""):lower()) or nil
+      PINS[idx] = hasPins(c) and c.pins or nil
     end
   end
 end
@@ -224,9 +280,21 @@ local function buildMeta(bag, slot, info)
   return m
 end
 
+-- A pin beats every search, so the piece the player dropped on a section lands there even when an
+-- earlier section's rule would also take it. That means two passes, not one: all pins first across
+-- every section, then searches in list order. Within each pass first match wins. Looped over ACTIVE
+-- because a pin-only section leaves FILTERS[i] nil and a single #FILTERS walk would miss it.
 local function classify(m)
-  for i = 1, #FILTERS do
-    if ns.MatchSearch(m, FILTERS[i]) then return i end
+  local id = m.id
+  if id then
+    for i = 1, #ACTIVE do
+      local pins = PINS[i]
+      if pins and pins[id] then return i end
+    end
+  end
+  for i = 1, #ACTIVE do
+    local f = FILTERS[i]
+    if f and ns.MatchSearch(m, f) then return i end
   end
   return nil
 end
@@ -340,10 +408,13 @@ end
 -- would fall to Other, so the editor can show the coverage the rules leave behind.
 function Cats:Counts()
   local list = self:List()
-  local filters, out = {}, {}
+  local filters, pins, out = {}, {}, {}
   for i, c in ipairs(list) do
     if isActive(c) then
-      filters[i] = ns.ParseSearch((c.search or ""):lower())
+      -- A filter only for a row that actually carries a search: a blank search parses to match
+      -- everything, so a pin-only row would otherwise swallow the whole bag instead of only its pins.
+      if hasSearch(c) then filters[i] = ns.ParseSearch((c.search or ""):lower()) end
+      if hasPins(c) then pins[i] = c.pins end
     end
     out[i] = 0
   end
@@ -354,9 +425,18 @@ function Cats:Counts()
       local info = C_Container.GetContainerItemInfo(bag, slot)
       if info and (info.hyperlink or info.itemID) then
         local m = buildMeta(bag, slot, info)
+        local id = m.id
         local hit = false
-        for i = 1, #list do
-          if filters[i] and ns.MatchSearch(m, filters[i]) then out[i] = out[i] + 1; hit = true; break end
+        -- Pins win over any search, so tally them in a first pass, exactly like classify.
+        if id then
+          for i = 1, #list do
+            if pins[i] and pins[i][id] then out[i] = out[i] + 1; hit = true; break end
+          end
+        end
+        if not hit then
+          for i = 1, #list do
+            if filters[i] and ns.MatchSearch(m, filters[i]) then out[i] = out[i] + 1; hit = true; break end
+          end
         end
         if not hit then other = other + 1 end
       end

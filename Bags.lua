@@ -839,7 +839,23 @@ function Bags:CatHeader(i)
   if not btn then
     btn = CreateFrame("Button", nil, self.content)
     btn:RegisterForClicks("LeftButtonUp")
+    -- Drop an item held on the cursor onto a caption to file it under that section by hand. The item
+    -- on the cursor was picked up by the bag slot's own secure drag, the player's hardware click; we
+    -- only read what is there and clear it, so nothing is moved and no protected call runs from here.
+    -- A drop on the Other caption clears the pin, since "other" is no real id and PinItem then just
+    -- unfiles. Works mid-search too, so it sits ahead of the fold and its search guard.
+    local function tryPin(s)
+      if s.wpeId == nil then return false end
+      local ctype, id = GetCursorInfo()
+      if ctype ~= "item" or not id then return false end
+      ns.Categories:PinItem(id, s.wpeId)
+      ClearCursor()
+      self:Layout()
+      return true
+    end
+    btn:SetScript("OnReceiveDrag", function(s) tryPin(s) end)
     btn:SetScript("OnClick", function(s)
+      if tryPin(s) then return end
       if s.wpeId == nil then return end
       -- While a search runs the fold is driven by the hits, so a click must not write to the saved
       -- state: doing so used to stamp every section collapsed under a query and only show it once the
