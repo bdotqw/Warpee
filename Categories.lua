@@ -218,6 +218,31 @@ local function classify(m)
   return nil
 end
 
+-- Within a section the draw order is the player's to pick. Every comparator ends on name then bag
+-- then slot, and bag and slot are unique per item, so each is a strict total order and table.sort
+-- can never see a tie it cannot break. Only the draw moves; the cell still binds its real bag and
+-- slot, so the secure right-click is untouched whatever the order.
+local function byName(a, z)
+  if a.name ~= z.name then return a.name < z.name end
+  if a.bag ~= z.bag then return a.bag < z.bag end
+  return a.slot < z.slot
+end
+local function byQuality(a, z)
+  if a.q ~= z.q then return a.q > z.q end
+  if a.ilvl ~= z.ilvl then return a.ilvl > z.ilvl end
+  return byName(a, z)
+end
+local function byIlvl(a, z)
+  if a.ilvl ~= z.ilvl then return a.ilvl > z.ilvl end
+  if a.q ~= z.q then return a.q > z.q end
+  return byName(a, z)
+end
+local SORTS = { quality = byQuality, ilvl = byIlvl, name = byName }
+local function sorter()
+  local mode = WarpeeDB and WarpeeDB.catSort
+  return SORTS[mode] or byQuality
+end
+
 -- Every occupied slot into its section, sections that hold anything returned in ACTIVE order with
 -- the catch-all last. The reagent bag is always bucketed here: cat-view is a full inventory grouping,
 -- the grid's hide-reagents toggle does not gate it.
@@ -254,18 +279,8 @@ function Cats:Buckets(bags)
     if #order[i].slots > 0 then out[#out + 1] = order[i] end
   end
   if #other.slots > 0 then out[#out + 1] = other end
-  -- Inside a section, best first: quality, then item level, then name, and bag and slot last so the
-  -- order is stable and never flickers between two items that tie on all three. The cell still binds
-  -- its real bag and slot, this only reorders the draw, so the secure right-click is untouched.
-  for _, b in ipairs(out) do
-    table.sort(b.slots, function(a, z)
-      if a.q ~= z.q then return a.q > z.q end
-      if a.ilvl ~= z.ilvl then return a.ilvl > z.ilvl end
-      if a.name ~= z.name then return a.name < z.name end
-      if a.bag ~= z.bag then return a.bag < z.bag end
-      return a.slot < z.slot
-    end)
-  end
+  local cmp = sorter()
+  for _, b in ipairs(out) do table.sort(b.slots, cmp) end
   return out, used, total
 end
 

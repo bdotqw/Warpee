@@ -2615,10 +2615,19 @@ do
   end
 end
 
+local CAT_SORT_KEYS = { "quality", "ilvl", "name" }
+local CAT_SORT_LABELS = { quality = "Quality", ilvl = "Item level", name = "Name" }
+
 local CATS_PAGE = {
   { type = "header", name = "Categories", key = "categories" },
   { type = "description", section = "categories",
     name = "Each category is a search, run top to bottom, and an item joins the first it matches. Drag the carets to change the order, the box on the left turns one off, and the count is how many items in your bags it holds now." },
+  { type = "select", name = "Sort within a section", section = "categories",
+    get = function() return WarpeeDB.catSort or "quality" end,
+    set = function(v) WarpeeDB.catSort = v; relayout() end,
+    keys = function() return CAT_SORT_KEYS end,
+    label = function(k) return ns.L[CAT_SORT_LABELS[k] or k] end,
+    desc = "The order items take inside every section. Each falls back to name, so the order never flickers." },
   { type = "catlist", section = "categories" },
 }
 
