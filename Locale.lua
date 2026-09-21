@@ -2,10 +2,16 @@ local addonName, ns = ...
 
 local TABLES, COINS, SHORTS, WORDS, ALIAS = {}, {}, {}, {}, {}
 local order
+local FALLBACK = { esMX = "esES" }
 
 local L = setmetatable({}, { __index = function(_, k)
-  local t = TABLES[ns.LocalePick()]
+  local code = ns.LocalePick()
+  local t = TABLES[code]
   local v = t and t[k]
+  if v == nil then
+    local fb = TABLES[FALLBACK[code]]
+    v = fb and fb[k]
+  end
   return v or k
 end })
 ns.L = L
@@ -15,6 +21,8 @@ ns.LOCALE_LABELS = { enUS = "English" }
 
 COINS.enUS = { g = "g", s = "s", c = "c" }
 SHORTS.enUS = { dec = ".", units = { { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } } }
+
+ALIAS.enGB = "enUS"
 
 local aliasMap
 
@@ -129,9 +137,9 @@ end
 -- looked for in almost every visit, and a language nobody has placed yet falls to the end, where
 -- a new one is easy to find.
 local SCRIPT_RANK = {
-  enUS = 1, deDE = 1, esES = 1, frFR = 1, itIT = 1, ptBR = 1,
+  enUS = 1, deDE = 1, esES = 1, esMX = 1, frFR = 1, itIT = 1, ptBR = 1,
   ruRU = 2,
-  zhCN = 3,
+  zhCN = 3, zhTW = 3, koKR = 3,
 }
 
 local function byScript(a, b)
@@ -158,12 +166,14 @@ function ns.LocaleOrder()
 end
 
 function ns.CoinLetter(key)
-  local t = COINS[ns.LocalePick()] or COINS.enUS
+  local code = ns.LocalePick()
+  local t = COINS[code] or COINS[FALLBACK[code]] or COINS.enUS
   return t[key] or key
 end
 
 function ns.ShortForm()
-  return SHORTS[ns.LocalePick()] or SHORTS.enUS
+  local code = ns.LocalePick()
+  return SHORTS[code] or SHORTS[FALLBACK[code]] or SHORTS.enUS
 end
 
 local function foldByte(ch)

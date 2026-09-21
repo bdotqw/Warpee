@@ -1046,7 +1046,10 @@ local function defaultKey()
     return
   end
   if not (GetBindingKey and GetBindingAction and SetBinding and SaveBindings) then return end
-  local key = GetBindingKey("WARPEE_POCKET")
+  -- Both binding slots: a key already set in the second slot must count as bound, or the auto-bind
+  -- below would add SHIFT-B on top of the player's own choice.
+  local k1, k2 = GetBindingKey("WARPEE_POCKET")
+  local key = (k1 and k1 ~= "" and k1) or (k2 and k2 ~= "" and k2) or nil
   if not key then
     if (GetBindingAction("SHIFT-B") or "") == "" then
       key = "SHIFT-B"

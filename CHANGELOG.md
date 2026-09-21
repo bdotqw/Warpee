@@ -1,5 +1,51 @@
 # Warpee
 
+## 10
+
+ENG
+
+New
+
+- Categories: the bags, the bank and the warband bank lay out in sections — keystone, potions, food, flasks, quest, recipes, gems, toys, battle pets, junk, reagents, containers, trinkets, jewelry, weapons, armor, hearthstone, legacy, housing, consumables, misc, free space and the Other catch-all. Every caption carries its count, sections collapse, Shift-click folds them all at once, the order inside is your choice
+- Category editor on its own tab, everything per profile: ready-made ones join by the buttons on top (a deleted one returns as a button), custom ones are built from a search string, Shift-clicking an item pins it to a section
+- Items file by drag-and-drop: the section under the cursor highlights and names itself, over Empty the item unpins
+- Search speaks kinds: potion, flask, food, toys, housing decor, account-bound (BoA) and an exact item id (id6948)
+- Auction house: while it is open, things you cannot list go dim — unsellable reads at a glance
+- The coin honestly says "This merchant only repairs" where there is nothing to sell to — instead of a dim coin with no reason
+- Two new languages: Korean and Traditional Chinese; Latin-American Spanish split from European — Mexico reads Tropa where Spain reads banda guerrera; the British English client reads English
+- Category names translated everywhere, short enough to fit their sections
+- Section gap on a slider: untouched, it follows the density
+
+Fixes
+
+- The merchant keeps every alchemist stone from Classic to Midnight: the list audited per expansion
+- Hiding reagents no longer hides them in the category view
+- A BoE takes its badge off once bound
+- Snapshots draw the keystone
+- A key in the second binding slot counts: no double auto-binds, and the hints name the right key
+
+RU
+
+Новое
+
+- Категории: сумки, банк и банк отряда раскладываются по секциям — ключ, зелья, еда, настои, задания, рецепты, камни, игрушки, питомцы, хлам, реагенты, контейнеры, аксессуары, украшения, оружие, броня, хартстоун, старое, дом, расходники, разное, свободное место и сборник Other. У каждой число в подписи, секции сворачиваются, Shift-клик сворачивает все сразу, порядок внутри — на выбор
+- Редактор категорий на своей вкладке, всё на профиль: готовые добавляются кнопками сверху (удалённая возвращается кнопкой), свои собираются строкой, Shift-клик по предмету сажает его в пины секции
+- Вещь раскладывается перетаскиванием: секция под курсором подсвечивается и называется, над Empty вещь открепляется
+- Поиск понимает виды: зелья, настои, еду, игрушки, декор для дома, привязку к учётке (BoA) и точный ID предмета (id6948)
+- Аукцион: при открытом доме вещи, которые нельзя выставить, тускнеют — сразу видно, что не продаётся
+- Монета честно говорит «Этот торговец только чинит», когда продать негде, — вместо тусклой монеты без причины
+- Два новых языка: корейский и традиционный китайский; латиноамериканский испанский отделён от европейского — Мексика читает Tropa там, где Испания читает banda guerrera; британский английский клиент читает английский
+- Имена категорий переведены везде, короткие — влезают в секции
+- Отступ между секциями — слайдером: пока не тронут, следует за плотностью
+
+Исправления
+
+- Торговец держит все алхимические камни от классики до Midnight: список сверен по дополнениям
+- Скрытие реагентов больше не прячет их в виде категорий
+- BoE после привязки снимает плашку
+- Ключ рисуется в снапшотах
+- Клавиша во втором слоте бинда считается: никаких двойных автобиндов, подсказки называют правильную клавишу
+
 ## 9.1
 
 ENG

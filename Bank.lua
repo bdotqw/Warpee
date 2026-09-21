@@ -24,6 +24,11 @@ local HBTN = 26
 local FONT = 15
 local HBAND = 32
 
+-- Caption ellipsis and fit are shared with the bags in Theme.lua now (ns.FitLabel / ns.CharStops);
+-- the bank had a byte-for-byte copy. Kept as file locals so the call sites read unchanged.
+local ELLIPSIS_B = "\226\128\166"
+local fitBankLabel = ns.FitLabel
+
 local function applyDensity(size)
   local d = ns.Density(size)
   PAD, DIV, HBTN = d.pad, d.div, d.hb
@@ -147,7 +152,7 @@ for _, id in ipairs(WARBAND) do MEMBER[id] = true; OWNER[id] = "warband" end
 function ns.IsBankContainer(id) return MEMBER[id] == true end
 
 local function stepFor(size, gap) return size + gap end
-local function gridWidth(size, cols, gap) return (cols - 1) * (size + gap) + size end
+local gridWidth = ns.GridWidth  -- shared with the bags (Theme.lua); alias keeps call sites unchanged
 
 local View = {}
 View.__index = View
@@ -305,6 +310,11 @@ function View:Build()
     self.query = (text or ""):lower()
     self.filters = ns.ParseSearch(self.query)
     self:ApplySearch()
+    -- In grouped mode a query decides which sections fold, and that is a re-Plan, not just a per-button
+    -- dim. Debounced like the bags (Bags:ScheduleCatFold): a full re-Plan per keystroke re-buckets the
+    -- whole bank and jumps the layout as prefixes match then drop, so it waits out a short quiet after
+    -- the last key. The per-button dim above stays instant.
+    if self:CatMode() then self:ScheduleCatFold() end
     ns.MirrorSearch("bank", text)
   end)
   search:SetPoint("LEFT", wbTab, "RIGHT", 12, 0)
@@ -1046,7 +1056,264 @@ function View:PaintKey(size)
                         (self.tabSel and self.tabSel[self.mode]) or 0 }, ":")
 end
 
+-- Grouped mode is on when the player set it and the bank is not filtered to a single tab: a tab pick
+-- and a category grouping are two different ways to narrow the same slots, so the tab wins while set.
+function View:CatMode()
+  return WarpeeDB and WarpeeDB.bankView == "cat" and not self:TabSel(self.mode)
+end
+
+-- The containers of the current mode, flattened from Sections, for the category bucketer to walk.
+function View:ModeBags(mode)
+  local out = {}
+  for _, sec in ipairs(self:Sections(mode)) do
+    for _, bag in ipairs(sec.ids) do out[#out + 1] = bag end
+  end
+  return out
+end
+
+-- Category grouping for the bank: the same buckets the bags draw, laid as captioned sections that
+-- stack down the window. It reuses the plan array and the pooled labels exactly like the tab layout,
+-- so Run/Resize downstream are unchanged; only the geometry and the captions differ. Cells carry the
+-- real bag and slot, so paint, search and the secure click are untouched. Returns the same tuple Plan
+-- does. A folded section (catCollapsed by id) draws its caption alone and skips its cells.
+function View:PlanCats(st, size, cols, gap)
+  local step = stepFor(size, gap)
+  local plan = st.plan
+  local buckets, used, total = ns.Categories:BankBuckets(st.mode, self.snap, self.filters,
+    self:ModeBags(st.mode))
+  local searching = (self.query or "") ~= ""
+  local gridW = gridWidth(size, cols, gap)
+  local capH = DIV
+  local labelX = 14
+  -- Shelves like the bags: each section is only as wide as its cells need (capped at the full bank
+  -- width, floored at its own caption), so several sit side by side on one row and the empty space to
+  -- the right is used instead of one tall column down the middle. GUT is the gap between neighbours on
+  -- a shelf and the drop between shelf rows, the same number. It follows the Category spacing slider
+  -- (WarpeeDB.catGap) like the bags' grouped view does, so the one setting moves both surfaces; the
+  -- density DIV is the fallback until the slider is touched.
+  local GUT = math.max(0, math.floor(tonumber(WarpeeDB and WarpeeDB.catGap) or DIV))
+  local shelfX, shelfY, shelfH = 0, 0, 0
+  local n, li = 0, 0
+  -- Empty is the free-space stand-in. The bank has no reagent bag, so one sample tile: the free count.
+  local free = math.max(0, (total or 0) - (used or 0))
+  local shownEmpty = false
+  for _, b in ipairs(buckets) do
+    local isEmpty = b.empty
+    local count = isEmpty and 1 or #b.slots
+    if count > 0 then
+      local folded
+      if searching then folded = isEmpty or (b.hits or 0) == 0
+      else folded = ns.Categories:Collapsed(b.id) end
+      li = li + 1
+      local label = self:Label(st, li, "accent")
+      label:SetJustifyH("LEFT")
+      local caret = self:CatCaret(st, li)
+      caret:SetDir(folded and "right" or "down")
+      caret:SetTint("dim")
+      local count2 = self:CatCount(st, li)
+      -- The parenthesised tally beside the name, dim so it reads as a count not an ilvl. Empty drops it
+      -- (its free number is on the sample tile below), matching the bags.
+      local countW = 0
+      if isEmpty then
+        count2:Hide()
+      else
+        count2:SetText("(" .. count .. ")")
+        countW = count2:GetStringWidth()
+      end
+      -- Width from the open cell count capped at the grid, floored so the caret indent, an ellipsis and
+      -- the (N) always fit however long the name; taken from the open state even while folded so a fold
+      -- never shrinks the footprint and repacks the shelf.
+      label:SetText(ELLIPSIS_B)
+      local floorNeed = labelX + label:GetStringWidth() + 6 + countW
+      local capCols = math.max(1, math.ceil((floorNeed - size) / step) + 1)
+      local w = math.max(math.min(count, cols), capCols)
+      if w > cols then w = cols end
+      local sw = gridWidth(size, w, gap)
+      fitBankLabel(label, b.name, sw - labelX - 6 - countW)
+      if shelfX > 0 and shelfX + GUT + sw > gridW + 0.5 then
+        shelfY = shelfY + shelfH + GUT
+        shelfX, shelfH = 0, 0
+      end
+      local sx = (shelfX == 0) and 0 or (shelfX + GUT)
+      local sy = shelfY
+      label:ClearAllPoints()
+      label:SetPoint("TOPLEFT", st.content, "TOPLEFT", sx + labelX, -(sy + 4))
+      label:Show()
+      caret:ClearAllPoints()
+      ns.SnapPoint(caret, "RIGHT", label, "LEFT", -4, 0)
+      caret:Show()
+      if not isEmpty then
+        count2:ClearAllPoints()
+        count2:SetPoint("LEFT", label, "RIGHT", 6, 0)
+        count2:Show()
+      end
+      local hd = self:CatHead(st, li)
+      hd.wpeId = b.id
+      hd:ClearAllPoints()
+      hd:SetPoint("TOPLEFT", st.content, "TOPLEFT", sx, -sy)
+      hd:SetSize(math.max(1, sw), capH)
+      hd:Show()
+      local secH
+      if folded then
+        secH = capH
+      elseif isEmpty then
+        -- One sample free-slot tile under the caption, bound to nothing (no bag/slot), so it carries no
+        -- taint and just shows the number. Pooled on st like the slot cells.
+        local tile = self:EmptyTile(st, 1)
+        ns.SnapSize(tile, size, size)
+        tile.count:SetText(tostring(free))
+        tile:ClearAllPoints()
+        ns.SnapPoint(tile, "TOPLEFT", st.content, "TOPLEFT", sx, -(sy + capH))
+        tile:Show()
+        shownEmpty = true
+        secH = capH + size
+      else
+        local cellsTop = sy + capH
+        for k = 1, count do
+          n = n + 1
+          local s = b.slots[k]
+          local c = plan[n] or {}
+          c.bag, c.slot = s.bag, s.slot
+          local col, row = (k - 1) % w, math.floor((k - 1) / w)
+          c.x, c.y = sx + col * step, -(cellsTop + row * step)
+          plan[n] = c
+        end
+        local rows = math.max(1, math.ceil(count / w))
+        secH = capH + (rows - 1) * step + size
+      end
+      shelfX = sx + sw
+      shelfH = math.max(shelfH, secH)
+    end
+  end
+  local bottom = shelfY + shelfH
+  for j = li + 1, #st.labels do st.labels[j]:Hide() end
+  self:HideCatHeads(st, li)
+  self:HideCatCarets(st, li)
+  self:HideCatCounts(st, li)
+  if not shownEmpty then self:HideEmptyTiles(st, 0) end
+  st.blank = nil
+  st.locked = self:Locked()
+  st.planCount = n
+  if st.locked then
+    return self:PlanLocked(st, size, cols, step)
+  end
+  return n, bottom, used, total
+end
+
+-- The fold caret before each caption, and the dim (N) count beside it: pooled on the state like the
+-- bank's labels, so a mode has its own set and Run/Resize are none the wiser.
+function View:CatCaret(st, i)
+  st.catCarets = st.catCarets or {}
+  local t = st.catCarets[i]
+  if not t then
+    t = ns.Triangle(st.content, "down", 8, 8, "dim")
+    st.catCarets[i] = t
+  end
+  return t
+end
+
+function View:HideCatCarets(st, from)
+  if not (st and st.catCarets) then return end
+  for i = (from or 0) + 1, #st.catCarets do
+    if st.catCarets[i] then st.catCarets[i]:Hide() end
+  end
+end
+
+function View:CatCount(st, i)
+  st.catCounts = st.catCounts or {}
+  local fs = st.catCounts[i]
+  if not fs then
+    fs = Theme:Label(st.content, 11, "dim")
+    fs:SetJustifyH("LEFT")
+    st.catCounts[i] = fs
+  end
+  if self.fontPath then fs:SetFont(self.fontPath, math.max(7, (self.fontBase or 13) - 2), "") end
+  fs:SetTextColor(Theme:C("dim"))
+  return fs
+end
+
+function View:HideCatCounts(st, from)
+  if not (st and st.catCounts) then return end
+  for i = (from or 0) + 1, #st.catCounts do
+    if st.catCounts[i] then st.catCounts[i]:Hide() end
+  end
+end
+
+-- A display-only free-slot tile for the Empty section: a faint plate with a count, bound to nothing so
+-- it never carries a bag or slot and stays taint-free. Pooled on the state.
+function View:EmptyTile(st, i)
+  st.emptyTiles = st.emptyTiles or {}
+  local t = st.emptyTiles[i]
+  if not t then
+    t = CreateFrame("Frame", nil, st.content, "BackdropTemplate")
+    ns.PixelBackdrop(t)
+    ns.SetBg(t, Theme:C("slot"))
+    ns.SetEdge(t, Theme:C("stroke"))
+    local fs = Theme:Label(t, 12, "dim")
+    fs:SetPoint("CENTER")
+    fs:SetJustifyH("CENTER")
+    t.count = fs
+    st.emptyTiles[i] = t
+  end
+  if self.fontPath then t.count:SetFont(self.fontPath, math.max(7, self.fontBase or 13), "") end
+  return t
+end
+
+function View:HideEmptyTiles(st, from)
+  if not (st and st.emptyTiles) then return end
+  for i = (from or 0) + 1, #st.emptyTiles do
+    if st.emptyTiles[i] then st.emptyTiles[i]:Hide() end
+  end
+end
+
+-- The caption click target pool for grouped mode: one transparent button per section that folds it.
+function View:CatHead(st, i)
+  st.catHeads = st.catHeads or {}
+  local b = st.catHeads[i]
+  if not b then
+    b = CreateFrame("Button", nil, st.content)
+    b:RegisterForClicks("LeftButtonUp")
+    b:SetScript("OnClick", function(s)
+      if not s.wpeId then return end
+      if (self.query or "") ~= "" then return end
+      if IsShiftKeyDown() then
+        ns.Categories:SetAllCollapsed(not ns.Categories:Collapsed(s.wpeId))
+      else
+        ns.Categories:ToggleCollapse(s.wpeId)
+      end
+      self:Layout()
+    end)
+    st.catHeads[i] = b
+  end
+  return b
+end
+
+function View:HideCatHeads(st, from)
+  if not (st and st.catHeads) then return end
+  for i = (from or 0) + 1, #st.catHeads do
+    if st.catHeads[i] then st.catHeads[i]:Hide() end
+  end
+end
+
+-- The locked-bank placeholder, lifted out of Plan so both the tab and the category layouts reach the
+-- same 4-row dummy grid when the bank cannot be read.
+function View:PlanLocked(st, size, cols, step)
+  local plan = st.plan
+  local rows = 4
+  for k = 1, cols * rows do
+    local c = plan[k] or {}
+    c.bag, c.slot = 0, k
+    local col, row = (k - 1) % cols, math.floor((k - 1) / cols)
+    c.x, c.y = col * step, -(row * step)
+    plan[k] = c
+  end
+  st.blank = true
+  st.planCount = cols * rows
+  return cols * rows, (rows - 1) * step + size, 0, 0
+end
+
 function View:Plan(st, size, cols, gap)
+  if self:CatMode() then return self:PlanCats(st, size, cols, gap) end
   local step = stepFor(size, gap)
   local plan = st.plan
   local n, used, total, bottom, li = 0, 0, 0, 0, 0
@@ -1100,6 +1367,12 @@ function View:Plan(st, size, cols, gap)
     end
   end
   for j = li + 1, #st.labels do st.labels[j]:Hide() end
+  -- Grouped mode leaves caption buttons, carets, counts and the free tile parked on the content; hide
+  -- them all when the plain tab layout runs.
+  self:HideCatHeads(st, 0)
+  self:HideCatCarets(st, 0)
+  self:HideCatCounts(st, 0)
+  self:HideEmptyTiles(st, 0)
 
   st.blank = nil
   -- A locked bank has no grid to draw whatever the client still reports for its tabs, so it
@@ -1264,6 +1537,18 @@ function View:LayoutMode(st, tag)
   self:Run(st, repaint, tag)
 end
 
+-- A search in grouped mode re-folds sections by hit, but a fold per keystroke re-buckets the whole
+-- bank and jumps the layout as prefixes match then drop. So the relayout waits out a short quiet after
+-- the last key: each keystroke re-arms the token and only the final one fires. Mirrors Bags:ScheduleCatFold.
+function View:ScheduleCatFold()
+  self.catFoldToken = (self.catFoldToken or 0) + 1
+  local mine = self.catFoldToken
+  C_Timer.After(0.25, function()
+    if self.catFoldToken ~= mine then return end
+    if self.frame and self.frame:IsShown() and self:CatMode() then self:Layout() end
+  end)
+end
+
 function View:Layout()
   if not (self.frame and self.cur) then return end
   applyDensity(self:CellSize())
@@ -1424,6 +1709,12 @@ function View:UpdateDirty()
   local st = self.cur
   if self.snap then return end
   if not (st and self.frame and self.frame:IsShown()) then return end
+  -- Grouped mode files each slot by its contents, so a changed slot can leave its section: an in-place
+  -- repaint would leave it drawn under the wrong caption. Rebuild the whole pass, as the bags do.
+  if self:CatMode() then
+    if next(st.dirty) then wipe(st.dirty); self:Layout() end
+    return
+  end
   local total, used = self:CountSlots(st.mode)
   if total ~= st.total then wipe(st.dirty); self:Layout(); return end
   st.used = used

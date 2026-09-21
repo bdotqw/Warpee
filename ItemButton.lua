@@ -1387,11 +1387,15 @@ function ns.UpdateItemButton(b)
   end
   local qkey = qi and ((qi.questID or 0) .. (qi.isQuestItem and "|q" or "|")
                        .. (qi.isActive and "|a" or "|")) or false
+  -- isBound is part of the key: a BoE that binds in place (equipped then returned to the same slot)
+  -- keeps its link and count, so without this the early return would leave the "BoE" bind badge and
+  -- m.bound reading unbound after it has actually bound.
+  local bound = info and info.isBound and true or false
   if b.link == link and b.wpeCount == count and b.wpeMark == mark
-     and b.wpeQuestKey == qkey then
+     and b.wpeQuestKey == qkey and b.wpeBound == bound then
     return b.itemName
   end
-  b.link, b.wpeCount, b.wpeMark, b.wpeQuestKey = link, count, mark, qkey
+  b.link, b.wpeCount, b.wpeMark, b.wpeQuestKey, b.wpeBound = link, count, mark, qkey, bound
   if not info then
     SetItemButtonTexture(b, nil)
     SetItemButtonCount(b, 0)
@@ -1554,6 +1558,14 @@ function ns.PaintVaultButton(b, d, bagID)
     iconID, classID, subID, itemID = ic, cid, sid, iid
     iType, iSub, equipLoc = ity, isub, iloc
     gear = (cid == Enum.ItemClass.Armor or cid == Enum.ItemClass.Weapon)
+    -- A keystone is a keystone: hyperlink, not an item: one, so GetItemInfoInstant answers nothing
+    -- by it and the snapshot cell drew with no icon. The live grid gets the icon from the container;
+    -- here the item id is the first field of the link (the 180653 the cursor also hands us), so read
+    -- it out and take the item's own icon from it, the generic keystone art every keystone shares.
+    if not iconID and link:find("keystone:", 1, true) then
+      itemID = itemID or tonumber(link:match("keystone:(%d+)"))
+      if itemID then iconID = ns.PinIcon(itemID) end
+    end
   end
   SetItemButtonTexture(b, iconID)
   SetItemButtonCount(b, count)
@@ -2228,7 +2240,9 @@ local function guardPinKey()
   end
   if dirty then
     SaveBindings((GetCurrentBindingSet and GetCurrentBindingSet()) or 1)
-    local keep = GetBindingKey("WARPEE_UNPIN")
+    -- Either slot counts as "still bound", so the message is right when the key lives in the second.
+    local k1, k2 = GetBindingKey("WARPEE_UNPIN")
+    local keep = (k1 and k1 ~= "") or (k2 and k2 ~= "")
     if keep then
       print("|cffd9a85fWarpee|r |cffffffff" .. ns.L["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] .. "|r")
     else

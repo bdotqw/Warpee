@@ -14,18 +14,52 @@ local SKIP_LOC = {
 }
 
 local STONE = {
-  [9149] = true, [13503] = true,
-  [35748] = true, [35749] = true, [35750] = true, [35751] = true,
-  [44322] = true, [44323] = true, [44324] = true,
-  [58483] = true, [68775] = true, [68776] = true, [68777] = true,
-  [75274] = true, [109262] = true,
-  [122601] = true, [122602] = true, [122603] = true, [122604] = true,
-  [128023] = true, [128024] = true, [127842] = true,
-  [165926] = true, [165927] = true, [165928] = true,
-  [166974] = true, [166975] = true, [166976] = true,
-  [171085] = true, [171087] = true, [171088] = true, [171323] = true,
-  [191491] = true, [191492] = true, [210816] = true,
-  [241291] = true, [241340] = true,
+  [9149] = true, -- Philosopher's Stone
+  [13503] = true, -- Alchemist Stone
+  [35748] = true, -- Guardian's Alchemist Stone
+  [35749] = true, -- Sorcerer's Alchemist Stone
+  [35750] = true, -- Redeemer's Alchemist Stone
+  [35751] = true, -- Assassin's Alchemist Stone
+  [44322] = true, -- Mercurial Alchemist Stone
+  [44323] = true, -- Indestructible Alchemist Stone
+  [44324] = true, -- Mighty Alchemist Stone
+  [58483] = true, -- Lifebound Alchemist Stone
+  [68775] = true, -- Volatile Alchemist Stone
+  [68776] = true, -- Quicksilver Alchemist Stone
+  [68777] = true, -- Vibrant Alchemist Stone
+  [75274] = true, -- Zen Alchemist Stone
+  [109262] = true, -- Draenic Philosopher's Stone
+  [122601] = true, -- Stone of Wind
+  [122602] = true, -- Stone of the Earth
+  [122603] = true, -- Stone of the Waters
+  [122604] = true, -- Stone of Fire
+  [128023] = true, -- Stone of the Wilds
+  [128024] = true, -- Stone of the Elements
+  [127842] = true, -- Infernal Alchemist Stone
+  [165926] = true, -- Tidal Alchemist Stone
+  [165927] = true, -- Spirited Alchemist Stone
+  [165928] = true, -- Eternal Alchemist Stone
+  [166974] = true, -- Sanguinated Alchemist Stone
+  [166975] = true, -- Imbued Alchemist Stone
+  [166976] = true, -- Emblazoned Alchemist Stone
+  [171085] = true, -- Peerless Alchemist Stone
+  [171087] = true, -- Awakened Alchemist Stone
+  [171088] = true, -- Unbound Alchemist Stone
+  [171323] = true, -- Spiritual Alchemy Stone
+  [175941] = true, -- Spiritual Alchemy Stone
+  [175942] = true, -- Spiritual Alchemy Stone
+  [175943] = true, -- Spiritual Alchemy Stone
+  [191491] = true, -- Sustaining Alchemist Stone
+  [191492] = true, -- Alacritous Alchemist Stone
+  [210816] = true, -- Algari Alchemist Stone
+  [241291] = true, -- Primal Philosopher's Stone
+  [241340] = true, -- Magister's Alchemist Stone
+  [151607] = true, -- Astral Alchemist Stone
+  [152637] = true, -- Siren's Alchemist Stone
+  [152632] = true, -- Surging Alchemist Stone
+  [168674] = true, -- Abyssal Alchemist Stone
+  [168676] = true, -- Ascended Alchemist Stone
+  [168675] = true, -- Crushing Alchemist Stone
 }
 
 local FUN = {
@@ -293,6 +327,10 @@ function Vendor:TipLines()
     out[#out + 1] = { text = "Selling now", color = "dim", size = 12 }
   elseif not self:IsOpen() then
     out[#out + 1] = { text = "Talk to a merchant first", color = "dim", size = 12 }
+  elseif not self:CanBuy() then
+    -- Open, but a repair-only NPC that buys nothing: say why the coin is dim instead of leaving it
+    -- looking broken beside a bag full of sellable items.
+    out[#out + 1] = { text = "This merchant only repairs", color = "dim", size = 12 }
   end
   return out
 end
@@ -304,6 +342,17 @@ local MAX_TRIES = 6
 
 function Vendor:IsOpen() return open end
 function Vendor:Busy() return run ~= nil end
+
+-- A repair-only NPC -- the summoned Auto-Hammer, Blingtron, Reaves and the like -- still fires
+-- MERCHANT_SHOW, so open alone does not mean the merchant buys. There is no direct "can buy" flag,
+-- but such a bot carries no wares: a stall with nothing for sale never buys, while any merchant that
+-- takes items always stocks some. So an empty shelf under an open merchant is the repair-only tell,
+-- and a sale is only attempted when the shelf holds something. Guarded so a nil API never throws.
+function Vendor:CanBuy()
+  if not open then return false end
+  local n = GetMerchantNumItems and GetMerchantNumItems() or 0
+  return (tonumber(n) or 0) > 0
+end
 
 local function finish()
   if not run then return end
@@ -402,7 +451,7 @@ function Vendor:Pass()
 end
 
 function Vendor:Sell(junkOnly)
-  if not open or run then return end
+  if not open or run or not self:CanBuy() then return end
   run = { passes = 0, tries = {}, dead = {}, junk = junkOnly and true or false }
   self:Pass()
 end

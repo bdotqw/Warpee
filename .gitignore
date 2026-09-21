@@ -1,1 +1,4 @@
 .freebuff/
+
+# Playwright MCP run artifacts
+.playwright-mcp/

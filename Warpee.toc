@@ -2,7 +2,7 @@
 ## Title: Warpee
 ## Notes: Bags for farmers and alt collectors
 ## Author: Naavo
-## Version: 9.1
+## Version: 10
 ## SavedVariables: WarpeeDB
 ## X-Category: Inventory
 ## IconTexture: Interface\AddOns\Warpee\Media\Icons\logo.tga
@@ -17,11 +17,14 @@ Libs\LibSharedMedia-3.0.lua
 Locale.lua
 Locales\deDE.lua
 Locales\esES.lua
+Locales\esMX.lua
 Locales\frFR.lua
 Locales\itIT.lua
 Locales\ptBR.lua
 Locales\ruRU.lua
 Locales\zhCN.lua
+Locales\koKR.lua
+Locales\zhTW.lua
 Theme.lua
 Density.lua
 Widgets.lua

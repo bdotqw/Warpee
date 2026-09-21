@@ -822,6 +822,15 @@ if ChatEdit_InsertLink then
   hooksecurefunc("ChatEdit_InsertLink", linkInto)
 end
 
+-- Register any edit box built outside CreateSearchBox to take a shift-clicked item link off the same
+-- dispatcher. idMode true hands the box the bare item:... string, for a caller that wants the id;
+-- false the bracketed name, like the search boxes. The category pin adder uses the id mode so a
+-- shift-click on a bag item files it, no id typed by hand.
+function ns.RegisterLinkBox(box, idMode)
+  box.wpeLinkID = idMode and true or nil
+  linkBoxes[#linkBoxes + 1] = box
+end
+
 function ns.CreateSearchBox(parent, onChanged, hintKey)
   local box = CreateFrame("EditBox", nil, parent, "BackdropTemplate")
   ns.SnapBox(box, nil, 22)

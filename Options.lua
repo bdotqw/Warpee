@@ -10,7 +10,7 @@ end
 local Options = {}
 ns.Options = Options
 
-local WIN_W, WIN_H = 700, 700
+local WIN_W, WIN_H = 780, 700
 local PAD = 18
 local HEADER_H = 42
 local TAB_H = 30
@@ -462,11 +462,64 @@ local function ensureDropdown()
   local child = CreateFrame("Frame", nil, sf)
   child:SetPoint("TOPLEFT")
   sf:SetScrollChild(child)
+
+  -- A scrollbar so a menu longer than its 9-row cap shows it continues: without it a long list (fonts,
+  -- token groups) looked like it simply ended at the last visible row. Same look as the page scrollbar
+  -- - panel track, faint thumb that lights on hover and drag - and it hides itself when everything fits.
+  local bar = CreateFrame("Frame", nil, m)
+  bar:SetWidth(SCROLL_W)
+  bar:SetPoint("TOPRIGHT", -3, -4)
+  bar:SetPoint("BOTTOMRIGHT", -3, 4)
+  Theme:Rect(bar, "panel", "BACKGROUND"):SetAllPoints(bar)
+  local thumb = CreateFrame("Frame", nil, bar)
+  thumb:SetWidth(SCROLL_W)
+  local thumbTex = Theme:Rect(thumb, "faint", "ARTWORK")
+  thumbTex:SetAllPoints(thumb)
+  m.bar, m.thumb = bar, thumb
+
+  local function menuSpan() return math.max(0, child:GetHeight() - sf:GetHeight()) end
+  local function paintBar()
+    local span, view = menuSpan(), sf:GetHeight()
+    if span <= 0 or not m:IsShown() then bar:Hide(); return end
+    bar:Show()
+    local ch = child:GetHeight()
+    local h = math.max(20, view * view / (ch > 0 and ch or view))
+    thumb:SetHeight(h)
+    local frac = sf:GetVerticalScroll() / span
+    thumb:ClearAllPoints()
+    thumb:SetPoint("TOP", bar, "TOP", 0, -frac * (view - h))
+  end
+  m.PaintBar = paintBar
+  local function menuScroll(v)
+    local span = menuSpan()
+    v = math.min(span, math.max(0, v))
+    sf:SetVerticalScroll(math.min(span, ns.SnapScroll(sf, v)))
+    paintBar()
+  end
+  m.MenuScroll = menuScroll
+
   sf:EnableMouseWheel(true)
-  sf:SetScript("OnMouseWheel", function(s, d)
-    local span = math.max(0, child:GetHeight() - s:GetHeight())
-    local v = math.min(span, math.max(0, s:GetVerticalScroll() - d * 40))
-    s:SetVerticalScroll(math.min(span, ns.SnapScroll(s, v)))
+  sf:SetScript("OnMouseWheel", function(s, d) menuScroll(s:GetVerticalScroll() - d * 40) end)
+
+  thumb:EnableMouse(true)
+  thumb:SetScript("OnMouseDown", function(s)
+    s.grabY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+    s.grabScroll = sf:GetVerticalScroll()
+    s:SetScript("OnUpdate", function(t)
+      local y = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+      local travel = sf:GetHeight() - t:GetHeight()
+      if travel <= 0 then return end
+      menuScroll(t.grabScroll + (t.grabY - y) * menuSpan() / travel)
+    end)
+    thumbTex:SetVertexColor(Theme:C("accent"))
+  end)
+  thumb:SetScript("OnMouseUp", function(s)
+    s:SetScript("OnUpdate", nil)
+    thumbTex:SetVertexColor(Theme:C("faint"))
+  end)
+  thumb:SetScript("OnEnter", function() thumbTex:SetVertexColor(Theme:C("dim")) end)
+  thumb:SetScript("OnLeave", function(s)
+    if not s:GetScript("OnUpdate") then thumbTex:SetVertexColor(Theme:C("faint")) end
   end)
 
   m.rows, m.sf, m.child, m.catcher = {}, sf, child, catcher
@@ -503,13 +556,15 @@ local function openDropdown(anchor, spec, onPick)
     r.dot:SetSize(3, rowH - 8)
     r.Text:SetFont(dropdownFont(), BASE_FONT - 1, "")
     r.Text:SetText(T(spec.label(key)))
+    -- A "#" key is a section header: no dot, drawn faint. It still takes a click, because the token
+    -- menu uses one as a way into that section, and the tip carries the hint that it opens.
     local head = type(key) == "string" and key:sub(1, 1) == "#"
     local on = (not head and key == cur)
     r.dot:SetShown(on)
     local tkey = head and "faint" or (on and "accentInk" or "text")
     r.Text:SetTextColor(Theme:C(tkey))
     r.bg:Hide()
-    if head then
+    if head and not spec.nav then
       r:SetScript("OnClick", nil)
     else
       r:SetScript("OnClick", function()
@@ -525,9 +580,12 @@ local function openDropdown(anchor, spec, onPick)
   for i = #keys + 1, #m.rows do m.rows[i]:Hide() end
 
   local w = math.max(anchor:GetWidth(), 120)
-  local visible = math.min(#keys, 14)
+  local visible = math.min(#keys, 9)
   ns.SnapSize(m, w, visible * rowH + 8)
-  m.child:SetSize(w - 8, #keys * rowH)
+  -- When the list overflows its 9-row cap the scrollbar shows on the right, so the rows give it room
+  -- (its width plus a little air); a list that fits keeps the full width.
+  local overflow = #keys > visible
+  m.child:SetSize(w - 8 - (overflow and (SCROLL_W + 4) or 0), #keys * rowH)
 
   local span = math.max(0, #keys * rowH - visible * rowH)
   m.sf:SetVerticalScroll(math.min(span, ns.SnapScroll(m.sf, (curIndex - 1) * rowH - rowH * 3)))
@@ -546,6 +604,9 @@ local function openDropdown(anchor, spec, onPick)
   m.catcher:Show()
   m:Show()
   m:Raise()
+  -- Size and scroll are set now, so paint the bar: it shows only when the list overflows and sits at
+  -- the scroll position the current pick was brought to.
+  if m.PaintBar then m:PaintBar() end
 end
 
 ns.OpenDropdown = openDropdown
@@ -760,8 +821,11 @@ function factories.keybind(parent, spec)
   local capturing = false
 
   local function keyText()
-    local k = GetBindingKey and GetBindingKey(spec.binding)
-    if k and k ~= "" then return k end
+    -- GetBindingKey returns BOTH slots; take the first non-empty so a key set only in the second
+    -- slot still reads as bound instead of "Not bound".
+    local k1, k2 = GetBindingKey and GetBindingKey(spec.binding)
+    local k = (k1 and k1 ~= "" and k1) or (k2 and k2 ~= "" and k2) or nil
+    if k then return k end
     return T("Not bound")
   end
 
@@ -1852,6 +1916,16 @@ flow.revGet, flow.revSet = field("revFill")
 flow.upGet, flow.upSet   = field("fillUp")
 -- The view is a string on disk, the row a toggle, so the pair maps bool to "grid"/"cat".
 flow.catGet = function() return Bags.bagView == "cat" end
+-- The inverse gate: rows that only make sense in the grouped view hide themselves in the grid with
+-- hidden = flow.gridGet, the mirror of the reagent rows that hide in cat-view with hidden = catGet.
+flow.gridGet = function() return Bags.bagView ~= "cat" end
+-- The bank's own grouped-view flag, independent of the bags: a player may want sections in one and
+-- the plain grid in the other. Stored on WarpeeDB.bankView and read by the bank when it lays out.
+flow.bankCatGet = function() return WarpeeDB and WarpeeDB.bankView == "cat" end
+flow.bankCatSet = function(v)
+  WarpeeDB.bankView = v and "cat" or "grid"
+  if ns.Bank and ns.Bank.Refresh then ns.Bank:Refresh() end
+end
 flow.catSet = function(v)
   local mode = v and "cat" or "grid"
   Bags.bagView = mode
@@ -1869,12 +1943,9 @@ function factories.catlist(parent, spec)
   local CAT_ROW_H = 26
   local row = CreateFrame("Frame", nil, parent)
   row.items = {}
-  row.pins = {}
+  -- The one panel pool, keyed by row index: each row's rule + pins panel lives here.
+  row.build = {}
   row.dynamic = true
-  -- Which rows have their pin panel open, keyed by category id so it survives a reorder and a
-  -- rebuild rebinds the pooled panels to the right rows. Purely a view state, never saved.
-  local openPins = {}
-
   local function pageOpen() return Options.frame and Options.frame:IsShown() end
 
   -- Debounce: a text field runs a full bag scan for its count and a bag relayout, so a per
@@ -1907,14 +1978,6 @@ function factories.catlist(parent, spec)
     relayout()
   end
 
-  -- Opening or closing a pin panel changes only the editor's own height, not what any bag holds,
-  -- so it reflows the page but skips the bag relayout that act does.
-  local function actUI(fn)
-    blur()
-    cancelPending()
-    fn()
-    Options:ReflowPages()
-  end
 
   local function makeBox(c, hint, maxLen)
     local box = CreateFrame("EditBox", nil, c, "BackdropTemplate")
@@ -1942,14 +2005,34 @@ function factories.catlist(parent, spec)
     return box
   end
 
-  local function makeCaret(c, dir)
+  -- The drag handle: six dots in two columns, the grip glyph a player already reads as "grab and
+  -- drag this row" without a hint, which the paired carets did not. It fills the row height for an
+  -- easy target and lights accent on hover. The dots track the theme through Theme:Track like every
+  -- other painted piece. The drag wiring itself is hung on it in catRow, next to the row it moves.
+  local function makeGrip(c)
     local b = CreateFrame("Button", nil, c)
-    ns.SnapBox(b, 14, 14, true)
-    local tri = ns.Triangle(b, dir, 9, 6, "dim")
-    tri:SetPoint("CENTER")
-    b.tri = tri
-    b:SetScript("OnEnter", function() tri:SetTint("accent") end)
-    b:SetScript("OnLeave", function() tri:SetTint("dim") end)
+    ns.SnapBox(b, 12, CAT_ROW_H, true)
+    b.dots = {}
+    for k = 1, 6 do
+      local d = b:CreateTexture(nil, "ARTWORK")
+      d:SetColorTexture(Theme:C("dim"))
+      ns.SnapSize(d, 2, 2)
+      local col = (k - 1) % 2
+      local rowk = math.floor((k - 1) / 2)
+      d:SetPoint("CENTER", b, "CENTER", col == 0 and -2 or 2, (rowk - 1) * 4 + 2)
+      b.dots[k] = d
+    end
+    local function paint(key)
+      for _, d in ipairs(b.dots) do d:SetColorTexture(Theme:C(key)) end
+    end
+    Theme:Track(b, function() paint("dim") end)
+    b:SetScript("OnEnter", function()
+      paint("accent")
+      GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+      GameTooltip:SetText(ns.L["Drag to reorder"], 1, 1, 1)
+      GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() paint("dim"); GameTooltip:Hide() end)
     return b
   end
 
@@ -1997,53 +2080,172 @@ function factories.catlist(parent, spec)
     return b
   end
 
-  -- The panel that drops under an open row: a strip of pinned chips and, at the end, a box to pin an
-  -- item by typing its id. Pooled by row index and rebound each pass; wpeId is the category it edits.
-  local function pinPanel(i)
-    local p = row.pins[i]
+  -- The panel that drops under an open row: the items pinned to this category by hand, as an icon
+  -- strip, and a box to pin one more by shift-click or id. The rule itself is not edited here — it is
+  -- the row's own search field, and whole categories are added from the preset strip at the top — so
+  -- this panel is only the manual-pin overflow that does not fit on the one-line row.
+  local function buildPanel(i)
+    local p = row.build[i]
     if p then return p end
     p = CreateFrame("Frame", nil, row)
     p.chips = {}
-    local add = makeBox(p, "Item ID", 9)
-    add:SetNumeric(true)
-    add:SetWidth(70)
-    add:SetScript("OnEnterPressed", function(s)
-      local id = tonumber(s:GetText())
+
+    local hcap = Theme:Label(p, BASE_FONT - 2, "faint")
+    hcap:SetText(ns.L["Pinned"])
+    p.hcap = hcap
+
+    -- The box takes a shift-clicked item as before; its focus handler is the one RegisterLinkBox
+    -- installed, wrapped rather than replaced so the drop still runs.
+    local pbox = makeBox(p, "Shift-click item or ID", 200)
+    pbox:SetWidth(150)
+    ns.RegisterLinkBox(pbox, true)
+    local prevFocus = pbox:GetScript("OnEditFocusLost")
+    local function commit(s)
+      local text = s:GetText()
       s:SetText("")
       s:ClearFocus()
+      local id = tonumber(text)
+      if not id and text ~= "" then id = C_Item.GetItemInfoInstant(text) end
       if id and id > 0 and p.wpeId then act(function() Cats:PinItem(id, p.wpeId) end) end
+    end
+    pbox:SetScript("OnEnterPressed", commit)
+    pbox:SetScript("OnTextChanged", function(s)
+      s.ph:SetShown(s:GetText() == "")
+      if s:GetText():find("^item:") then commit(s) end
     end)
-    add:SetScript("OnEditFocusLost", function(s)
-      ns.SetEdge(s, Theme:C("stroke")); s.ph:SetShown(s:GetText() == "")
+    pbox:SetScript("OnEditFocusLost", function(s)
+      if prevFocus then prevFocus(s) end
+      s.ph:SetShown(s:GetText() == "")
     end)
-    p.addBox = add
-    row.pins[i] = p
+    p.pinBox = pbox
+
+    row.build[i] = p
     return p
   end
 
-  -- Lay the chips left to right, wrapping at the panel width, with the add box after the last one.
-  -- Returns the panel height so Rebuild can advance its running y by exactly what the panel takes.
-  local function layoutPins(p, ids, width)
-    local pad, gap = 25, 4
-    local avail = width - pad
-    local x, yy, rowN = 0, 0, 0
+  -- Seat one row's pin panel under it and return the height it took, so Rebuild advances by exactly
+  -- it: a caption, the pinned-item icons wrapped to the width, and the add box below them. Everything
+  -- pooled on the panel, nothing created per pass.
+  local function layoutBuild(p, ids, width)
+    local y, pad = 8, 24
+    p.hcap:ClearAllPoints()
+    p.hcap:SetPoint("TOPLEFT", pad, -y)
+    p.hcap:Show()
+    y = y + BASE_FONT + 4
+    local py, lastChip, x = 0, 0, 0
     for k = 1, #ids do
       local chip = makeChip(p, k)
       chip.wpeId = ids[k]
       chip.ic:SetTexture(ns.PinIcon(ids[k]))
-      if x > 0 and x + CHIP > avail then x = 0; yy = yy + CHIP + gap; rowN = 0 end
+      if x > 0 and x + CHIP > width - pad then x = 0; py = py + CHIP + 4 end
       chip:ClearAllPoints()
-      chip:SetPoint("TOPLEFT", pad + x, -yy)
+      chip:SetPoint("TOPLEFT", pad + x, -y - py)
       chip:Show()
-      x = x + CHIP + gap; rowN = rowN + 1
+      x = x + CHIP + 4
+      lastChip = k
     end
-    for k = #ids + 1, #p.chips do p.chips[k]:Hide() end
-    -- The add box sits after the last chip, or wraps to a fresh line if the row is full.
-    if x > 0 and x + 70 > avail then x = 0; yy = yy + CHIP + gap end
-    p.addBox:ClearAllPoints()
-    p.addBox:SetPoint("TOPLEFT", pad + x, -yy)
-    p.addBox.ph:SetShown(p.addBox:GetText() == "")
-    return yy + CHIP + 4
+    for k = lastChip + 1, #p.chips do if p.chips[k] then p.chips[k]:Hide() end end
+    if lastChip > 0 then y = y + py + CHIP + 6 end
+    p.pinBox:ClearAllPoints()
+    p.pinBox:SetPoint("TOPLEFT", pad, -y)
+    p.pinBox.ph:SetShown(p.pinBox:GetText() == "")
+    return y + CHIP + 8
+  end
+
+  -- Drag a row to reorder, so a long list is not walked one arrow-click at a time. The grip is the
+  -- handle; on grab the held row detaches and rides the cursor while the others slide to open the slot
+  -- it will drop into, so the list visibly parts at the landing place instead of hinting with a line.
+  -- Pin panels are closed on grab so every row is one uniform height and the slot maths is a plain
+  -- division of the cursor's offset down the list.
+  local ROWH = CAT_ROW_H + 2
+  local dragFrom, dragN, grabOff, dragLvl
+  -- The cursor's position as a top-down offset from the first category row, in the list's own coords.
+  -- Every drag calculation works in this one space: which slot the cursor is over, and where the
+  -- floating row is drawn. The preset strip sits above the rows, so its height (row.listTop) is
+  -- subtracted here — without it the mapping is shifted by the strip and a dragged row jitters.
+  -- Returns nil if the scale is not ready, so a caller can bail.
+  local function cursorOff()
+    local scale = row:GetEffectiveScale()
+    if not scale or scale == 0 then return nil end
+    local _, cy = GetCursorPosition()
+    return (row:GetTop() or 0) - (cy / scale) - (row.listTop or 0)
+  end
+  -- The slot the cursor is over, 1..n: the gap the other rows open for the drop. Dropping into slot t
+  -- files the row there, so it maps straight to MoveTo's target with no boundary fixup.
+  local function slotAt(n)
+    local off = cursorOff()
+    if not off then return dragFrom or 1 end
+    local t = math.floor(off / ROWH) + 1
+    if t < 1 then t = 1 elseif t > n then t = n end
+    return t
+  end
+  -- Live layout while a row is held: the grabbed row detaches and rides the cursor, and the rest slide
+  -- to fill every slot but the one under it, so the list visibly parts where the row will land. The
+  -- floating row keeps the grab point under the cursor (grabOff) so it does not jump on pickup, and is
+  -- clamped to the list's extent so it cannot be dragged off into space.
+  local function onDragUpdate()
+    local n = dragN or 0
+    local t = slotAt(n)
+    local base = row.listTop or 0
+    local slot = 0
+    for i = 1, n do
+      if i ~= dragFrom then
+        slot = slot + 1
+        if slot == t then slot = slot + 1 end
+        local r = row.items[i]
+        if r then
+          local yy = base + (slot - 1) * ROWH
+          r:ClearAllPoints()
+          r:SetPoint("TOPLEFT", 0, -yy)
+          r:SetPoint("TOPRIGHT", 0, -yy)
+        end
+      end
+    end
+    local fr = dragFrom and row.items[dragFrom]
+    local off = cursorOff()
+    if fr and off then
+      local fy = off - (grabOff or 0)
+      local maxY = (n - 1) * ROWH
+      if fy < 0 then fy = 0 elseif fy > maxY then fy = maxY end
+      fr:ClearAllPoints()
+      fr:SetPoint("TOPLEFT", 0, -(base + fy))
+      fr:SetPoint("TOPRIGHT", 0, -(base + fy))
+    end
+  end
+  local function startDrag(idx)
+    blur()
+    cancelPending()
+    -- Suppress the pin lines for the duration of the drag so every row is one uniform height and the
+    -- slot maths stays a plain division of the cursor offset. Restored on drop.
+    row.dragging = true
+    dragFrom = idx
+    dragN = #Cats:List()
+    Options:ReflowPages()
+    -- Where inside the grabbed row the cursor took hold, so the row rides under that same point rather
+    -- than snapping its top to the cursor. Falls back to the row's middle if the scale is not ready.
+    local off = cursorOff()
+    grabOff = off and (off - (idx - 1) * ROWH) or (ROWH / 2)
+    -- Lift the floating row above its neighbours so it reads as picked up and is not drawn under the
+    -- rows it passes. The level is put back on drop; Rebuild does not touch it.
+    local fr = row.items[idx]
+    if fr then
+      dragLvl = fr:GetFrameLevel()
+      fr:SetFrameLevel(row:GetFrameLevel() + 20)
+    end
+    row:SetScript("OnUpdate", onDragUpdate)
+  end
+  local function stopDrag()
+    row:SetScript("OnUpdate", nil)
+    row.dragging = nil
+    local from = dragFrom
+    local fr = from and row.items[from]
+    if fr and dragLvl then fr:SetFrameLevel(dragLvl) end
+    dragFrom, dragLvl = nil, nil
+    if not from then return end
+    -- The gap slot is the drop target: dropping into slot t files the row there. Rebuild then repaints
+    -- every row back to its clean index-anchored place, undoing the live drag positions.
+    local to = slotAt(dragN or 0)
+    if to ~= from then act(function() Cats:MoveTo(from, to) end) else Options:ReflowPages() end
   end
 
   local function catRow(i)
@@ -2067,12 +2269,15 @@ function factories.catlist(parent, spec)
     hit:SetScript("OnClick", function() act(function() Cats:Toggle(c.idx) end) end)
     c.chk = box
 
-    local up = makeCaret(c, "up")
-    ns.SnapPoint(up, "LEFT", box, "RIGHT", 4, 5)
-    up:SetScript("OnClick", function() act(function() Cats:Move(c.idx, -1) end) end)
-    local down = makeCaret(c, "down")
-    ns.SnapPoint(down, "LEFT", box, "RIGHT", 4, -5)
-    down:SetScript("OnClick", function() act(function() Cats:Move(c.idx, 1) end) end)
+    -- A grip in the old caret slot, dragged to reorder the row. It reads as a handle on sight, where
+    -- the two carets read as step-one-place buttons and hid the drag; the drag lives on the grip alone
+    -- now, so there is one gesture and no click/drag ambiguity. Same footprint, so the layout is unmoved.
+    local grip = makeGrip(c)
+    ns.SnapPoint(grip, "LEFT", box, "RIGHT", 4, 0)
+    grip:RegisterForDrag("LeftButton")
+    grip:SetScript("OnDragStart", function() startDrag(c.idx) end)
+    grip:SetScript("OnDragStop", stopDrag)
+    c.grip = grip
 
     local del = ns.CreateGlyphButton(c, "\195\151", 18)
     ns.SnapPoint(del, "RIGHT", c, "RIGHT", -1, 0)
@@ -2084,19 +2289,6 @@ function factories.catlist(parent, spec)
     count:SetPoint("RIGHT", del, "LEFT", -6, 0)
     count:SetWidth(30)
     c.count = count
-
-    -- A caret between the search field and the count opens the row's pin panel. Faint when the
-    -- row has no pins, dim when it does, so the row hints whether there is anything filed by hand.
-    local pin = makeCaret(c, "right")
-    ns.SnapPoint(pin, "RIGHT", count, "LEFT", -6, 0)
-    pin:SetScript("OnEnter", function() pin.tri:SetTint("accent") end)
-    pin:SetScript("OnLeave", function() pin.tri:SetTint(pin.wpeHasP and "dim" or "faint") end)
-    pin:SetScript("OnClick", function()
-      local id = c.catId
-      if not id then return end
-      actUI(function() openPins[id] = (not openPins[id]) or nil end)
-    end)
-    c.pinBtn = pin
 
     local name = makeBox(c, "Name", 24)
     ns.SnapPoint(name, "LEFT", box, "RIGHT", 24, 0)
@@ -2134,8 +2326,37 @@ function factories.catlist(parent, spec)
     return c
   end
 
-  local add = ns.CreateButton(row, ns.L["Add category"], 120, 22)
-  ns.LocalText(add, "Add category")
+  -- The preset strip: one button per shipped category (Armor, Potions, Mounts…). A click adds that
+  -- whole category to the list — the thing a player actually wants, not a filter to assemble — and a
+  -- preset already in the list dims and goes inert so the strip doubles as a picture of what is on.
+  -- This is the primary way to build the list; the per-row search field is the advanced escape for
+  -- anyone who wants to hand-write a rule. Buttons are pooled and re-labelled each Rebuild.
+  row.presets = {}
+  local presetCap = Theme:Label(row, BASE_FONT - 2, "faint")
+  presetCap:SetText(ns.L["Add a category"])
+  row.presetCap = presetCap
+
+  local function presetBtn(k, def)
+    local b = row.presets[k]
+    if not b then
+      b = ns.CreateButton(row, "", 100, 22)
+      row.presets[k] = b
+    end
+    b.Text:SetText(def.name)
+    local inList = Cats:Has(def.id)
+    ns.SetButtonEnabled(b, not inList)
+    b:SetScript("OnClick", function()
+      if Cats:Has(def.id) then return end
+      act(function() Cats:AddPreset(def.id) end)
+    end)
+    local wtext = math.ceil(b.Text:GetStringWidth()) + 20
+    ns.SnapBox(b, math.max(64, wtext), 22)
+    b:Show()
+    return b
+  end
+
+  local add = ns.CreateButton(row, ns.L["New category"], 120, 22)
+  ns.LocalText(add, "New category")
   add:SetScript("OnClick", function() act(function() Cats:Add() end) end)
   row.add = add
   local reset = ns.CreateButton(row, ns.L["Reset categories"], 120, 22)
@@ -2147,21 +2368,65 @@ function factories.catlist(parent, spec)
     local list = Cats:List()
     local counts, other = Cats:Counts()
     local names = Cats:Names()
-    -- Wider gutter than before, to seat the pin caret between the search field and the count.
-    local half = math.floor((CONTENT_W - 116) / 2)
-    for _, p in pairs(row.pins) do p:Hide() end
+    -- The gutter holds the pin caret and the count; the search field gets the rest.
+    local half = math.floor((CONTENT_W - 96) / 2)
+    for _, p in pairs(row.build) do p:Hide() end
     local y = 0
+
+    -- The preset strip at the top: a caption, then one button per shipped category, wrapped to the
+    -- page width. It leads the editor because adding a ready-made category is the common act; the
+    -- list of your categories follows below it.
+    presetCap:ClearAllPoints()
+    presetCap:SetPoint("TOPLEFT", 0, -y)
+    presetCap:Show()
+    y = y + BASE_FONT + 4
+    local presets = Cats:Presets()
+    local px, prow = 0, 0
+    for k, def in ipairs(presets) do
+      local b = presetBtn(k, def)
+      local w = b:GetWidth()
+      if px > 0 and px + w > CONTENT_W then px = 0; prow = prow + 1 end
+      b:ClearAllPoints()
+      b:SetPoint("TOPLEFT", px, -(y + prow * 26))
+      px = px + w + 6
+    end
+    for k = #presets + 1, #row.presets do if row.presets[k] then row.presets[k]:Hide() end end
+    y = y + (prow + 1) * 26 + 10
+
+    -- A faint divider seams the preset strip off from the list of categories below it.
+    local seam = row.seam
+    if not seam then
+      seam = CreateFrame("Frame", nil, row)
+      seam:SetHeight(1)
+      ns.PixelLine(seam, 1)
+      row.seam = seam
+    end
+    seam:ClearAllPoints()
+    seam:SetPoint("TOPLEFT", 0, -y)
+    seam:SetPoint("TOPRIGHT", 0, -y)
+    seam:Show()
+    y = y + 10
+
+    -- Where the category rows begin, below the preset strip and its seam. The drag maths works in
+    -- offsets from this line, not from the panel top, so the fixed strip above does not throw the
+    -- cursor-to-slot mapping off (which made a dragged row jitter). Captured each Rebuild since the
+    -- strip height changes with the page width.
+    row.listTop = y
+
     for i, c in ipairs(list) do
       if type(c) ~= "table" then c = {} end
       local on = c.enabled ~= false
+      -- Empty and Other are real, reorderable rows now, but neither owns a rule: no search box, no pin
+      -- caret, no delete. The name field stretches across the freed space so the row still reads clean.
+      -- Empty shows no count (it owns no items) and keeps its enable checkbox; Other shows its count
+      -- (the coverage the rules leave behind) and carries no checkbox at all, since the catch-all is
+      -- never switched off.
+      local isEmpty = c.empty == true
+      local isOther = c.other == true
       local r = catRow(i)
       r.idx = i
       r.catId = c.id
-      r.chk.mark:SetShown(on)
-      r.nameBox:SetWidth(half - 24)
-      r.searchBox:ClearAllPoints()
-      ns.SnapPoint(r.searchBox, "LEFT", r.nameBox, "RIGHT", 6, 0)
-      r.searchBox:SetWidth(half)
+      if isOther then r.chk:Hide() else r.chk:Show(); r.chk.mark:SetShown(on) end
       -- The name field carries only a custom override; its placeholder is the resolved caption
       -- (a default's shipped label, a new row's fallback), so an unnamed row still reads as itself.
       r.nameBox.ph:SetText(names[i] or ns.L["Name"])
@@ -2169,33 +2434,57 @@ function factories.catlist(parent, spec)
         r.nameBox:SetText(c.name or "")
         r.nameBox.ph:SetShown((c.name or "") == "")
       end
-      if not r.searchBox:HasFocus() then
-        r.searchBox:SetText(c.search or "")
-        r.searchBox.ph:SetShown((c.search or "") == "")
-      end
-      r.count:SetText(tostring(counts[i] or 0))
-      -- A disabled row is not classified into any section, so dim its fields to read as off; the
-      -- controls stay lit so it can be re-enabled, reordered or removed.
-      local a = on and 1 or 0.4
-      r.nameBox:SetAlpha(a); r.searchBox:SetAlpha(a); r.count:SetAlpha(a)
-      -- The caret opens down when this row's panel is showing and points right when it is shut, and
-      -- reads faint until the row actually holds a pin so a filed section stands out at a glance. The
-      -- span swaps with the direction: a down caret is wide and short, a right caret narrow and tall.
       local ids = pinIds(c)
-      local isOpen = c.id and openPins[c.id]
-      r.pinBtn.wpeHasP = #ids > 0
-      if isOpen then r.pinBtn.tri:SetDir("down"); r.pinBtn.tri:SetSpan(9, 6)
-      else r.pinBtn.tri:SetDir("right"); r.pinBtn.tri:SetSpan(6, 9) end
-      r.pinBtn.tri:SetTint(r.pinBtn.wpeHasP and "dim" or "faint")
+      if isEmpty or isOther then
+        -- The fields and delete button these rows do not own are hidden, not merely dimmed, so nothing
+        -- reads as editable. Neither is deletable, so both always stay in the list; the name box takes
+        -- the freed width to avoid a ragged gap. Other keeps its count on the right (unmatched total);
+        -- Empty owns no items, so it shows none.
+        r.nameBox:SetWidth(half * 2 - 18)
+        r.searchBox:Hide()
+        r.del:Hide()
+        if isOther then
+          r.count:SetText(tostring(other or 0))
+          r.count:SetAlpha(1)
+          r.count:Show()
+        else
+          r.count:Hide()
+        end
+      else
+        -- No caret between the search field and the count any more: the pin line shows itself under the
+        -- row only when the category has pins, so the field runs the full width up to the count.
+        r.nameBox:SetWidth(half - 24)
+        r.del:Show()
+        r.searchBox:ClearAllPoints()
+        ns.SnapPoint(r.searchBox, "LEFT", r.nameBox, "RIGHT", 6, 0)
+        r.searchBox:SetWidth(half + 20)
+        r.searchBox:Show()
+        if not r.searchBox:HasFocus() then
+          r.searchBox:SetText(c.search or "")
+          r.searchBox.ph:SetShown((c.search or "") == "")
+        end
+        r.count:SetText(tostring(counts[i] or 0))
+        r.count:Show()
+        -- A disabled row is not classified into any section, so dim its search and count to read as
+        -- off; the controls stay lit so it can be re-enabled, reordered or removed.
+        local a = on and 1 or 0.4
+        r.searchBox:SetAlpha(a); r.count:SetAlpha(a)
+      end
+      -- The name field dims with the row's on state whether or not the rest of the row is present.
+      r.nameBox:SetAlpha(on and 1 or 0.4)
       r:ClearAllPoints()
       r:SetPoint("TOPLEFT", 0, -y)
       r:SetPoint("TOPRIGHT", 0, -y)
       r:Show()
       y = y + CAT_ROW_H + 2
-      if isOpen then
-        local p = pinPanel(i)
+      -- The pin line is not a disclosure: it shows itself under a category only when that category
+      -- actually holds pins, so a pinless row (the norm) stays one clean line with no placeholder, and
+      -- a pinned row shows its icons plus the add-more box exactly where managing them makes sense. The
+      -- first pin is made by dragging an item onto the section in the bag window, not from here.
+      if (not isEmpty) and (not isOther) and #ids > 0 and not row.dragging then
+        local p = buildPanel(i)
         p.wpeId = c.id
-        local h = layoutPins(p, ids, CONTENT_W)
+        local h = layoutBuild(p, ids, CONTENT_W)
         p:ClearAllPoints()
         p:SetPoint("TOPLEFT", 0, -y)
         p:SetPoint("TOPRIGHT", 0, -y)
@@ -2205,18 +2494,9 @@ function factories.catlist(parent, spec)
       end
     end
     for i = #list + 1, #row.items do row.items[i]:Hide() end
-    -- The catch-all read out, so the coverage the rules leave behind is visible: everything that
-    -- matched no category lands in Other in the window, and the editor says how much that is. It is
-    -- a summary, not a row, so no checkbox or fields, dimmed and left where the names sit.
-    if not row.otherFS then
-      row.otherFS = track(Theme:Label(row, BASE_FONT - 2, "dim"), -2)
-      row.otherFS:SetJustifyH("LEFT")
-    end
-    row.otherFS:SetText(ns.Upper(ns.L["Other"]) .. "   " .. tostring(other or 0))
-    row.otherFS:ClearAllPoints()
-    row.otherFS:SetPoint("TOPLEFT", 25, -(y + 3))
-    row.otherFS:Show()
-    y = y + CAT_ROW_H + 2
+    -- The catch-all is a row in the list now (drawn in the loop above, with its coverage count on the
+    -- right), so the old standalone Other summary line is gone. Hide any left from an earlier build.
+    if row.otherFS then row.otherFS:Hide() end
     y = y + 4
     add:ClearAllPoints()
     add:SetPoint("TOPLEFT", 0, -y)
@@ -2514,9 +2794,19 @@ local GRID_PAGE = {
     get = zoomGet, set = zoomSet, half = "right",
     desc = "1.00 fills the slot. Less shrinks the icon, more crops it." },
   { type = "header", name = "Bag arrangement", key = "arrange" },
-  { type = "toggle", name = "Group by category", section = "arrange",
+  { type = "toggle", name = "Bags by category", col = 1, of = 2, section = "arrange",
     get = flow.catGet, set = flow.catSet,
-    desc = "Lay the items out in labelled sections instead of one grid: equipment, consumables, reagents and the rest, with anything left over under Other. The favorites and recent rows stay." },
+    desc = "Lay the bag items out in labelled sections instead of one grid: equipment, consumables, reagents and the rest, with anything left over under Other. The favorites and recent rows stay." },
+  { type = "toggle", name = "Bank by category", col = 2, of = 2, section = "arrange",
+    get = flow.bankCatGet, set = flow.bankCatSet,
+    desc = "Lay the bank and warband bank out in the same labelled sections as the bags." },
+  -- Only in the grouped view (hidden = gridGet). Reads the density gap while unset so the slider
+  -- opens on the value already in use, and writes a flat pixel gap once moved.
+  { type = "range", name = "Category spacing", min = 0, max = 40, step = 1, section = "arrange",
+    get = function() return Bags.catGap or ns.Density(Bags.iconSize).div end,
+    set = function(v) Bags.catGap = v; WarpeeDB.catGap = v; relayout() end,
+    hidden = flow.gridGet,
+    desc = "Gap between categories in the grouped view, both across a shelf and between rows." },
   { type = "toggle", name = "Hide reagents", col = 1, of = 2, section = "arrange",
     get = flow.hideGet, set = flow.hideSet, hidden = flow.catGet,
     desc = "Leave the reagent bag out of the window. Its slots still count in the header, and reagents still go into it." },
@@ -2527,10 +2817,10 @@ local GRID_PAGE = {
     get = flow.topGet, set = flow.topSet, disabled = flow.offGet, hidden = flow.catGet,
     desc = "Draw the reagent bag above the main bags instead of below them." },
   { type = "toggle", name = "Fill grid upwards", col = 1, of = 2, section = "arrange",
-    get = flow.upGet, set = flow.upSet,
+    get = flow.upGet, set = flow.upSet, hidden = flow.catGet,
     desc = "The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top." },
   { type = "toggle", name = "Reverse slot order", col = 2, of = 2, section = "arrange",
-    get = flow.revGet, set = flow.revSet,
+    get = flow.revGet, set = flow.revSet, hidden = flow.catGet,
     desc = "The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in." },
   { type = "header", name = "Quick access" },
   { type = "toggle", name = "Recent in bags", col = 1,
@@ -2851,6 +3141,7 @@ function Options:ReflowPages()
           -(HEADER_H + 7 + Theme:TopInset()))
       end
       prev = tab
+      tab:Show()
       paintTab(tab)
     end
   end
@@ -2878,6 +3169,16 @@ function Options:RefreshSoon()
     self.refreshQ = nil
     self:Refresh()
   end)
+end
+
+-- Re-render the open editor after a change made from outside it — a pin dropped on a section in the
+-- bag window files into a category, and the category editor, if it happens to be open, must redraw so
+-- the new pin's row and icon appear at once rather than only after the tab is left and re-entered.
+-- A no-op when the window is closed, so the bag drop can call it unconditionally.
+function Options:RefreshOpen()
+  if not (self.frame and self.frame:IsShown()) then return end
+  self:Refresh()
+  self:ReflowPages()
 end
 
 function Options:Build()
@@ -2939,19 +3240,13 @@ function Options:Build()
   self.headLine = line
 
   self.tabs, self.areas = {}, {}
-  local prev
   for i, pageDef in ipairs(PAGES) do
     local tab = ns.CreateButton(f, T(pageDef.name), 90, TAB_H)
     track(tab.Text, -1)
     tab:SetWidth(math.max(70, tab.Text:GetStringWidth() + 22))
-    if prev then
-      tab:SetPoint("TOPLEFT", prev, "TOPRIGHT", 5, 0)
-    else
-      tab:SetPoint("TOPLEFT", PAD, -(HEADER_H + 7))
-    end
+    -- Placement is done by ReflowPages so a hidden tab leaves no gap; here we only create it.
     tab:HookScript("OnLeave", paintTab)
     tab:SetScript("OnClick", function() self:Select(i) end)
-    prev = tab
     self.tabs[i] = tab
 
     local area = makeScrollArea(f, pageDef.list)
@@ -2963,6 +3258,7 @@ function Options:Build()
   end
 
   self:ApplyFont()
+  self:ReflowPages()
   self:AnchorHeader()
   self:Select(1)
   return f

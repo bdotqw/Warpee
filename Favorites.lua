@@ -458,6 +458,9 @@ function Fav:Apply(bags, x, top, size, gap)
           g.plus:SetFont(bags.fontPath or ns.Fonts:Current(), plusSize, "")
           g.plus:SetShown(ns.GhostPlus())
         end
+        -- A ghost is never a search hit, so it wears the row's dim while a query runs; set here too so
+        -- one freshly placed mid-search starts dimmed instead of flashing full until the next pass.
+        g:SetAlpha((bags.filters and not bags.filters.empty) and 0.20 or 1)
         g:Show()
       end
       if b then b.holder:Hide(); b.favBag = nil end

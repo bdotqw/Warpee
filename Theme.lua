@@ -299,6 +299,50 @@ function ns.PixelLine(t, n, axis)
   end, "line")
 end
 
+-- Grid geometry and caption fit, shared by the bags and the bank so the two windows compute the same
+-- widths and truncate names the same way. These were duplicated verbatim in Bags.lua and Bank.lua;
+-- they are pure (no secure frames, deterministic), so they live here in the theme layer that both
+-- load after. Only the group-view caption path uses these; the fixed grid does its own step maths.
+
+-- Pixel width of a `cols`-wide grid of `size` cells spaced by `gap`.
+function ns.GridWidth(size, cols, gap) return (cols - 1) * (size + gap) + size end
+
+local ELLIPSIS = "\226\128\166" -- …
+
+-- Byte offsets where each UTF-8 character starts, plus the string end, so a caption can be cut on a
+-- character boundary and never split a multibyte glyph. CJK names carry no spaces to fall back on, so
+-- the cut has to be per glyph, not per word. stops[k] is the byte length of the first k-1 chars.
+function ns.CharStops(s)
+  local stops, i, len = { 0 }, 1, #s
+  while i <= len do
+    local b = s:byte(i)
+    local n = 1
+    if b >= 240 then n = 4 elseif b >= 224 then n = 3 elseif b >= 192 then n = 2 end
+    i = i + n
+    stops[#stops + 1] = i - 1
+  end
+  return stops
+end
+
+-- Fit a caption name into maxW pixels: the whole upper-cased name when it clears, else the longest
+-- glyph prefix that still fits once the ellipsis is appended. Binary search over the character
+-- boundaries, measured in the label's own font so a font swap or resize re-cuts on the next layout.
+-- `name or ""` guards a nil the way the bank copy did; the bags copy passed a caption that was always
+-- a string, so taking the safer form loses nothing.
+function ns.FitLabel(label, name, maxW)
+  local up = ns.Upper(name or "")
+  label:SetText(up)
+  if maxW <= 0 or label:GetStringWidth() <= maxW then return end
+  local stops = ns.CharStops(up)
+  local lo, hi, best = 1, #stops - 1, 0
+  while lo <= hi do
+    local mid = math.floor((lo + hi) / 2)
+    label:SetText(up:sub(1, stops[mid + 1]) .. ELLIPSIS)
+    if label:GetStringWidth() <= maxW then best = mid; lo = mid + 1 else hi = mid - 1 end
+  end
+  label:SetText(best == 0 and ELLIPSIS or (up:sub(1, stops[best + 1]) .. ELLIPSIS))
+end
+
 -- A backdrop colour goes in through these two and nowhere else. The pixel job below
 -- repaints a frame from wpeBg/wpeEdge after a scale or theme move, and a colour set by
 -- another door would be lost on the next pass. Each writes the field and then calls the

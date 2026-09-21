@@ -33,8 +33,15 @@ local DEFAULTS = {
   pocketLock = NONE,
   revFill = false, fillUp = false, questMarks = true, newItemGlow = false,
   reagentTint = true, unusableBorder = true,
-  bagView = "grid", categoryVer = 0, categories = {}, catCollapsed = {},
+  bagView = "grid", bankView = "grid", categories = {}, catCollapsed = {},
+  catGroups = { { id = "essentials" }, { id = "consumables" }, { id = "gear" },
+                { id = "collections" }, { id = "rest" } },
+  catGroupFold = {},
   catSort = "quality",
+  -- NONE, not a number: unset means the category gap follows the density scale like it always has,
+  -- so an existing profile looks unchanged. The slider writes a flat pixel value once the player
+  -- touches it, which then overrides the scaled gap in the grouped view only.
+  catGap = NONE,
   goldFormat = "short", goldLetters = true, goldOnly = true,
   vendorIlvl = 100, vendorIlvlMin = 10, vendorConsum = false, vendorAuto = false,
   vendorTokens = false, vendorTokenExp = {},
@@ -153,6 +160,7 @@ function ns.PushConfig()
   Bags.reagentTint      = WarpeeDB.reagentTint
   Bags.unusableBorder   = WarpeeDB.unusableBorder
   Bags.bagView          = WarpeeDB.bagView
+  Bags.catGap           = WarpeeDB.catGap
 end
 
 function ns.ApplyAll()
@@ -524,6 +532,14 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     fillComputed(WarpeeDB)
     if WarpeeDB.junkIcon == false then WarpeeDB.badge.junk.on = false end
 
+    -- Empty and Other are real, movable category rows now but neither is deletable, so both rows must
+    -- always exist; an older or short custom list gets them restored at the tail here, on every login.
+    if ns.Categories then
+      ns.Categories:EnsureGroups()
+      ns.Categories:EnsureEmpty()
+      ns.Categories:EnsureOther()
+    end
+
     WarpeeDB.favorites = WarpeeDB.favorites or {}
     WarpeeDB.vendorBlack = WarpeeDB.vendorBlack or {}
 
@@ -545,6 +561,9 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.bankFontSize, WarpeeDB.bankCustomSize, WarpeeDB.hideBlizzBank = nil, nil, nil
     WarpeeDB.warbandCustomSize, WarpeeDB.warbandIconSize = nil, nil
     WarpeeDB.bankPool = nil
+    -- Empty was briefly deletable and used this flag to remember a delete; it is not deletable now
+    -- and EnsureEmpty always restores the row, so the flag is dead. Cleared so no save keeps it.
+    WarpeeDB.emptySeeded = nil
     if WarpeeDB.locale == "auto" then WarpeeDB.locale = nil end
 
     sanitizeConfig(WarpeeDB)
