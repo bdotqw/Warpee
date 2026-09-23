@@ -2,7 +2,7 @@
 ## Title: Warpee
 ## Notes: Bags for farmers and alt collectors
 ## Author: Naavo
-## Version: 10
+## Version: 10.0
 ## SavedVariables: WarpeeDB
 ## X-Category: Inventory
 ## IconTexture: Interface\AddOns\Warpee\Media\Icons\logo.tga

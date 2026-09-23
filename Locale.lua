@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
-local TABLES, COINS, SHORTS, WORDS, ALIAS = {}, {}, {}, {}, {}
+local TABLES, COINS, SHORTS, WORDS, ALIAS, WORDMAP = {}, {}, {}, {}, {}, {}
 local order
 local FALLBACK = { esMX = "esES" }
 
@@ -24,7 +24,7 @@ SHORTS.enUS = { dec = ".", units = { { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, 
 
 ALIAS.enGB = "enUS"
 
-local aliasMap
+local aliasMap, wordCache
 
 function ns.AddLocale(code, label, def)
   ns.LOCALES[#ns.LOCALES + 1] = code
@@ -32,9 +32,9 @@ function ns.AddLocale(code, label, def)
   TABLES[code] = def.strings
   COINS[code] = def.coin
   SHORTS[code] = def.short
-  if def.words then WORDS[#WORDS + 1] = def.words end
+  if def.words then WORDS[#WORDS + 1] = def.words; WORDMAP[code] = def.words end
   for _, c in ipairs(def.also or {}) do ALIAS[c] = code end
-  aliasMap = nil
+  aliasMap, wordCache = nil, {}
   order = nil
 end
 
@@ -201,4 +201,31 @@ function ns.SearchAlias(token)
     end
   end
   return aliasMap[ns.SearchFold(token)]
+end
+
+-- The words the language being read adds of its own, each with the token it stands for, in the spelling
+-- the locale file wrote it. The parser resolves every language's words whatever the interface is set to,
+-- but these are offered back in one language only — the one on screen — and each is resolved through the
+-- same alias lookup a typed word goes through, so what is offered is what typing it would do. Cached by
+-- language: switching locale mid-session is a thing the options allow, and a stale list would offer the
+-- words of the language the player just left.
+function ns.SearchWords()
+  local code = ns.LocalePick()
+  local hit = wordCache[code]
+  if hit then return hit end
+  local out, seen = {}, {}
+  for _, c in ipairs({ code, FALLBACK[code] }) do
+    local t = WORDMAP[c]
+    if t then
+      for k in pairs(t) do
+        -- A word with a space in it cannot be typed as a token, so it is not offered as one.
+        if type(k) == "string" and not k:find("%s") and not seen[k] then
+          local plain = ns.SearchAlias(k)
+          if plain then seen[k] = true; out[#out + 1] = { k, plain } end
+        end
+      end
+    end
+  end
+  wordCache[code] = out
+  return out
 end

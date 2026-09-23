@@ -49,7 +49,7 @@ local function sizeGlyph(btn, size)
   if btn.wpeBoxW == size and btn.wpeBoxH == size and btn.wpeFont == fp then return end
   btn.wpeFont = fp
   ns.SnapBox(btn, size, size)
-  if btn.Text then btn.Text:SetFont(fp, math.max(16, math.floor(size * 0.74)), "") end
+  if btn.Text then btn.Text:SetFont(fp, math.max(16, math.floor(size * 0.74)), ns.OutlineFlags()) end
   if btn.icon and btn.iconPct then
     local h = btn.iconPctY or btn.iconPct
     btn.icon:SetSize(math.floor(size * btn.iconPct / 100 + 0.5), math.floor(size * h / 100 + 0.5))
@@ -71,7 +71,6 @@ ns.Bags = Bags
 -- ns.CharStops), shared with the bank so the two windows never drift. Kept as file locals here so the
 -- many call sites read unchanged.
 local gridWidth = ns.GridWidth
-local ELLIPSIS = "\226\128\166" -- … (still referenced directly where a caption is pre-measured)
 local fitLabel = ns.FitLabel
 
 function Bags:HeadShift()
@@ -94,8 +93,9 @@ function Bags:TopOffset()
   -- block standing between them brings its own separator in the caption the block is labelled
   -- with, and the two together would leave a hole between the caption and the cells above it.
   -- Only that case drops the gap: merged reagents carry no caption, and hidden ones leave
-  -- nothing behind at all.
-  local sep = (rows > 0 and not self:ReagentsUp()) and 18 or 0
+  -- nothing behind at all. Category view drops it too: its first band already opens with a group
+  -- caption that separates it from the rows above, so the extra 18 only doubled the gap.
+  local sep = (rows > 0 and not self:ReagentsUp() and not self:CatMode()) and 18 or 0
   return self:BaseTop() + rows + sep
 end
 
@@ -154,6 +154,9 @@ function Bags:Build()
     if not self.content then self.content = CreateFrame("Frame", nil, f) end
     if not self.gaugeBg then
       local gaugeBg = Theme:Rect(f, "panel", "BACKGROUND")
+      -- Above the plate: without a skin the plate spans the whole window, and a line laid on the
+      -- same sublayer as it would disappear into it at any opacity above zero.
+      gaugeBg:SetDrawLayer("BACKGROUND", 2)
       gaugeBg:SetHeight(2)
       self.gaugeBg = gaugeBg
     end
@@ -198,6 +201,14 @@ function Bags:Build()
     ns.Rebase(s, "pos")
     ns.SeamDrop(s)
   end)
+  -- Drop an item anywhere on the window, not only on a slot: releasing it over the background sets it
+  -- down into the bags, and from there the grid puts it in the next free cell and the grouped view
+  -- files it under its own category by the rules. No pin, no aim at a section — the same "just put it
+  -- back" a drop on the body means. The cells sit above this and take their own drops first; this only
+  -- ever fires for a release that missed them. OnReceiveDrag is the drag release, OnMouseUp the
+  -- click-carry release; both read the cursor and clear it, no protected call.
+  f:SetScript("OnReceiveDrag", function() Bags:DropToBackground() end)
+  f:HookScript("OnMouseUp", function() Bags:DropToBackground() end)
   Theme:Window(f, "WarpeeFrame")
   Theme:HeaderBand(f, HBAND)
   f:HookScript("OnMouseDown", function()
@@ -392,9 +403,9 @@ function Bags:Build()
     self.query = (text or ""):lower()
     self.filters = ns.ParseSearch(self.query)
     -- The dim on a miss is instant either way, it only repaints cells in place. Category view also
-    -- re-folds a section by whether the query hits it, but doing that on every keystroke made the
-    -- sections jump open and shut mid-word. So the fold is deferred to a short pause after the last
-    -- key: you type freely, the layout settles once. Grid never folds, so it only ever repaints.
+    -- narrows the pass to the sections the query hits, but doing that on every keystroke made them
+    -- jump in and out mid-word. So the narrowing is deferred to a short pause after the last key:
+    -- you type freely, the layout settles once. Grid never narrows, so it only ever repaints.
     self:ApplySearch()
     if self:CatMode() then self:ScheduleCatFold() end
     ns.MirrorSearch("bags", text)
@@ -405,6 +416,7 @@ function Bags:Build()
   self.search = search
 
   local gaugeBg = Theme:Rect(f, "panel", "BACKGROUND")
+  gaugeBg:SetDrawLayer("BACKGROUND", 2)
   gaugeBg:SetHeight(2)
   gaugeBg:SetPoint("TOPLEFT", PAD, -GAUGE_Y)
   gaugeBg:SetPoint("TOPRIGHT", -PAD, -GAUGE_Y)
@@ -628,16 +640,16 @@ function Bags:Layout(capture)
   self.byKey = {}
   self.bagSlots = self.bagSlots or {}
   self.fontPath = ns.Fonts:Current()
-  if self.title then self.title:SetFont(self.fontPath, FONT, "") end
+  if self.title then self.title:SetFont(self.fontPath, FONT, ns.OutlineFlags()) end
   if self.money then
-    self.money:SetFont(self.fontPath, FONT + 1, Theme:IsLight() and ns.OutlineFlags() or "")
+    self.money:SetFont(self.fontPath, FONT + 1, ns.OutlineFlags())
     Theme:Money(self.money)
   end
-  if self.reagentLabel then self.reagentLabel:SetFont(self.fontPath, FONT - 4, "") end
-  if self.slotText then self.slotText:SetFont(self.fontPath, FONT - 3, "") end
+  if self.reagentLabel then self.reagentLabel:SetFont(self.fontPath, FONT - 4, ns.OutlineFlags()) end
+  if self.slotText then self.slotText:SetFont(self.fontPath, FONT - 3, ns.OutlineFlags()) end
   if self.search then
-    self.search:SetFont(self.fontPath, FONT - 2, "")
-    if self.search.Hint then self.search.Hint:SetFont(self.fontPath, FONT - 2, "") end
+    self.search:SetFont(self.fontPath, FONT - 2, ns.OutlineFlags())
+    if self.search.Hint then self.search.Hint:SetFont(self.fontPath, FONT - 2, ns.OutlineFlags()) end
   end
   if self.charTag then self.charTag.Text:SetFont(self.fontPath, FONT - 3, ns.OutlineFlags()); self:UpdateCharTag() end
   if self.frame and self.frame.wpeBar then
@@ -645,8 +657,18 @@ function Bags:Layout(capture)
     self.frame.wpeBar:Size(ns.Density(self.iconSize).moveH)
   end
 
-  self.recentH = ns.Recent and ns.Recent:Apply(self, PAD, self:BaseTop(), size, gap) or 0
-  self.favH = ns.Fav and ns.Fav:Apply(self, PAD, self:BaseTop() + self.recentH, size, gap) or 0
+  -- Recent and Favorites are this character's own live lists, not part of a snapshot: showing them
+  -- over another character's cached bags read as if that character had recently touched your items.
+  -- So while a foreign snapshot is up they are hidden outright and reserve no height; the window is
+  -- purely the cached grid. They come back the moment the view returns to the owner.
+  if self.snap then
+    if ns.Recent and ns.Recent.Hide then ns.Recent:Hide() end
+    if ns.Fav and ns.Fav.Hide then ns.Fav:Hide() end
+    self.recentH, self.favH = 0, 0
+  else
+    self.recentH = ns.Recent and ns.Recent:Apply(self, PAD, self:BaseTop(), size, gap) or 0
+    self.favH = ns.Fav and ns.Fav:Apply(self, PAD, self:BaseTop() + self.recentH, size, gap) or 0
+  end
 
   self.content:ClearAllPoints()
   ns.SnapPoint(self.content, "TOPLEFT", self.frame, "TOPLEFT", PAD, -self:TopOffset())
@@ -688,15 +710,15 @@ function Bags:Layout(capture)
     self.reagentLabel:Hide()
     contentH, used, total = self:LayoutCats(place, size, gap, step, cols)
   else
-    -- Every section widget, not just the captions: the carets, headers, drop zones and the Empty
-    -- section's sample tiles are all pooled and only hidden from the tail inside LayoutCats, which the
-    -- grid branch never runs. Left alone they linger over the grid as a stray fold caret and two empty
-    -- cells after a switch back from grouped view.
+    -- Every section widget, not just the captions: the headers, drop zones and the Empty section's
+    -- sample tiles are all pooled and only hidden from the tail inside LayoutCats, which the grid
+    -- branch never runs. Left alone they linger over the grid as stray captions and two empty cells
+    -- after a switch back from grouped view.
     self:HideCatLabels(0)
     self:HideCatCounts(0)
-    self:HideCatCarets(0)
     self:HideCatHeaders(0)
     self:HideCatZones(0)
+    self:HideCatGroups(0)
     self:HideEmptyTiles(0)
     if self.catFree then self.catFree:Hide() end
     local n = 0
@@ -829,81 +851,128 @@ function Bags:HideCatCounts(from)
   end
 end
 
--- The fold caret at the head of each caption: down when the section is open, right when it is
--- folded, the tree convention. One pooled triangle per section like the label.
-function Bags:CatCaret(i)
-  self.catCarets = self.catCarets or {}
-  local t = self.catCarets[i]
+-- A band carries no bag and no slot, so it is display only and adds no taint surface.
+function Bags:CatGroupLine(i)
+  self.catGLines = self.catGLines or {}
+  local t = self.catGLines[i]
   if not t then
-    t = ns.Triangle(self.content, "down", 8, 8, "dim")
-    self.catCarets[i] = t
+    t = Theme:Rect(self.content, "strokeSoft", "ARTWORK")
+    ns.PixelLine(t, 1)
+    self.catGLines[i] = t
   end
   return t
 end
 
-function Bags:HideCatCarets(from)
-  if not self.catCarets then return end
-  for i = (from or 0) + 1, #self.catCarets do
-    if self.catCarets[i] then self.catCarets[i]:Hide() end
+function Bags:CatGroupLabel(i)
+  self.catGLabels = self.catGLabels or {}
+  local fs = self.catGLabels[i]
+  if not fs then
+    fs = Theme:Label(self.content, FONT - 2, "azure")
+    fs:SetJustifyH("LEFT")
+    self.catGLabels[i] = fs
+  end
+  return fs
+end
+
+function Bags:CatGroupCaret(i)
+  self.catGCarets = self.catGCarets or {}
+  local t = self.catGCarets[i]
+  if not t then
+    t = ns.Triangle(self.content, "down", 9, 9, "dim")
+    self.catGCarets[i] = t
+  end
+  return t
+end
+
+function Bags:CatGroupCount(i)
+  self.catGCounts = self.catGCounts or {}
+  local fs = self.catGCounts[i]
+  if not fs then
+    fs = Theme:Label(self.content, FONT - 4, "dim")
+    fs:SetJustifyH("LEFT")
+    self.catGCounts[i] = fs
+  end
+  return fs
+end
+
+function Bags:CatGroupHead(i)
+  self.catGHeads = self.catGHeads or {}
+  local b = self.catGHeads[i]
+  if not b then
+    b = CreateFrame("Button", nil, self.content)
+    b:RegisterForClicks("LeftButtonUp")
+    b:SetScript("OnClick", function(s)
+      if not s.wpeEntry then return end
+      if (self.query or "") ~= "" then return end
+      if IsShiftKeyDown() then
+        ns.Categories:SetAllFolded(not ns.Categories:Folded(s.wpeEntry))
+      else
+        ns.Categories:ToggleFold(s.wpeEntry)
+      end
+      self:Layout()
+    end)
+    b:SetScript("OnEnter", function(s)
+      if s.wpeCaret then s.wpeCaret:SetTint("accent") end
+      if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("accentInk")) end
+    end)
+    b:SetScript("OnLeave", function(s)
+      if s.wpeCaret then s.wpeCaret:SetTint("dim") end
+      if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("azure")) end
+    end)
+    self.catGHeads[i] = b
+  end
+  return b
+end
+
+function Bags:HideCatGroups(from)
+  local from = (from or 0) + 1
+  if self.catGLines then
+    for i = from, #self.catGLines do if self.catGLines[i] then self.catGLines[i]:Hide() end end
+  end
+  if self.catGLabels then
+    for i = from, #self.catGLabels do if self.catGLabels[i] then self.catGLabels[i]:Hide() end end
+  end
+  if self.catGCarets then
+    for i = from, #self.catGCarets do if self.catGCarets[i] then self.catGCarets[i]:Hide() end end
+  end
+  if self.catGCounts then
+    for i = from, #self.catGCounts do if self.catGCounts[i] then self.catGCounts[i]:Hide() end end
+  end
+  if self.catGHeads then
+    for i = from, #self.catGHeads do if self.catGHeads[i] then self.catGHeads[i]:Hide() end end
   end
 end
 
--- The click target over a caption strip: a transparent pooled button covering the caption row so
--- a click anywhere on the header folds or opens that section. It carries the section id, set fresh
--- each layout, and toggles the saved fold state, then relays out. Hover tints the caret and label
--- so the whole strip reads as one control.
+-- The click target over a caption strip: a transparent pooled button covering the caption row, so a
+-- piece on the cursor can be dropped anywhere along the strip to be filed by hand. It carries the
+-- section id, set fresh each layout. Hover tints the caption so the whole strip reads as one target.
 function Bags:CatHeader(i)
   self.catHeaders = self.catHeaders or {}
   local btn = self.catHeaders[i]
   if not btn then
     btn = CreateFrame("Button", nil, self.content)
     btn:RegisterForClicks("LeftButtonUp")
-    -- Drop an item held on the cursor onto a caption to file it under that section by hand. The item
-    -- on the cursor was picked up by the bag slot's own secure drag, the player's hardware click; we
-    -- only read what is there and clear it, so nothing is moved and no protected call runs from here.
-    -- Empty is the one unfile target now, so a drop on the Other caption does nothing: bail before
-    -- PinItem so the held item stays where it is. The fold click below still runs. Works mid-search
-    -- too, so it sits ahead of the fold and its search guard.
-    local function tryPin(s)
-      if s.wpeId == nil or s.wpeId == ns.Categories.OTHER_ID then return false end
-      local ctype, id = GetCursorInfo()
-      if ctype ~= "item" or not id then return false end
-      -- Same rule as the section zones below: a worn piece released here is set down into the bags
-      -- first, so a drop on a caption unequips instead of snapping the piece back onto the body.
-      if self:CursorIsEquipped() then self:StowFromCursor() end
-      ns.Categories:PinItem(id, s.wpeId)
-      ClearCursor()
-      self:Layout()
-      -- If the category editor is open, redraw it now so the new pin shows without a tab switch.
-      if ns.Options and ns.Options.RefreshOpen then ns.Options:RefreshOpen() end
-      return true
-    end
-    btn:SetScript("OnReceiveDrag", function(s) tryPin(s) end)
-    btn:SetScript("OnClick", function(s)
-      if tryPin(s) then return end
-      if s.wpeId == nil then return end
-      -- While a search runs the fold is driven by the hits, so a click must not write to the saved
-      -- state: doing so used to stamp every section collapsed under a query and only show it once the
-      -- box was cleared. The caption is inert during a search; folding is the search's to decide.
-      if (self.query or "") ~= "" then return end
-      -- Shift folds or opens the lot at once, taking its cue from the section clicked: an open one
-      -- folds all, a folded one opens all. A plain click toggles just this section.
-      if IsShiftKeyDown() then
-        ns.Categories:SetAllCollapsed(not ns.Categories:Collapsed(s.wpeId))
-      else
-        ns.Categories:ToggleCollapse(s.wpeId)
-      end
-      self:Layout()
-    end)
+    -- A drop on a caption sets the piece down like a drop anywhere else on the body: it joins the bags
+    -- and files under its own category by the rules, no forced pin to this section. DropToBackground
+    -- handles the worn-piece unequip and clears the cursor.
+    local function drop() self:DropToBackground() end
+    btn:SetScript("OnReceiveDrag", drop)
+    btn:SetScript("OnClick", drop)
     btn:SetScript("OnEnter", function(s)
-      if s.wpeCaret then s.wpeCaret:SetTint("accent") end
       if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("accentInk")) end
+      -- A caption cut to fit its section shows the whole name on hover, so nothing is lost to the
+      -- ellipsis. Only a truncated one gets the tooltip; a name that fit reads for itself.
+      if s.wpeFull and s.wpeCut then
+        GameTooltip:SetOwner(s, "ANCHOR_TOPLEFT")
+        GameTooltip:SetText(s.wpeFull)
+        GameTooltip:Show()
+      end
     end)
     btn:SetScript("OnLeave", function(s)
-      if s.wpeCaret then s.wpeCaret:SetTint("dim") end
       -- Back to the caption's resting tone, which the layout paints accent; a lesser tone here would
       -- leave any header the cursor crossed stuck dim while its untouched neighbours kept the accent.
       if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("accent")) end
+      GameTooltip:Hide()
     end)
     self.catHeaders[i] = btn
   end
@@ -930,6 +999,19 @@ function Bags:CursorIsEquipped()
   return (loc and loc.IsEquipmentSlot and loc:IsEquipmentSlot()) and true or false
 end
 
+-- Does the piece on the cursor already live in one of these bags? A drop on the window body of an item
+-- that came out of the same bags is a "missed the cell" and should go back to its own slot untouched,
+-- not relocate; a piece held from anywhere else (a worn slot, the bank, the warband bank) is placed
+-- into a free slot instead. Read-only, nil-safe for a spell or money on the cursor.
+function Bags:CursorInBags()
+  if not (C_Cursor and C_Cursor.GetCursorItem) then return false end
+  local loc = C_Cursor.GetCursorItem()
+  if not (loc and loc.IsBagAndSlot and loc:IsBagAndSlot()) then return false end
+  local bag = loc:GetBagAndSlot()
+  for _, b in ipairs(ns.playerBags) do if b == bag then return true end end
+  return false
+end
+
 -- Set a worn piece down into the first bag with room, which is the unequip. PutItemInBag wants the
 -- bag's inventory slot, not its container id, so the worn bag is translated first; the backpack has
 -- no inventory slot and goes through PutItemInBackpack. Neither is protected, and both are driven by
@@ -946,6 +1028,28 @@ function Bags:StowFromCursor()
   return not CursorHasItem()
 end
 
+-- Set the held item down when a drop lands on the window body instead of a cell. Where it goes depends
+-- on where it was lifted from: a piece already out of these bags (a missed cell) goes back to its own
+-- slot on ClearCursor, untouched; anything from elsewhere — a worn slot, the bank, the warband bank,
+-- any window that hands the cursor an item — is placed into the first free bag slot, which is the
+-- "drag it into the bags" the player means. StowFromCursor does that placement through the same
+-- PutItemInBag/PutItemInBackpack the game's own bag buttons use, so it is taint free and works from
+-- the bank the same as from the character. The grouped view then files it under its category by the
+-- rules; there is no pin and no section to aim at. No-op on an empty cursor (every ordinary click).
+function Bags:DropToBackground()
+  local ctype = GetCursorInfo()
+  if ctype ~= "item" then return end
+  if not self:CursorInBags() then
+    -- A piece from these same bags is only being set back down; the game returns it to its slot when
+    -- the cursor clears. Anything from outside (worn, bank, warband) is stowed into a free slot.
+    -- StowFromCursor no-ops if the bags are full, leaving the piece to place by hand.
+    self:StowFromCursor()
+  end
+  ClearCursor()
+  self:Layout()
+  if ns.Options and ns.Options.RefreshOpen then ns.Options:RefreshOpen() end
+end
+
 -- The drop target for filing an item by hand. Dropping on the thin caption alone was the "where do
 -- I even aim" complaint, so while an item rides the cursor the whole section lights up as one zone:
 -- release anywhere on it to file the held item under that section. The zone sits above the cells
@@ -960,56 +1064,43 @@ function Bags:CatZone(i)
     z = CreateFrame("Button", nil, self.content, "BackdropTemplate")
     z:SetFrameLevel(self.content:GetFrameLevel() + 60)
     z:RegisterForClicks("LeftButtonUp")
-    -- No fill over the whole section any more (it washed out the icons and read as noise). The zone is
-    -- a transparent bordered box: its edge is invisible at rest and lights accent only under the
-    -- cursor, so the section a drop would land in is outlined without hiding a single item.
+    -- Fully transparent: no fill, no edge. The section a drop lands in is named by the floating pill
+    -- that tracks the cursor, not by an outline drawn on the section, so a hovered zone shows no border
+    -- and hides nothing. The box only has to catch the release over the whole section extent.
     ns.PixelBackdrop(z)
     ns.SetBg(z, 0, 0, 0, 0)
     ns.SetEdge(z, 0, 0, 0, 0)
+    -- A drop on a section files the held item into it by hand: it moves the piece from whatever
+    -- category held it into this one. A worn piece is set down into the bags first (the unequip), then
+    -- filed; a piece already in the bags is only re-filed, it does not move slot. The lift was the
+    -- cell's own secure drag (the player's hardware click); here we read the cursor and clear it, no
+    -- protected call. Other takes no drop (its slots are the catch-all), Empty is the unfile target.
     local function drop(s)
-      -- Other takes no drop; its zone never lights (wpeActive stays false), but guard here too so a
-      -- click that lands on it does nothing rather than unfiling the held piece.
       if s.wpeId == ns.Categories.OTHER_ID then return end
       local ctype, id = GetCursorInfo()
       if ctype == "item" and id then
-        -- A piece dragged off the body is not filed, it is set down: releasing it anywhere in the
-        -- grouped view is the unequip, and the section under the cursor only names where it lands in
-        -- the list, which the piece's own rules already decide. Clearing the cursor here used to
-        -- bounce it straight back onto the character, which is why unequip worked in the grid and
-        -- nowhere else. Set it down first, then file it under the section that took the drop.
-        if self:CursorIsEquipped() then
-          self:StowFromCursor()
-        end
-        -- File it under the section that took the drop either way: Empty owns no items, so a release
-        -- there clears the home and the piece simply joins the bags, which is the same unfile a drop
-        -- from a bag slot has always meant.
+        if self:CursorIsEquipped() then self:StowFromCursor() end
         ns.Categories:PinItem(id, s.wpeId)
         ClearCursor()
       end
+      self:HideDropPill()
       self:Layout()
       if ns.Options and ns.Options.RefreshOpen then ns.Options:RefreshOpen() end
     end
     z:SetScript("OnReceiveDrag", drop)
     z:SetScript("OnClick", drop)
-    -- Only the hovered zone lights its border and shows the floating name pill; every other active
-    -- zone stays a plain invisible box that still takes the drop. The pill is parented to the window,
-    -- not the zone, so it can float near the cursor without being clipped to the section bounds.
-    z:SetScript("OnEnter", function(s)
-      ns.SetEdge(s, Theme:C("accent"))
-      self:ShowDropPill(s.wpeName, s.wpeId)
-    end)
-    z:SetScript("OnLeave", function(s)
-      ns.SetEdge(s, 0, 0, 0, 0)
-      self:HideDropPill()
-    end)
+    -- The floating pill names the section under the cursor while a piece is held, so the target reads
+    -- at a glance without a name printed across every section at once. Only the hovered zone shows it.
+    z:SetScript("OnEnter", function(s) self:ShowDropPill(s.wpeName, s.wpeId) end)
+    z:SetScript("OnLeave", function() self:HideDropPill() end)
     self.catZones[i] = z
   end
   return z
 end
 
 -- The floating name pill that names the section the cursor is over during a drag: a small bordered
--- label ("+ Armor", or "Unpin" over Empty) that tracks the cursor, so the target reads at a glance
--- without a name printed across every section at once. One pill, reparented and re-anchored per hover.
+-- label ("Armor +", or the unpin word over Empty) that tracks the cursor, so the target reads at a
+-- glance without a name printed across every section. One pill, re-anchored per hover.
 function Bags:ShowDropPill(name, id)
   local p = self.dropPill
   if not p then
@@ -1019,17 +1110,19 @@ function Bags:ShowDropPill(name, id)
     ns.SetBg(p, Theme:C("panel"))
     ns.SetEdge(p, Theme:C("accent"))
     local fs = Theme:Label(p, FONT, "accent")
-    fs:SetFont(self.fontPath or ns.Fonts:Current(), FONT, "OUTLINE")
+    fs:SetFont(self.fontPath or ns.Fonts:Current(), FONT, ns.OutlineFlags())
     fs:SetPoint("CENTER")
     p.fs = fs
     self.dropPill = p
   end
   local isEmpty = (id == ns.Categories.EMPTY_ID)
-  p.fs:SetText(isEmpty and ns.Upper(ns.L["Unpin"]) or ("+  " .. ns.Upper(name or "")))
+  -- The plus sits after the name ("ARMOR +"), reading as "add to this one"; the Empty section is the
+  -- unfile target, so it names the action instead of a category.
+  p.fs:SetText(isEmpty and ns.Upper(ns.L["Unpin"]) or (ns.Upper(name or "") .. " +"))
   local w = math.ceil(p.fs:GetStringWidth()) + 20
   ns.SnapSize(p, w, FONT + 12)
   p:ClearAllPoints()
-  -- Sit just above and right of the cursor, in the window's scale so it lands where the mouse is.
+  -- Just up and to the right of the cursor, in the window's scale so it lands where the mouse is.
   local scale = (self.frame and self.frame:GetEffectiveScale()) or UIParent:GetEffectiveScale()
   local mx, my = GetCursorPosition()
   p:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", mx / scale + 14, my / scale + 14)
@@ -1140,17 +1233,12 @@ function Bags:SyncDropZones()
   if not self.catZones then return end
   local on = self:CatMode() and self.frame and self.frame:IsShown() and CursorHasItem()
   for _, z in ipairs(self.catZones) do
-    -- An active zone is a transparent droppable box for the whole drag; it only draws its accent
-    -- border and floating name when the cursor is actually over it (handled in the zone's OnEnter).
-    if on and z.wpeActive then
-      ns.SetEdge(z, 0, 0, 0, 0)
-      z:Show()
-    else
-      z:Hide()
-    end
+    -- An active zone is an invisible droppable box over the section's extent for the whole drag, so a
+    -- release on the gaps between cells still files the piece. The pill names the section under the
+    -- cursor; the zone itself stays invisible.
+    if on and z.wpeActive then z:Show() else z:Hide() end
   end
-  -- Nothing is hovered the instant the zones flip, and a drop that ended the drag must not leave the
-  -- pill floating: hide it whenever the zones are (re)synced.
+  -- No item held, no target to name: drop the pill so it never lingers after a drag ends.
   if not on then self:HideDropPill() end
 end
 
@@ -1162,9 +1250,9 @@ dropWatch:RegisterEvent("CURSOR_CHANGED")
 dropWatch:SetScript("OnEvent", function() Bags:SyncDropZones() end)
 
 -- Sections packed into shelves: each is as wide as its cells need (capped at the grid, floored by
--- its caption) so several share a row and the list reads left to right in priority order. Every
--- caption folds: its saved state hides the cells and leaves just the header with a right caret.
--- A live search overrides the fold and opens every section, so a match can never hide behind one.
+-- its caption) so several share a row and the list reads left to right in priority order. A section
+-- is always drawn whole: only a group band folds, and it does so from the caption row above its own
+-- sections. A live search narrows the pass to the hits, so a match is never hidden behind a band.
 function Bags:LayoutCats(place, size, gap, step, cols)
   local buckets, used, total = ns.Categories:Buckets(self)
   local Cats = ns.Categories
@@ -1172,28 +1260,39 @@ function Bags:LayoutCats(place, size, gap, step, cols)
   local capH = d.labelH + d.labelGap
   local gridW = gridWidth(size, cols, gap)
   local searching = (self.query or "") ~= ""
+  -- The group caption sits at labelX with its caret in the gap to its left. A section caption sits at
+  -- capX, flush with the left edge of its own first cell, so the name reads as the heading of the
+  -- items directly beneath it rather than floating off to their right. The per-section caret is gone
+  -- and nothing else stands before the name, so the caption starts exactly on that edge: a px of pad
+  -- here reads as a stray gap the eye takes for a glyph that is not there.
   local labelX = 14
+  local capX = 0
+  -- The drop below the group caption before its sections begin, so the band header is not crammed
+  -- against the first row of names. Added on top of the caption's own height.
+  local GHEAD_GAP = 6
   -- Shelves, not a single column: each section is only as wide as it needs, so several sit side by
   -- side on one row and the list still reads left to right, which is the priority order. A section's
   -- width is its cell count capped at the grid columns, but never narrower than its own caption, so
   -- a long name is not clipped by a two-item block. When the next section will not fit the row's
   -- remaining width the shelf wraps: y drops by the tallest section on the shelf plus one gap, and
   -- packing starts again at the left. GUT is the gap between neighbours on a shelf.
-  -- The gap between categories: the neighbour gap on a shelf and the drop between shelf rows are the
-  -- same number. It follows the density scale (DIV) until the player sets a flat value on the slider,
-  -- and it is the grouped view's alone, so the reagent block's own DIV spacing in the grid is untouched.
-  local GUT = math.max(0, math.floor(tonumber(self.catGap) or DIV))
+  -- The gap between categories, split in two: GUTX is the neighbour gap across a shelf, GUTY the drop
+  -- between shelf rows. Each follows the density scale (DIV) until the player sets a flat value on its
+  -- own slider, and both are the grouped view's alone, so the reagent block's own DIV spacing in the
+  -- grid is untouched.
+  local GUTX = math.max(0, math.floor(tonumber(self.catGapX) or DIV))
+  local GUTY = math.max(0, math.floor(tonumber(self.catGapY) or DIV))
   local shelfX, shelfY, shelfH = 0, 0, 0
   local nb = #buckets
   -- The Empty section is a real list member now (Categories seeds it), so it arrives as one of the
-  -- buckets on its own list position and lays out in this same pass as the rest: it folds, packs onto
-  -- a shelf and repacks like any section, and the player can move or delete it from the editor. It
+  -- buckets on its own list position and lays out in this same pass as the rest: it packs onto a
+  -- shelf and repacks like any section, and the player can move or delete it from the editor. It
   -- stands in for the free space the grid shows as trailing blank cells: grouped view has none to
   -- eyeball, so this names it. Its bucket carries b.empty and owns no slots; it draws two display
   -- tiles instead, bound to nothing so they carry no bag or slot and stay taint-free: the normal bags'
   -- free count, and the reagent bag's under its green border (dropped when no reagent bag is worn). It
   -- doubles as the unfile target: EMPTY_ID owns no items, so a drop here clears the piece's manual
-  -- home, which is exactly the unpin. Its fold rides EMPTY_ID through the same catCollapsed map.
+  -- home, which is exactly the unpin.
   local free = math.max(0, (total or 0) - (used or 0))
   -- Reagent free and slot counts through the same snap-aware readers the grid uses, so the Empty
   -- section's reagent tile is right for a cached character too: live reads the container, a snapshot
@@ -1206,89 +1305,180 @@ function Bags:LayoutCats(place, size, gap, step, cols)
   local freeMain = math.max(0, free - freeReg)
   local emptyTiles = (regSlots > 0) and 2 or 1
   local shownTiles = 0
+  -- Bands: a run of sections that share the marker heading them. The marker is the entry in the saved
+  -- list the whole layout walks — a group header, a divider, or nothing at all for the run before the
+  -- first marker — so a band is where it is because the list says so. Nothing to keep in step, no group
+  -- table to consult, and no ungrouped special case: the trailing rows are simply a run under a divider.
+  local bands = {}
   for bi = 1, nb do
     local b = buckets[bi]
+    local band = bands[#bands]
+    if not band or band.key ~= b.band then
+      band = { key = b.band, from = bi, to = bi, n = 0 }
+      bands[#bands + 1] = band
+    end
+    band.to = bi
+    if (not searching) or (b.hits or 0) > 0 then band.n = band.n + 1 end
+  end
+  -- Whether a band shows its sections. A live search answers instead of the fold: the query is the
+  -- filter, so a band with a hit draws open and one with nothing to show keeps only its heading. With no
+  -- search the fold saved on the band's own marker decides, and the run before the first marker is always
+  -- open — it has no heading to click.
+  local function bandOpen(band)
+    if searching then return band.n > 0 end
+    return not (band.key and Cats:Folded(band.key))
+  end
+  local drawn = {}
+  for k = 1, #bands do
+    local band = bands[k]
+    -- A folded band still draws: its heading is the handle that unfolds it. A search is different — a
+    -- band with no hit is left out whole, heading and all.
+    if (not searching) or band.n > 0 then drawn[#drawn + 1] = band end
+  end
+  local gi, si = 0, 0
+  for k = 1, #drawn do
+    local band = drawn[k]
+    local open = bandOpen(band)
+    if k > 1 then
+      shelfY = shelfY + shelfH + GUTY
+      shelfX, shelfH = 0, 0
+    end
+    -- The heading of the band. A group header draws its name with the caret beside it, and that heading
+    -- is the fold handle — the only way back into a folded band. A divider seams a band off without
+    -- naming it, so there is nothing there to open or close: no caret, no click target, its line is the
+    -- whole of the heading and the band starts right below it.
+    if band.key then
+      gi = gi + 1
+      local gcapH = math.max(capH, d.font + 4)
+      local top = shelfY
+      local textY = shelfY
+      local isHead = Cats.IsHead(band.key)
+      local line = self:CatGroupLine(gi)
+      -- Placed whether or not it is shown, so each heading in the pool carries one set of points. A divider
+      -- always draws its line, since the line is the whole of its heading; only the first group heading
+      -- skips it, having nothing above it to seam itself off from.
+      line:ClearAllPoints()
+      ns.SnapPoint(line, "TOPLEFT", self.content, "TOPLEFT", 0, -top)
+      ns.SnapPoint(line, "TOPRIGHT", self.content, "TOPRIGHT", 0, -top)
+      local seamed = (k > 1) or (not isHead)
+      line:SetShown(seamed)
+      if seamed then textY = top + 1 + d.labelGap end
+      local glabel = self:CatGroupLabel(gi)
+      local gcaret = self:CatGroupCaret(gi)
+      -- No tally on a heading: every section under it already prints its own (N), so a count of sections
+      -- beside the name only repeated what the eye reads down the band. Kept pooled but hidden so a build
+      -- that carried it before this change clears it.
+      self:CatGroupCount(gi):Hide()
+      local headH
+      if isHead then
+        glabel:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 2, ns.OutlineFlags())
+        glabel:SetTextColor(Theme:C("azure"))
+        fitLabel(glabel, Cats:GroupName(band.key), gridW - labelX)
+        glabel:ClearAllPoints()
+        ns.SnapPoint(glabel, "TOPLEFT", self.content, "TOPLEFT", labelX, -textY)
+        glabel:Show()
+        gcaret:ClearAllPoints()
+        ns.SnapPoint(gcaret, "RIGHT", glabel, "LEFT", -4, 0)
+        gcaret:SetDir(open and "down" or "right")
+        gcaret:SetTint("dim")
+        gcaret:Show()
+        shelfY = textY + gcapH + GHEAD_GAP
+        headH = (textY - top) + gcapH
+      else
+        glabel:Hide()
+        gcaret:Hide()
+        shelfY = textY + d.labelGap
+        headH = math.max(9, textY - top)
+      end
+      local ghead = self:CatGroupHead(gi)
+      ghead.wpeEntry, ghead.wpeCaret, ghead.wpeLabel = band.key, gcaret, glabel
+      ghead:ClearAllPoints()
+      ns.SnapPoint(ghead, "TOPLEFT", self.content, "TOPLEFT", 0, -top)
+      ghead:SetSize(math.max(1, gridW), headH)
+      ghead:SetShown(isHead)
+    end
+    -- A folded band keeps its heading but draws no sections: an empty range is the same thing as
+    -- skipping the loop, without a second nesting level to keep aligned.
+    if not open then band.from, band.to = 0, -1 end
+  for bi = band.from, band.to do
+    local b = buckets[bi]
+    -- A search draws the hits alone: a section with no match is left out of the pass whole, so the
+    -- query reveals exactly where the item lives. The Empty section never scores a hit.
+    if (not searching) or (b.hits or 0) > 0 then
+    si = si + 1
     local isEmpty = b.empty
     local id = b.id
     local name = b.name
     local n = isEmpty and emptyTiles or #b.slots
-    -- While a search runs the fold follows the hits, not the saved state: a section with a match
-    -- opens, one without stays shut to its caption, so a query reveals exactly where the item lives.
-    -- The Empty section never scores a hit, so a search folds it shut like any other missing one. With
-    -- no search the saved fold rules.
-    local folded
-    if searching then folded = isEmpty or (b.hits or 0) == 0 else folded = Cats:Collapsed(id) end
-    local label = self:CatLabel(bi)
+    local label = self:CatLabel(si)
     -- Set as a file every layout so a font change reaches the caption.
-    label:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, "")
+    label:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, ns.OutlineFlags())
     label:SetTextColor(Theme:C("accent"))
-    local caret = self:CatCaret(bi)
-    caret:SetDir(folded and "right" or "down")
-    caret:SetTint("dim")
-    local count = self:CatCount(bi)
+    local count = self:CatCount(si)
     -- Parenthesised so the dim tally beside the accent name reads as a count, not a stray number or an
     -- item level tacked onto the caption. The Empty section drops the tally outright: its free numbers
     -- are already printed on the sample tiles below, so a count here only repeats them, and in a one or
     -- two cell wide section it steals the very width the word EMPTY needs. Zeroing countW gives that
     -- room back to both the width floor and the truncation, so the label reads at a small cell size
     -- instead of collapsing to an ellipsis.
+    -- The tally is only worth the room once it beats a glance: at one or two items the eye already
+    -- counts them, so the (N) there only steals width from a narrow section's caption. It shows from
+    -- three up. Empty never shows one (its free numbers ride the sample tiles below). showCount gates
+    -- both the text and the width floor, so a hidden count reserves no space and the name gets it back.
+    local showCount = (not isEmpty) and n >= 3
     local countW = 0
-    if isEmpty then
-      count:Hide()
-    else
-      count:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, "")
+    if showCount then
+      count:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, ns.OutlineFlags())
       count:SetText("(" .. n .. ")")
       countW = count:GetStringWidth()
+    else
+      count:Hide()
     end
-    -- Width is the open cell count capped at the grid, taken from the open state even while folded: a
-    -- fold must only drop the height, never the footprint, or the section would shrink, the shelf
-    -- would repack and it would jump sideways. The name no longer blows the width out; it truncates to
-    -- fit instead. The one floor is the sacred count: the section is at least wide enough for the caret
-    -- indent, a lone ellipsis standing in for the name, the gap and the whole (N), so the tally is
-    -- never clipped however long a name the player types. Measured with the ellipsis in the label.
-    label:SetText(ELLIPSIS)
-    local floorNeed = labelX + label:GetStringWidth() + 6 + countW
+    -- Width from the cell count, but never so narrow the name is crushed to an initial. The floor is
+    -- the whole caption (indent, name, gap, count), capped so a long name cannot blow one section across
+    -- the grid: up to catNameCap px of name is granted room, past that the name truncates and the header
+    -- offers the whole of it in a tooltip. This is why a one-item section still reads its name instead of
+    -- a lone glyph, while the shelf packing stays sane. Measured with the real name in the label.
+    label:SetText(ns.Upper(name or ""))
+    local fullNameW = label:GetStringWidth()
+    local nameCap = math.min(gridW, 6 * step)
+    local floorNeed = capX + math.min(fullNameW, nameCap) + 6 + countW
     local capCols = math.max(1, math.ceil((floorNeed - size) / step) + 1)
     local w = math.max(math.min(n, cols), capCols)
     if w > cols then w = cols end
     local sw = gridWidth(size, w, gap)
     -- Cut the name to whatever the section leaves once the indent, gap and count are reserved, so the
     -- caption is never wider than its own section. The count keeps its place at the name's right, so a
-    -- shorter name only pulls the tally inward; the caret and indents never move.
-    fitLabel(label, name, sw - labelX - 6 - countW)
+    -- shorter name only pulls the tally inward; the caption indent never moves. A cut name (only the
+    -- longest, past the cap) shows in full on hover, so nothing is lost to the ellipsis.
+    local truncated = fitLabel(label, name, sw - capX - 6 - countW)
     -- Wrap to a new shelf when this section would run past the grid's right edge. The 0.5 absorbs the
     -- rounding in the density-scaled widths so an exact fit is not bumped to the next row.
-    if shelfX > 0 and shelfX + GUT + sw > gridW + 0.5 then
-      shelfY = shelfY + shelfH + GUT
+    if shelfX > 0 and shelfX + GUTX + sw > gridW + 0.5 then
+      shelfY = shelfY + shelfH + GUTY
       shelfX, shelfH = 0, 0
     end
-    local sx = (shelfX == 0) and 0 or (shelfX + GUT)
+    local sx = (shelfX == 0) and 0 or (shelfX + GUTX)
     local sy = shelfY
     label:ClearAllPoints()
-    ns.SnapPoint(label, "TOPLEFT", self.content, "TOPLEFT", sx + labelX, -sy)
+    ns.SnapPoint(label, "TOPLEFT", self.content, "TOPLEFT", sx + capX, -sy)
     label:Show()
-    caret:ClearAllPoints()
-    -- Right edge to the label's left, so the caret sits just ahead of the text and shares its
-    -- vertical centre whatever the caption font height is.
-    ns.SnapPoint(caret, "RIGHT", label, "LEFT", -4, 0)
-    caret:Show()
-    if not isEmpty then
+    if showCount then
       count:ClearAllPoints()
       -- Left edge to the name's right, so the tally rides beside the caption as one unit and shares its
       -- vertical centre. On the ragged shelf edges a far-right count would line up with nothing.
       ns.SnapPoint(count, "LEFT", label, "RIGHT", 6, 0)
       count:Show()
     end
-    local head = self:CatHeader(bi)
-    head.wpeId, head.wpeCaret, head.wpeLabel = id, caret, label
+    local head = self:CatHeader(si)
+    head.wpeId, head.wpeLabel = id, label
+    head.wpeFull, head.wpeCut = ns.Upper(name or ""), truncated
     head:ClearAllPoints()
     ns.SnapPoint(head, "TOPLEFT", self.content, "TOPLEFT", sx, -sy)
     head:SetSize(math.max(1, sw), capH)
     head:Show()
     local secH
-    if folded then
-      secH = capH
-    elseif isEmpty then
+    if isEmpty then
       -- Sample empty cells on the shelf like a section's slots: the plain-bag one with its free count,
       -- and when a reagent bag exists a reagent-bordered one beside it with the reagent free count. The
       -- caption already totals the free room; these two say where it is, in the grid's own cell shape.
@@ -1328,10 +1518,10 @@ function Bags:LayoutCats(place, size, gap, step, cols)
     -- between-section gap left out). Positioned every layout but kept hidden; the watcher shows it mid drag.
     -- The Empty zone rides EMPTY_ID like its header, so a release on it unfiles, and its tag names the
     -- action, not a section: dropping here is the unpin, and the word says so.
-    local zone = self:CatZone(bi)
+    local zone = self:CatZone(si)
     zone.wpeId = id
-    -- Other is the one section that takes no drop, so its zone never lights during a drag; every
-    -- other section, Empty included, is a droppable box that outlines and names itself on hover.
+    -- Other still takes no drop (its slots are the catch-all already), so its zone stays inert; every
+    -- other section, Empty included, takes a hand-file drop.
     zone.wpeActive = (id ~= ns.Categories.OTHER_ID)
     -- The name the floating pill shows for this section; the pill adds the "+" and the outline font.
     zone.wpeName = name
@@ -1341,16 +1531,18 @@ function Bags:LayoutCats(place, size, gap, step, cols)
     zone:Hide()
     shelfX = sx + sw
     shelfH = math.max(shelfH, secH)
+    end
+  end
   end
   -- The bottom of the last shelf, plus the trailing gap. The Empty section now sits on that shelf, so
   -- the footer that used to be measured on its own is folded into this one number.
   local contentH = shelfY + shelfH + d.labelGap
   if self.catFree then self.catFree:Hide() end
-  self:HideCatLabels(nb)
-  self:HideCatCounts(nb)
-  self:HideCatCarets(nb)
-  self:HideCatHeaders(nb)
-  self:HideCatZones(nb)
+  self:HideCatLabels(si)
+  self:HideCatCounts(si)
+  self:HideCatHeaders(si)
+  self:HideCatZones(si)
+  self:HideCatGroups(gi)
   self:HideEmptyTiles(shownTiles)
   -- Opened with an item already on the cursor? Light the zones now; otherwise this hides them.
   self:SyncDropZones()
@@ -1362,15 +1554,11 @@ function Bags:Resize(contentH)
   local gw = gridWidth(self.pxSize or self.iconSize, self.cols, self.pxGap or self.gap)
   self.content:SetSize(gw, contentH)
   self.frame:SetSize(PAD * 2 + gw, self:TopOffset() + contentH + FOOTER)
-  self.gridBg:ClearAllPoints()
-  -- The rows stand above the content on the window's own paint, so the panel is stretched up
-  -- over them: the gaps around a row then read like the gaps of the grid. With every row off
-  -- the top drops back onto the content and no band of panel is left behind.
-  local rows = (self.recentH or 0) + (self.favH or 0)
-  local top = rows > 0 and self:BaseTop() or self:TopOffset()
-  self.gridBg:SetPoint("TOPLEFT", self.frame, "TOPLEFT", PAD - 3, -(top - 3))
-  self.gridBg:SetPoint("BOTTOMRIGHT", self.content, "BOTTOMRIGHT", 3, -3)
-  self.gridBg:SetAlpha(Theme:GridAlpha())
+  -- The plate is the extra surface the items stand on, over the window's own background, and it runs
+  -- the whole window: header, grid and footer are covered alike, and only a skin's own header band is
+  -- left alone (Theme:FitPlate). It used to be the one band the grid sat in, which left the window's
+  -- background showing around it as a second tone.
+  Theme:FitPlate(self.gridBg, self.frame)
   ns.Rebase(self.frame, "pos")
   ns.SeamHeal(seam)
 end
@@ -1457,7 +1645,7 @@ end
 function Bags:UpdateBagBar()
   if not self.bagButtons then return end
   local path = ns.Fonts:Current()
-  if self.bagTitle then self.bagTitle:SetFont(path, FONT - 1, "") end
+  if self.bagTitle then self.bagTitle:SetFont(path, FONT - 1, ns.OutlineFlags()) end
   for _, b in ipairs(self.bagButtons) do
     local bagID = b.wpeBagID
     local tex
@@ -1749,7 +1937,8 @@ local KIND_WORDS = {
   leather  = kind(IC.Armor, IAS.Leather),
   mail     = kind(IC.Armor, IAS.Mail),
   plate    = kind(IC.Armor, IAS.Plate),
-  cosmetic = kind(IC.Armor, IAS.Cosmetic),
+  -- cosmetic is a flag, not a kind: see m.cosmetic (C_Item.IsCosmeticItem) and the classify branch,
+  -- because Blizzard does not keep cosmetic appearances in the Cosmetic armor subclass.
   dagger   = kind(IC.Weapon, IWS.Dagger),
   sword    = kind(IC.Weapon, IWS.Sword1H, IWS.Sword2H),
   axe      = kind(IC.Weapon, IWS.Axe1H, IWS.Axe2H),
@@ -1871,6 +2060,8 @@ local function classify(f, token)
     f.gear = true
   elseif token == "toy" then
     f.toy = true
+  elseif token == "cosmetic" then
+    f.cosmetic = true
   elseif token == "housing" or token == "decor" then
     f.housing = true
   else
@@ -1888,8 +2079,9 @@ function ns.ParseSearch(q)
   -- the wrapper, and only two-plus sides produce an ors node.
   if q:find("|", 1, true) then
     local ors = {}
-    for part in (q .. "|"):gmatch("([^|]*)|") do
-      part = part:gsub("^%s+", ""):gsub("%s+$", "")
+    for raw in (q .. "|"):gmatch("([^|]*)|") do
+      -- A local, not a write back into the loop variable: the trim belongs to this side alone.
+      local part = raw:gsub("^%s+", ""):gsub("%s+$", "")
       if part ~= "" then ors[#ors + 1] = ns.ParseSearch(part) end
     end
     if #ors == 0 then return { text = {}, empty = true } end
@@ -1908,6 +2100,183 @@ function ns.ParseSearch(q)
   end
   return f
 end
+-- The fields classify() can fill, in the order it checks them, each with the axis the editor names it by.
+-- Reading the axis off a scratch filter rather than re-walking the string keeps the two honest: this
+-- shares one classify() with the parser, so a token the parser learns to understand answers here too,
+-- with no second place to edit. The booleans at the end are the flags the filter carries as facts.
+local EXPLAIN_ROWS = {
+  { "ids", "item" }, { "quality", "quality" },
+  { "ilvl", "level" }, { "ilvlMin", "level" }, { "ilvlMax", "level" },
+  { "slots", "slot" }, { "kinds", "kind" }, { "exps", "expansion" }, { "expMax", "expansion" },
+  { "reagent", "kind" }, { "keystone", "kind" }, { "battlepet", "kind" }, { "quest", "kind" },
+  { "consumable", "kind" }, { "gear", "kind" }, { "toy", "kind" }, { "housing", "kind" },
+  { "token", "kind" },
+  { "warbound", "flag" }, { "soulbound", "flag" }, { "boe", "flag" }, { "boa", "flag" },
+  { "locked", "flag" },
+}
+
+-- The words classify answers to by name, as spelled. The four tables above cover the rest; every word
+-- here is handed to classify before it is kept, so this list can never offer a word the parser refuses.
+local FLAG_SPELLINGS = {
+  "current", "legacy", "old", "warbound", "wb", "warband", "soulbound", "sb", "bound", "bop",
+  "boe", "unbound", "boa", "accountbound", "token", "tier", "locked", "blocked",
+  "reagent", "reagents", "mats", "keystone", "key", "mythic", "battlepet", "pet", "quest",
+  "consumable", "consumables", "gear", "equip", "equipment", "toy", "housing", "decor",
+}
+
+-- The whole vocabulary the parser takes, each word with the axis it is read on, gathered from the tables
+-- classify reads instead of being listed a second time. A language's own words are in there too, resolved
+-- to the English token they stand for, so a Russian player is offered "латы" and "шлем" as readily as
+-- "plate" and "helm". Built once, on the first keystroke that needs it.
+local TOKEN_LIST, TOKEN_LOCALE
+local function tokenWords()
+  -- Keyed by language: the words a locale adds are part of the list, and the editor can switch language
+  -- without a reload.
+  local code = ns.LocalePick and ns.LocalePick() or nil
+  if TOKEN_LIST and TOKEN_LOCALE == code then return TOKEN_LIST end
+  local seen, out = {}, {}
+  local function keep(word, token)
+    if seen[word] then return end
+    local probe = {}
+    if classify(probe, token or word) then
+      local axis = "flag"
+      for _, row in ipairs(EXPLAIN_ROWS) do
+        if probe[row[1]] ~= nil then axis = row[2]; break end
+      end
+      seen[word] = true
+      out[#out + 1] = { word = word, axis = axis }
+    end
+  end
+  for _, t in ipairs({ QUALITY_WORDS, SLOT_WORDS, KIND_WORDS, EXP_WORDS }) do
+    for word in pairs(t) do keep(word) end
+  end
+  for _, word in ipairs(FLAG_SPELLINGS) do keep(word) end
+  if ns.SearchWords then
+    for _, pair in ipairs(ns.SearchWords()) do keep(pair[1], pair[2]) end
+  end
+  TOKEN_LOCALE, TOKEN_LIST = code, out
+  return out
+end
+
+-- The next character of a string and where it ends: the game's text is utf-8, so a letter of a language
+-- that writes it in two bytes is one letter to a comparison that has to count letters and not bytes.
+local function charStep(s, i)
+  local b = s:byte(i)
+  if b == nil then return nil end
+  local len = 1
+  if b >= 240 then len = 4 elseif b >= 224 then len = 3 elseif b >= 192 then len = 2 end
+  return i + len, s:sub(i, i + len - 1)
+end
+
+local function charCount(s)
+  local n, i = 0, 1
+  while true do
+    local next1 = charStep(s, i)
+    if not next1 then return n end
+    n, i = n + 1, next1
+  end
+end
+
+-- What a word might have been: the words it could still be growing into, and the words a single letter
+-- away. Counted in letters, so a typo in a language that writes its letters in two bytes is still one
+-- letter and still found. A suggestion that is merely missing costs nothing; a wrong one costs trust, so
+-- the edit cases stay to what counting can tell apart.
+local function nearWords(word, limit)
+  limit = limit or 3
+  local out, taken = {}, {}
+  local function add(w)
+    if taken[w] then return end
+    taken[w] = true
+    out[#out + 1] = w
+  end
+  local list = tokenWords()
+  -- Every word is compared in its folded form, which is the form the parser reads a typed one in, while
+  -- the word offered back is the one the language wrote.
+  for _, entry in ipairs(list) do
+    if #out >= limit then return out end
+    local w = entry.word
+    local fw = ns.SearchFold(w)
+    if #fw > #word and fw:sub(1, #word) == word then add(w) end
+  end
+  if #out >= limit then return out end
+  local lw = charCount(word)
+  for _, entry in ipairs(list) do
+    if #out >= limit then break end
+    local w = entry.word
+    local fw = ns.SearchFold(w)
+    local n = charCount(fw)
+    if n == lw and n > 1 then
+      -- Same length: one letter may differ, and no more.
+      local i, j, diff = 1, 1, 0
+      while i <= #fw and j <= #word do
+        local ni, ci = charStep(fw, i)
+        local nj, cj = charStep(word, j)
+        if ci ~= cj then
+          diff = diff + 1
+          if diff > 1 then break end
+        end
+        i, j = ni, nj
+      end
+      if diff == 1 and i > #fw and j > #word then add(w) end
+    elseif n == lw + 1 or n == lw - 1 then
+      -- One letter too many or too few: the shorter word has to be a run of the longer one, which a single
+      -- walk answers — a match moves both on, a miss moves the longer one alone.
+      local short, long = word, fw
+      if n < lw then short, long = fw, word end
+      local i, j = 1, 1
+      while i <= #short and j <= #long do
+        local ni, ci = charStep(short, i)
+        local nj, cj = charStep(long, j)
+        if ci == cj then i = ni end
+        j = nj
+      end
+      if i > #short then add(w) end
+    end
+  end
+  return out
+end
+
+-- One token as the parser took it: the axis it was understood on, the text as it was written (a word of the
+-- player's own language is reported as written, since that is what they see), and whether a leading "!" or
+-- "-" turned it into a NOT. A token no dictionary answers to — and that no alias resolves — comes back as
+-- text, which is the one way a rule can look right and match nothing, so it carries the words it might have
+-- meant: the field's own vocabulary is the only place a typo can be caught, since nothing else about the
+-- line looks different.
+local function explainPart(token)
+  local bare = token:match("^[!%-](.+)$")
+  local neg = bare ~= nil
+  if bare then token = bare end
+  local probe = {}
+  local alias = ns.SearchAlias(ns.SearchFold(token))
+  if classify(probe, token) or (alias and classify(probe, alias)) then
+    for _, row in ipairs(EXPLAIN_ROWS) do
+      if probe[row[1]] ~= nil then return { axis = row[2], token = token, neg = neg or nil } end
+    end
+    -- A field the parser filled that this table has no name for yet: still a word the parser knows, so it
+    -- is reported as a flag rather than as text. Text is kept for the one case that means it — which is
+    -- what makes the label worth reading.
+    return { axis = "flag", token = token, neg = neg or nil }
+  end
+  local near = #token > 1 and nearWords(ns.SearchFold(token), 3) or nil
+  return { axis = "text", token = token, neg = neg or nil,
+           near = (near and #near > 0) and near or nil }
+end
+
+-- A rule read back as its sides: the shape `|` builds, one list per side, one part per token. The editor
+-- turns that into chips; the parser is untouched, this only asks it what it saw. nil for an empty rule,
+-- which matches everything and has nothing to explain.
+function ns.ExplainSearch(q)
+  q = (q or ""):gsub("^%s+", ""):gsub("%s+$", "")
+  if q == "" then return nil end
+  local sides = {}
+  for side in (q .. "|"):gmatch("([^|]*)") do
+    local parts = {}
+    for token in side:gmatch("%S+") do parts[#parts + 1] = explainPart(token) end
+    if #parts > 0 then sides[#sides + 1] = parts end
+  end
+  return (#sides > 0) and sides or nil
+end
+
 function ns.MetaWarbound(m)
   if m.wb == nil then
     if not m.isGear then
@@ -2013,6 +2382,7 @@ function ns.MatchSearch(m, f)
   if f.reagent and not m.reagent then return false end
   if f.keystone and not m.keystone then return false end
   if f.battlepet and not m.battlepet then return false end
+  if f.cosmetic and not m.cosmetic then return false end
   if f.quest and m.classID ~= Enum.ItemClass.Questitem then return false end
   if f.consumable and m.classID ~= Enum.ItemClass.Consumable then return false end
   if f.gear and not (m.classID == Enum.ItemClass.Armor

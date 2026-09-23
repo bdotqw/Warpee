@@ -25,8 +25,7 @@ local FONT = 15
 local HBAND = 32
 
 -- Caption ellipsis and fit are shared with the bags in Theme.lua now (ns.FitLabel / ns.CharStops);
--- the bank had a byte-for-byte copy. Kept as file locals so the call sites read unchanged.
-local ELLIPSIS_B = "\226\128\166"
+-- the bank had a byte-for-byte copy. Kept as a file local so the call sites read unchanged.
 local fitBankLabel = ns.FitLabel
 
 local function applyDensity(size)
@@ -42,7 +41,7 @@ local function sizeGlyph(btn, size)
   if btn.wpeBoxW == size and btn.wpeBoxH == size and btn.wpeFont == fp then return end
   btn.wpeFont = fp
   ns.SnapBox(btn, size, size)
-  if btn.Text then btn.Text:SetFont(fp, math.max(16, math.floor(size * 0.74)), "") end
+  if btn.Text then btn.Text:SetFont(fp, math.max(16, math.floor(size * 0.74)), ns.OutlineFlags()) end
   if btn.icon and btn.iconPct then
     local h = btn.iconPctY or btn.iconPct
     btn.icon:SetSize(math.floor(size * btn.iconPct / 100 + 0.5), math.floor(size * h / 100 + 0.5))
@@ -180,7 +179,7 @@ function View:Label(st, i, color)
     l = Theme:Label(st.content, 11, color or "faint")
     st.labels[i] = l
   end
-  if self.fontPath then l:SetFont(self.fontPath, math.max(7, (self.fontBase or 13) - 2), "") end
+  if self.fontPath then l:SetFont(self.fontPath, math.max(7, (self.fontBase or 13) - 2), ns.OutlineFlags()) end
   l:SetTextColor(Theme:C(color or "faint"))
   return l
 end
@@ -225,6 +224,12 @@ function View:Build()
     ns.Rebase(s, "bankPos")
     ns.SeamDrop(s)
   end)
+  -- Drop an item on the bank body, not only on a slot: it is set down into the open bank tab of the
+  -- current mode, and from there the grid takes the next free cell and the grouped view files it by
+  -- category. Same "just put it here" a background drop means in the bags. Cells sit above and take
+  -- their own drops first; this only fires on a release that missed them.
+  f:SetScript("OnReceiveDrag", function() self:DropToBackground() end)
+  f:HookScript("OnMouseUp", function() self:DropToBackground() end)
   Theme:Window(f, "WarpeeBankFrame")
   Theme:HeaderBand(f, HBAND)
   f:HookScript("OnMouseDown", function()
@@ -819,7 +824,7 @@ function View:PlaceBuyCell(x)
   buy:ClearAllPoints()
   ns.SnapPoint(buy, "BOTTOMLEFT", self.frame, "TOPLEFT", x, 6)
   if buy.Text then
-    buy.Text:SetFont(ns.Fonts:Current(), math.max(16, math.floor(TAB_SIZE * 0.74)), "")
+    buy.Text:SetFont(ns.Fonts:Current(), math.max(16, math.floor(TAB_SIZE * 0.74)), ns.OutlineFlags())
     buy.Text:SetText("+")
     if buy.Repaint then buy:Repaint() end
   end
@@ -1007,10 +1012,6 @@ function View:Activate(mode)
   self.depositType = self.bankerOpen and bankTypeFor(mode) or nil
   ns.RefreshBagDim()
   st.content:Show()
-  self.gridBg:ClearAllPoints()
-  self.gridBg:SetPoint("TOPLEFT", st.content, "TOPLEFT", -3, 3)
-  self.gridBg:SetPoint("BOTTOMRIGHT", st.content, "BOTTOMRIGHT", 3, -3)
-  self.gridBg:SetAlpha(Theme:GridAlpha())
   self:Layout()
   self:PinBlizzTabs()
 end
@@ -1056,10 +1057,21 @@ function View:PaintKey(size)
                         (self.tabSel and self.tabSel[self.mode]) or 0 }, ":")
 end
 
--- Grouped mode is on when the player set it and the bank is not filtered to a single tab: a tab pick
--- and a category grouping are two different ways to narrow the same slots, so the tab wins while set.
+-- Grouped mode is on whenever the player set it, tab pick or not. A tab and a category grouping
+-- narrow the same slots on different axes, so they compose: picking a tab scopes the categories to
+-- that one tab's slots (see CatBags) rather than switching the whole window back to a flat grid. The
+-- per-tab and everything views share one category container and differ only in which slots feed it.
 function View:CatMode()
-  return WarpeeDB and WarpeeDB.bankView == "cat" and not self:TabSel(self.mode)
+  return WarpeeDB and WarpeeDB.bankView == "cat"
+end
+
+-- The bags the category bucketer walks: the whole mode normally, or just the selected tab's bag when
+-- one is picked, so the grouping covers exactly the slots on screen. Mirrors the plain grid's
+-- `only = TabSel` scoping, kept 1:1 with it so a tab shows the same slots either way.
+function View:CatBags(mode)
+  local only = self:TabSel(mode)
+  if only then return { only } end
+  return self:ModeBags(mode)
 end
 
 -- The containers of the current mode, flattened from Sections, for the category bucketer to walk.
@@ -1071,88 +1083,221 @@ function View:ModeBags(mode)
   return out
 end
 
+-- Set the held item down when a drop lands on the bank body instead of a cell. Where it goes depends
+-- on where the piece came from: one already in this mode's own containers (a missed cell) goes back to
+-- its slot on ClearCursor, untouched; anything from elsewhere — the character's bags, a worn slot, the
+-- other bank mode — is deposited into the first container of the current mode with room, through the
+-- same PutItemInBag the game's bank-slot buttons use. So dragging from bags onto the bank body stores
+-- it, and dragging from the bank onto its own body just puts it back. Never on a snapshot: another
+-- character's bank has no live container to place into, so the piece is left on the cursor. Reads the
+-- cursor and places through unprotected calls only, driven by the player's release, so it stays taint
+-- free.
+function View:DropToBackground()
+  if self.snap or not CursorHasItem() then return end
+  local ctype = GetCursorInfo()
+  if ctype ~= "item" then return end
+  if not self:CursorInMode() then
+    for _, bag in ipairs(self:ModeBags(self.mode)) do
+      if not CursorHasItem() then break end
+      if (select(1, C_Container.GetContainerNumFreeSlots(bag)) or 0) > 0 then
+        local inv = C_Container.ContainerIDToInventoryID(bag)
+        if inv then PutItemInBag(inv) end
+      end
+    end
+  end
+  ClearCursor()
+  self:Layout()
+  if ns.Options and ns.Options.RefreshOpen then ns.Options:RefreshOpen() end
+end
+
+-- Does the piece on the cursor already live in one of this mode's containers? Then a body drop is only
+-- a missed cell and it goes back to its own slot on ClearCursor rather than being deposited afresh.
+function View:CursorInMode()
+  if not (C_Cursor and C_Cursor.GetCursorItem) then return false end
+  local loc = C_Cursor.GetCursorItem()
+  if not (loc and loc.IsBagAndSlot and loc:IsBagAndSlot()) then return false end
+  local bag = loc:GetBagAndSlot()
+  for _, b in ipairs(self:ModeBags(self.mode)) do if b == bag then return true end end
+  return false
+end
+
 -- Category grouping for the bank: the same buckets the bags draw, laid as captioned sections that
 -- stack down the window. It reuses the plan array and the pooled labels exactly like the tab layout,
 -- so Run/Resize downstream are unchanged; only the geometry and the captions differ. Cells carry the
 -- real bag and slot, so paint, search and the secure click are untouched. Returns the same tuple Plan
--- does. A folded section (catCollapsed by id) draws its caption alone and skips its cells.
+-- does. Only a group band folds, and a search draws its hits alone.
 function View:PlanCats(st, size, cols, gap)
   local step = stepFor(size, gap)
   local plan = st.plan
   local buckets, used, total = ns.Categories:BankBuckets(st.mode, self.snap, self.filters,
-    self:ModeBags(st.mode))
+    self:CatBags(st.mode))
   local searching = (self.query or "") ~= ""
   local gridW = gridWidth(size, cols, gap)
   local capH = DIV
+  -- The group caption sits at labelX with its caret to the left. A section caption sits at capX,
+  -- flush with the left edge of its own first cell, so the name heads the items directly beneath it
+  -- rather than floating off to their right. Mirrors the bags: the per-section caret is gone and
+  -- nothing else stands before the name, so the caption starts exactly on that edge, with no pad the
+  -- eye would take for a glyph that is not there.
   local labelX = 14
+  local capX = 0
+  -- The drop below a group caption before its sections start, so the band header is not crammed
+  -- against the first row of names.
+  local GHEAD_GAP = 6
   -- Shelves like the bags: each section is only as wide as its cells need (capped at the full bank
   -- width, floored at its own caption), so several sit side by side on one row and the empty space to
-  -- the right is used instead of one tall column down the middle. GUT is the gap between neighbours on
-  -- a shelf and the drop between shelf rows, the same number. It follows the Category spacing slider
-  -- (WarpeeDB.catGap) like the bags' grouped view does, so the one setting moves both surfaces; the
-  -- density DIV is the fallback until the slider is touched.
-  local GUT = math.max(0, math.floor(tonumber(WarpeeDB and WarpeeDB.catGap) or DIV))
+  -- the right is used instead of one tall column down the middle. GUTX is the gap between neighbours on
+  -- a shelf, GUTY the drop between shelf rows. Each follows its own Category spacing slider
+  -- (WarpeeDB.catGapX / catGapY) like the bags' grouped view does, so the one pair moves both surfaces;
+  -- the density DIV is the fallback until a slider is touched.
+  local GUTX = math.max(0, math.floor(tonumber(WarpeeDB and WarpeeDB.catGapX) or DIV))
+  local GUTY = math.max(0, math.floor(tonumber(WarpeeDB and WarpeeDB.catGapY) or DIV))
   local shelfX, shelfY, shelfH = 0, 0, 0
   local n, li = 0, 0
   -- Empty is the free-space stand-in. The bank has no reagent bag, so one sample tile: the free count.
   local free = math.max(0, (total or 0) - (used or 0))
   local shownEmpty = false
-  for _, b in ipairs(buckets) do
+  local nb = #buckets
+  -- Bands: a run of sections that share the marker heading them. The marker is the entry in the saved
+  -- list the whole layout walks — a group header, a divider, or nothing at all for the run before the
+  -- first marker — so a band is where it is because the list says so, and the bank and the bags read the
+  -- same list. No group table, and no ungrouped special case: the tail is a run under a divider.
+  local bands = {}
+  for bi = 1, nb do
+    local b = buckets[bi]
+    local band = bands[#bands]
+    if not band or band.key ~= b.band then
+      band = { key = b.band, from = bi, to = bi }
+      bands[#bands + 1] = band
+    end
+    band.to = bi
+  end
+  -- Whether a band shows its sections. A live search answers instead of the fold: the query is the
+  -- filter, so a band with a hit draws open and one with nothing to show keeps only its heading. With no
+  -- search the fold saved on the band's own marker decides, and the run before the first marker is always
+  -- open — it has no heading to click.
+  local function bandOpen(band)
+    if searching then
+      for bi = band.from, band.to do
+        if (buckets[bi].hits or 0) > 0 then return true end
+      end
+      return false
+    end
+    return not (band.key and ns.Categories:Folded(band.key))
+  end
+  local gi = 0
+  for bk = 1, #bands do
+    local band = bands[bk]
+    local open = bandOpen(band)
+    if bk > 1 then
+      shelfY = shelfY + shelfH + GUTY
+      shelfX, shelfH = 0, 0
+    end
+    -- The heading of the band. A group header draws its name with the caret beside it, and that heading
+    -- is the fold handle — the only way back into a folded band. A divider seams a band off without
+    -- naming it, so there is nothing there to open or close: no caret, no click target, its line is the
+    -- whole of the heading and the band starts right below it.
+    if band.key then
+      gi = gi + 1
+      local gcapH = math.max(capH, self:FontSize() + 5)
+      local top = shelfY
+      local textY = shelfY
+      local isHead = ns.Categories.IsHead(band.key)
+      local line = self:CatGLine(st, gi)
+      -- SnapPoint so the 1px divider lands on the pixel grid: top is a float sum of shelf heights, and a
+      -- raw SetPoint at it drew the hairline blurred (the bags already Snap theirs). Placed whether or
+      -- not it is shown, so each heading in the pool carries one set of points. A divider always draws
+      -- its line, since the line is the whole of its heading; only the first group heading skips it,
+      -- having nothing above it to seam itself off from.
+      line:ClearAllPoints()
+      ns.SnapPoint(line, "TOPLEFT", st.content, "TOPLEFT", 0, -top)
+      ns.SnapPoint(line, "TOPRIGHT", st.content, "TOPRIGHT", 0, -top)
+      local seamed = (bk > 1) or (not isHead)
+      line:SetShown(seamed)
+      if seamed then textY = top + 1 + DIV / 4 end
+      local glabel = self:CatGLabel(st, gi)
+      local gcaret = self:CatGCaret(st, gi)
+      -- No tally on a heading: each section under it prints its own (N), so a count of sections beside
+      -- the name only repeated what the eye reads down the band. Hidden, matching the bags.
+      self:CatGCount(st, gi):Hide()
+      local headH
+      if isHead then
+        fitBankLabel(glabel, ns.Categories:GroupName(band.key), gridW - labelX)
+        glabel:ClearAllPoints()
+        ns.SnapPoint(glabel, "TOPLEFT", st.content, "TOPLEFT", labelX, -textY)
+        glabel:Show()
+        gcaret:ClearAllPoints()
+        ns.SnapPoint(gcaret, "RIGHT", glabel, "LEFT", -4, 0)
+        gcaret:SetDir(open and "down" or "right")
+        gcaret:SetTint("dim")
+        gcaret:Show()
+        shelfY = textY + gcapH + GHEAD_GAP
+        headH = (textY - top) + gcapH
+      else
+        glabel:Hide()
+        gcaret:Hide()
+        shelfY = textY + DIV / 4
+        headH = math.max(9, textY - top)
+      end
+      local ghead = self:CatGHead(st, gi)
+      ghead.wpeEntry, ghead.wpeCaret, ghead.wpeLabel = band.key, gcaret, glabel
+      ghead:ClearAllPoints()
+      ns.SnapPoint(ghead, "TOPLEFT", st.content, "TOPLEFT", 0, -top)
+      ghead:SetSize(math.max(1, gridW), headH)
+      ghead:SetShown(isHead)
+    end
+    -- A folded band keeps its heading but draws no sections: an empty range is the same thing as
+    -- skipping the loop, without a second nesting level to keep aligned.
+    if not open then band.from, band.to = 0, -1 end
+  for bi = band.from, band.to do
+    local b = buckets[bi]
     local isEmpty = b.empty
     local count = isEmpty and 1 or #b.slots
     if count > 0 then
-      local folded
-      if searching then folded = isEmpty or (b.hits or 0) == 0
-      else folded = ns.Categories:Collapsed(b.id) end
+      local folded = searching and (isEmpty or (b.hits or 0) == 0)
       li = li + 1
       local label = self:Label(st, li, "accent")
       label:SetJustifyH("LEFT")
-      local caret = self:CatCaret(st, li)
-      caret:SetDir(folded and "right" or "down")
-      caret:SetTint("dim")
       local count2 = self:CatCount(st, li)
       -- The parenthesised tally beside the name, dim so it reads as a count not an ilvl. Empty drops it
-      -- (its free number is on the sample tile below), matching the bags.
+      -- (its free number is on the tile below); shown only from three items up on a named section.
+      local showCount = (not isEmpty) and count >= 3
       local countW = 0
-      if isEmpty then
-        count2:Hide()
-      else
+      if showCount then
         count2:SetText("(" .. count .. ")")
         countW = count2:GetStringWidth()
+      else
+        count2:Hide()
       end
-      -- Width from the open cell count capped at the grid, floored so the caret indent, an ellipsis and
-      -- the (N) always fit however long the name; taken from the open state even while folded so a fold
-      -- never shrinks the footprint and repacks the shelf.
-      label:SetText(ELLIPSIS_B)
-      local floorNeed = labelX + label:GetStringWidth() + 6 + countW
+      -- Width from the cell count, but never so narrow the name is crushed to an initial. The floor is
+      -- the whole caption (indent, name up to a cap, gap, count), so a one-item section still reads its
+      -- name instead of a lone glyph; past the cap the name truncates. Mirrors the bags.
+      label:SetText(ns.Upper(b.name or ""))
+      local fullNameW = label:GetStringWidth()
+      local nameCap = math.min(gridW, 6 * step)
+      local floorNeed = capX + math.min(fullNameW, nameCap) + 6 + countW
       local capCols = math.max(1, math.ceil((floorNeed - size) / step) + 1)
       local w = math.max(math.min(count, cols), capCols)
       if w > cols then w = cols end
       local sw = gridWidth(size, w, gap)
-      fitBankLabel(label, b.name, sw - labelX - 6 - countW)
-      if shelfX > 0 and shelfX + GUT + sw > gridW + 0.5 then
-        shelfY = shelfY + shelfH + GUT
+      fitBankLabel(label, b.name, sw - capX - 6 - countW)
+      if shelfX > 0 and shelfX + GUTX + sw > gridW + 0.5 then
+        shelfY = shelfY + shelfH + GUTY
         shelfX, shelfH = 0, 0
       end
-      local sx = (shelfX == 0) and 0 or (shelfX + GUT)
+      local sx = (shelfX == 0) and 0 or (shelfX + GUTX)
       local sy = shelfY
       label:ClearAllPoints()
-      label:SetPoint("TOPLEFT", st.content, "TOPLEFT", sx + labelX, -(sy + 4))
+      -- SnapPoint like the bags: sy is a float shelf offset, so a raw SetPoint drew the caption a
+      -- fraction off the pixel grid and it read fuzzy against the crisp cells. The count rides the
+      -- label, so snapping the label carries it too.
+      ns.SnapPoint(label, "TOPLEFT", st.content, "TOPLEFT", sx + capX, -(sy + 4))
       label:Show()
-      caret:ClearAllPoints()
-      ns.SnapPoint(caret, "RIGHT", label, "LEFT", -4, 0)
-      caret:Show()
-      if not isEmpty then
+      if showCount then
         count2:ClearAllPoints()
-        count2:SetPoint("LEFT", label, "RIGHT", 6, 0)
+        ns.SnapPoint(count2, "LEFT", label, "RIGHT", 6, 0)
         count2:Show()
       end
-      local hd = self:CatHead(st, li)
-      hd.wpeId = b.id
-      hd:ClearAllPoints()
-      hd:SetPoint("TOPLEFT", st.content, "TOPLEFT", sx, -sy)
-      hd:SetSize(math.max(1, sw), capH)
-      hd:Show()
       local secH
       if folded then
         secH = capH
@@ -1185,11 +1330,11 @@ function View:PlanCats(st, size, cols, gap)
       shelfH = math.max(shelfH, secH)
     end
   end
+  end
   local bottom = shelfY + shelfH
   for j = li + 1, #st.labels do st.labels[j]:Hide() end
-  self:HideCatHeads(st, li)
-  self:HideCatCarets(st, li)
   self:HideCatCounts(st, li)
+  self:HideCatGroups(st, gi)
   if not shownEmpty then self:HideEmptyTiles(st, 0) end
   st.blank = nil
   st.locked = self:Locked()
@@ -1200,22 +1345,61 @@ function View:PlanCats(st, size, cols, gap)
   return n, bottom, used, total
 end
 
--- The fold caret before each caption, and the dim (N) count beside it: pooled on the state like the
--- bank's labels, so a mode has its own set and Run/Resize are none the wiser.
-function View:CatCaret(st, i)
-  st.catCarets = st.catCarets or {}
-  local t = st.catCarets[i]
+-- A band carries no bag and no slot, so it is display only and adds no taint surface.
+function View:CatGLine(st, i)
+  st.gLines = st.gLines or {}
+  local t = st.gLines[i]
   if not t then
-    t = ns.Triangle(st.content, "down", 8, 8, "dim")
-    st.catCarets[i] = t
+    t = Theme:Rect(st.content, "strokeSoft", "ARTWORK")
+    ns.PixelLine(t, 1)
+    st.gLines[i] = t
   end
   return t
 end
 
-function View:HideCatCarets(st, from)
-  if not (st and st.catCarets) then return end
-  for i = (from or 0) + 1, #st.catCarets do
-    if st.catCarets[i] then st.catCarets[i]:Hide() end
+function View:CatGLabel(st, i)
+  st.gLabels = st.gLabels or {}
+  local fs = st.gLabels[i]
+  if not fs then
+    fs = Theme:Label(st.content, 11, "azure")
+    fs:SetJustifyH("LEFT")
+    st.gLabels[i] = fs
+  end
+  if self.fontPath then fs:SetFont(self.fontPath, math.max(8, (self.fontBase or 13) - 1), ns.OutlineFlags()) end
+  fs:SetTextColor(Theme:C("azure"))
+  return fs
+end
+
+function View:CatGCaret(st, i)
+  st.gCarets = st.gCarets or {}
+  local t = st.gCarets[i]
+  if not t then
+    t = ns.Triangle(st.content, "down", 9, 9, "dim")
+    st.gCarets[i] = t
+  end
+  return t
+end
+
+function View:CatGCount(st, i)
+  st.gCounts = st.gCounts or {}
+  local fs = st.gCounts[i]
+  if not fs then
+    fs = Theme:Label(st.content, 11, "dim")
+    fs:SetJustifyH("LEFT")
+    st.gCounts[i] = fs
+  end
+  if self.fontPath then fs:SetFont(self.fontPath, math.max(7, (self.fontBase or 13) - 2), ns.OutlineFlags()) end
+  fs:SetTextColor(Theme:C("dim"))
+  return fs
+end
+
+function View:HideCatGroups(st, from)
+  if not st then return end
+  local pools = { st.gLines, st.gLabels, st.gCarets, st.gCounts, st.gHeads }
+  for _, pool in ipairs(pools) do
+    if pool then
+      for i = (from or 0) + 1, #pool do if pool[i] then pool[i]:Hide() end end
+    end
   end
 end
 
@@ -1227,7 +1411,7 @@ function View:CatCount(st, i)
     fs:SetJustifyH("LEFT")
     st.catCounts[i] = fs
   end
-  if self.fontPath then fs:SetFont(self.fontPath, math.max(7, (self.fontBase or 13) - 2), "") end
+  if self.fontPath then fs:SetFont(self.fontPath, math.max(7, (self.fontBase or 13) - 2), ns.OutlineFlags()) end
   fs:SetTextColor(Theme:C("dim"))
   return fs
 end
@@ -1255,7 +1439,7 @@ function View:EmptyTile(st, i)
     t.count = fs
     st.emptyTiles[i] = t
   end
-  if self.fontPath then t.count:SetFont(self.fontPath, math.max(7, self.fontBase or 13), "") end
+  if self.fontPath then t.count:SetFont(self.fontPath, math.max(7, self.fontBase or 13), ns.OutlineFlags()) end
   return t
 end
 
@@ -1266,33 +1450,33 @@ function View:HideEmptyTiles(st, from)
   end
 end
 
--- The caption click target pool for grouped mode: one transparent button per section that folds it.
-function View:CatHead(st, i)
-  st.catHeads = st.catHeads or {}
-  local b = st.catHeads[i]
+function View:CatGHead(st, i)
+  st.gHeads = st.gHeads or {}
+  local b = st.gHeads[i]
   if not b then
     b = CreateFrame("Button", nil, st.content)
     b:RegisterForClicks("LeftButtonUp")
     b:SetScript("OnClick", function(s)
-      if not s.wpeId then return end
+      if not s.wpeEntry then return end
       if (self.query or "") ~= "" then return end
       if IsShiftKeyDown() then
-        ns.Categories:SetAllCollapsed(not ns.Categories:Collapsed(s.wpeId))
+        ns.Categories:SetAllFolded(not ns.Categories:Folded(s.wpeEntry))
       else
-        ns.Categories:ToggleCollapse(s.wpeId)
+        ns.Categories:ToggleFold(s.wpeEntry)
       end
       self:Layout()
     end)
-    st.catHeads[i] = b
+    b:SetScript("OnEnter", function(s)
+      if s.wpeCaret then s.wpeCaret:SetTint("accent") end
+      if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("accentInk")) end
+    end)
+    b:SetScript("OnLeave", function(s)
+      if s.wpeCaret then s.wpeCaret:SetTint("dim") end
+      if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("azure")) end
+    end)
+    st.gHeads[i] = b
   end
   return b
-end
-
-function View:HideCatHeads(st, from)
-  if not (st and st.catHeads) then return end
-  for i = (from or 0) + 1, #st.catHeads do
-    if st.catHeads[i] then st.catHeads[i]:Hide() end
-  end
 end
 
 -- The locked-bank placeholder, lifted out of Plan so both the tab and the category layouts reach the
@@ -1367,11 +1551,10 @@ function View:Plan(st, size, cols, gap)
     end
   end
   for j = li + 1, #st.labels do st.labels[j]:Hide() end
-  -- Grouped mode leaves caption buttons, carets, counts and the free tile parked on the content; hide
-  -- them all when the plain tab layout runs.
-  self:HideCatHeads(st, 0)
-  self:HideCatCarets(st, 0)
+  -- Grouped mode leaves counts and the free tile parked on the content; hide them all when the plain
+  -- tab layout runs.
   self:HideCatCounts(st, 0)
+  self:HideCatGroups(st, 0)
   self:HideEmptyTiles(st, 0)
 
   st.blank = nil
@@ -1462,7 +1645,7 @@ function View:Fonts()
   local base = self:FontSize()
   self.fontPath, self.fontBase = path, base
   local function put(fs, delta)
-    if fs then fs:SetFont(path, math.max(7, base + (delta or 0)), "") end
+    if fs then fs:SetFont(path, math.max(7, base + (delta or 0)), ns.OutlineFlags()) end
   end
   local bh = math.max(20, base + 6)
   local function fit(btn, minW, pad, h)
@@ -1475,7 +1658,6 @@ function View:Fonts()
   put(self.lockHint, 0)
   if self.money then
     put(self.money, 3)
-    self.money:SetFont(path, math.max(7, base + 3), Theme:IsLight() and ns.OutlineFlags() or "")
     Theme:Money(self.money)
   end
   put(self.moneyCaption, -3)
@@ -1567,8 +1749,17 @@ function View:Resize(st)
   local gw = gridWidth(st.iconSize, self:Cols(st.mode), st.pxGap or Bags.gap or 4)
   st.content:ClearAllPoints()
   ns.SnapPoint(st.content, "TOPLEFT", self.frame, "TOPLEFT", PAD, -(self:HeaderH() + 4))
-  st.content:SetSize(gw, st.contentH)
-  self.frame:SetSize(PAD * 2 + gw, self:HeaderH() + 4 + st.contentH + self:FooterH())
+  ns.SnapSize(st.content, gw, st.contentH)
+  -- SnapSize the frame, not SetSize: the window is anchored by a bottom corner and Rebase squares that
+  -- corner to the pixel grid, so a whole-pixel height lands the top edge on the grid too. content
+  -- anchors TOPLEFT to that top, so once the top is grid-aligned every caption and hairline SnapPointed
+  -- relative to content comes out crisp. A raw fractional height left the top (and so all of cat view)
+  -- half a pixel off; warband's height happened to sum near a pixel, bank's did not, which is why only
+  -- the bank read fuzzy.
+  ns.SnapSize(self.frame, PAD * 2 + gw, self:HeaderH() + 4 + st.contentH + self:FooterH())
+  -- The plate runs the whole window (Theme:FitPlate). Fitted on every layout rather than where the tab
+  -- is picked, so a restyle or a tab switch both leave it where the theme says it belongs.
+  Theme:FitPlate(self.gridBg, self.frame)
   ns.Rebase(self.frame, "bankPos")
   ns.SeamHeal(seam)
 end

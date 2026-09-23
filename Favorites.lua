@@ -401,7 +401,7 @@ function Fav:Apply(bags, x, top, size, gap)
     ns.LocalText(fs, "Favorites")
     self.label = fs
   end
-  self.label:SetFont(bags.fontPath or ns.Fonts:Current(), d.font - 4, "")
+  self.label:SetFont(bags.fontPath or ns.Fonts:Current(), d.font - 4, ns.OutlineFlags())
   self.label:ClearAllPoints()
   ns.SnapPoint(self.label, "TOPLEFT", frame, "TOPLEFT", x, -top)
   self.label:Show()
@@ -455,7 +455,7 @@ function Fav:Apply(bags, x, top, size, gap)
         ns.SnapPoint(g, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
         ns.PaintPin(g, pin, pins)
         if not pin then
-          g.plus:SetFont(bags.fontPath or ns.Fonts:Current(), plusSize, "")
+          g.plus:SetFont(bags.fontPath or ns.Fonts:Current(), plusSize, ns.OutlineFlags())
           g.plus:SetShown(ns.GhostPlus())
         end
         -- A ghost is never a search hit, so it wears the row's dim while a query runs; set here too so

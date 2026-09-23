@@ -9,13 +9,23 @@ ns.Categories = Cats
 -- textually before the local and its assignment silently missed the cache.
 local FILTERS, PINS, ACTIVE, filterStamp
 
--- The Empty section's own fold id. It owns no items, so it never collides with a real category id
--- (shipped ids are words, custom ids start with "u"): it exists only so the free-space section folds
--- through the same catCollapsed map every real section rides.
+-- The Empty section's own id. It owns no items, so it never collides with a real category id
+-- (shipped ids are words, custom ids start with "u").
 Cats.EMPTY_ID = "empty"
--- The catch-all's id. Like EMPTY_ID it is no real category, only the folding key and the tag the bag
--- reads to know a drop here should do nothing: Empty is the one unfile target now, Other is inert.
+-- The catch-all's id. Like EMPTY_ID it is no real category, only the tag the bag reads to know a drop
+-- here should do nothing: Empty is the one unfile target now, Other is inert.
 Cats.OTHER_ID = "other"
+
+-- What a list entry is. A category is a real record (id, search, pins); a marker only shapes the view
+-- around it — a group header ({ head = gid }, plus an optional name the player typed and its fold) or a
+-- divider ({ div = true }). A run of categories follows each marker and that run is one band, so a group
+-- and a divider can sit anywhere and a list can hold any number of either. A row written before markers
+-- existed carries neither field and so reads as a category, which is what lets an old save load unrewritten.
+local function isHead(e) return type(e) == "table" and type(e.head) == "string" end
+local function isDiv(e) return type(e) == "table" and e.div == true end
+local function isMarker(e) return isHead(e) or isDiv(e) end
+local function isCat(e) return type(e) == "table" and not isMarker(e) end
+Cats.IsCat, Cats.IsMarker, Cats.IsHead = isCat, isMarker, isHead
 
 -- Ordered list, first match wins, so a piece lands in one section and the order is its priority.
 -- Sharp edges to keep in mind before reordering: Weapon is by slot (`weapon shield` — shield is a
@@ -27,55 +37,93 @@ Cats.OTHER_ID = "other"
 -- (mount OR battlepet). Junk sits just above Other so it reads low like the bag it replaces: there is
 -- no Misc row here, so grey vendor trash (classID Miscellaneous) falls past everything into Junk, and
 -- the gear rows above Junk carry "!junk" so a grey piece drops past its type into Junk too. Delete the
--- "!junk" from a gear row and its greys stay in it. Everything no row claims lands in Other.
+-- "!junk" from a gear row and its greys stay in it.
+-- Those four gear rows also carry an item-level floor, `ilvl>180`. It is strictly above, so a piece at
+-- exactly 180 is out, and a piece whose level cannot be read yet — a bank snapshot row with no level, an
+-- item the client has not cached — does not match the floor at all and falls past it. The floor narrows
+-- what the band keeps rather than holding a row back from the bag: levelling gear, an heirloom and a
+-- current-expansion green all drop out of the type rows, an old-expansion piece lands on the Legacy row
+-- below, and anything the rows under it do not claim ends up in Other as always.
+-- Markers shape the view, the category rows between them are the rules. A head opens a named band, a
+-- div opens a headingless one, and the rows before the first marker are a band of their own with no
+-- heading at all. So the three shipped groups are groups only because the list says so, and the tail is
+-- a divider band rather than a group with a false gid. "consumables !legacy"
+-- ORs with the two item ids so a couple of specific pieces (a codex, a tome) join the block; the
+-- specific consumable rows above it (flasks/food/potions) claim their own subclasses first. "misc"
+-- is the Miscellaneous item class, not the text word: collectibles sits above it so mounts, pets and
+-- toys are pulled out before the class catch-all. Every token here is one classify() understands.
 local DEFAULTS = {
-  -- Free space, not a rule: owns no search, matches nothing. It is the grouped view's stand-in for the
-  -- grid's trailing blank cells; seeded first here by the owner's order, movable from the editor.
-  { id = "empty",        empty = true, g = "essentials" },
-  { id = "hearthstone",  search = "id6948", g = "essentials" },
-  { id = "keystone",     search = "keystone", g = "essentials" },
-  { id = "flasks",       search = "flask", g = "consumables" },
-  { id = "food",         search = "food", g = "consumables" },
-  { id = "potions",      search = "potion", g = "consumables" },
-  { id = "weapons",      search = "weapon shield !junk", g = "gear" },
-  { id = "jewelry",      search = "ring neck !junk", g = "gear" },
-  { id = "armor",        search = "cloth leather mail plate !junk", g = "gear" },
-  { id = "trinkets",     search = "trinket !junk", g = "gear" },
-  { id = "quest",        search = "quest", g = "collections" },
-  { id = "collectibles", search = "toy | mount battlepet", g = "collections" },
-  { id = "housing",      search = "housing", g = "collections" },
-  { id = "reagents",     search = "reagent", g = "rest" },
-  { id = "junk",         search = "junk", g = "rest" },
+  { head = "essentials" },
+  { id = "hearthstone",   search = "id6948" },
+  { id = "keystone",      search = "keystone" },
+  { id = "flasks",        search = "flask" },
+  { id = "food",          search = "food" },
+  { id = "potions",       search = "potion" },
+  { id = "consumables",   search = "consumables !legacy !junk | id132514 id109076" },
+  { id = "gem",           search = "gem" },
+  { id = "enhancement",   search = "enhancement" },
+  { id = "quest",         search = "quest" },
+  { head = "gear" },
+  { id = "weapons",       search = "weapon shield held !junk ilvl>180" },
+  { id = "jewelry",       search = "ring neck !junk ilvl>180" },
+  { id = "armor",         search = "cloth leather mail plate !junk ilvl>180" },
+  { id = "trinkets",      search = "trinket !junk ilvl>180" },
+  { head = "crafting" },
+  { id = "reagents",      search = "reagent !legacy !junk" },
+  { id = "profgear",      search = "profgear tool" },
+  { id = "recipe",        search = "recipe" },
+  { id = "bag",           search = "container" },
+  { id = "housing",       search = "housing" },
+  { head = "hoard" },
+  { id = "wardrobe",      search = "cosmetic | glyph | tabard shirt" },
+  { id = "collectibles",  search = "toy | mount | battlepet" },
+  -- Legacy gathers gear from every past expansion, so it ships pre-set to draw by expansion (newest
+  -- first): the one shipped section where that order reads better than quality. The player can change it
+  -- from the row's + panel like any other, and every other section still follows the global sort.
+  { id = "legacy",        search = "legacy", sort = "expac" },
+  { id = "miscellaneous", search = "misc !junk" },
   -- The catch-all: every item no rule claimed lands here. Never switched off or deleted, since items
-  -- must always have somewhere to land. Seeded last so it stays the floor of the list.
-  { id = "other",        other = true, g = "rest" },
+  -- must always have somewhere to land. Its list position sets where it draws, not what it claims.
+  { id = "other",         other = true },
+  { id = "junk",          search = "junk" },
+  -- Free space, not a rule: owns no search, matches nothing. The grouped view's stand-in for the
+  -- grid's trailing blank cells; kept last, movable from the editor.
+  { id = "empty",         empty = true },
 }
 
 local GROUP_NAMEKEY = {
   essentials   = "Essentials",
-  consumables  = "Consumables",
   gear         = "Gear",
-  collections  = "Collections",
-  rest         = "Rest",
+  crafting     = "Crafting",
+  hoard        = "Hoard",
 }
 
 local NAMEKEY = {
-  hearthstone  = "Hearthstone",
-  keystone     = "Keystones",
-  flasks       = "Flasks",
-  food         = "Food",
-  potions      = "Potions",
-  weapons      = "Weapons",
-  jewelry      = "Jewelry",
-  armor        = "Armor",
-  trinkets     = "Trinkets",
-  quest        = "Quest Items",
-  collectibles = "Collectibles",
-  housing      = "Housing",
-  reagents     = "Reagents",
-  junk         = "Junk",
-  empty        = "Empty",
-  other        = "Other",
+  hearthstone   = "Hearthstone",
+  keystone      = "Keystones",
+  flasks        = "Flasks",
+  food          = "Food",
+  potions       = "Potions",
+  consumables   = "Consumables",
+  gem           = "Gems",
+  enhancement   = "Enhancements",
+  quest         = "Quest Items",
+  weapons       = "Weapons",
+  jewelry       = "Jewelry",
+  armor         = "Armor",
+  trinkets      = "Trinkets",
+  recipe        = "Recipes",
+  profgear      = "Profession Gear",
+  reagents      = "Reagents",
+  bag           = "Bags",
+  wardrobe      = "Wardrobe",
+  collectibles  = "Collectibles",
+  housing       = "Housing",
+  legacy        = "Legacy",
+  miscellaneous = "Miscellaneous",
+  junk          = "Junk",
+  empty         = "Slots",
+  other         = "Other",
 }
 
 -- Read only. The shipped DEFAULTS are a shared constant, so a caller that means to change the
@@ -86,44 +134,21 @@ function Cats:List()
   return DEFAULTS
 end
 
--- A fresh independent copy of the shipped list, so the save never shares a table with the
--- constant and editing one profile cannot bleed into another or into the defaults.
+-- One fresh independent entry, so the save never shares a table with the constant and editing one
+-- profile cannot bleed into another or into the defaults. A marker copies its name and fold, since
+-- those are the player's; pins are not copied, because a reset hands back the rules, not the manual
+-- homes.
+local function seedEntry(c)
+  if isHead(c) then return { head = c.head, name = c.name, folded = c.folded } end
+  if isDiv(c) then return { div = true, folded = c.folded } end
+  return { id = c.id, search = c.search, name = c.name, enabled = c.enabled,
+           empty = c.empty, other = c.other, sort = c.sort }
+end
+
 local function seed()
   local db = {}
-  for i, c in ipairs(DEFAULTS) do
-    db[i] = { id = c.id, search = c.search, name = c.name, enabled = c.enabled,
-              empty = c.empty, other = c.other, g = c.g }
-  end
+  for i, c in ipairs(DEFAULTS) do db[i] = seedEntry(c) end
   return db
-end
-
--- The groups a fresh save starts with, in band order, taken off the shipped rows so the two can
--- never disagree about which group an id names.
-local function seedGroups()
-  local out, seen = {}, {}
-  for _, c in ipairs(DEFAULTS) do
-    if c.g and not seen[c.g] then
-      seen[c.g] = true
-      out[#out + 1] = { id = c.g }
-    end
-  end
-  return out
-end
-
-local function shippedGroup(id)
-  for _, c in ipairs(DEFAULTS) do
-    if c.id == id then return c.g end
-  end
-end
-
--- The group a row added at `at` joins: the row above the insert point, else the row below it,
--- else the first group.
-local function joinGroup(list, at)
-  local above, below = list[at - 1], list[at]
-  local g = (type(above) == "table" and above.g) or (type(below) == "table" and below.g)
-  if g then return g end
-  local groups = WarpeeDB and WarpeeDB.catGroups
-  return (type(groups) == "table" and groups[1] and groups[1].id) or nil
 end
 
 -- Seed: List() hands back the shared DEFAULTS until a custom list exists, and mutating that
@@ -151,28 +176,51 @@ function Cats:Add()
   -- the floor of the list and a rule added below Other would never be reached. Same insover point
   -- the presets use, so hand-add and preset-add drop a row in the same place.
   local at = self:InsertAt(list)
-  table.insert(list, at, { id = newId(), search = "", g = joinGroup(list, at) })
+  table.insert(list, at, { id = newId(), search = "" })
+  -- The index comes back so the editor can put the eye on the row it just made.
+  return at
 end
 
 -- The shipped named categories, offered in the editor as one-click "add this whole category" presets.
--- This is the DEFAULTS list minus the two structural rows (Empty, Other are always present and are
--- not things you add), in the same order, so the preset strip reads like the default layout. id keys
--- into NAMEKEY for the caption and is what a duplicate check compares, search is copied verbatim.
+-- This is the DEFAULTS list minus the markers and the two structural rows (Empty, Other are always
+-- present and are not things you add), in the same order, so the preset strip reads like the default
+-- layout. id keys into NAMEKEY for the caption and is what a duplicate check compares, search is
+-- copied verbatim.
 local PRESET_IDS = {
-  "hearthstone", "keystone", "flasks", "food", "potions", "weapons", "jewelry",
-  "armor", "trinkets", "quest", "collectibles", "housing", "reagents", "junk",
+  "hearthstone", "keystone", "flasks", "food", "potions", "consumables", "gem",
+  "enhancement", "quest", "weapons", "jewelry", "armor", "trinkets", "recipe",
+  "profgear", "reagents", "bag", "wardrobe", "collectibles", "housing", "legacy",
+  "miscellaneous", "junk",
 }
 local PRESET_SEARCH = {}
+local PRESET_SORT = {}
+-- The shipped band each preset sits in, taken off the same walk: the shelf a ready-made category stands on
+-- in the editor's strip is the band it ships under, so the strip and the default list cannot disagree
+-- about where a category belongs. A marker opens the band that follows it.
+local PRESET_BAND = {}
+local band = nil
 for _, c in ipairs(DEFAULTS) do
-  if not (c.empty or c.other) then PRESET_SEARCH[c.id] = c.search end
+  -- The guard on c.id is what skips the markers. Without it a head or a div row indexes this table
+  -- with nil and the client refuses to load the file at all ("table index is nil"), taking every
+  -- method in it down with it — which is how a nil Categories:Migrate in Core's login block happens.
+  if c.head then
+    band = c.head
+  elseif c.id and not (c.empty or c.other) then
+    PRESET_SEARCH[c.id] = c.search
+    PRESET_SORT[c.id] = c.sort
+    PRESET_BAND[c.id] = band
+  end
 end
 
--- The presets, each { id, name, search }, name resolved live so it never freezes a language.
+-- The presets, each { id, name, search, band, bandKey }, name and band label resolved live so neither
+-- freezes a language. bandKey is the locale key of the band, for a caller that shows the band's name.
 function Cats:Presets()
   local out = {}
   for _, id in ipairs(PRESET_IDS) do
+    local gid = PRESET_BAND[id]
     out[#out + 1] = { id = id, name = (NAMEKEY[id] and ns.L[NAMEKEY[id]]) or id,
-                      search = PRESET_SEARCH[id] or "" }
+                      search = PRESET_SEARCH[id] or "",
+                      band = gid, bandKey = (gid and GROUP_NAMEKEY[gid]) or "New group" }
   end
   return out
 end
@@ -185,14 +233,16 @@ function Cats:Has(id)
   return false
 end
 
--- The index a new row is inserted at: just before the first structural row (Empty or Other), so
--- every added category lands in the rule region and the two catch-alls stay at the floor. Falls back
--- to the end if somehow neither is present (a list mid-heal), which EnsureEmpty/EnsureOther then fix.
+-- The index a new category is inserted at: the tail of the list, but never after the free-space row,
+-- which is the last thing in a list by design. It used to be "before whichever of Empty and Other
+-- comes first", and in a save where one of those had drifted up the list that put a brand-new row
+-- near the top: the list shifted under the player and the row turned up far from the button that made
+-- it. Reading the tail this way lands on the same spot in a shipped list and a sane one in any other,
+-- so an added row always appears at the bottom, right above the buttons that made it.
 function Cats:InsertAt(list)
   list = list or self:List()
-  for i, c in ipairs(list) do
-    if type(c) == "table" and (c.empty or c.other) then return i end
-  end
+  local last = list[#list]
+  if #list > 0 and type(last) == "table" and last.empty then return #list end
   return #list + 1
 end
 
@@ -205,7 +255,8 @@ function Cats:AddPreset(id)
   if search == nil then return end
   local list = self:EnsureCustom()
   local at = self:InsertAt(list)
-  table.insert(list, at, { id = id, search = search, g = joinGroup(list, at) })
+  table.insert(list, at, { id = id, search = search, sort = PRESET_SORT[id] })
+  return at
 end
 
 function Cats:Remove(i)
@@ -218,25 +269,6 @@ function Cats:Remove(i)
   table.remove(list, i)
 end
 
-function Cats:Move(i, dir)
-  local list = self:EnsureCustom()
-  local j = i + dir
-  if list[i] and list[j] then list[i], list[j] = list[j], list[i] end
-end
-
--- Lift the row at from and drop it before the row at to, the arbitrary-distance move the drag needs
--- where Move only steps one place. to is the slot the row lands in after the lift, so dragging down
--- past the tail clamps to the end. A move onto itself or its own next slot is a no-op.
-function Cats:MoveTo(from, to)
-  local list = self:EnsureCustom()
-  if not list[from] then return end
-  local n = #list
-  if to < 1 then to = 1 elseif to > n then to = n end
-  if to == from then return end
-  local c = table.remove(list, from)
-  table.insert(list, to, c)
-end
-
 function Cats:SetName(i, text)
   local list = self:EnsureCustom()
   if list[i] then list[i].name = text ~= "" and text or nil end
@@ -245,6 +277,33 @@ end
 function Cats:SetSearch(i, text)
   local list = self:EnsureCustom()
   if list[i] then list[i].search = text or "" end
+end
+
+-- The per-category sort override, set from the pin panel. Keyed by category id, not list index: the
+-- panel knows the row by its id and a drag can slide indices under an open dropdown. nil (or the
+-- sentinel "default") clears it, so the section falls back to the global WarpeeDB.catSort; any other
+-- mode pins that order on this section alone. Only the draw order is stored — no rule, no pin, nothing
+-- secure — so a change is a plain relayout. The stamp is untouched: sort is read straight off the entry
+-- in bucketsCore and never folded into the FILTERS cache.
+function Cats:SetSortById(id, mode)
+  if not id then return end
+  local list = self:EnsureCustom()
+  for _, c in ipairs(list) do
+    if type(c) == "table" and c.id == id then
+      c.sort = (mode and mode ~= "default") and mode or nil
+      return
+    end
+  end
+end
+
+-- The stored sort of the category with this id, or "default" when it inherits the global order. Read
+-- side for the editor's per-category selector.
+function Cats:SortOf(id)
+  if not id then return "default" end
+  for _, c in ipairs(self:List()) do
+    if type(c) == "table" and c.id == id then return c.sort or "default" end
+  end
+  return "default"
 end
 
 -- enabled is nil for on, so a fresh category and a shipped default both read as on. A plain
@@ -312,9 +371,154 @@ end
 function Cats:Reset()
   if WarpeeDB then
     WarpeeDB.categories = seed()
-    WarpeeDB.catGroups = seedGroups()
-    WarpeeDB.catGroupFold = {}
+    WarpeeDB.catGroups = nil
+    WarpeeDB.catGroupFold = nil
+    -- Swapping the whole list out from under the classify cache: nil the stamp so the next pass
+    -- rebuilds ACTIVE from the fresh save instead of comparing content and possibly matching a stale
+    -- one. This is the "wipe" path the stamp comment promises nils the cache.
+    filterStamp = nil
   end
+end
+
+-- The draw-order keys a section may carry, mirrored from the editor's own dropdown: a code written by
+-- a version that knows more of them reads back only what this one can draw.
+local SORT_KEYS = { quality = true, ilvl = true, name = true, match = true, expac = true }
+
+-- What one shared code may carry. Generous enough for any list a player builds by hand, hard enough
+-- that a hand-written code cannot turn into a denial of service on the client that reads it.
+local SHARE_MAX, SHARE_PINS_MAX, SHARE_TEXT_MAX = 400, 200, 400
+
+-- One list entry as a code carries it: a head keeps its name, a divider is only itself, a category
+-- keeps its rule, its caption, whether it is on, its manual homes and its own draw order. Fold state
+-- does not travel — a folded band is how the sender's view stood, not part of the list, and a code
+-- that carried it would hand over the sender's clutter — and neither does any field a later version
+-- may add, since one this build does not know is not read back.
+-- The same function cleans an incoming entry, so a code from outside is cut to this shape before it is
+-- ever stored: a number where a table belongs, a rule several pages long, and a run of pins with no
+-- end all stop here rather than in the classify pass.
+local function shareEntry(e)
+  if type(e) ~= "table" then return nil end
+  if isHead(e) then
+    local name = (type(e.name) == "string" and e.name ~= "") and e.name:sub(1, 40) or nil
+    return { head = e.head:sub(1, 40), name = name }
+  end
+  if isDiv(e) then return { div = true } end
+  if type(e.id) ~= "string" or e.id == "" then return nil end
+  local out = { id = e.id:sub(1, 60) }
+  if type(e.search) == "string" then out.search = e.search:sub(1, SHARE_TEXT_MAX) end
+  if type(e.name) == "string" and e.name ~= "" then out.name = e.name:sub(1, 40) end
+  if e.enabled == false then out.enabled = false end
+  if e.empty == true then out.empty = true end
+  if e.other == true then out.other = true end
+  if type(e.sort) == "string" and SORT_KEYS[e.sort] then out.sort = e.sort end
+  if type(e.pins) == "table" then
+    local pins, n = nil, 0
+    for k in pairs(e.pins) do
+      if type(k) == "number" then
+        if n >= SHARE_PINS_MAX then break end
+        pins = pins or {}
+        pins[k] = true
+        n = n + 1
+      end
+    end
+    if pins then out.pins = pins end
+  end
+  return out
+end
+
+-- The list as a code carries it: always fresh tables, so the packer never holds a reference into the
+-- save and the save can never be edited through a code. Read only.
+function Cats:ShareList()
+  local out = {}
+  for _, e in ipairs(self:List()) do
+    if #out >= SHARE_MAX then break end
+    local s = shareEntry(e)
+    if s then out[#out + 1] = s end
+  end
+  return out
+end
+
+-- Take a code's list. "replace" puts it in place of the whole one; "merge" — the default, and what a
+-- caller that cannot ask should use — appends the sections the player does not have yet in the order
+-- they were written, and leaves every row already here exactly where it is, index and pin alike.
+-- Either way a marker is written only once something stands under it, so a code whose last band is
+-- empty, or a merge that dropped a duplicate, cannot land a header over nothing; one id is taken once
+-- however many times a code names it.
+-- The structural rows are repaired, not trusted: Empty and Other are the floor of every list, so they
+-- exist after any code and exist once, carrying the one id the bag reads to recognise them. A code
+-- that used those ids for ordinary rules has those rules dropped rather than the floor broken.
+-- Returns the number of category rows written, or nil and the reason it refused.
+function Cats:TakeList(list, mode, catSort)
+  if not WarpeeDB then return nil, "Not ready" end
+  if type(list) ~= "table" then return nil, "Nothing to import" end
+  local replace = (mode == "replace")
+  local here = {}
+  if not replace then
+    for _, e in ipairs(self:List()) do
+      if isCat(e) and type(e.id) == "string" then here[e.id] = true end
+    end
+  end
+  local clean, taken, structural = {}, {}, {}
+  for _, e in ipairs(list) do
+    local c = shareEntry(e)
+    if c then
+      -- A marker carries no id, so it never dedupes: it passes straight through, and the pending/kept
+      -- pass below drops any that end up heading nothing. Only categories are keyed by id — reaching the
+      -- else with a marker wrote taken[nil] and crashed the import ("table index is nil").
+      if isMarker(c) then
+        -- nothing to dedupe; fall through to the append
+      elseif c.empty or c.other then
+        local key = c.empty and "empty" or "other"
+        if structural[key] then
+          c = nil
+        else
+          structural[key] = true
+          c = { id = (key == "empty") and self.EMPTY_ID or self.OTHER_ID }
+          c[key] = true
+        end
+      elseif taken[c.id] or here[c.id]
+          or c.id == self.EMPTY_ID or c.id == self.OTHER_ID then
+        c = nil
+      else
+        taken[c.id] = true
+      end
+      if c then
+        clean[#clean + 1] = c
+        if #clean >= SHARE_MAX then break end
+      end
+    end
+  end
+  -- A marker is held back until a category follows it, and a second marker in the same run replaces
+  -- the one before it: the first headed nothing, and a header standing over an empty run is exactly
+  -- what the editor's own drag rules out.
+  local kept, pending, count = {}, nil, 0
+  for _, c in ipairs(clean) do
+    if isMarker(c) then
+      pending = c
+    else
+      if pending then kept[#kept + 1] = pending; pending = nil end
+      kept[#kept + 1] = c
+      count = count + 1
+    end
+  end
+  if count == 0 then return nil, "Nothing to import" end
+  if replace then
+    WarpeeDB.categories = kept
+  else
+    local target = self:EnsureCustom()
+    local at = self:InsertAt(target)
+    for _, c in ipairs(kept) do
+      table.insert(target, at, c)
+      at = at + 1
+    end
+  end
+  if type(catSort) == "string" and SORT_KEYS[catSort] then WarpeeDB.catSort = catSort end
+  self:EnsureEmpty()
+  self:EnsureOther()
+  -- The list was swapped out from under the classify cache, so the stamp goes: the next pass rebuilds
+  -- ACTIVE from the new save instead of comparing content and possibly matching a stale one.
+  filterStamp = nil
+  return count
 end
 
 -- The Empty section is not deletable, so its row must always be present in a custom list. A save from
@@ -329,7 +533,7 @@ function Cats:EnsureEmpty()
   for _, c in ipairs(db) do
     if type(c) == "table" and c.empty then return end
   end
-  db[#db + 1] = { id = Cats.EMPTY_ID, empty = true, g = tailGroup(db) }
+  db[#db + 1] = { id = Cats.EMPTY_ID, empty = true }
 end
 
 -- The catch-all is not deletable either, and for a stronger reason than Empty: items that match no
@@ -344,227 +548,233 @@ function Cats:EnsureOther()
   for _, c in ipairs(db) do
     if type(c) == "table" and c.other then return end
   end
-  db[#db + 1] = { id = Cats.OTHER_ID, other = true, g = tailGroup(db) }
+  db[#db + 1] = { id = Cats.OTHER_ID, other = true }
 end
 
--- A section's fold state lives by category id, so it survives a reorder and rides the profile.
--- The save is kept sparse: only a collapsed id is written, an open one is cleared out, so the
--- dump lists exactly what the player folded and nothing for the default open state. "other" is a
--- real id here, so the catch-all folds like any section.
-function Cats:Collapsed(id)
-  local t = WarpeeDB and WarpeeDB.catCollapsed
-  return (type(t) == "table" and id ~= nil and t[id]) and true or false
+
+-- The index of a list entry by identity. The renderers hold entries rather than ids — a band carries
+-- the marker that heads it — so this is how a click on a heading reaches the row it names.
+function Cats:IndexOf(entry)
+  for i, e in ipairs(self:List()) do if e == entry then return i end end
 end
 
-function Cats:ToggleCollapse(id)
-  if not (WarpeeDB and id ~= nil) then return end
-  local t = WarpeeDB.catCollapsed
-  if type(t) ~= "table" then t = {}; WarpeeDB.catCollapsed = t end
-  t[id] = (not t[id]) or nil
+-- Resolve a caller's entry against the save. The shipped list is a shared constant and must never be
+-- mutated, so the index is read off whatever List() returns now, the save is materialised through
+-- EnsureCustom (which copies the constant index for index), and the same index is handed back in it.
+function Cats:Resolve(entry)
+  local idx = self:IndexOf(entry)
+  if not idx then return nil end
+  local list = self:EnsureCustom()
+  return list, idx
 end
 
--- Fold or open every section at once, for the shift click on a caption. Covers every category id
--- in the list plus the "other" catch-all, so a section that is currently empty and unshown still
--- takes the state and honours it the moment it fills. Kept sparse like the single toggle.
-function Cats:SetAllCollapsed(state)
+-- Folding belongs to a group header: it names a run of rows and can close over it. A divider seams a
+-- band off without naming it, so it has nothing to close, and the flag is never set on one. A divider
+-- that carries one anyway — a save written back when dividers folded — reads as open, so its band draws
+-- whole instead of vanishing behind a control no longer on screen; the stale flag is inert until the
+-- next Shift-click on a heading sweeps the list.
+function Cats:Folded(entry)
+  return isHead(entry) and entry.folded == true
+end
+
+function Cats:ToggleFold(entry)
+  local list, idx = self:Resolve(entry)
+  if not list then return end
+  local e = list[idx]
+  if isHead(e) then e.folded = (not e.folded) or nil end
+end
+
+function Cats:SetAllFolded(state)
   if not WarpeeDB then return end
-  local t = WarpeeDB.catCollapsed
-  if type(t) ~= "table" then t = {}; WarpeeDB.catCollapsed = t end
-  for _, c in ipairs(self:List()) do
-    if type(c) == "table" and c.id then t[c.id] = state and true or nil end
-  end
-  t.other = state and true or nil
-  -- The Empty section folds with the rest under a shift click, so its id takes the state too.
-  t[Cats.EMPTY_ID] = state and true or nil
-end
-
--- A group is a run of neighbouring rows, drawn as one band in the grouped view. The list order is
--- what decides which rule claims an item first, so a row joins a group by moving into it: the run
--- is what keeps the picture and the priority saying the same thing. Membership rides on the row as
--- `g` (a group id), the groups themselves live in WarpeeDB.catGroups, and the fold of a band rides
--- in WarpeeDB.catGroupFold like a section's fold rides in catCollapsed.
-local function groupIndex(groups, gid)
-  if not gid then return nil end
-  for i, g in ipairs(groups) do
-    if type(g) == "table" and g.id == gid then return i end
+  for _, e in ipairs(self:EnsureCustom()) do
+    if isHead(e) then e.folded = state and true or nil
+    elseif isDiv(e) then e.folded = nil end
   end
 end
 
-function Cats:Groups()
-  if not WarpeeDB then return {} end
-  local t = WarpeeDB.catGroups
-  if type(t) ~= "table" then t = seedGroups(); WarpeeDB.catGroups = t end
-  return t
+-- The caption of a group header: the player's own name if they typed one, else the shipped label for a
+-- shipped gid, else the generic. Resolved live rather than stored, so a language change reaches it.
+function Cats:GroupName(entry)
+  if isHead(entry) and entry.name and entry.name ~= "" then return entry.name end
+  return self:BandLabel(isHead(entry) and entry.head)
 end
 
-function Cats:HasGroup(gid)
-  return groupIndex(self:Groups(), gid) ~= nil
-end
-
--- gid -> position in the band order. Read on every relayout of the grouped view, and small enough
--- that building it fresh beats caching a table the save can move under.
-function Cats:GroupRank()
-  local rank, n = {}, 0
-  for i, g in ipairs(self:Groups()) do
-    if type(g) == "table" and g.id then rank[g.id] = i; n = i end
-  end
-  return rank, n
-end
-
-function Cats:GroupName(gid)
-  local groups = self:Groups()
-  local g = groups[groupIndex(groups, gid)]
-  if g and g.name and g.name ~= "" then return g.name end
-  local key = GROUP_NAMEKEY[gid]
+-- The shipped label of a band, by its gid. Shared by a group header's placeholder and the editor's preset
+-- shelves, so the word on a shelf is the word a header takes once its category is added, and neither has a
+-- second table of band names to drift from the other.
+function Cats:BandLabel(gid)
+  local key = gid and GROUP_NAMEKEY[gid]
   return (key and ns.L[key]) or ns.L["New group"]
 end
 
-function Cats:GroupCounts()
-  local out = {}
-  for _, c in ipairs(self:List()) do
-    if type(c) == "table" and c.g then out[c.g] = (out[c.g] or 0) + 1 end
-  end
-  return out
-end
-
+-- A new group or divider lands where a new category lands: at the tail of the rule region, just above
+-- the structural floor, right next to the buttons that made it. Not at the very end of the list — the
+-- floor is last on purpose, so a marker appended after it opens a band nothing ever draws: the row is
+-- there, no section follows it, and the button reads as having done nothing. Not at the head either,
+-- since a marker there would take over whatever run happened to open the list, silently re-labelling a
+-- band nobody asked it to touch. Both return their index, like the category mutators, so the editor can
+-- reveal the row.
 function Cats:AddGroup()
-  local groups = self:Groups()
-  local id = newId()
-  groups[#groups + 1] = { id = id }
-  return id
-end
-
-function Cats:SetGroupName(gid, text)
-  local groups = self:Groups()
-  local g = groups[groupIndex(groups, gid)]
-  if not g then return end
-  g.name = (text ~= nil and text ~= "") and text or nil
-end
-
--- Deleting a group never deletes a category: its rows move into the group before it, or the one
--- after it when it was the first, and the empty band is dropped.
-function Cats:RemoveGroup(gid)
-  local groups = self:Groups()
-  if #groups <= 1 then return end
-  local at = groupIndex(groups, gid)
-  if not at then return end
-  local to = groups[at - 1] or groups[at + 1]
-  table.remove(groups, at)
-  for _, c in ipairs(self:EnsureCustom()) do
-    if type(c) == "table" and c.g == gid then c.g = to.id end
-  end
-  self:NormalizeGroups()
-end
-
-function Cats:MoveGroup(gid, dir)
-  local groups = self:Groups()
-  local at = groupIndex(groups, gid)
-  local j = at and (at + dir)
-  if not (j and groups[j]) then return end
-  groups[at], groups[j] = groups[j], groups[at]
-  self:NormalizeGroups()
-end
-
--- Stable re-sort by band order: rows already in band order keep their places, a group that ended up
--- sitting after another one is brought back into the band order the editor shows.
-function Cats:NormalizeGroups()
   local list = self:EnsureCustom()
-  local rank, top = self:GroupRank()
-  local wrap = top + 1
-  local at = {}
-  for i, c in ipairs(list) do if type(c) == "table" then at[c] = i end end
-  table.sort(list, function(a, z)
-    local ra = (type(a) == "table" and rank[a.g]) or wrap
-    local rz = (type(z) == "table" and rank[z.g]) or wrap
-    if ra ~= rz then return ra < rz end
-    return (at[a] or 1e9) < (at[z] or 1e9)
-  end)
+  local at = self:InsertAt(list)
+  table.insert(list, at, { head = newId() })
+  return at
 end
 
-function Cats:SetRowGroup(i, gid)
+function Cats:AddDivider()
   local list = self:EnsureCustom()
-  local row = list[i]
-  if not (type(row) == "table" and self:HasGroup(gid)) then return end
-  if row.g == gid then return end
-  local rank = self:GroupRank()
-  local mine = rank[gid] or 1e9
-  table.remove(list, i)
-  row.g = gid
-  local at = #list + 1
-  for k = #list, 1, -1 do
-    local r = list[k]
-    local g = type(r) == "table" and r.g
-    if g and (rank[g] or 1e9) <= mine then at = k + 1; break end
+  local at = self:InsertAt(list)
+  table.insert(list, at, { div = true })
+  return at
+end
+
+function Cats:SetGroupName(entry, text)
+  local list, idx = self:Resolve(entry)
+  if not list then return end
+  local e = list[idx]
+  if isHead(e) then e.name = (text ~= nil and text ~= "") and text or nil end
+end
+
+-- Remove a marker and leave its categories where they are: they join the band above (or become the
+-- headingless run at the top), which is what "delete this group" means when the rules stay put.
+function Cats:RemoveMarker(entry)
+  local list, idx = self:Resolve(entry)
+  if list then table.remove(list, idx) end
+end
+
+-- Move a contiguous block so it sits at index `dest`, every index read before the move.
+local function moveBlock(list, from, to, dest)
+  local n = to - from + 1
+  local block = {}
+  for k = 1, n do block[k] = list[from + k - 1] end
+  for _ = 1, n do table.remove(list, from) end
+  local at = dest
+  if dest > to then at = dest - n end
+  for k = n, 1, -1 do table.insert(list, at, block[k]) end
+end
+
+-- Trade a whole band with the neighbouring one: the marker and the run it heads move together, so the
+-- rows inside keep their order and the rules keep their priority. Only the bands swap places.
+function Cats:MoveGroup(entry, dir)
+  local list, idx = self:Resolve(entry)
+  if not (list and isMarker(list[idx])) then return end
+  local last = idx
+  while isCat(list[last + 1]) do last = last + 1 end
+  if dir < 0 then
+    if idx <= 1 then return end
+    local a = idx - 1
+    while a > 1 and isCat(list[a - 1]) do a = a - 1 end
+    moveBlock(list, idx, last, a)
+  else
+    local n = last + 1
+    if not list[n] then return end
+    local z = n
+    while isCat(list[z + 1]) do z = z + 1 end
+    moveBlock(list, idx, last, z + 1)
   end
+end
+
+-- A drop in the editor: lift the entry at `from` and put it back before the entry now at `to`, nil for
+-- the end of the list. A plain list move is the whole of it, because the list is the structure: a
+-- category that passes another takes its priority, a marker that passes anything only reshapes which
+-- run is a band. Nothing needs to be kept in step afterwards, which is what the old band arithmetic
+-- and its heal pass were for.
+function Cats:Reorder(from, to)
+  local list = self:EnsureCustom()
+  local row = list[from]
+  if type(row) ~= "table" then return end
+  table.remove(list, from)
+  local at = to or (#list + 1)
+  if from < at then at = at - 1 end
+  if at < 1 then at = 1 elseif at > #list + 1 then at = #list + 1 end
   table.insert(list, at, row)
 end
 
--- A drag drops a row into the run it landed in, so the grip alone moves a category between groups.
-function Cats:FileRow(i)
-  local list = self:EnsureCustom()
-  local row = list[i]
-  if type(row) ~= "table" then return end
-  local above, below = list[i - 1], list[i + 1]
-  local g = (type(above) == "table" and above.g) or (type(below) == "table" and below.g)
-  if g then row.g = g end
-  self:NormalizeGroups()
-end
+-- The ungrouped band's fold key in the old two-table model was `false`, a legal Lua table key but not
+-- one SavedVariables writes cleanly, so it was stored under this sentinel. It survives only as what
+-- the one-time migration below reads.
+local UNGROUP_FOLD = "\1ungrouped"
 
-function Cats:GroupFolded(gid)
-  local t = WarpeeDB and WarpeeDB.catGroupFold
-  return (type(t) == "table" and gid ~= nil and t[gid]) and true or false
-end
-
-function Cats:ToggleGroupFold(gid)
-  if not (WarpeeDB and gid ~= nil) then return end
-  local t = WarpeeDB.catGroupFold
-  if type(t) ~= "table" then t = {}; WarpeeDB.catGroupFold = t end
-  t[gid] = (not t[gid]) or nil
-end
-
-function Cats:SetAllGroupsFolded(state)
-  if not WarpeeDB then return end
-  local t = WarpeeDB.catGroupFold
-  if type(t) ~= "table" then t = {}; WarpeeDB.catGroupFold = t end
-  for _, g in ipairs(self:Groups()) do
-    if g.id then t[g.id] = state and true or nil end
-  end
-end
-
-local function tailGroup(list)
-  for i = #list, 1, -1 do
-    local c = list[i]
-    if type(c) == "table" and c.g then return c.g end
-  end
-  local groups = Cats:Groups()
-  return groups[1] and groups[1].id
-end
-
--- Heals a save written before groups existed: a row with no group, or one naming a group that is
--- gone, takes the group the shipped row with its id sits in, else the one above it, else the first.
--- A save already carrying a group on every row is left exactly as it is.
-function Cats:EnsureGroups()
-  if not WarpeeDB then return end
-  local groups = self:Groups()
-  local known = {}
-  for _, g in ipairs(groups) do
-    if type(g) == "table" and g.id then known[g.id] = true end
-  end
-  local list = WarpeeDB.categories
-  if type(list) ~= "table" or #list == 0 then return end
-  local prev, heal = nil, false
-  local first = groups[1] and groups[1].id
-  for _, c in ipairs(list) do
-    if type(c) == "table" then
-      local g = c.g
-      if not (type(g) == "string" and known[g]) then
-        c.g = shippedGroup(c.id) or prev or first
-        heal = true
-      end
-      prev = c.g
+-- The four shipped gear rows gained an item-level floor after a save may already exist, so a save written
+-- before it holds their searches without one. Only a row still holding the shipped string exactly is
+-- touched: a rule the player has typed over is left as it is, and a row that has already been upgraded no
+-- longer matches the old string, so the pass is safe to run again. The flag keeps it to the one time, so a
+-- row deliberately put back to the old string stays put.
+local FLOOR_FROM = {
+  weapons  = "weapon shield !junk",
+  jewelry  = "ring neck !junk",
+  armor    = "cloth leather mail plate !junk",
+  trinkets = "trinket !junk",
+}
+function Cats:UpgradeFloor()
+  if not WarpeeDB or WarpeeDB.catIlvl180 then return end
+  WarpeeDB.catIlvl180 = true
+  -- Read the save, never the shipped table: with no save of its own the list below is DEFAULTS itself and
+  -- carries the floor already.
+  local db = WarpeeDB.categories
+  if type(db) ~= "table" then return end
+  for _, c in ipairs(db) do
+    if isCat(c) and type(c.id) == "string" and c.search == FLOOR_FROM[c.id] then
+      c.search = PRESET_SEARCH[c.id] or c.search
     end
   end
-  if heal then self:NormalizeGroups() end
+  filterStamp = nil
+end
+
+-- The save used to be two structures: a plain category list carrying a .g on every row, plus a separate
+-- catGroups table it had to be kept in step with. This rebuilds that pair into the flat list once — a
+-- group header wherever a run of rows changes group, a divider where that run is the ungrouped one, the
+-- old fold states carried onto the markers — and drops the old tables. A save already in the flat shape
+-- has no catGroups and no .g, so this is a no-op for it.
+function Cats:Migrate()
+  if not WarpeeDB then return end
+  local db = WarpeeDB.categories
+  -- Only a .g on a row makes a save the old shape. The mere presence of catGroups is not enough: the
+  -- key lived in DEFAULTS, so a save can carry an empty or shipped one with no row to migrate, and
+  -- converting on that would put every category into one headingless band.
+  local legacy = false
+  if type(db) == "table" then
+    for _, c in ipairs(db) do
+      if type(c) == "table" and c.g ~= nil then legacy = true; break end
+    end
+  end
+  if not legacy then
+    WarpeeDB.catGroups, WarpeeDB.catGroupFold = nil, nil
+    return
+  end
+  local known, names = {}, {}
+  local groups = WarpeeDB.catGroups
+  if type(groups) == "table" then
+    for _, g in ipairs(groups) do
+      if type(g) == "table" and g.id then known[g.id] = true; names[g.id] = g.name end
+    end
+  end
+  local fold = WarpeeDB.catGroupFold
+  local oldFold = type(fold) == "table" and fold or nil
+  local out, prev = {}, nil
+  for _, c in ipairs(db) do
+    if type(c) == "table" then
+      local gid = c.g
+      -- A gid no group answers to (a deleted group, an imported save) reads as ungrouped rather than as
+      -- a header whose name nothing can resolve.
+      if gid == nil or gid == false or not known[gid] then gid = false end
+      if gid ~= prev then
+        if gid == false then
+          out[#out + 1] = { div = true, folded = oldFold and oldFold[UNGROUP_FOLD] or nil }
+        else
+          local name = names[gid]
+          out[#out + 1] = { head = gid, name = (name and name ~= "") and name or nil,
+                            folded = oldFold and oldFold[gid] or nil }
+        end
+        prev = gid
+      end
+      c.g = nil
+      out[#out + 1] = c
+    end
+  end
+  WarpeeDB.categories = out
+  WarpeeDB.catGroups, WarpeeDB.catGroupFold = nil, nil
+  filterStamp = nil
 end
 
 local function catName(c)
@@ -618,6 +828,10 @@ local function ensureFilters()
   local parts = {}
   for i, c in ipairs(list) do
     if type(c) == "table" then
+      -- The stamp is the run of rows in list order with what each one matches, which is the whole of
+      -- what a reclassify depends on. A marker lands in it as an empty part, so moving one rebuilds the
+      -- cache too; that is only a wasted pass, since the bands themselves are read off the list at draw
+      -- time and never cached, so a marker move shows up in the view whether or not the stamp moved.
       parts[i] = (c.id or "") .. "\1" .. (c.search or "") .. "\1" .. tostring(c.enabled)
                  .. "\1" .. pinPrint(c)
     else
@@ -689,6 +903,9 @@ local function buildMeta(bag, slot, info)
     or iClassID == Enum.ItemClass.Battlepet
     or (iClassID == Enum.ItemClass.Miscellaneous and Enum.ItemMiscellaneousSubclass
         and iSubID == Enum.ItemMiscellaneousSubclass.CompanionPet) or false
+  -- Cosmetic from the game's own flag, not the armor subclass: Blizzard tags many cosmetic appearances
+  -- outside the Cosmetic subclass, so a subclass test caught almost nothing. See ItemButton.lua. Nil-safe.
+  m.cosmetic = (hl and C_Item and C_Item.IsCosmeticItem and C_Item.IsCosmeticItem(hl)) and true or false
   -- A keystone's link is a keystone: hyperlink, not an item:, so GetItemInfoInstant hands back no id
   -- and m.id above is nil. classify keys pins by id, so a keystone could be neither filed by hand nor
   -- lifted out of its section, alone among items. The itemID is the first field of the link, so read
@@ -741,6 +958,7 @@ local function buildMetaSnap(bag, d)
     or iClassID == Enum.ItemClass.Battlepet
     or (iClassID == Enum.ItemClass.Miscellaneous and Enum.ItemMiscellaneousSubclass
         and iSubID == Enum.ItemMiscellaneousSubclass.CompanionPet) or false
+  m.cosmetic = (hl and C_Item and C_Item.IsCosmeticItem and C_Item.IsCosmeticItem(hl)) and true or false
   return m
 end
 
@@ -785,7 +1003,10 @@ local function metaFromID(itemID)
   m.link = nil
   m.bound, m.ilvl, m.loc, m.wb, m.exp, m.boa, m.toy = false, nil, nil, nil, nil, nil, nil
   m.reagent = classID == Enum.ItemClass.Tradegoods or classID == Enum.ItemClass.Reagent
-  m.keystone = false
+  -- Every Mythic keystone is item 180653, so an id-only meta can flag it without a link (buildMeta
+  -- reads the keystone: hyperlink instead). Left false here, RuleHome could not see a dropped keystone
+  -- land in the keystone category, so PinItem pinned it there instead of reading the drop as unfile.
+  m.keystone = (itemID == 180653) or false
   m.battlepet = classID == Enum.ItemClass.Battlepet
     or (classID == Enum.ItemClass.Miscellaneous and Enum.ItemMiscellaneousSubclass
         and subID == Enum.ItemMiscellaneousSubclass.CompanionPet) or false
@@ -826,10 +1047,43 @@ local function byIlvl(a, z)
   if a.q ~= z.q then return a.q > z.q end
   return byName(a, z)
 end
-local SORTS = { quality = byQuality, ilvl = byIlvl, name = byName }
-local function sorter()
-  local mode = WarpeeDB and WarpeeDB.catSort
+-- "By rule": the section's search is an OR of branches (toy | mount | battlepet), and a piece draws by
+-- which branch first claimed it, so the view reads in the order the rule is written — all the toys, then
+-- the mounts, then the pets. rank rides on the slot, set at file() time off the live meta (the branch
+-- index, or one past the last for a hand-pinned piece no branch matches, so those sit below the ruled
+-- bands). A search with no top-level "|" gives every piece rank 0, so this falls straight through to
+-- quality, and two pieces on one branch keep quality order within it.
+local function byRank(a, z)
+  local ar, zr = a.rank or 0, z.rank or 0
+  if ar ~= zr then return ar < zr end
+  return byQuality(a, z)
+end
+-- "By expansion": the piece's expansion, newest first, so a Legacy section that gathers gear from every
+-- past expansion reads in bands rather than scattered. exp rides on the slot, set at file() time; an
+-- item the client has not cached the expansion for sorts last, and within one expansion the order is
+-- name. Offered both globally, on the Categories page, and per category from a row's + panel, though
+-- only a mixed-expansion section (Legacy) reads better for it.
+local function byExp(a, z)
+  local ae, ze = a.exp or -1, z.exp or -1
+  if ae ~= ze then return ae > ze end
+  return byName(a, z)
+end
+local SORTS = { quality = byQuality, ilvl = byIlvl, name = byName, match = byRank, expac = byExp }
+local function sorter(mode)
   return SORTS[mode] or byQuality
+end
+
+-- The branch a piece matched, for the "by rule" sort. Only an OR search has branches to rank by, so a
+-- flat filter (or a pin-only section, FILTERS[idx] nil) ranks every piece 0 and the sort falls through
+-- to quality. A pinned piece that no branch matches ranks after them all. idx is the classify result,
+-- so FILTERS[idx] is exactly the destination section's parsed search, read while the meta is still live.
+local function branchRank(idx, m)
+  local f = idx and FILTERS[idx]
+  if not (f and f.ors) then return 0 end
+  for i = 1, #f.ors do
+    if ns.MatchSearch(m, f.ors[i]) then return i end
+  end
+  return #f.ors + 1
 end
 
 -- Every occupied slot into its section, sections that hold anything returned in list order. The
@@ -843,10 +1097,26 @@ end
 -- per-section hit count. Returns the same {out, used, total} the bags always did.
 local function bucketsCore(find, snap, snapMode, bagList, reagentBag)
   ensureFilters()
+  -- Band membership, read fresh off the list on every pass so a marker the player just moved shows up
+  -- at once: each category maps to the marker it sits under, as the entry itself (nil for the run before
+  -- the first marker, which draws with no heading). The bucket carries it through to the layout.
+  local bandOf = {}
+  do
+    local cur
+    for _, e in ipairs(Cats:List()) do
+      if isMarker(e) then cur = e
+      elseif e.id then bandOf[e.id] = cur end
+    end
+  end
+  -- Each bucket carries its effective sort: the category's own override if it set one, else the global
+  -- WarpeeDB.catSort. Resolved here so file() can compute only the sort key its bucket needs (a rank for
+  -- "by rule", an expansion for "by expansion") rather than every key for every item on every pass.
+  local globalMode = (WarpeeDB and WarpeeDB.catSort) or "ilvl"
   local order = {}
   for i = 1, #ACTIVE do
     order[i] = { id = ACTIVE[i].id, name = catName(ACTIVE[i]), slots = {}, hits = 0,
-                 g = ACTIVE[i].g, empty = ACTIVE[i].empty, other = ACTIVE[i].other }
+                 band = bandOf[ACTIVE[i].id], empty = ACTIVE[i].empty, other = ACTIVE[i].other,
+                 mode = ACTIVE[i].sort or globalMode }
   end
   -- The catch-all is a row now, so it sits in order at the place the player set rather than pinned
   -- last. classify still returns nil for an item no rule claimed, and that nil files into this bucket.
@@ -855,20 +1125,28 @@ local function bucketsCore(find, snap, snapMode, bagList, reagentBag)
   for i = 1, #order do if order[i].other then otherBucket = order[i]; break end end
   if not otherBucket then
     otherBucket = { id = Cats.OTHER_ID, name = ns.L["Other"], slots = {}, hits = 0, other = true,
-                    g = ACTIVE[#ACTIVE] and ACTIVE[#ACTIVE].g }
+                    band = bandOf[Cats.OTHER_ID], mode = globalMode }
     order[#order + 1] = otherBucket
   end
   local used, total = 0, 0
   -- One buckets pass files a slot from its meta whatever built it: a live container reads it straight,
   -- a snapshot rebuilds the same meta from the record the Vault kept. The sort keys ride on the slot
   -- entry, read off the scratch meta now, since the meta is reused on the next slot and would be gone
-  -- by the time the bucket is sorted.
+  -- by the time the bucket is sorted. rank and exp are only read when the destination's own sort asks
+  -- for them, so a plain quality view never pays for a branch match or an expansion lookup.
   local function file(bag, slot, m)
     local idx = classify(m)
     local dest = (idx and order[idx]) or otherBucket
-    dest.slots[#dest.slots + 1] = {
+    local entry = {
       bag = bag, slot = slot, q = m.q or -1, ilvl = m.ilvl or 0, name = m.name or "",
     }
+    local mode = dest.mode
+    if mode == "match" then
+      entry.rank = branchRank(idx, m)
+    elseif mode == "expac" then
+      entry.exp = ns.MetaExp(m)
+    end
+    dest.slots[#dest.slots + 1] = entry
     if find and ns.MatchSearch(m, find) then dest.hits = dest.hits + 1 end
   end
   -- A snapshot has no live container, so its slots and their contents come from the Vault instead:
@@ -907,13 +1185,15 @@ local function bucketsCore(find, snap, snapMode, bagList, reagentBag)
     -- now draws at its own list position rather than pinned last.
     if order[i].empty or #order[i].slots > 0 then out[#out + 1] = order[i] end
   end
-  local cmp = sorter()
-  for _, b in ipairs(out) do table.sort(b.slots, cmp) end
+  -- Each bucket sorts by its own resolved mode: a category's override, or the global fall-through.
+  -- The comparator only reads keys file() filled for that mode, so mixing modes across sections in one
+  -- pass is free.
+  for _, b in ipairs(out) do table.sort(b.slots, sorter(b.mode)) end
   return out, used, total
 end
 
 -- Every occupied bag slot into its section, sections that hold anything returned in list order. The
--- window hands its live query so the per-section hit count drives which fold open during a search;
+-- window hands its live query so the per-section hit count drives what a search shows;
 -- the reagent bag is always included, since cat-view is a full-inventory grouping.
 function Cats:Buckets(bags)
   local q = bags and bags.query or ""
@@ -1010,7 +1290,7 @@ function Cats:Names()
   local list = self:List()
   local out = {}
   for i, c in ipairs(list) do
-    out[i] = (type(c) == "table") and catName(c) or ""
+    out[i] = isCat(c) and catName(c) or ""
   end
   return out
 end

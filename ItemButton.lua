@@ -1535,6 +1535,7 @@ function ns.UpdateItemButton(b)
     m.reagent = (bagID == ns.reagentBag) or iClassID == Enum.ItemClass.Tradegoods
                 or iClassID == Enum.ItemClass.Reagent
     m.keystone = hl:find("keystone:", 1, true) ~= nil
+    m.cosmetic = (C_Item and C_Item.IsCosmeticItem and C_Item.IsCosmeticItem(hl)) and true or false
     b.meta = m
   else
     b.meta = nil
@@ -1640,6 +1641,11 @@ function ns.PaintVaultButton(b, d, bagID)
     m.reagent = classID == Enum.ItemClass.Tradegoods
                 or classID == Enum.ItemClass.Reagent
     m.keystone = link:find("keystone:", 1, true) ~= nil
+    -- Cosmetic is read from the game's own flag, not the armor subclass: Blizzard tags many cosmetic
+    -- appearances as Armor/Miscellaneous (sub 0) or other subclasses rather than the Cosmetic subclass
+    -- (5), so a subclass match caught almost nothing. IsCosmeticItem is the same test the tooltip's
+    -- "Cosmetic" line uses. Nil-safe on a client without the API.
+    m.cosmetic = (C_Item and C_Item.IsCosmeticItem and C_Item.IsCosmeticItem(link)) and true or false
     b.meta = m
     b.itemName = name
   else

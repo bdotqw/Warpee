@@ -129,6 +129,7 @@ function P:Apply(name)
   WarpeeDB[SELECTED] = name ~= RESERVED and name or nil
   ns.FillComputed(WarpeeDB)
   ns.SanitizeConfig(WarpeeDB)
+  if ns.Categories and ns.Categories.Migrate then ns.Categories:Migrate() end
   return true
 end
 
@@ -230,6 +231,13 @@ local function upgrade(data, schema)
   return data
 end
 
+-- The keys a profile code does not carry. The category list is shared through its own code (the
+-- CN_PREFIX one below), so a profile must not smuggle it too: two people trading profiles would
+-- otherwise overwrite each other's category lists as a side effect of copying a theme or a layout,
+-- which is the whole reason the list was split out into its own code. Stripped on export only — a
+-- local profile still stores and switches the list, so picking a profile keeps its own categories.
+local EXPORT_SKIP = { categories = true }
+
 function P:Export(name)
   name = name or self:Active()
   local data = WarpeeDB and WarpeeDB[LIST] and WarpeeDB[LIST][name]
@@ -237,7 +245,14 @@ function P:Export(name)
     if name ~= RESERVED then return "" end
     data = self:Capture()
   end
-  local body = packPayload({ _v = SCHEMA, _n = name, d = data })
+  -- A fresh shallow copy without the skipped keys, so the stored profile keeps its category list and
+  -- only the code leaves without one. CopyDeep on each kept value so the payload never shares a table
+  -- with the save.
+  local out = {}
+  for k, v in pairs(data) do
+    if not EXPORT_SKIP[k] then out[k] = ns.CopyDeep(v) end
+  end
+  local body = packPayload({ _v = SCHEMA, _n = name, d = out })
   -- A codec that refuses is not a profile that came out empty. Both used to answer with the
   -- prefix and nothing after it, which reads as a code and fails on the other end as a
   -- damaged one; the empty string is what the panel already takes as "nothing to copy".
@@ -268,14 +283,132 @@ function P:Import(str, name)
     local d = ns.DEFAULTS[k]
     if d ~= nil and type(v) == type(d) then clean[k] = ns.CopyDeep(v) end
   end
+  -- A profile code no longer carries the category list (see EXPORT_SKIP), so an imported profile has
+  -- none. Applying it as-is would let WipeConfig reset the player's list to the shipped default — a
+  -- silent wipe of the categories he built, as a side effect of importing a layout. So the current list
+  -- is carried into the imported profile: importing a profile keeps your categories, and a list is only
+  -- ever replaced through its own code, which is exactly the split the two codes are for.
+  if clean.categories == nil and type(WarpeeDB.categories) == "table" then
+    clean.categories = ns.CopyDeep(WarpeeDB.categories)
+  end
   WarpeeDB[LIST] = WarpeeDB[LIST] or {}
   WarpeeDB[LIST][name] = clean
   self:ApplyLive(name)
   return true, name
 end
 
+-- The category list travels in the same envelope as a profile and through the same packer, under a
+-- prefix of its own: what a code holds is written on it, so a holder — our own paste field or another
+-- addon's installer — never has to be told which of the two it is holding. The reason the two are
+-- apart at all is that a profile is a whole machine: it carries window positions, cell sizes, theme
+-- and the saved characters, and none of that means anything on somebody else's screen. A list of rules
+-- does.
+local CN_PREFIX = "!WPC1!"
+local CN_SCHEMA = 1
+
+-- The list as a code, ready to be pasted anywhere. Only the list and the order items take inside a
+-- section travel; every other setting keeps its own value on the receiving side.
+function P:ExportCategories()
+  local list = ns.Categories and ns.Categories:ShareList() or {}
+  local body = packPayload({ _v = CN_SCHEMA, _n = "categories",
+                             d = { list = list, sort = WarpeeDB and WarpeeDB.catSort or nil } })
+  if body == "" then return "" end
+  return CN_PREFIX .. body
+end
+
+-- Take a category code. mode "replace" puts the code's list in place of the current one; anything else
+-- merges, which is what the name says and what a caller that cannot ask for a choice should get: a
+-- merge only adds rows, so a wrong guess never costs the player the list he built. A replace puts the
+-- whole current state aside first, under a profile of its own, so the one destructive direction has a
+-- way back (Profiles, "Before import") instead of being a lost evening.
+function P:ImportCategories(str, mode)
+  if not ns.Ready then return false, "Not ready" end
+  if type(str) ~= "string" then return false, "Nothing to import" end
+  str = str:gsub("^%s+", ""):gsub("%s+$", "")
+  if str == "" then return false, "Nothing to import" end
+  if str:sub(1, #CN_PREFIX) ~= CN_PREFIX then return false, "Not a profile code" end
+  local env = unpackPayload(str:sub(#CN_PREFIX + 1))
+  local d = type(env) == "table" and env.d or nil
+  if type(d) ~= "table" or type(d.list) ~= "table" then return false, "Damaged code" end
+  if not upgrade(d, env._v) then return false, "Saved by a newer version" end
+  local replace = (mode == "replace")
+  if replace then
+    local name = ns.L["Before import"]
+    WarpeeDB[LIST] = WarpeeDB[LIST] or {}
+    WarpeeDB[LIST][name] = self:Capture()
+  end
+  local count, err = ns.Categories:TakeList(d.list, replace and "replace" or "merge", d.sort)
+  if not count then return false, err or "Nothing to import" end
+  if ns.Options then
+    if ns.Options.catChanged then
+      ns.Options.catChanged()
+    elseif ns.Options.RefreshOpen then
+      ns.Options:RefreshOpen()
+    end
+  end
+  -- The editor was never opened in this session, so its own refresh path does not exist yet. Applying
+  -- the state again is the heavy door, but it is the one that leaves the bag, the bank and the pocket
+  -- classifying by the list that was just read in.
+  if not (ns.Options and ns.Options.catChanged) and ns.ApplyAll then pcall(ns.ApplyAll) end
+  return true, count, replace and "replace" or "merge"
+end
+
+-- Which kind of code this is, read off the code itself. Nil for anything else, including the empty
+-- string, so a paste field can say what it is about to do before it does it.
+function P:CodeKind(str)
+  if type(str) ~= "string" then return nil end
+  str = str:gsub("^%s+", ""):gsub("%s+$", "")
+  if str:sub(1, #PREFIX) == PREFIX then return "profile" end
+  if str:sub(1, #CN_PREFIX) == CN_PREFIX then return "categories" end
+  return nil
+end
+
+-- The schema a code was written with. A holder that ships a code of its own wants this: it is how it
+-- tells that the one already installed came from an older build and wants re-importing.
+function P:CodeVersion(str)
+  local kind = self:CodeKind(str)
+  if not kind then return nil end
+  local cut = #(kind == "categories" and CN_PREFIX or PREFIX)
+  local s = str:gsub("^%s+", ""):gsub("%s+$", ""):sub(cut + 1)
+  local env = unpackPayload(s)
+  return type(env) == "table" and tonumber(env._v) or nil
+end
+
+-- One door for a code of either kind, so a caller can hand over whatever it was given. The kind
+-- decides where it lands: a category code edits the list, a profile code becomes a profile and is
+-- applied. Anything else is refused with the reason the paste fields already print.
+function P:ImportAny(str, name, mode)
+  local kind = self:CodeKind(str)
+  if kind == "categories" then return self:ImportCategories(str, mode) end
+  if kind == "profile" then return self:Import(str, name) end
+  return false, "Not a profile code"
+end
+
 local API = {}
 ns.API = API
+
+-- The documented surface for anything outside the addon: another addon's installer, a macro, a script.
+-- Every entry point works with the settings window closed and never raises: a code from outside is
+-- read, not trusted. ImportCategories answers (ok, count | reason) and ImportAny takes either kind.
+function API:ImportCategories(str, mode)
+  return ns.Profiles:ImportCategories(str, mode)
+end
+
+function API:ExportCategories()
+  return ns.Profiles:ExportCategories()
+end
+
+function API:ImportAny(str, mode)
+  return ns.Profiles:ImportAny(str, nil, mode)
+end
+
+function API:CanImport(str)
+  return ns.Profiles:CodeKind(str)
+end
+
+function API:GetVersion(str)
+  return ns.Profiles:CodeVersion(str)
+end
 
 function API:ImportProfile(str, key)
   return ns.Profiles:Import(str, key)
@@ -522,7 +655,18 @@ function P:BuildPanel()
   end)
   exp:SetPoint("TOPLEFT", ren, "BOTTOMLEFT", 0, -SHARE_GAP)
 
+  -- The field takes a code of either kind, since what a code holds is written on it: a profile code
+  -- becomes a profile and is applied, a category code edits the list where it stands. A category code
+  -- merges here rather than replacing: this panel is not the list's own editor and nobody is asked for a
+  -- choice, so the direction that cannot cost the player his rows is the one taken.
   local imp = autoButton(f, "Import", function()
+    local text = f.str:GetText()
+    if P:CodeKind(text) == "categories" then
+      local ok, res = P:ImportCategories(text, "merge")
+      if not ok then say(T(res)) return end
+      say(T("Imported sections: %d"):format(res))
+      return
+    end
     local ok, res = P:Import(f.str:GetText(), nameBox:GetText())
     if not ok then say(T(res)) return end
     say(T("Imported %s"):format(res))
@@ -543,7 +687,7 @@ function P:BuildPanel()
 
   local str = CreateFrame("EditBox", nil, f, "BackdropTemplate")
   str:SetAutoFocus(false)
-  str:SetFont(ns.Fonts:Current(), 11, "")
+  str:SetFont(ns.Fonts:Current(), 11, ns.OutlineFlags())
   str:SetTextColor(Theme:C("text"))
   str:SetHeight(STR_H)
   ns.PixelBackdrop(str)

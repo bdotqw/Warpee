@@ -204,7 +204,7 @@ function Picker:RealmRow(n, y, realm, path)
   h.Text:ClearAllPoints()
   h.Text:SetPoint("LEFT", 2, 0)
   h.Text:SetPoint("RIGHT", -6, 0)
-  h.Text:SetFont(path, FONT - 3, "")
+  h.Text:SetFont(path, FONT - 3, ns.OutlineFlags())
   h.Text:SetTextColor(Theme:C("faint"))
   h.Text:SetText(ns.Upper(realm or "?"))
   h:Show()
@@ -269,8 +269,8 @@ function Picker:Paint(keepScroll)
   for i = n + 1, #self.rows do self.rows[i]:Hide() end
 
   if self.filter then
-    self.filter:SetFont(path, FONT - 2, "")
-    if self.filter.Hint then self.filter.Hint:SetFont(path, FONT - 2, "") end
+    self.filter:SetFont(path, FONT - 2, ns.OutlineFlags())
+    if self.filter.Hint then self.filter.Hint:SetFont(path, FONT - 2, ns.OutlineFlags()) end
   end
   local skin = Theme.skin
   local top, wide, drop, side = PAD, 0, 0, 0
@@ -279,7 +279,7 @@ function Picker:Paint(keepScroll)
   if self.hideBtn then
     self.hideBtn:ClearAllPoints()
     self.hideBtn:SetPoint("TOPLEFT", PAD + side, -top)
-    self.hideBtn.Text:SetFont(path, FONT - 2, "")
+    self.hideBtn.Text:SetFont(path, FONT - 2, ns.OutlineFlags())
     local w = math.max(68, math.ceil(self.hideBtn.Text:GetStringWidth()) + 18)
     self.hideBtn.wpeBoxW = w
     self.hideBtn:SetWidth(w)

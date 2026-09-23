@@ -452,13 +452,13 @@ function Rec:Apply(bags, x, top, size, gap)
     ns.LocalText(fs, "Recent")
     self.label = fs
   end
-  self.label:SetFont(bags.fontPath or ns.Fonts:Current(), d.font - 4, "")
+  self.label:SetFont(bags.fontPath or ns.Fonts:Current(), d.font - 4, ns.OutlineFlags())
   self.label:ClearAllPoints()
   ns.SnapPoint(self.label, "TOPLEFT", frame, "TOPLEFT", x, -top)
   self.label:Show()
   local rowY = top + d.labelH + d.labelGap
   if self.clear then
-    self.clear.Text:SetFont(bags.fontPath or ns.Fonts:Current(), d.font - 5, "")
+    self.clear.Text:SetFont(bags.fontPath or ns.Fonts:Current(), d.font - 5, ns.OutlineFlags())
     self.clear:SetSize(math.ceil(self.clear.Text:GetStringWidth()) + 8, d.labelH)
     self.clear:ClearAllPoints()
     ns.SnapPoint(self.clear, "TOPLEFT", frame, "TOPLEFT",

@@ -332,7 +332,7 @@ end
 function ns.FitLabel(label, name, maxW)
   local up = ns.Upper(name or "")
   label:SetText(up)
-  if maxW <= 0 or label:GetStringWidth() <= maxW then return end
+  if maxW <= 0 or label:GetStringWidth() <= maxW then return false end
   local stops = ns.CharStops(up)
   local lo, hi, best = 1, #stops - 1, 0
   while lo <= hi do
@@ -341,6 +341,10 @@ function ns.FitLabel(label, name, maxW)
     if label:GetStringWidth() <= maxW then best = mid; lo = mid + 1 else hi = mid - 1 end
   end
   label:SetText(best == 0 and ELLIPSIS or (up:sub(1, stops[best + 1]) .. ELLIPSIS))
+  -- The caption did not fit and was cut, so the caller can offer the whole name in a tooltip. Returned
+  -- rather than read off IsTruncated(), which stays false here: the ellipsis is written by hand into a
+  -- string that does fit, so the engine sees no truncation.
+  return true
 end
 
 -- A backdrop colour goes in through these two and nowhere else. The pixel job below
@@ -564,6 +568,7 @@ function Theme:Restyle(name)
   for obj, fn in pairs(tracked) do pcall(fn, obj) end
   if ns.Bags and ns.Bags.Restyle then ns.Bags:Restyle() end
   if ns.Bank and ns.Bank.Restyle then ns.Bank:Restyle() end
+  if ns.GuildBankSkin and ns.GuildBankSkin.Restyle then ns.GuildBankSkin:Restyle() end
   local P = ns.CharPicker
   if P and P.frame and P.frame:IsShown() and P.Paint then P:Paint(true) end
   if ns.Profiles and ns.Profiles.ApplySkin then ns.Profiles:ApplySkin() end
@@ -579,11 +584,97 @@ function Theme:GridAlpha()
   return a
 end
 
+-- Where the plate stops at the top, and which frame it rides. The plate is the extra surface the
+-- items stand on, laid over the window's own background, and it covers the window from top to bottom
+-- -- header, grid and footer alike -- rather than leaving the window's background showing as a band
+-- around it.
+--
+-- Where it is mounted is what keeps a skin's art alive. A skin draws pieces of its own: the band
+-- across the top, the frame's edges and corners, the hairline under the band. Those live on the art
+-- frame, which sits below the window, and a texture on the window beats every texture of a lower
+-- frame whatever layer it is on -- so a plate riding the window paints them out. In a skin the plate
+-- is therefore mounted on the art frame, above the body texture the skin fills with and under
+-- everything the skin lays over it. A theme without a skin has no such pieces, so there the plate
+-- rides the window itself. What it keeps off either way is the header strip a skin draws for itself.
+-- The window's own background stays under the plate: the option adds surface, it never takes the
+-- background away.
+-- Above the body (BACKGROUND 0 or below) and under the band (3) and its hairline (4).
+local PLATE_SUBLEVEL = 2
+
+function Theme:PlateTop(frame)
+  local def = self:SkinDef()
+  if not def then return 0 end
+  -- The band is measured, not guessed: a window hands its own height to HeaderBand when it draws one,
+  -- and the plate has to stop under the hairline that closes it off.
+  if def.band then
+    local h = (frame and frame.wpeBandH) or def.band
+    return h + (frame and ns.PX(frame) or 0)
+  end
+  return def.inset or 0
+end
+
+-- Where a skin leaves the frame open, measured from the skin's own fill: the plain panel's surface
+-- does not reach the frame's edges, and its border is drawn inside the frame over the band that is
+-- left. A plate spanning the frame would paint there and read as spilling out of the window, so the
+-- plate keeps to the fill instead. A skin that fills the frame, one whose fill is hidden, and every
+-- theme without a skin keep the whole window -- except where the skin names a border width, which the
+-- fill is never allowed to undercut. The art can sit off-centre, so each side is asked for on its own.
+local PLATE_INSET_MAX = 24
+
+local function surfaceInsets(frame, host, declared)
+  local bg = host ~= frame and host.Bg
+  if not (bg and bg.GetRect and bg:IsShown()) then return declared, declared, declared end
+  local fl, fb, fw = frame:GetRect()
+  local bl, bb, bw = bg:GetRect()
+  if not (fl and bl and fw and bw) then return declared, declared, declared end
+  -- Both rects are in the same coordinate space, so the differences are the offsets the plate wants.
+  -- Rounded down to the pixel grid the window is laid out on: a plate edge between pixels would read
+  -- as a faint second line beside the border, and rounding down rather than to the nearest pixel
+  -- keeps the plate inside the border instead of a sliver over it.
+  -- A skin can also say how wide its border is, and that is the floor here: a fill that reaches the
+  -- frame's edge would otherwise measure zero and leave the plate riding over the border again.
+  local low = declared > 0 and ns.PixelFloor(frame, declared) or 0
+  local function edge(v)
+    if v <= 0.001 or v > PLATE_INSET_MAX then return low end
+    return math.max(ns.PixelFloor(frame, v), low)
+  end
+  return edge(bl - fl), edge((fl + fw) - (bl + bw)), edge(bb - fb)
+end
+
+-- Fits one window's plate and hands it the current opacity, so where the plate reaches and how
+-- solid it is can never drift apart. The art of a skin is built lazily, so it is asked for here the
+-- same way Theme:WindowArt asks for it.
+function Theme:FitPlate(plate, frame)
+  if not (plate and frame) then return end
+  local def = self:SkinDef()
+  if def and not frame.wpeArt and self.RefreshArt then self:RefreshArt(frame) end
+  local host = (def and frame.wpeArt) or frame
+  local onArt = host ~= frame
+  if plate:GetParent() ~= host then plate:SetParent(host) end
+  plate:SetDrawLayer("BACKGROUND", onArt and PLATE_SUBLEVEL or 1)
+  local left, right, bottom = surfaceInsets(frame, host, (def and def.border) or 0)
+  plate:ClearAllPoints()
+  plate:SetPoint("TOPLEFT", frame, "TOPLEFT", left, -self:PlateTop(frame))
+  plate:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -right, bottom)
+  plate:SetAlpha(self:GridAlpha())
+end
+
 function Theme:ApplyGridAlpha()
   local a = self:GridAlpha()
-  if ns.Bags and ns.Bags.gridBg then ns.Bags.gridBg:SetAlpha(a) end
-  if ns.Bank and ns.Bank.gridBg then ns.Bank.gridBg:SetAlpha(a) end
-  if ns.Pocket and ns.Pocket.gridBg then ns.Pocket.gridBg:SetAlpha(a) end
+  local B, K, P = ns.Bags, ns.Bank, ns.Pocket
+  if B and B.gridBg then B.gridBg:SetAlpha(a) end
+  if K and K.gridBg then K.gridBg:SetAlpha(a) end
+  if P and P.gridBg then P.gridBg:SetAlpha(a) end
+  -- Which frame the plate rides follows the theme as well, and only the window can lay it out. The
+  -- bags and the bank re-lay themselves on a restyle and pick it up there; the pocket has no restyle
+  -- pass and would keep the art frame of the theme just left -- which the switch itself tears down,
+  -- taking the plate with it -- so a theme move asks it for a layout here. Compared by skin, not by
+  -- whether one is in use: two skins rebuild the art just as a skin and its absence do. A hidden
+  -- window is not touched: it lays itself out, plate included, on its next show.
+  if self.plateSkin ~= nil and self.plateSkin ~= self.skin then
+    if P and P.gridBg and P.frame and P.frame:IsShown() then P:Layout() end
+  end
+  self.plateSkin = self.skin
 end
 
 -- Escape is the game's own key, not ours. A named frame only has to sit in
@@ -656,7 +747,12 @@ end
 
 function Theme:Label(parent, size, colorKey, flags)
   local fs = parent:CreateFontString(nil, "OVERLAY")
-  fs:SetFontObject(ns.Fonts:Object(size or 12, flags or ""))
+  -- Every label the addon draws is outlined, not thin: an outline holds its shape at any position,
+  -- so text on a window mid-drag does not shimmer the way a bare glyph does, and it reads the same
+  -- on light and dark. ns.OutlineFlags is the locale-safe source — "OUTLINE, SLUG" where SLUG is
+  -- sound, plain "OUTLINE" on ruRU/CJK where SLUG would swap the face. A caller that passes its own
+  -- flags (a deliberate thin readout, say) still gets exactly those.
+  fs:SetFontObject(ns.Fonts:Object(size or 12, flags or ns.OutlineFlags()))
   local key = colorKey or "text"
   fs:SetTextColor(self:C(key))
   track(fs, function(x) x:SetTextColor(Theme:C(key)) end)
@@ -665,7 +761,7 @@ end
 
 function Theme:Title(parent, size, colorKey)
   local fs = parent:CreateFontString(nil, "OVERLAY")
-  fs:SetFontObject(ns.Fonts:Object(size or 15, ""))
+  fs:SetFontObject(ns.Fonts:Object(size or 15, ns.OutlineFlags()))
   local key = colorKey or "text"
   fs:SetTextColor(self:C(key))
   track(fs, function(x) x:SetTextColor(Theme:C(key)) end)
@@ -735,7 +831,9 @@ local EDGE_HIDE = { "NineSlice", "TopLeftCorner", "TopRightCorner", "BotLeftCorn
                     "TopBorder", "BottomBorder", "LeftBorder", "RightBorder", "TitleBg" }
 
 local SKINS = {
-  blizzard     = { inset = 20, grain = true, titleDrop = 10 },
+  -- inset is the strip a skin keeps for its own title band at the top; border is how far its art runs
+  -- in from the frame's sides and bottom, where the frame's edge is art rather than window.
+  blizzard     = { inset = 20, border = 4, grain = true, titleDrop = 10 },
   blizzardflat = { inset = 4, drop = -5, edge = FLAT_EDGE, out = 14, band = 32,
                    bandAlpha = 0.80,
                    edgeTint = "stroke", plate = true, bodyGrain = 0.10, guestArt = true },

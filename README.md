@@ -1,10 +1,11 @@
 # Warpee
 
-Bag and bank windows for World of Warcraft (Midnight, 12.x). No categories, fast, themed.
+Bag and bank windows for World of Warcraft (Midnight, 12.x). Grid or categories, fast, themed.
 
 ## Features
 
-- **Bags in one window**, the character bank and the Warband bank as tabs in a second one, with no category sorting.
+- **Bags in one window**, the character bank and the Warband bank as tabs in a second one.
+- **Category view** for the bags and the bank: items grouped into sections by a search each, sections gathered into named bands you fold and reorder, or the plain grid when you want it.
 - **Fourteen themes**, recolored on the fly: dark palettes and two Blizzard skins built from the game's own panels.
 - **Guild bank skin** matching the rest of the addon; its contents are not saved.
 - **Snapshots** of other characters' bags and bank, behind a shared switcher popup.

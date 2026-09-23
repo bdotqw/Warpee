@@ -217,7 +217,7 @@ local function barField(bar, apply)
   ns.PixelBackdrop(e)
   ns.SetBg(e, Theme:C("slot"))
   ns.SetEdge(e, Theme:C("stroke"))
-  e:SetFontObject(ns.Fonts:Object(11, ""))
+  e:SetFontObject(ns.Fonts:Object(11, ns.OutlineFlags()))
   e:SetTextColor(Theme:C("text"))
   e:SetJustifyH("CENTER")
   e:SetAutoFocus(false)
@@ -394,10 +394,10 @@ function ns.CreateMoveBar(frame, dbKey)
       s.wpeFace = key
       -- Both halves take the file, not a font object, for the reason the header glyphs do: a
       -- string riding an object draws the face that object held when its text was written.
-      s.xLabel:SetFont(path, size, "")
-      s.yLabel:SetFont(path, size, "")
-      s.xField:SetFont(path, size, "")
-      s.yField:SetFont(path, size, "")
+      s.xLabel:SetFont(path, size, ns.OutlineFlags())
+      s.yLabel:SetFont(path, size, ns.OutlineFlags())
+      s.xField:SetFont(path, size, ns.OutlineFlags())
+      s.yField:SetFont(path, size, ns.OutlineFlags())
     end
     s:Refresh()
   end
@@ -706,7 +706,7 @@ function ns.CreateGlyphButton(parent, glyph, size, dark)
   -- creation; the size pass over the header applies the file again on every font change,
   -- which is what keeps the mark in step with the rest of the window. Repaint puts the ink
   -- back, since a face change can take the colour with it.
-  b.Text:SetFont(ns.Fonts:Current(), math.max(16, math.floor((size or 22) * 0.74)), "")
+  b.Text:SetFont(ns.Fonts:Current(), math.max(16, math.floor((size or 22) * 0.74)), ns.OutlineFlags())
   b:Repaint()
   return b
 end
@@ -770,7 +770,7 @@ end
 function ns.CreateTextButton(parent, size)
   local b = CreateFrame("Button", nil, parent)
   local fs = b:CreateFontString(nil, "OVERLAY")
-  fs:SetFontObject(ns.Fonts:Object(size or 10, ""))
+  fs:SetFontObject(ns.Fonts:Object(size or 10, ns.OutlineFlags()))
   fs:SetPoint("CENTER")
   b.Text = fs
   b.Paint = function(s)
@@ -842,7 +842,7 @@ function ns.CreateSearchBox(parent, onChanged, hintKey)
     s:SetTextColor(Theme:C("text"))
     if not s:HasFocus() then ns.SetEdge(s, Theme:C("stroke")) end
   end)
-  box:SetFont(ns.Fonts:Current(), 13, "")
+  box:SetFont(ns.Fonts:Current(), 13, ns.OutlineFlags())
   box:SetTextColor(Theme:C("text"))
   box:SetTextInsets(8, 8, 0, 0)
   box:SetAutoFocus(false)

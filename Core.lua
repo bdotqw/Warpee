@@ -18,7 +18,7 @@ local PICKS = {
 
 local NONE = {}
 local DEFAULTS = {
-  cols = 16, gap = 4, iconSize = 36, slotStyle = "plate", theme = "blizzard",
+  cols = 16, gap = 4, iconSize = 37, slotStyle = "plate", theme = "blizzard",
   font = "Rubik Bold",
   iconZoom = 1, borderWidth = 1, gridAlpha = 0, showGauge = false,
   favShow = true, recentBags = true, recentPocket = true,
@@ -33,15 +33,14 @@ local DEFAULTS = {
   pocketLock = NONE,
   revFill = false, fillUp = false, questMarks = true, newItemGlow = false,
   reagentTint = true, unusableBorder = true,
-  bagView = "grid", bankView = "grid", categories = {}, catCollapsed = {},
-  catGroups = { { id = "essentials" }, { id = "consumables" }, { id = "gear" },
-                { id = "collections" }, { id = "rest" } },
-  catGroupFold = {},
-  catSort = "quality",
-  -- NONE, not a number: unset means the category gap follows the density scale like it always has,
-  -- so an existing profile looks unchanged. The slider writes a flat pixel value once the player
-  -- touches it, which then overrides the scaled gap in the grouped view only.
-  catGap = NONE,
+  bagView = "grid", bankView = "grid", categories = {},
+  catSort = "ilvl",
+  -- Flat pixel values, not NONE: the grouped view ships with the sections packed tight rather than
+  -- following the density scale, which read too airy. Two gaps, kept apart on purpose: X is the space
+  -- between sections side by side on a shelf (8), Y the drop between shelf rows, set a touch tighter (6)
+  -- so the rows read as a block. A player overrides either from its own slider, and a save that already
+  -- carried the old single gap seeds both.
+  catGapX = 8, catGapY = 6,
   goldFormat = "short", goldLetters = true, goldOnly = true,
   vendorIlvl = 100, vendorIlvlMin = 10, vendorConsum = false, vendorAuto = false,
   vendorTokens = false, vendorTokenExp = {},
@@ -160,7 +159,8 @@ function ns.PushConfig()
   Bags.reagentTint      = WarpeeDB.reagentTint
   Bags.unusableBorder   = WarpeeDB.unusableBorder
   Bags.bagView          = WarpeeDB.bagView
-  Bags.catGap           = WarpeeDB.catGap
+  Bags.catGapX          = WarpeeDB.catGapX
+  Bags.catGapY          = WarpeeDB.catGapY
 end
 
 function ns.ApplyAll()
@@ -515,6 +515,18 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     -- here on the two never read each other.
     if WarpeeDB.pocketLock == nil then WarpeeDB.pocketLock = WarpeeDB.lockWindows == true end
 
+    -- The one category gap became two, X across a shelf and Y between rows. A save that carried the
+    -- single number seeds both from it, so a window that was packed to the player's taste stays packed
+    -- that way; the old key is dropped so it does not linger in the save or ride along in a profile.
+    if WarpeeDB.catGap ~= nil then
+      local g = tonumber(WarpeeDB.catGap)
+      if g then
+        if WarpeeDB.catGapX == nil then WarpeeDB.catGapX = g end
+        if WarpeeDB.catGapY == nil then WarpeeDB.catGapY = g end
+      end
+      WarpeeDB.catGap = nil
+    end
+
     fillDefaults(WarpeeDB)
     for i = 1, #NUMERIC do
       local k = NUMERIC[i]
@@ -532,10 +544,16 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     fillComputed(WarpeeDB)
     if WarpeeDB.junkIcon == false then WarpeeDB.badge.junk.on = false end
 
-    -- Empty and Other are real, movable category rows now but neither is deletable, so both rows must
-    -- always exist; an older or short custom list gets them restored at the tail here, on every login.
+    -- The save used to keep its groups in a second table beside the categories; Migrate folds that
+    -- pair into the one ordered list once, markers and all, and drops the leftovers. Empty and Other
+    -- are real, movable category rows but neither is deletable, so both rows must always exist; an
+    -- older or short custom list gets them restored at the tail here, on every login.
+    -- UpgradeFloor sits between them because it is about the shipped rules rather than the shape of the
+    -- list: the four gear rows gained an item-level floor after saves existed, and it carries the floor
+    -- onto those rows where they are still exactly as shipped, leaving written rules alone.
     if ns.Categories then
-      ns.Categories:EnsureGroups()
+      ns.Categories:Migrate()
+      ns.Categories:UpgradeFloor()
       ns.Categories:EnsureEmpty()
       ns.Categories:EnsureOther()
     end
@@ -545,6 +563,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
 
     WarpeeDB.highContrast = nil
     WarpeeDB.bgAlpha = nil
+    WarpeeDB.catCollapsed = nil
     WarpeeDB.favCount = nil
     WarpeeDB.junkIcon = nil
     WarpeeDB.pocketKeyDone = nil

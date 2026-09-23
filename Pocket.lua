@@ -677,7 +677,7 @@ function Pocket:Layout()
   local head = band and (band + 6) or (30 + Theme:TopInset())
   local mid = (band or head) / 2 + Theme:TitleDrop()
   local path = ns.Fonts:Current()
-  self.title:SetFont(path, FONT - 1, "")
+  self.title:SetFont(path, FONT - 1, ns.OutlineFlags())
   paintTitle()
   self.title:ClearAllPoints()
   ns.SnapPoint(self.title, "LEFT", w, "TOPLEFT", PAD, -mid)
@@ -711,14 +711,14 @@ function Pocket:Layout()
   local recOn = (R and R:PocketOn()) and true or false
   local y = head
   if recOn then
-    self.recLabel:SetFont(path, FONT - 4, "")
+    self.recLabel:SetFont(path, FONT - 4, ns.OutlineFlags())
     self.recLabel:ClearAllPoints()
     ns.SnapPoint(self.recLabel, "TOPLEFT", w, "TOPLEFT", PAD, -y)
     self.recLabel:Show()
     local capY = y
     y = y + LABEL_H + LABEL_GAP
     local feed = R:Feed(cols)
-    self.recWipe.Text:SetFont(path, FONT - 5, "")
+    self.recWipe.Text:SetFont(path, FONT - 5, ns.OutlineFlags())
     self.recWipe:SetSize(math.ceil(self.recWipe.Text:GetStringWidth()) + 8, LABEL_H)
     self.recWipe:ClearAllPoints()
     ns.SnapPoint(self.recWipe, "TOPLEFT", w, "TOPLEFT",
@@ -844,15 +844,9 @@ function Pocket:Layout()
   local editable = not self:Locked()
   if self.nudge then self.nudge:SetShown(editable) end
   local foot = gridTop + (rows - 1) * step + size + BOX_GAP
-  if self.gridBg then
-    -- Up to the label of the topmost row when one is drawn, otherwise the top of the grid, and
-    -- down to the last row of it. The band under the arrows is not covered.
-    local top = recOn and head or gridTop
-    self.gridBg:ClearAllPoints()
-    self.gridBg:SetPoint("TOPLEFT", w, "TOPLEFT", PAD - 3, -(top - 3))
-    self.gridBg:SetPoint("TOPRIGHT", w, "TOPRIGHT", -(PAD - 3), -(foot + 3))
-    self.gridBg:SetAlpha(Theme:GridAlpha())
-  end
+  -- The plate runs the whole window, the band under the arrows included, and stops only under a
+  -- skin's own header (Theme:FitPlate).
+  Theme:FitPlate(self.gridBg, w)
   ns.SnapSize(w, PAD * 2 + cols * step - gap, foot + NUDGE_BAND)
   ns.AlignToScreen(w)
   local free = 0
@@ -878,7 +872,7 @@ function Pocket:PickPaint()
   local head = band and (band + 6) or (30 + Theme:TopInset())
   local mid = (band or head) / 2 + Theme:TitleDrop()
   if self.picksTitle then
-    self.picksTitle:SetFont(path, FONT - 1, "")
+    self.picksTitle:SetFont(path, FONT - 1, ns.OutlineFlags())
     self.picksTitle:ClearAllPoints()
     ns.SnapPoint(self.picksTitle, "LEFT", p, "TOPLEFT", PICK_PAD, -mid)
   end
@@ -887,8 +881,8 @@ function Pocket:PickPaint()
     ns.SnapPoint(self.picksClose, "RIGHT", p, "TOPRIGHT", -6, -mid)
   end
   if self.idBox then
-    self.idBox:SetFont(path, FONT - 2, "")
-    if self.idBox.Hint then self.idBox.Hint:SetFont(path, FONT - 2, "") end
+    self.idBox:SetFont(path, FONT - 2, ns.OutlineFlags())
+    if self.idBox.Hint then self.idBox.Hint:SetFont(path, FONT - 2, ns.OutlineFlags()) end
     self.idBox:ClearAllPoints()
     ns.SnapPoint(self.idBox, "TOPLEFT", p, "TOPLEFT", PICK_PAD, -head)
     ns.SnapPoint(self.idBox, "TOPRIGHT", p, "TOPRIGHT", -PICK_PAD, -head)
