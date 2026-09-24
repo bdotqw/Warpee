@@ -318,9 +318,7 @@ end
 
 -- Take a category code. mode "replace" puts the code's list in place of the current one; anything else
 -- merges, which is what the name says and what a caller that cannot ask for a choice should get: a
--- merge only adds rows, so a wrong guess never costs the player the list he built. A replace puts the
--- whole current state aside first, under a profile of its own, so the one destructive direction has a
--- way back (Profiles, "Before import") instead of being a lost evening.
+-- merge only adds rows, so a wrong guess never costs the player the list he built.
 function P:ImportCategories(str, mode)
   if not ns.Ready then return false, "Not ready" end
   if type(str) ~= "string" then return false, "Nothing to import" end
@@ -332,11 +330,6 @@ function P:ImportCategories(str, mode)
   if type(d) ~= "table" or type(d.list) ~= "table" then return false, "Damaged code" end
   if not upgrade(d, env._v) then return false, "Saved by a newer version" end
   local replace = (mode == "replace")
-  if replace then
-    local name = ns.L["Before import"]
-    WarpeeDB[LIST] = WarpeeDB[LIST] or {}
-    WarpeeDB[LIST][name] = self:Capture()
-  end
   local count, err = ns.Categories:TakeList(d.list, replace and "replace" or "merge", d.sort)
   if not count then return false, err or "Nothing to import" end
   if ns.Options then

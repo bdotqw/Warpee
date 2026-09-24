@@ -361,6 +361,43 @@ function View:Build()
   addTip(wdr, "Take gold out of the Warband bank", nil, "top")
   self.withdrawBtn = wdr
 
+  -- Deposit items: the game's own auto-deposit, which files the bags into the open bank by whatever tab
+  -- rules are set. One button, not two: you are only ever on one tab (Bank or Warband), so the label
+  -- follows the type. It rides the top-right header row, left of the gear, so the footer keeps gold and
+  -- the running total to itself; FlowHeader places it and UpdateFooter sets its text, width and shown
+  -- state. It runs C_Bank.AutoDepositItemsIntoBank on a real click; no protected slot is touched.
+  local depIt = ns.CreateButton(f, "", 130, 20)
+  depIt:SetScript("OnClick", function()
+    local bt = bankTypeFor(self.mode)
+    if bt and C_Bank and C_Bank.AutoDepositItemsIntoBank then
+      pcall(C_Bank.AutoDepositItemsIntoBank, bt)
+    end
+  end)
+  addTip(depIt, function()
+    return { { text = ns.L["Deposit your bags into this bank"], color = "dim" } }
+  end, "top")
+  depIt:Hide()
+  self.depItemsBtn = depIt
+
+  -- Include reagents: a single game CVar the auto-deposit reads, so the checkbox only mirrors it and the
+  -- game does the work. It rides the header beside the deposit button; FlowHeader anchors both.
+  local reagBox = ns.CreateCheckBox(f, 16)
+  local reagHit = CreateFrame("Button", nil, f)
+  reagHit:SetPoint("CENTER", reagBox, "CENTER", 0, 0)
+  reagHit:SetSize(16, 20)
+  reagHit:RegisterForClicks("LeftButtonUp")
+  reagHit:SetScript("OnEnter", function() reagBox:SetKeys(nil, "accent", nil) end)
+  reagHit:SetScript("OnLeave", function() reagBox:SetKeys(nil, "stroke", nil) end)
+  reagHit:SetScript("OnClick", function()
+    local on = not GetCVarBool("bankAutoDepositReagents")
+    SetCVar("bankAutoDepositReagents", on)
+    reagBox.mark:SetShown(on)
+  end)
+  local reagLabel = Theme:Label(f, 12, "dim")
+  ns.LocalText(reagLabel, "Include reagents")
+  reagBox:Hide(); reagHit:Hide(); reagLabel:Hide()
+  self.reagBox, self.reagHit, self.reagLabel = reagBox, reagHit, reagLabel
+
   self:BuildBuyButtons()
 
   local gridBg = Theme:Rect(f, "panel", "BACKGROUND")
@@ -427,8 +464,46 @@ function View:FlowHeader()
   sizeGlyph(self.closeBtn, HBTN)
   sizeGlyph(self.gearBtn, HBTN)
   sizeGlyph(self.sortBtn, HBTN)
-  self.headEdge = ns.FlowRow(self.frame, -PAD, -row1, 4,
+  -- The three glyphs sit at the right edge. Sort is hidden in grouped view (nothing to sort a
+  -- category layout by), so the flow skips it and the gear closes up to the X. Left of the glyphs comes
+  -- the deposit button, and left of that the checkbox with its label to the checkbox's left, so the row
+  -- reads "Include reagents [checkbox]  [Deposit ...]  glyphs" left to right. The tabs occupy the left
+  -- of this same row, so each control is shown only while it still clears the tabs' right edge: the
+  -- deposit button and the reagents check are tested on their own, so a narrow window drops whichever
+  -- does not fit rather than both. UpdateFooter sets depWant/reagWant (the bank type wants them); the
+  -- fit test here has the final say on shown state.
+  local edge = ns.FlowRow(self.frame, -PAD, -row1, 4,
     { self.closeBtn, self.gearBtn, self.sortBtn })
+  local bound = 0
+  local tabEdge = self.wbTab and self.wbTab:IsShown() and self.wbTab:GetRight()
+  if tabEdge then bound = tabEdge + 8 end
+  local prev = edge
+  if self.depItemsBtn then
+    local anchorL = self.depWant and prev and prev:GetLeft()
+    if anchorL and (anchorL - 8 - self.depItemsBtn:GetWidth()) >= bound then
+      self.depItemsBtn:ClearAllPoints()
+      ns.SnapPoint(self.depItemsBtn, "RIGHT", prev, "LEFT", -8, 0)
+      self.depItemsBtn:Show()
+      prev = self.depItemsBtn
+    else
+      self.depItemsBtn:Hide()
+    end
+  end
+  if self.reagLabel then
+    local anchorL = self.reagWant and prev and prev:GetLeft()
+    local w = 16 + 4 + math.ceil(self.reagLabel:GetStringWidth())
+    if anchorL and (anchorL - 8 - w) >= bound then
+      self.reagBox:ClearAllPoints()
+      ns.SnapPoint(self.reagBox, "RIGHT", prev, "LEFT", -8, 0)
+      self.reagLabel:ClearAllPoints()
+      ns.SnapPoint(self.reagLabel, "RIGHT", self.reagBox, "LEFT", -4, 0)
+      self.reagBox:Show(); self.reagHit:Show(); self.reagLabel:Show()
+      prev = self.reagLabel
+    else
+      self.reagBox:Hide(); self.reagHit:Hide(); self.reagLabel:Hide()
+    end
+  end
+  self.headEdge = prev
 end
 
 function View:AnchorHeader()
@@ -1672,6 +1747,11 @@ function View:Fonts()
   end
   if self.depositBtn then put(self.depositBtn.Text, -1); fit(self.depositBtn, 70, 18) end
   if self.withdrawBtn then put(self.withdrawBtn.Text, -1); fit(self.withdrawBtn, 76, 18) end
+  -- The deposit-items label is the game's own and can be long ("Deposit All Reagents"), so the button
+  -- is not a fixed width: the font goes on here and UpdateFooter sizes it to whatever text the bank type
+  -- put on it. The reagents label rides the same face as the rest of the footer.
+  if self.depItemsBtn then put(self.depItemsBtn.Text, -1) end
+  if self.reagLabel then put(self.reagLabel, -1) end
   if self.frame and self.frame.wpeBar then
     self.frame.wpeBar:Fonts(path, math.max(8, base - 2))
     self.frame.wpeBar:Size(ns.Density(self:CellSize()).moveH)
@@ -1734,6 +1814,21 @@ end
 function View:Layout()
   if not (self.frame and self.cur) then return end
   applyDensity(self:CellSize())
+  -- A font, theme or slot-style change bumps Bags.styleGen. The bags nil every cell's link on that
+  -- (Bags:Refont) so the next paint redraws its text at the new face; the bank pools live here and were
+  -- never cleared, so a badge like the bind tag kept the old font. The paint is drip-sliced with a
+  -- cancel token, and repaint is decided once by a PaintKey change: a second Layout in the same batch
+  -- (the FitHeader/ApplyFont timers relayout fires) sees the key already stored, decides repaint is
+  -- false, and cancels the first drip mid-pass, leaving every cell it had not reached on the old face
+  -- until a drag changed the link. Clearing the links across both states whenever the generation moved
+  -- makes the guard in UpdateItemButton miss on every cell regardless of the drip race, as the bags do.
+  if self.styleGenSeen ~= Bags.styleGen then
+    self.styleGenSeen = Bags.styleGen
+    for _, st in pairs(self.state) do
+      for _, b in ipairs(st.pool) do b.link = nil end
+      for _, b in ipairs(st.vpool) do b.link = nil end
+    end
+  end
   self:Fonts()
   self:AnchorHeader()
   self:LayoutMode(self.cur, "fill")
@@ -1811,7 +1906,10 @@ function View:UpdateFooter()
   local bt = bankTypeFor(self.mode)
   local live = bankLive(self, bt)
   local transfer = live and moneyTransfer(bt)
-  if self.sortBtn then self.sortBtn:SetShown(live) end
+  -- Sort is a grid idea: grouped view arranges by category, so there is nothing for the game's bank
+  -- sort to reorder there. Hidden in cat mode; FlowHeader then closes the gap and the deposit button
+  -- flows up to where sort would have been.
+  if self.sortBtn then self.sortBtn:SetShown(live and not self:CatMode()) end
   self:FlowHeader()
 
   local function gate(btn, canName)
@@ -1824,6 +1922,40 @@ function View:UpdateFooter()
   end
   gate(self.depositBtn, "CanDepositMoney")
   gate(self.withdrawBtn, "CanWithdrawMoney")
+
+  -- Deposit items and its reagents box live with a banker only, like the money buttons, and only for a
+  -- bank type the game will auto-deposit into. The label is the game's own, so it reads "Deposit" in the
+  -- character bank and the warbound wording in the warband, matching the default bank on every client.
+  do
+    local autoDep = live and C_Bank and C_Bank.DoesBankTypeSupportAutoDeposit
+    local canDep = false
+    if autoDep then local ok, v = pcall(C_Bank.DoesBankTypeSupportAutoDeposit, bt); canDep = ok and v end
+    local account = bt == (Enum and Enum.BankType and Enum.BankType.Account)
+    -- "Want" is the bank type's answer: whether the control belongs here at all. FlowHeader has the
+    -- final say on shown state, dropping either one on its own when the row runs out of room, so it must
+    -- know the width of both before deciding. Set the label and width here, flag want, then flow.
+    self.depWant = canDep and true or false
+    if self.depItemsBtn and canDep then
+      -- Our own button, our own words in every locale: the character bank files reagents, the warband
+      -- files warbound items, so the label follows the type. Read live from ns.L so a language change
+      -- (which calls Refresh -> Layout -> here) re-evaluates it, the same as every other label.
+      self.depItemsBtn.Text:SetText(ns.L[account and "Deposit warbound items" or "Deposit reagents"])
+      -- Width follows the label: the words differ by bank type and locale, so a fixed box clipped the
+      -- longer ones. Pad each side so the text is never flush to the edge, and keep the header height.
+      local w = math.ceil(self.depItemsBtn.Text:GetStringWidth()) + 24
+      self.depItemsBtn:SetWidth(math.max(70, w))
+      self.depItemsBtn:SetHeight(HBTN)
+    end
+    -- The reagents box is a warband idea: only the account bank sorts reagents into a reagent tab, so the
+    -- character bank offers the deposit button without it, exactly as the default frame gates it.
+    self.reagWant = canDep and account
+    if self.reagBox and self.reagWant then
+      self.reagBox.mark:SetShown(GetCVarBool("bankAutoDepositReagents"))
+    end
+    -- Both live on the top row now, so re-flow the header once want/width are set: FlowHeader fits each
+    -- against the tabs' edge and shows or hides it on its own.
+    self:FlowHeader()
+  end
 
   for mode, b in pairs(self.buyBtn or {}) do if mode ~= self.mode then b:Hide() end end
   local buy = self.buyBtn and self.buyBtn[self.mode]

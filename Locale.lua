@@ -73,12 +73,20 @@ end
 function ns.ApplyLocaleText()
   for _, w in ipairs(watched) do paint(w) end
   for name, key in pairs(globals) do _G[name] = L[key] end
+  -- A language change moves the item badges too, not only the labels above: the bind tag reads
+  -- ns.L["BoE"]/["BoA"]/["WuE"], which localize on some clients, and the badge is only rewritten when
+  -- UpdateItemButton's link guard misses. Nil every cell's link so it misses on all of them, and bump
+  -- the style generation so the bank's own paint guard (styleGenSeen) rebuilds its pools the same way a
+  -- font change does. Without this a bound item kept its old-language tag until it was dragged.
+  if ns.ClearItemPaint then ns.ClearItemPaint() end
+  if ns.Bags then ns.Bags.styleGen = (ns.Bags.styleGen or 0) + 1 end
   if ns.Bags and ns.Bags.frame and ns.Bags.frame:IsShown() and ns.Bags.Layout then
     ns.Bags:Layout()
   end
   if ns.Bank and ns.Bank.frame and ns.Bank.frame:IsShown() and ns.Bank.Refresh then
     ns.Bank:Refresh()
   end
+  if ns.Pocket and ns.Pocket.Apply then ns.Pocket:Apply() end
   if ns.Profiles and ns.Profiles.Reflow then ns.Profiles:Reflow() end
 end
 

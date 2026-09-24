@@ -220,6 +220,11 @@ local function repaintItems()
 end
 
 local repaintQ
+-- Difficulty at the last world entry, and the time an item-targeting spell was last on the
+-- cursor: both let a later branch tell a real transition from an ordinary one. See PLAYER_ENTERING_WORLD
+-- (timewalking rescale) and UNIT_SPELLCAST_SUCCEEDED (a lockbox or a mill/prospect cast finishing).
+local lastDifficulty
+local lastItemSpell = 0
 local function repaintSoon()
   if repaintQ then return end
   repaintQ = true
@@ -471,6 +476,7 @@ for _, e in ipairs({ "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CH
                      "PLAYER_EQUIPMENT_CHANGED",
                      "PLAYER_INTERACTION_MANAGER_FRAME_SHOW",
                      "PLAYER_INTERACTION_MANAGER_FRAME_HIDE",
+                     "CURRENT_SPELL_CAST_CHANGED", "UNIT_SPELLCAST_SUCCEEDED",
                      "ITEM_CHANGED" }) do
   pcall(ev.RegisterEvent, ev, e)
 end
@@ -654,6 +660,30 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     repaintSoon()
   elseif event == "PLAYER_ENTERING_WORLD" then
     ns.ClearUnusableCache()
+    -- Timewalking rescales every equippable item to the event's level, and the number changes at the
+    -- instance boundary with no BAG_UPDATE behind it. GetCurrentItemLevel is read live per paint, so a
+    -- window left open across the zone-in kept the outside ilvl on its cells. Difficulty 33 is
+    -- Timewalking; repaint only when that boundary is actually crossed, not on every loading screen.
+    local diff = GetDungeonDifficultyID and GetDungeonDifficultyID()
+    if diff ~= lastDifficulty then
+      local twNow, twWas = (diff == 33), (lastDifficulty == 33)
+      lastDifficulty = diff
+      if twNow ~= twWas then repaintSoon() end
+    end
+  elseif event == "CURRENT_SPELL_CAST_CHANGED" then
+    -- The moment a right-click puts an item-targeting spell on the cursor (a lockbox key, mill,
+    -- prospect, disenchant), note the time. UNIT_SPELLCAST_SUCCEEDED below uses it to know the cast
+    -- that just finished was one of ours worth refreshing after, without watching every cast.
+    if ns.ItemTargeting() then lastItemSpell = GetTime() end
+  elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
+    -- A lockbox opened by right-click, or a mill/prospect/disenchant, targets an item and the bag
+    -- change lands a beat later than the cast. If our own click just put an item-targeting spell on
+    -- the cursor, refresh once the cast reports done so #locked and counts do not sit stale until the
+    -- delayed BAG_UPDATE. Only after a recent targeting cast, so ordinary casts cost nothing here.
+    if a1 == "player" and (GetTime() - lastItemSpell) < 2 then
+      lastItemSpell = 0
+      repaintLater()
+    end
   elseif event == "ITEM_CHANGED" then
     repaintSoon()
     repaintLater()

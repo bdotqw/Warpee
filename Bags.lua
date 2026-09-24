@@ -1826,6 +1826,110 @@ do
   end)
 end
 
+-- The game already knows which bag slots do not belong in whatever interaction window is open: the item
+-- upgrade frame, the scrapper, a gem socket, the runeforge, void storage, a bank type that refuses the
+-- item. It greys those cells in its own bags. ItemButtonUtil answers the same question for a slot across
+-- every context at once, so one match test says which cells to dim without the addon having to name the
+-- window or know its rules. DoesNotApply means nothing is open; only a real Mismatch dims. The house and
+-- the merchant keep their own reasons above; this is everything the client itself fades.
+local ctxMismatch = ItemButtonUtil and ItemButtonUtil.ItemContextMatchResult
+  and ItemButtonUtil.ItemContextMatchResult.Mismatch
+function ns.ContextBlocked(b)
+  if not (ctxMismatch and ItemButtonUtil.GetItemContextMatchResultForItem) then return false end
+  if not (b and b.wpeBagID and b.GetID and ItemLocation) then return false end
+  local loc = ItemLocation:CreateFromBagAndSlot(b.wpeBagID, b:GetID())
+  if not (loc and loc:IsValid()) then return false end
+  local ok, res = pcall(ItemButtonUtil.GetItemContextMatchResultForItem, loc)
+  return ok and res == ctxMismatch
+end
+
+-- The client fires this the moment an interaction window opens, closes, or switches (a new bank type,
+-- the next socket). Re-dim the open bags on it so the grey tracks the window with no polling.
+do
+  if ItemButtonUtil and ItemButtonUtil.RegisterCallback and ItemButtonUtil.Event then
+    local owner = {}
+    ItemButtonUtil.RegisterCallback(ItemButtonUtil.Event.ItemContextChanged, function()
+      if ns.RefreshBagDim then ns.RefreshBagDim() end
+    end, owner)
+  end
+end
+
+-- The guild bank is not one of the contexts ItemButtonUtil answers for, so the client never fades a bag
+-- slot for it and ContextBlocked stays blind here. The rule the guild bank enforces is its own: a slot
+-- takes anything except an item bound to the player and an account-bound-until-equipped item, so those
+-- two are what read as unavailable while the guild vault is open. Both flags come off the container info
+-- and the item location, no tooltip scan, in keeping with the no-scan-per-slot rule.
+local guildOpen = false
+local mailOpen = false
+function ns.GuildDepositBlocked(b)
+  if not guildOpen then return false end
+  if not (b and b.wpeBagID and b.GetID) then return false end
+  local info = C_Container.GetContainerItemInfo(b.wpeBagID, b:GetID())
+  if not info then return false end
+  if info.isBound then return true end
+  if ItemLocation and C_Item and C_Item.IsBoundToAccountUntilEquip then
+    local loc = ItemLocation:CreateFromBagAndSlot(b.wpeBagID, b:GetID())
+    if loc and loc:IsValid() then
+      local ok, boa = pcall(C_Item.IsBoundToAccountUntilEquip, loc)
+      if ok and boa then return true end
+    end
+  end
+  return false
+end
+
+-- Flip the guild dim with the guild bank window and re-dim the open bags at each edge, the same shape as
+-- the auction and merchant paths. The interaction manager names the frame, so GuildBanker is the one to
+-- watch and nothing else on this frame concerns the bags.
+do
+  local ev = CreateFrame("Frame")
+  ev:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
+  ev:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
+  local GUILD = Enum and Enum.PlayerInteractionType and Enum.PlayerInteractionType.GuildBanker
+  local MAIL = Enum and Enum.PlayerInteractionType and Enum.PlayerInteractionType.MailInfo
+  ev:SetScript("OnEvent", function(_, event, kind)
+    local show = (event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
+    if kind == GUILD then
+      guildOpen = show
+    elseif kind == MAIL then
+      mailOpen = show
+    else
+      return
+    end
+    if ns.RefreshBagDim then ns.RefreshBagDim() end
+  end)
+end
+
+-- Mail takes two signals, not one: the mail window has to be up and the Send tab, not the inbox, has to
+-- be the one showing. The interaction manager gives the first; SetSendMailShowing gives the second and
+-- fires on every tab switch. The rule for what cannot be sent is its own too — a bound item cannot go in
+-- the post, except one bound to the account, which can still reach your own alts, so that one stays lit.
+local mailSend = false
+do
+  if type(SetSendMailShowing) == "function" then
+    hooksecurefunc("SetSendMailShowing", function(state)
+      mailSend = state and true or false
+      if ns.RefreshBagDim then ns.RefreshBagDim() end
+    end)
+  end
+end
+
+function ns.MailBlocked(b)
+  if not (mailOpen and mailSend) then return false end
+  if not (b and b.wpeBagID and b.GetID) then return false end
+  local info = C_Container.GetContainerItemInfo(b.wpeBagID, b:GetID())
+  if not info or not info.isBound then return false end
+  -- Bound, so the post refuses it unless the account bank would take it: an account-bound piece can be
+  -- mailed to your own characters, so it is the one bound item that stays available.
+  if ItemLocation and C_Bank and C_Bank.IsItemAllowedInBankType and Enum and Enum.BankType then
+    local loc = ItemLocation:CreateFromBagAndSlot(b.wpeBagID, b:GetID())
+    if loc and loc:IsValid() then
+      local ok, allowed = pcall(C_Bank.IsItemAllowedInBankType, Enum.BankType.Account, loc)
+      if ok and allowed then return false end
+    end
+  end
+  return true
+end
+
 function Bags:FitHeader()
   if not (self.frame and self.search) then return end
   self:FlowHeader()
@@ -2457,6 +2561,9 @@ end
 function Bags:ApplyToButton(b)
   local blocked = (ns.DepositBlocked and ns.DepositBlocked(b))
     or (ns.AuctionBlocked and ns.AuctionBlocked(b))
+    or (ns.ContextBlocked and ns.ContextBlocked(b))
+    or (ns.GuildDepositBlocked and ns.GuildDepositBlocked(b))
+    or (ns.MailBlocked and ns.MailBlocked(b))
   ns.ApplySearchToButton(b, self.filters, blocked)
 end
 

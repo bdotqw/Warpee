@@ -1567,6 +1567,17 @@ function ns.PaintVaultButton(b, d, bagID)
       itemID = itemID or tonumber(link:match("keystone:(%d+)"))
       if itemID then iconID = ns.PinIcon(itemID) end
     end
+    -- A caged battle pet is a battlepet: hyperlink, not an item: one, so GetItemInfoInstant answers
+    -- nothing by it and the snapshot cell drew empty the same way the keystone did. The species id is
+    -- the first field of the link; the pet journal keeps that species' own icon (the second return),
+    -- which is the picture the live grid shows off the container.
+    if not iconID and link:find("battlepet:", 1, true) then
+      local species = tonumber(link:match("battlepet:(%d+)"))
+      if species and C_PetJournal and C_PetJournal.GetPetInfoBySpeciesID then
+        local ok, _, icon = pcall(C_PetJournal.GetPetInfoBySpeciesID, species)
+        if ok and icon then iconID = icon end
+      end
+    end
   end
   SetItemButtonTexture(b, iconID)
   SetItemButtonCount(b, count)

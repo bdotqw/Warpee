@@ -41,7 +41,6 @@ local STRINGS = {
   ["Adds a divider at the bottom, then drag it up to seam the rows where you want"] = "Agrega un separador al final; arrástralo hacia arriba para separar las filas que quieras",
   ["Asks first, then puts every shipped category back"] = "Pregunta antes y después devuelve todas las categorías de serie",
   ["Damaged code"] = "Código dañado",
-  ["Before import"] = "Antes de importar",
   ["Categories code"] = "Código de categorías",
   ["Imported sections: %d"] = "Secciones importadas: %d",
   ["Replace the category list with this code?"] = "¿Reemplazar la lista de categorías con este código?",

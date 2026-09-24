@@ -100,7 +100,7 @@ local GROUP_NAMEKEY = {
 
 local NAMEKEY = {
   hearthstone   = "Hearthstone",
-  keystone      = "Keystones",
+  keystone      = "Keystone",
   flasks        = "Flasks",
   food          = "Food",
   potions       = "Potions",

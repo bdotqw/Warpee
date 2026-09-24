@@ -1,61 +1,25 @@
 # Warpee
 
-## 10.0
+## 11.0
 
 ENG
 
-New
-
-- Categories: the bags, the bank and the warband bank can now lay out in sections
-- Category editor
-- Auction house: while it is open, things you cannot list go dim — unsellable reads at a glance
-- The vendor sell button in the bag header honestly says "This merchant only repairs" where there is nothing to sell to — instead of a dim coin with no reason
-- Two new languages: Korean and Traditional Chinese; Latin-American Spanish split from European
-- Category import and export split off from profiles, but the strings stay interchangeable: either pastes into either field
-
-Fixes
-
-- The merchant keeps every alchemist stone from Classic to Midnight: the list audited per expansion
-- Auto-selling junk and the vendor sell button no longer try to sell to a merchant who buys nothing
-- A BoE takes its badge off once bound
-- Snapshots draw the keystone
-- Off-hand parses as part of armor again
-- A key in the second binding slot counts: no double auto-binds, and the hints name the right key
-- Editor buttons size to their own word, so no translation gets clipped
-- Every settings dropdown got a scrollbar, so it reads as scrollable
-- Dragging a window no longer pulls its text and icons apart
-- Items drop onto any point of the bags and the bank
-- outline.slug now applies to every font
-- Recent / favorites no longer show when viewing another character's snapshots
-- The favorites border hides in search too
-- Cells placed mid-search start dimmed like the rest, instead of flashing full until the next pass
-- A dropdown opens as wide as its longest entry and every entry stays on one line, so a two-word label no longer wraps into a second line it has no room for
+- While a window is open that some items cannot go into, those items dim like a search miss. Covers item upgrades, the scrapper, gem sockets, the runeforge, void storage, the guild bank, and sending mail.
+- A deposit button in the bank header files your bags into the open bank in one press — reagents at the character bank, warbound items at the warband bank — with an include-reagents checkbox, shown only with a banker.
+- Caged battle pets show their icon in snapshots, like keystones.
+- Item level on a cell refreshes on entering or leaving a timewalking raid.
+- Bind badges (BoE/BoA/WuE) read in the local abbreviation on Chinese, Korean, French and German clients.
+- Bind badges in the bank and warband repaint at once on a font or language change.
+- Importing a category code replaces the list directly, no longer stashing your old list as a profile first.
+- The Keystones category reads "Keystone" — you only ever hold one.
 
 RU
 
-Новое
-
-- Категории: сумки, банк и банк отряда теперь можно расскладывать по секциям 
-- Редактор категорий
-- Аукцион: при открытом доме вещи, которые нельзя выставить, тускнеют — сразу видно, что не продаётся
-- Кнопка продажи вендору в хеадере сумки честно говорит «Этот торговец только чинит», когда продать негде, — вместо тусклой монеты без причины
-- Два новых языка: корейский и традиционный китайский; латиноамериканский испанский отделён от европейского
-- Импорт и экспорт категорий отделён от профилей, но строки взаимозаменяемы: любая вставляется в любое поле
-
-Исправления
-
-- Торговец держит все алхимические камни от классики до Midnight: список сверен по дополнениям
-- Авто продажа мусора и авто продажа от кнопки продажи вендору больше не пытается продать вещи вендору который ничего не покупает
-- BoE после привязки снимает плашку
-- Ключ рисуется в снапшотах
-- офф-хенд снова парсится как часть брони
-- Клавиша во втором слоте бинда считается: никаких двойных автобиндов, подсказки называют правильную клавишу
-- Кнопки в редакторе подстраиваются под своё слово, поэтому ни один перевод не обрезается
-- Во всех дропдаунах в настройках были добавлены скролл бары, для большей интуитивности что список можно скроллить
-- При перетаскивании окна текст и значки больше не разъезжаются
-- Вещи теперь можно снять в любую точку сумок и банка
-- Ко всем шрифтам теперь применяется outline.slug
-- Недавние / избранное больше не показывается при просмотре снапшотов других персонажей
-- Бордер ячеек фейворит теперь тоже скрывается при поиске
-- Выпадающий список открывается по ширине самой длинной строки, и каждая строка остаётся одной строкой: подпись из двух слов больше не переносится на вторую, для которой в строке нет места
-- Плотность подложки доходит до всего окна: подложка — дополнительный слой поверх собственного фона окна, и теперь она накрывает шапку, сетку и низ сразу, а не оставляет вокруг себя полосу голого фона.
+- Пока открыто окно, куда часть предметов положить нельзя, они тускнеют как при промахе поиска: улучшение, распылитель, гнёзда, рунная ковка, хранилище, гильдбанк, отправка почты.
+- Кнопка сдачи в шапке банка раскладывает сумки одним нажатием: реагенты — в личный, предметы отряда — в банк отряда. Только у банкира.
+- Пойманные питомцы показывают иконку в снимках.
+- Уровень предмета обновляется при входе и выходе из таймволкинг-рейда.
+- Бейджи привязки (BoE/BoA/WuE) пишутся местной аббревиатурой на китайском, корейском, французском и немецком клиентах.
+- Бейджи привязки в банке и банке отряда перерисовываются сразу при смене шрифта или языка.
+- Импорт кода категорий заменяет список напрямую, прежний в профиль не откладывается.
+- Категория ключа м+ называется «Ключ» — он всегда один.

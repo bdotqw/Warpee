@@ -2937,14 +2937,13 @@ function factories.catlist(parent, spec)
   -- The share line, under the buttons that make rows: one code, both directions. A code carries this
   -- list and nothing else — no positions, no sizes, no theme — so it can be pasted to another player and
   -- mean the same thing there. The field below serves both ways, the way the profile panel's own field
-  -- does: Export fills it, Import reads it. Import replaces the whole list, behind a confirm; the list you
-  -- had is kept as the Before import profile, so the one destructive direction has a way back.
+  -- does: Export fills it, Import reads it. Import replaces the whole list, behind a confirm.
   local shareExp = ns.CreateButton(row, ns.L["Export"], 120, 22)
   ns.LocalText(shareExp, "Export")
   local shareImp = ns.CreateButton(row, ns.L["Import"], 120, 22)
   ns.LocalText(shareImp, "Import")
   tip(shareExp, "Fills the field below with a code for this list: copy it and paste it wherever it should be applied")
-  tip(shareImp, "Reads the code in the field and asks before replacing your list; the list you had is kept as a profile, so it can be brought back")
+  tip(shareImp, "Reads the code in the field and replaces your list with it")
   local share = {
     { btn = shareExp, key = "Export" },
     { btn = shareImp, key = "Import" },
@@ -2975,9 +2974,7 @@ function factories.catlist(parent, spec)
   shareImp:SetScript("OnClick", function()
     local text = codeBox:GetText()
     if noCode(text) then say(T("Nothing to import")) return end
-    -- No confirm: a category import replaces the list, but the list you had is put aside as the
-    -- "Before import" profile first (see ImportCategories), so the replace is one click to undo and a
-    -- question in front of it only adds a step. A profile code pasted here is applied like the profile
+    -- A category import replaces the whole list. A profile code pasted here is applied like the profile
     -- panel does; catImport reads the kind off the code either way.
     Options.catImport(text, "replace")
   end)
