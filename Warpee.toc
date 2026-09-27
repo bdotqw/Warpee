@@ -2,7 +2,7 @@
 ## Title: Warpee
 ## Notes: Bags for farmers and alt collectors
 ## Author: Naavo
-## Version: 11.0
+## Version: 11.1
 ## SavedVariables: WarpeeDB
 ## X-Category: Inventory
 ## IconTexture: Interface\AddOns\Warpee\Media\Icons\logo.tga
@@ -14,7 +14,7 @@ Libs\LibStub.lua
 Libs\CallbackHandler-1.0.lua
 Libs\LibSharedMedia-3.0.lua
 
-Locale.lua
+Core\Locale.lua
 Locales\deDE.lua
 Locales\esES.lua
 Locales\esMX.lua
@@ -25,24 +25,25 @@ Locales\ruRU.lua
 Locales\zhCN.lua
 Locales\koKR.lua
 Locales\zhTW.lua
-Theme.lua
-Density.lua
-Widgets.lua
-Tooltip.lua
-ItemRules.lua
-ItemButton.lua
-Bags.lua
-Categories.lua
-Favorites.lua
-Recent.lua
-Pocket.lua
-Tokens.lua
-Vendor.lua
-MinimapIcon.lua
-Vault.lua
-CharPicker.lua
-Bank.lua
-GuildBank.lua
-Options.lua
-Profiles.lua
-Core.lua
+Core\Theme.lua
+Core\Density.lua
+Core\Widgets.lua
+Core\Tooltip.lua
+Items\ItemRules.lua
+Items\ItemButton.lua
+Windows\Bags.lua
+Items\Categories.lua
+Features\Favorites.lua
+Features\Recent.lua
+Windows\Pocket.lua
+Features\Tokens.lua
+Features\Vendor.lua
+Features\MinimapIcon.lua
+Windows\Vault.lua
+Windows\CharPicker.lua
+Windows\Bank.lua
+Windows\GuildBank.lua
+Features\Options.lua
+Features\Welcome.lua
+Core\Profiles.lua
+Core\Core.lua

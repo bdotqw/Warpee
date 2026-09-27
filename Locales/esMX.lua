@@ -1,10 +1,15 @@
 local addonName, ns = ...
 
 local WORDS = {
+  ["ligado-a-la-tropa"] = "warbound",
   ["tropa"] = "warband",
 }
 
 local STRINGS = {
+  ["Every condition has to match"] = "Todas las condiciones deben coincidir",
+  ["Any one condition is enough"] = "Basta con una condición",
+  ["Drag an item here to pin it, or click to write an id"] = "Arrastra un objeto aquí para fijarlo, o haz clic para escribir un id",
+  ["Item ID"] = "ID de objeto",
   ["Bank and Warband grid"] = "Cuadrícula del banco y la tropa",
   ["BoE while unbound, WuE for warbound until equipped, BoA for account bound."] = "BoE mientras no está vinculado, WuE vinculado a la tropa hasta equipar, BoA a la cuenta.",
   ["Warband slots per row"] = "Espacios por fila (tropa)",
@@ -44,7 +49,26 @@ local STRINGS = {
   ["Categories code"] = "Código de categorías",
   ["Imported sections: %d"] = "Secciones importadas: %d",
   ["Replace the category list with this code?"] = "¿Reemplazar la lista de categorías con este código?",
+  ["Add condition"] = "Agregar condición",
+  ["Match"] = "Coincidencia",
+  ["All"] = "Todas",
+  ["Any"] = "Cualquiera",
+  ["All: every condition must match. Any: one condition is enough."] = "Todas: deben coincidir todas las condiciones. Cualquiera: basta con una.",
+  ["catches %d in bags"] = "recoge %d en las bolsas",
+  ["item shows here"] = "el objeto aparece aquí",
+  ["Type an item id to preview and pin it, or drag an item here"] = "Escribe un id de objeto para previsualizarlo y fijarlo, o arrastra un objeto aquí",
+  ["Left click flips to Not, right click removes"] = "Clic izquierdo lo cambia a No, clic derecho lo quita",
+  ["Use chips"] = "Editar con condiciones",
+  ["Edit as text"] = "Editar como texto",
+  ["Item class"] = "Clase de objeto",
+  ["Armor type"] = "Tipo de armadura",
+  ["Property"] = "Propiedad",
+  ["Collectible"] = "Coleccionable",
   ["Replace list"] = "Reemplazar lista",
+  ["Drop an item here, or type an id"] = "Arrastra un objeto aquí o escribe un id",
+  ["Drop an item here to pin it, or type its id. Pins beat rules, so a pinned item always lands in this category."] = "Arrastra un objeto aquí para fijarlo, o escribe su id. Lo fijado manda sobre las reglas, así que un objeto fijado siempre cae en esta categoría.",
+  ["Which section claims an item that more than one rule matches: the higher priority wins, whatever the order in the list. Left at 0, the section higher in the list wins, as before."] = "Qué sección se queda con un objeto que encaja con más de una regla: gana la prioridad más alta, sin importar el orden en la lista. Si la dejas en 0, se lo queda la sección de más arriba, como antes.",
+  ["Which windows this category shows in. Unchecked windows drop its items through to the next matching category."] = "En qué ventanas aparece esta categoría. Las ventanas sin marcar dejan pasar sus objetos a la siguiente categoría que encaje.",
 }
 
 ns.AddLocale("esMX", "Spanish (LatAm)", {

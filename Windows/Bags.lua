@@ -265,8 +265,14 @@ function Bags:Build()
   self.closeBtn = close
 
   local sort = ns.CreateGlyphButton(f, "", HB, "icon")
+  -- The button always runs the full clean-up (the game's sort, which also merges partial stacks). In the
+  -- category view the grouped picture does not change, but the grid slots under it get sorted and stacked,
+  -- so switching back to the grid shows a tidied bag.
   sort:SetScript("OnClick", function() Bags:SortBags() end)
-  addTip(sort, "Clean up bags")
+  -- The client's own name for this button, read from the live global so it always matches the game in
+  -- every locale and rides along with any wording change Blizzard makes; the literal only stands in on
+  -- the vanishingly rare load where the global is not set yet.
+  addTip(sort, _G.BAG_CLEANUP_BAGS or "Clean Up Bags")
   local sortIcon = sort:CreateTexture(nil, "ARTWORK")
   sortIcon:SetAtlas("auctionhouse-ui-sortarrow")
   sortIcon:SetSize(13, 15)
@@ -673,7 +679,7 @@ function Bags:Layout(capture)
   self.content:ClearAllPoints()
   ns.SnapPoint(self.content, "TOPLEFT", self.frame, "TOPLEFT", PAD, -self:TopOffset())
 
-  local function place(bag, slot, x, y)
+  local function place(bag, slot, x, y, forceCount)
     i = i + 1
     local b = self:Acquire(i)
     if not b then return end
@@ -696,9 +702,13 @@ function Bags:Layout(capture)
       b.wpeX, b.wpeY = x, y
     end
     b.link = nil
+    -- Combine-stacks: the cell binds one real bag slot (so the secure click is untouched) but draws the
+    -- summed count of every folded slot. wpeForce overrides only the number UpdateItemButton shows; nil
+    -- clears it, so a cell reused from a merged layout in the plain grid shows its own slot count again.
+    b.wpeForce = forceCount
     h:Show(); b:Show()
     if self.snap then
-      ns.PaintVaultButton(b, ns.Vault:Slot("bags", bag, slot), bag)
+      ns.PaintVaultButton(b, ns.Vault:Slot("bags", bag, slot), bag, forceCount)
     else
       ns.UpdateItemButton(b)
     end
@@ -782,9 +792,10 @@ function Bags:Layout(capture)
   local active, idle = self:Pool(), (self.snap and self.pool or self.vpool)
   for j = i + 1, #active do active[j].holder:Hide() end
   for _, b in ipairs(idle) do if b.holder:IsShown() then b.holder:Hide() end end
-  -- Sorting is a grid idea: it reorders the live bag slots. Category view groups by rule and draws
-  -- each section in its own order, so the button has nothing to act on there and is hidden.
-  if self.sortBtn then self.sortBtn:SetShown(not self.snap and not self:CatMode()) end
+  -- The clean-up button acts on the live grid slots (sort + stack merge) whatever view is shown. In the
+  -- category view the grouped picture does not visibly change, but the underlying grid is tidied for the
+  -- next switch back. Only a snapshot has no live container to act on, so it alone hides the button.
+  if self.sortBtn then self.sortBtn:SetShown(not self.snap) end
   if self.reagentBtn then self:PaintReagents() end
   if self.pocketBtn then
     self.pocketBtn:SetShown((ns.Pocket and ns.Pocket:Enabled()) and true or false)
@@ -1028,35 +1039,135 @@ function Bags:StowFromCursor()
   return not CursorHasItem()
 end
 
--- Set the held item down when a drop lands on the window body instead of a cell. Where it goes depends
--- on where it was lifted from: a piece already out of these bags (a missed cell) goes back to its own
--- slot on ClearCursor, untouched; anything from elsewhere — a worn slot, the bank, the warband bank,
--- any window that hands the cursor an item — is placed into the first free bag slot, which is the
--- "drag it into the bags" the player means. StowFromCursor does that placement through the same
--- PutItemInBag/PutItemInBackpack the game's own bag buttons use, so it is taint free and works from
--- the bank the same as from the character. The grouped view then files it under its category by the
--- rules; there is no pin and no section to aim at. No-op on an empty cursor (every ordinary click).
-function Bags:DropToBackground()
-  local ctype = GetCursorInfo()
+-- Place the held item into a specific empty slot with PickupContainerItem, not "into the bag in general".
+-- PutItemInBag tops up a matching partial stack (merging a split back); a named empty slot always lands a
+-- new stack, so a split piece survives as its own stack for a trade or mail. Backpack + four bags in order;
+-- reagent bag skipped (bounces a normal item). Unprotected, from the player's own drop. True once clear.
+function Bags:StowToEmptySlot()
+  for _, bag in ipairs(ns.playerBags) do
+    if not CursorHasItem() then break end
+    local num = C_Container.GetContainerNumSlots(bag) or 0
+    for slot = 1, num do
+      local info = C_Container.GetContainerItemInfo(bag, slot)
+      if not (info and (info.hyperlink or info.itemID)) then
+        C_Container.PickupContainerItem(bag, slot)
+        return not CursorHasItem()
+      end
+    end
+  end
+  return not CursorHasItem()
+end
+
+-- The live cell under the cursor, or nil. The grouped-view drop zone covers the whole section and eats the
+-- release, so a drop meant for one cell reaches the zone, not the cell; the zone uses this to forward it to
+-- the exact (bag,slot) and to light the cell mid drag. A cursor-vs-rect hit test, not IsMouseOver: the holder
+-- is a plain non-mouse frame under the zone, where that method is unreliable, while the rect check answers
+-- the same for any frame. Returns bag, slot, button so the caller can light the cell without re-walking.
+function Bags:CellUnderCursor()
+  if not self.byKey then return nil end
+  local cx, cy = GetCursorPosition()
+  if not cx then return nil end
+  for _, b in pairs(self.byKey) do
+    local h = b.holder
+    if h and h:IsShown() and b.wpeBag and b.wpeSlot then
+      local s = h:GetEffectiveScale()
+      local l, r, t, btm = h:GetLeft(), h:GetRight(), h:GetTop(), h:GetBottom()
+      if s and s > 0 and l then
+        local px, py = cx / s, cy / s
+        if px >= l and px <= r and py >= btm and py <= t then
+          return b.wpeBag, b.wpeSlot, b
+        end
+      end
+    end
+  end
+  return nil
+end
+
+-- The native grid lights the slot the cursor is over while a piece is held, so a drop reads as "into this
+-- cell". The grouped-view zone hides that: it covers the cells and takes the mouseover, so their own
+-- highlight never fires. This drives the same slot highlight by hand on the cell under the cursor, only
+-- when a plain drop would forward there (grouped view, item held, pinning not armed, live bags): with
+-- pinning armed the section wash reads instead, and on the gaps or a snapshot nothing lights. One cell at a
+-- time; the previous is cleared as the cursor moves off it.
+function Bags:TrackDropHighlight()
+  local hit
+  if self:CatMode() and self.frame and self.frame:IsShown() and CursorHasItem()
+     and not self.snap and not self:PinDragActive() then
+    hit = select(3, self:CellUnderCursor())
+  end
+  if self.hlCell and self.hlCell ~= hit then
+    ns.SetSlotHighlight(self.hlCell, false)
+    self.hlCell = nil
+  end
+  if hit and self.hlCell ~= hit then
+    ns.SetSlotHighlight(hit, true)
+    self.hlCell = hit
+  end
+end
+
+-- Set the held item down when a drop lands on the window body instead of a cell. A piece from these bags
+-- (a missed cell) goes back to its own slot on ClearCursor; a piece from elsewhere (worn, bank, warband)
+-- is stowed into a free slot via StowFromCursor, the same PutItemInBag/PutItemInBackpack the game's own
+-- bag buttons use, so it is taint free. No-op on an empty cursor.
+--
+-- targetId (grouped view): the section dropped on. With drag-to-pin armed it pins the piece there
+-- (Cats:PinItem; a drop on the rule-home section unfiles). toEmpty: the Empty section, placed into a
+-- named empty slot so a split stays its own stack. Occupied cell under the cursor (no pin, not Empty):
+-- forwarded to that (bag,slot) so the game merges or swaps, since the zone would otherwise eat the drop.
+function Bags:DropToBackground(targetId, toEmpty)
+  local ctype, cid = GetCursorInfo()
   if ctype ~= "item" then return end
-  if not self:CursorInBags() then
-    -- A piece from these same bags is only being set back down; the game returns it to its slot when
-    -- the cursor clears. Anything from outside (worn, bank, warband) is stowed into a free slot.
-    -- StowFromCursor no-ops if the bags are full, leaving the piece to place by hand.
-    self:StowFromCursor()
+  local pin = targetId and self:PinDragActive() and cid or nil
+  -- Not pinning and not the Empty section: a drop landing on an occupied cell should behave like the
+  -- native slot drop the zone intercepts — the game merges the held stack into a matching stack or swaps
+  -- with a different item. Forward to that exact (bag,slot); PickupContainerItem is unprotected and rides
+  -- the player's own drop, so no taint. Only when a cell is actually under the pointer; a drop on the gaps
+  -- or caption falls through to the stow below. A snapshot has no live container, so it never forwards.
+  if not pin and not toEmpty and not self.snap then
+    local bag, slot = self:CellUnderCursor()
+    if bag then
+      C_Container.PickupContainerItem(bag, slot)
+      ClearCursor()
+      self:Layout()
+      if ns.Options and ns.Options.RefreshOpen then ns.Options:RefreshOpen() end
+      return
+    end
+  end
+  if self:CursorInBags() then
+    -- A split off the cursor came from these bags: drop on Empty lands it in a named empty slot so it
+    -- stays its own stack. Anywhere else the game returns it to its own slot when the cursor clears.
+    if toEmpty then self:StowToEmptySlot() end
+  else
+    -- A piece from outside (worn, bank, warband) is stowed into a free slot. Onto Empty, place it in a
+    -- named empty slot for the same reason; onto any other section, the general stow is fine.
+    -- StowFromCursor/StowToEmptySlot no-op if the bags are full, leaving the piece to place by hand.
+    if toEmpty then self:StowToEmptySlot() else self:StowFromCursor() end
   end
   ClearCursor()
+  -- Pin after the stow: the piece is now in these bags (or was already), and PinItem only writes the
+  -- category membership, moving nothing. RuleHome-equal drops unfile inside PinItem.
+  if pin and ns.Categories and ns.Categories.PinItem then ns.Categories:PinItem(pin, targetId) end
   self:Layout()
   if ns.Options and ns.Options.RefreshOpen then ns.Options:RefreshOpen() end
 end
 
--- The drop target for filing an item by hand. Dropping on the thin caption alone was the "where do
--- I even aim" complaint, so while an item rides the cursor the whole section lights up as one zone:
--- release anywhere on it to file the held item under that section. The zone sits above the cells
--- and shows only mid drag (SyncDropZones on CURSOR_CHANGED), so with no item held a click still
--- reaches the cell beneath. The item was lifted by the cell's own secure drag, the player's
--- hardware click; here we only read the cursor and clear it, no protected call. Other takes no drop,
--- so its zone never lights; Empty is the unfile target.
+-- Is drag-to-pin armed right now? "off" never pins, "on" always, "alt" only while Alt is held. Read at
+-- the moment of the drop so the modifier is live. Missing/unknown value falls back to the "alt" default.
+function Bags:PinDragActive()
+  local mode = (WarpeeDB and WarpeeDB.catPinDrag) or "alt"
+  if mode == "off" then return false end
+  if mode == "on" then return true end
+  return IsAltKeyDown()
+end
+
+-- The drop target over a section's body while an item rides the cursor. A release sets the held piece
+-- down into the bags; with drag-to-pin armed (Options: off/alt/on, alt = while Alt held) it also pins the
+-- piece to THIS section, otherwise the rules file it as before. The zone carries its section id (wpeId)
+-- and, while pinning is armed, lights the hovered section with a faint accent wash and shows its name, so
+-- the drop reads as "into this category"; unarmed it stays invisible and is a plain "put it into the bags"
+-- catcher. The zone sits above the cells and shows only mid drag (SyncDropZones on CURSOR_CHANGED), so with
+-- no item held a click reaches the cell beneath. The lift was the cell's own secure drag; here we only
+-- read the cursor and clear it — no protected call, so pinning stays taint free.
 function Bags:CatZone(i)
   self.catZones = self.catZones or {}
   local z = self.catZones[i]
@@ -1064,73 +1175,35 @@ function Bags:CatZone(i)
     z = CreateFrame("Button", nil, self.content, "BackdropTemplate")
     z:SetFrameLevel(self.content:GetFrameLevel() + 60)
     z:RegisterForClicks("LeftButtonUp")
-    -- Fully transparent: no fill, no edge. The section a drop lands in is named by the floating pill
-    -- that tracks the cursor, not by an outline drawn on the section, so a hovered zone shows no border
-    -- and hides nothing. The box only has to catch the release over the whole section extent.
     ns.PixelBackdrop(z)
     ns.SetBg(z, 0, 0, 0, 0)
     ns.SetEdge(z, 0, 0, 0, 0)
-    -- A drop on a section files the held item into it by hand: it moves the piece from whatever
-    -- category held it into this one. A worn piece is set down into the bags first (the unequip), then
-    -- filed; a piece already in the bags is only re-filed, it does not move slot. The lift was the
-    -- cell's own secure drag (the player's hardware click); here we read the cursor and clear it, no
-    -- protected call. Other takes no drop (its slots are the catch-all), Empty is the unfile target.
-    local function drop(s)
-      if s.wpeId == ns.Categories.OTHER_ID then return end
-      local ctype, id = GetCursorInfo()
-      if ctype == "item" and id then
-        if self:CursorIsEquipped() then self:StowFromCursor() end
-        ns.Categories:PinItem(id, s.wpeId)
-        ClearCursor()
+    -- The pin-target wash and label, hidden until the cursor enters while pinning is armed. The name
+    -- rides the zone centre so a drop reads as "into this one" without a per-section plus button.
+    local hint = Theme:Label(z, FONT - 2, "accent")
+    hint:SetPoint("CENTER")
+    hint:SetJustifyH("CENTER")
+    hint:Hide()
+    z.hint = hint
+    local function lit(on)
+      if on then
+        local r, g, b = Theme:C("accent")
+        ns.SetBg(z, r, g, b, 0.14)
+      else
+        ns.SetBg(z, 0, 0, 0, 0)
       end
-      self:HideDropPill()
-      self:Layout()
-      if ns.Options and ns.Options.RefreshOpen then ns.Options:RefreshOpen() end
+      z.hint:SetShown(on and true or false)
     end
+    z:SetScript("OnEnter", function(s)
+      if s.wpeId and CursorHasItem() and Bags:PinDragActive() then lit(true) end
+    end)
+    z:SetScript("OnLeave", function() lit(false) end)
+    local function drop() lit(false); self:DropToBackground(z.wpeId, z.wpeEmpty) end
     z:SetScript("OnReceiveDrag", drop)
     z:SetScript("OnClick", drop)
-    -- The floating pill names the section under the cursor while a piece is held, so the target reads
-    -- at a glance without a name printed across every section at once. Only the hovered zone shows it.
-    z:SetScript("OnEnter", function(s) self:ShowDropPill(s.wpeName, s.wpeId) end)
-    z:SetScript("OnLeave", function() self:HideDropPill() end)
     self.catZones[i] = z
   end
   return z
-end
-
--- The floating name pill that names the section the cursor is over during a drag: a small bordered
--- label ("Armor +", or the unpin word over Empty) that tracks the cursor, so the target reads at a
--- glance without a name printed across every section. One pill, re-anchored per hover.
-function Bags:ShowDropPill(name, id)
-  local p = self.dropPill
-  if not p then
-    p = CreateFrame("Frame", nil, self.frame or UIParent, "BackdropTemplate")
-    p:SetFrameStrata("TOOLTIP")
-    ns.PixelBackdrop(p)
-    ns.SetBg(p, Theme:C("panel"))
-    ns.SetEdge(p, Theme:C("accent"))
-    local fs = Theme:Label(p, FONT, "accent")
-    fs:SetFont(self.fontPath or ns.Fonts:Current(), FONT, ns.OutlineFlags())
-    fs:SetPoint("CENTER")
-    p.fs = fs
-    self.dropPill = p
-  end
-  local isEmpty = (id == ns.Categories.EMPTY_ID)
-  -- The plus sits after the name ("ARMOR +"), reading as "add to this one"; the Empty section is the
-  -- unfile target, so it names the action instead of a category.
-  p.fs:SetText(isEmpty and ns.Upper(ns.L["Unpin"]) or (ns.Upper(name or "") .. " +"))
-  local w = math.ceil(p.fs:GetStringWidth()) + 20
-  ns.SnapSize(p, w, FONT + 12)
-  p:ClearAllPoints()
-  -- Just up and to the right of the cursor, in the window's scale so it lands where the mouse is.
-  local scale = (self.frame and self.frame:GetEffectiveScale()) or UIParent:GetEffectiveScale()
-  local mx, my = GetCursorPosition()
-  p:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", mx / scale + 14, my / scale + 14)
-  p:Show()
-end
-
-function Bags:HideDropPill()
-  if self.dropPill then self.dropPill:Hide() end
 end
 
 function Bags:HideCatZones(from)
@@ -1226,6 +1299,12 @@ function Bags:HideEmptyTiles(from)
   end
 end
 
+-- One watcher flips the zones the moment the cursor picks up or sets down an item, so the highlight
+-- tracks the drag with no per-frame polling. Declared before SyncDropZones so that function can reach it
+-- as an upvalue. While a drag is live it also polls the cursor so the cell under it lights like the native
+-- grid; the poll is throttled and does nothing once the drag ends.
+local dropWatch = CreateFrame("Frame")
+
 -- Flip every section drop zone at once: on while an item rides the cursor and the grouped view is
 -- up, off the rest of the time so the cells click through as normal. Called on each cursor change
 -- and at the tail of a grouped layout, in case the window opened with an item already on the cursor.
@@ -1234,20 +1313,32 @@ function Bags:SyncDropZones()
   local on = self:CatMode() and self.frame and self.frame:IsShown() and CursorHasItem()
   for _, z in ipairs(self.catZones) do
     -- An active zone is an invisible droppable box over the section's extent for the whole drag, so a
-    -- release on the gaps between cells still files the piece. The pill names the section under the
-    -- cursor; the zone itself stays invisible.
-    if on and z.wpeActive then z:Show() else z:Hide() end
+    -- release on the gaps between cells still sets the held piece down into the bags.
+    if on and z.wpeActive then
+      -- Start each drag unlit: the accent wash and name only appear once the cursor enters the section
+      -- (and pinning is armed), so a zone shown from a fresh pickup does not carry the last drag's tint.
+      ns.SetBg(z, 0, 0, 0, 0)
+      if z.hint then z.hint:Hide() end
+      z:Show()
+    else
+      z:Hide()
+    end
   end
-  -- No item held, no target to name: drop the pill so it never lingers after a drag ends.
-  if not on then self:HideDropPill() end
+  -- The per-cell drop highlight follows the cursor over the covered cells, so it needs to track motion,
+  -- not just cursor pickups. The OnUpdate below does that and is armed only while a drag is live here.
+  dropWatch.tracking = on and true or false
+  if not on then self:TrackDropHighlight() end
 end
 
--- One watcher flips the zones the moment the cursor picks up or sets down an item, so the highlight
--- tracks the drag with no per-frame polling. Safe before the window exists: SyncDropZones no-ops
--- until the zones are built.
-local dropWatch = CreateFrame("Frame")
 dropWatch:RegisterEvent("CURSOR_CHANGED")
 dropWatch:SetScript("OnEvent", function() Bags:SyncDropZones() end)
+dropWatch:SetScript("OnUpdate", function(s, dt)
+  if not s.tracking then return end
+  s.acc = (s.acc or 0) + dt
+  if s.acc < 0.03 then return end
+  s.acc = 0
+  Bags:TrackDropHighlight()
+end)
 
 -- Sections packed into shelves: each is as wide as its cells need (capped at the grid, floored by
 -- its caption) so several share a row and the list reads left to right in priority order. A section
@@ -1509,22 +1600,27 @@ function Bags:LayoutCats(place, size, gap, step, cols)
       for k, s in ipairs(b.slots) do
         local col = (k - 1) % w
         local row = math.floor((k - 1) / w)
-        place(s.bag, s.slot, sx + col * step, -(cellsTop + row * step))
+        -- A folded stack draws the summed count on its one bound slot; an unmerged cell passes nil so it
+        -- shows its own slot count. (count is always set, so the > 1 test is what tells a fold from a single.)
+        place(s.bag, s.slot, sx + col * step, -(cellsTop + row * step),
+              (s.count and s.count > 1) and s.count or nil)
       end
       local rows = math.max(1, math.ceil(n / w))
       secH = capH + (rows - 1) * step + size
     end
     -- The section's own drop zone, sized to its drawn extent (caption through last cell row, the
     -- between-section gap left out). Positioned every layout but kept hidden; the watcher shows it mid drag.
-    -- The Empty zone rides EMPTY_ID like its header, so a release on it unfiles, and its tag names the
-    -- action, not a section: dropping here is the unpin, and the word says so.
+    -- A release sets the held piece down into the bags; with drag-to-pin armed it also pins the piece to
+    -- this section, so the zone carries the section id and its name for the hover hint. The Empty section
+    -- owns no items, so it is not a pin target (wpeId nil): a drop there just stows, and PinItem would
+    -- unfile anyway. It is instead flagged wpeEmpty, so a drop routes through StowToEmptySlot — a placement
+    -- into a named empty slot, which keeps a split-off stack its own stack instead of merging it back.
+    -- Other has no list row and never builds a zone here.
     local zone = self:CatZone(si)
-    zone.wpeId = id
-    -- Other still takes no drop (its slots are the catch-all already), so its zone stays inert; every
-    -- other section, Empty included, takes a hand-file drop.
-    zone.wpeActive = (id ~= ns.Categories.OTHER_ID)
-    -- The name the floating pill shows for this section; the pill adds the "+" and the outline font.
-    zone.wpeName = name
+    zone.wpeActive = true
+    zone.wpeId = (not isEmpty) and id or nil
+    zone.wpeEmpty = isEmpty and true or nil
+    if zone.hint then zone.hint:SetText(ns.Upper(name or "")) end
     zone:ClearAllPoints()
     ns.SnapPoint(zone, "TOPLEFT", self.content, "TOPLEFT", sx, -sy)
     zone:SetSize(math.max(1, sw), math.max(capH, secH))
@@ -2115,11 +2211,14 @@ local function classify(f, token)
     f.ilvlMin = tonumber(gt) + (token:find(">=", 1, true) and 0 or 1)
   elseif lt then
     f.ilvlMax = tonumber(lt) - (token:find("<=", 1, true) and 0 or 1)
-  elseif token:match("^id(%d+)$") then
+  elseif token:match("^id:?(%d+)$") then
     -- Match one exact itemID. A bare number is already ilvl, so the id is prefixed; several ids in
     -- one string OR together like kinds do, so a rule can name a small set (a Hearthstone category).
+    -- The colon is taken as well as the bare form: "id:6948" is how the token gets written by hand, and
+    -- nothing else it could mean, so reading it is the rule the player wrote rather than a text search
+    -- that silently matches nothing.
     f.ids = f.ids or {}
-    f.ids[tonumber(token:match("^id(%d+)$"))] = true
+    f.ids[tonumber(token:match("^id:?(%d+)$"))] = true
   elseif num then
     f.ilvl = tonumber(num)
   elseif QUALITY_WORDS[token] then
@@ -2174,27 +2273,51 @@ local function classify(f, token)
   return true
 end
 
-function ns.ParseSearch(q)
-  q = (q or ""):gsub("^%s+", ""):gsub("%s+$", "")
-  -- A top-level "|" is OR across the whole rule, so a section can gather two things that sit on
-  -- different axes and would otherwise AND to nothing (keystone | id6948, toy | mount). Each side is
-  -- parsed on its own and MatchSearch keeps the item if any side matches. A bare or trailing "|" adds
-  -- no side; a single surviving side collapses back to a plain filter so nothing downstream ever sees
-  -- the wrapper, and only two-plus sides produce an ors node.
-  if q:find("|", 1, true) then
-    local ors = {}
-    for raw in (q .. "|"):gmatch("([^|]*)|") do
-      -- A local, not a write back into the loop variable: the trim belongs to this side alone.
-      local part = raw:gsub("^%s+", ""):gsub("%s+$", "")
-      if part ~= "" then ors[#ors + 1] = ns.ParseSearch(part) end
+-- The search grammar. A rule is an expression over word-runs joined by operators:
+--   |  ANY   (match either side)        toy | mount
+--   &  ALL   (match both; a space between word-runs means the same, & is the explicit form)
+--   !  NOT   (exclude the next word or group)   ! junk   or   !junk
+--   ( ) group, for nesting               reagent & (ore | metal)
+-- A "word-run" is a maximal stretch of plain words with no operator between them; its words merge into
+-- one filter exactly as they always did, so same-axis words union (weapon shield = weapon OR shield
+-- slot) and cross-axis words AND (cloth rare = cloth AND rare). Operators only ever sit BETWEEN runs
+-- and groups, so every rule written before operators existed parses to the one flat filter it used to.
+-- The tree the parser builds is read by MatchSearch: a leaf (flat fields + its own nots), an { ors= }
+-- node (any side), an { ands= } node (all parts), and a not-leaf ({ text={}, nots={ node } }).
+local SEARCH_OPS = { ["|"] = true, ["&"] = true, ["!"] = true, ["("] = true, [")"] = true }
+local function tokenizeSearch(q)
+  local toks, i, n = {}, 1, #q
+  while i <= n do
+    local c = q:sub(i, i)
+    if c:match("%s") then
+      i = i + 1
+    elseif SEARCH_OPS[c] then
+      toks[#toks + 1] = { op = c }
+      i = i + 1
+    else
+      -- A word runs until whitespace or an operator character. "-" and the ilvl comparators (< > = -)
+      -- are ordinary word characters, so ilvl180-200 and -junk stay single tokens.
+      local j = i
+      while j <= n do
+        local cj = q:sub(j, j)
+        if cj:match("%s") or SEARCH_OPS[cj] then break end
+        j = j + 1
+      end
+      toks[#toks + 1] = { word = q:sub(i, j - 1) }
+      i = j
     end
-    if #ors == 0 then return { text = {}, empty = true } end
-    if #ors == 1 then return ors[1] end
-    return { ors = ors }
   end
+  return toks
+end
+
+-- One word-run's words merged into a single flat filter, the same per-token classify loop the parser
+-- used before operators were split out. A word classify does not know, and that no alias resolves,
+-- becomes a name-text term. "-word" negation is still handled inside classify (the "!" prefix is now a
+-- separate operator token and never reaches here, but "-" is an ordinary word character and does).
+local function parseLeaf(words)
   local f = { text = {} }
-  f.empty = q == ""
-  for token in q:gmatch("%S+") do
+  if #words == 0 then f.empty = true; return f end
+  for _, token in ipairs(words) do
     if not classify(f, token) then
       local alias = ns.SearchAlias(ns.SearchFold(token))
       if not (alias and classify(f, alias)) then
@@ -2203,6 +2326,95 @@ function ns.ParseSearch(q)
     end
   end
   return f
+end
+
+-- Recursive descent over the token list. Mutually recursive, so forward-declared. Precedence low to
+-- high: OR, then AND, then NOT/group/word-run. Each returns (node, nextPos); a nil node means the
+-- position held nothing usable (an empty group, a stray operator), which the callers drop.
+local parseOr, parseAnd, parseFactor, parseNotOperand
+function parseOr(toks, pos)
+  local sides, node = {}, nil
+  node, pos = parseAnd(toks, pos)
+  if node then sides[1] = node end
+  while toks[pos] and toks[pos].op == "|" do
+    pos = pos + 1
+    node, pos = parseAnd(toks, pos)
+    if node then sides[#sides + 1] = node end
+  end
+  if #sides == 0 then return nil, pos end
+  if #sides == 1 then return sides[1], pos end
+  return { ors = sides }, pos
+end
+function parseAnd(toks, pos)
+  local parts, node = {}, nil
+  node, pos = parseFactor(toks, pos)
+  if node then parts[1] = node end
+  -- Adjacent factors AND together, whether separated by a space (no operator) or by an explicit "&".
+  -- Stops at "|" (handed back to parseOr) and ")" (handed back to the enclosing group).
+  while toks[pos] and toks[pos].op ~= "|" and toks[pos].op ~= ")" do
+    if toks[pos].op == "&" then pos = pos + 1 end
+    if not toks[pos] or toks[pos].op == "|" or toks[pos].op == ")" then break end
+    node, pos = parseFactor(toks, pos)
+    if node then parts[#parts + 1] = node else pos = pos + 1 end
+  end
+  if #parts == 0 then return nil, pos end
+  if #parts == 1 then return parts[1], pos end
+  return { ands = parts }, pos
+end
+function parseFactor(toks, pos)
+  local tk = toks[pos]
+  if not tk then return nil, pos end
+  if tk.op == "!" then
+    pos = pos + 1
+    local sub
+    sub, pos = parseNotOperand(toks, pos)
+    if not sub then return nil, pos end
+    return { text = {}, nots = { sub } }, pos
+  elseif tk.op == "(" then
+    pos = pos + 1
+    local node
+    node, pos = parseOr(toks, pos)
+    if toks[pos] and toks[pos].op == ")" then pos = pos + 1 end
+    return node, pos
+  elseif tk.op then
+    return nil, pos + 1
+  end
+  -- A word-run: consecutive word tokens merged into one filter.
+  local words = {}
+  while toks[pos] and toks[pos].word do
+    words[#words + 1] = toks[pos].word
+    pos = pos + 1
+  end
+  return parseLeaf(words), pos
+end
+-- NOT binds to a SINGLE word or a group, never a whole run, so "!junk ilvl>180" is NOT(junk) AND
+-- ilvl>180 — the per-token negation the old attached "!junk" gave — rather than NOT(junk AND ilvl>180).
+function parseNotOperand(toks, pos)
+  local tk = toks[pos]
+  if not tk then return nil, pos end
+  if tk.op == "(" then
+    pos = pos + 1
+    local node
+    node, pos = parseOr(toks, pos)
+    if toks[pos] and toks[pos].op == ")" then pos = pos + 1 end
+    return node, pos
+  elseif tk.op == "!" then
+    pos = pos + 1
+    local sub
+    sub, pos = parseNotOperand(toks, pos)
+    if not sub then return nil, pos end
+    return { text = {}, nots = { sub } }, pos
+  elseif tk.word then
+    return parseLeaf({ tk.word }), pos + 1
+  end
+  return nil, pos + 1
+end
+
+function ns.ParseSearch(q)
+  q = (q or ""):gsub("^%s+", ""):gsub("%s+$", "")
+  if q == "" then return { text = {}, empty = true } end
+  local node = parseOr(tokenizeSearch(q), 1)
+  return node or { text = {}, empty = true }
 end
 -- The fields classify() can fill, in the order it checks them, each with the axis the editor names it by.
 -- Reading the axis off a scratch filter rather than re-walking the string keeps the two honest: this
@@ -2214,7 +2426,7 @@ local EXPLAIN_ROWS = {
   { "slots", "slot" }, { "kinds", "kind" }, { "exps", "expansion" }, { "expMax", "expansion" },
   { "reagent", "kind" }, { "keystone", "kind" }, { "battlepet", "kind" }, { "quest", "kind" },
   { "consumable", "kind" }, { "gear", "kind" }, { "toy", "kind" }, { "housing", "kind" },
-  { "token", "kind" },
+  { "cosmetic", "kind" }, { "token", "kind" },
   { "warbound", "flag" }, { "soulbound", "flag" }, { "boe", "flag" }, { "boa", "flag" },
   { "locked", "flag" },
 }
@@ -2260,6 +2472,164 @@ local function tokenWords()
   end
   TOKEN_LOCALE, TOKEN_LIST = code, out
   return out
+end
+
+-- The curated vocabulary the category editor's token picker offers, as an ordered list of
+-- { token, axis } — ONE canonical token per concept, unlike the parser tables, which carry every
+-- synonym a player might type (boots/feet, ring/finger, шлем/head). The parser still takes them all;
+-- this is only what the picker shows, so browsing reads as one clean word per thing. The parser's own
+-- "kind" axis lumps armor materials, weapon types and item classes together, so it is split here into
+-- the axes a person actually thinks in: Armor, Weapon, Item class, Consumable. Slot, Quality, Expansion
+-- and Flag round it out. A token here must be one classify() understands (guarded at build time), so a
+-- typo in this list drops the entry rather than offering a word the field cannot parse.
+-- The curated vocabulary the category editor's token picker offers, as an ordered list of
+-- { token, axis } — ONE canonical token per concept, unlike the parser tables, which carry every
+-- synonym a player might type (boots/feet, ring/finger, шлем/head). The parser still takes them all;
+-- this is only what the picker shows, so browsing reads as one clean word per thing.
+--
+-- The axes are grouped by what a PERSON thinks, not by how the classifier stores the match: the parser
+-- lumps armor materials, weapon types, item classes and boolean flags together internally, and a mount
+-- happens to have a real item class while a toy and a caged pet are read off other data — an accident of
+-- how the game stores them, meaningless to the player. So a mount, a pet and a toy sit together under
+-- "Collectible" here even though the parser files a mount as a class and the other two as flags. The
+-- axis a row carries is purely the picker's grouping; the token it inserts is unchanged.
+local PICK_TOKENS = {
+  -- Armor material
+  { "cloth", "armor" }, { "leather", "armor" }, { "mail", "armor" }, { "plate", "armor" },
+  -- Weapon type, ordered one-handed melee, then two-handed, then ranged, with the fishing pole last and
+  -- the umbrella word after it: "weapon" is every weapon hand at once (the parser's weapon slot set —
+  -- one-handed, two-handed, main hand, off-hand and ranged), so it is read as the catch-all it is only
+  -- once the specific types are out of the way, and a shield is a slot of its own below rather than one
+  -- of its slots.
+  { "dagger", "weapon" }, { "sword", "weapon" }, { "axe", "weapon" }, { "mace", "weapon" },
+  { "fist", "weapon" }, { "warglaive", "weapon" },
+  { "polearm", "weapon" }, { "staff", "weapon" },
+  { "bow", "weapon" }, { "crossbow", "weapon" }, { "gun", "weapon" }, { "wand", "weapon" },
+  { "fishing", "weapon" },
+  { "weapon", "weapon" },
+  -- Consumable, plus item enhancements (oils, stones and the like), which are consumed onto gear.
+  { "potion", "consumable" }, { "flask", "consumable" }, { "food", "consumable" },
+  { "consumable", "consumable" }, { "enhancement", "consumable" },
+  -- Collectible: things the player collects rather than uses or wears, together whatever the parser files
+  -- them as (mount is a class, toy/battlepet are flags, housing is its own class; cosmetic is a flag read
+  -- off the item, and the one word that covers the whole transmog set rather than a single slot).
+  { "mount", "collectible" }, { "battlepet", "collectible" }, { "toy", "collectible" },
+  { "housing", "collectible" }, { "cosmetic", "collectible" },
+  -- Crafting: everything that feeds a profession. Ordered so the two broad catch-alls sit at the end —
+  -- trade goods next-to-last, the reagent flag last — with the specific classes (gem, the tools, recipes)
+  -- ahead of them, since a specific word is the more useful pick and the broad one is the fallback.
+  { "gem", "crafting" }, { "tool", "crafting" }, { "profgear", "crafting" },
+  { "recipe", "crafting" }, { "tradegoods", "crafting" }, { "reagent", "crafting" },
+  -- Item class: the remaining item classes that are neither gear, collectible nor crafting. Alphabetical,
+  -- with projectile pushed to the end (a dead class on the modern client, kept only for old ammo).
+  { "bag", "class" }, { "glyph", "class" }, { "keystone", "class" }, { "misc", "class" },
+  { "quest", "class" }, { "projectile", "class" },
+  -- Equipment slot: every worn position, plus the two words that name a SET rather than a position. "gear"
+  -- opens the band because it is the whole equipped set in one word (the parser's equippable flag: a piece
+  -- answers to it from any slot); "1h"/"2h" and "offhand" cover the weapon hands, where "offhand" already
+  -- takes the hold and the shield, so the narrower "held" is left to the parser — the client spells that
+  -- slot as a phrase, and a phrase cannot be a token. The parser also takes helm/boots/ring/… as synonyms.
+  { "gear", "slot" },
+  { "head", "slot" }, { "neck", "slot" }, { "shoulder", "slot" }, { "back", "slot" },
+  { "chest", "slot" }, { "wrist", "slot" }, { "hands", "slot" }, { "waist", "slot" },
+  { "legs", "slot" }, { "feet", "slot" }, { "finger", "slot" }, { "trinket", "slot" },
+  { "shield", "slot" }, { "ranged", "slot" }, { "tabard", "slot" }, { "shirt", "slot" },
+  { "relic", "slot" }, { "mainhand", "slot" }, { "offhand", "slot" }, { "2h", "slot" }, { "1h", "slot" },
+  -- Quality (one word per tier; the parser also takes the colour names grey/white/green/…)
+  { "poor", "quality" }, { "common", "quality" }, { "uncommon", "quality" }, { "rare", "quality" },
+  { "epic", "quality" }, { "legendary", "quality" }, { "artifact", "quality" }, { "heirloom", "quality" },
+  -- Expansion (one word per expansion; the parser also takes tbc/bc, wotlk/wrath, …)
+  { "classic", "expansion" }, { "tbc", "expansion" }, { "wotlk", "expansion" }, { "cata", "expansion" },
+  { "mop", "expansion" }, { "wod", "expansion" }, { "legion", "expansion" }, { "bfa", "expansion" },
+  { "sl", "expansion" }, { "df", "expansion" }, { "tww", "expansion" }, { "midnight", "expansion" },
+  -- Binding: how a piece is bound to the player or account.
+  { "boe", "binding" }, { "boa", "binding" }, { "soulbound", "binding" }, { "warbound", "binding" },
+  -- Property: the remaining state flags — item age, and the two housekeeping ones (a tier token, a piece
+  -- the player locked from selling).
+  { "current", "property" }, { "legacy", "property" }, { "token", "property" }, { "locked", "property" },
+}
+
+-- A few tokens read as a set abbreviation rather than a word, so they are shown exactly, not run through
+-- the localized/UpperFirst display path (which would give "Boe"/"Boa"). The field still inserts the
+-- lowercase token; this is only how the row is spelled in the picker.
+local PICK_DISPLAY = { boe = "BoE", boa = "BoA" }
+
+-- The token picker's rows: each curated entry with the word to SHOW (the player's own language when the
+-- locale spells that token, else the English token) and the word to INSERT (always the English token).
+-- So a Russian player browses "латы" but the field is written "plate" — the stored rule stays canonical
+-- English, portable between players and matching the codes and docs, while the menu reads in their
+-- language. Cached by language, since the display half changes when the interface language does.
+local PICK_LIST, PICK_LOCALE, PICK_WORDS
+function ns.SearchTokenList()
+  local code = ns.LocalePick and ns.LocalePick() or nil
+  if PICK_LIST and PICK_LOCALE == code then return PICK_LIST end
+  local disp = {}
+  if ns.SearchWords then
+    for _, pair in ipairs(ns.SearchWords()) do
+      -- pair = { localized word, english token }; keep the first localized spelling for a token.
+      if not disp[pair[2]] then disp[pair[2]] = pair[1] end
+    end
+  end
+  local out = {}
+  for _, e in ipairs(PICK_TOKENS) do
+    local token, axis = e[1], e[2]
+    local probe = {}
+    -- Guard: a token the parser cannot read (an expansion word gone, a client without a class) is
+    -- dropped rather than offered, so the picker never lists a word the field would not understand.
+    if classify(probe, token) then
+      local show
+      if PICK_DISPLAY[token] then
+        -- A set abbreviation shown verbatim (BoE/BoA), never localized or title-cased.
+        show = PICK_DISPLAY[token]
+      elseif axis == "expansion" and EXP_WORDS[token] then
+        -- Show the expansion's full name rather than the short code the field takes — "The Burning
+        -- Crusade", not "tbc". The locale file's own name wins where it carries one: the Chinese and
+        -- Korean clients ship official titles and those files write them down, while Blizzard never
+        -- translated the rest and those read the English title straight off the game's own global
+        -- (EXPANSION_NAME0..N). The field still stores the short token; only the label is a name.
+        local key = "expansion " .. token
+        local own = ns.L[key]
+        show = (own ~= key and own) or _G["EXPANSION_NAME" .. EXP_WORDS[token]]
+      end
+      -- Otherwise the localized word if the locale spells this token, else the English token, and either
+      -- way with a capital first letter so the column reads as a list of names, not lowercase search bits.
+      show = show or ns.UpperFirst(disp[token] or token)
+      out[#out + 1] = { token = token, display = show, axis = axis }
+    end
+  end
+  -- The per-token spelling map is kept beside the list for the chips: a rule word the picker has no row
+  -- for still has a word in the language where the locale file spells it, and that is the label.
+  PICK_LOCALE, PICK_LIST, PICK_WORDS = code, out, disp
+  return out
+end
+
+-- A token's localized chip label. Reads the cached picker list so display never disagrees with it;
+-- falls back to the title-cased token for words the picker omits (raw ids, name terms).
+function ns.TokenDisplay(token)
+  if not token or token == "" then return token end
+  -- Item-level thresholds read as themselves with the operator spaced out, so "ilvl>180" is a clean chip
+  -- instead of a title-cased run ("Ilvl>180"). The word before the operator comes from the locale, through
+  -- the same two keys the settings readout writes its threshold with, so a German chip reads "GS > 180"
+  -- and a Russian one "илвл > 180". ASCII operators only, so the chip is legible whatever font a client
+  -- draws it in; the rule's own token still rides the tooltip.
+  local lo, hi = token:match("^ilvl(%d+)%-(%d+)$")
+  if lo then return (ns.L["ilvl %d-%d"]):format(tonumber(lo), tonumber(hi)) end
+  local op, num = token:match("^ilvl(>=?)(%d+)$")
+  if not op then op, num = token:match("^ilvl(<=?)(%d+)$") end
+  if op then return (ns.L["ilvl %s %d"]):format(op, tonumber(num)) end
+  local exact = token:match("^ilvl(%d+)$")
+  if exact then return (ns.L["ilvl %s %d"]):format("=", tonumber(exact)) end
+  for _, e in ipairs(ns.SearchTokenList()) do
+    if e.token == token then return e.display end
+  end
+  -- A word the picker has no row of its own for — a synonym the parser takes (ring for finger, junk for
+  -- poor, consumables for consumable, held for offhand) — still reads in the player's language. The same
+  -- word map the picker's labels come from answers here, so a chip drops to the English token only when
+  -- the language spells no single word for it at all. The rule keeps the token it was written with; this
+  -- is the label.
+  local own = PICK_WORDS and PICK_WORDS[token]
+  if own then return ns.UpperFirst and ns.UpperFirst(own) or own end
+  return ns.UpperFirst and ns.UpperFirst(token) or token
 end
 
 -- The next character of a string and where it ends: the game's text is utf-8, so a letter of a language
@@ -2366,19 +2736,83 @@ local function explainPart(token)
            near = (near and #near > 0) and near or nil }
 end
 
--- A rule read back as its sides: the shape `|` builds, one list per side, one part per token. The editor
--- turns that into chips; the parser is untouched, this only asks it what it saw. nil for an empty rule,
--- which matches everything and has nothing to explain.
+-- A rule read back as chips for the field's live readout: one part per word token, in the order the
+-- parser takes them, each naming the axis it was understood on. Operators (| & ! and the brackets) are
+-- reported as their own separator chips so the structure reads, and a "!" carries onto the word that
+-- follows it as a NOT. The parser is untouched; this only tokenizes the same way and asks classify what
+-- each word is. nil for an empty rule, which matches everything and has nothing to explain.
 function ns.ExplainSearch(q)
   q = (q or ""):gsub("^%s+", ""):gsub("%s+$", "")
   if q == "" then return nil end
-  local sides = {}
-  for side in (q .. "|"):gmatch("([^|]*)") do
-    local parts = {}
-    for token in side:gmatch("%S+") do parts[#parts + 1] = explainPart(token) end
-    if #parts > 0 then sides[#sides + 1] = parts end
+  local parts = {}
+  local pendingNeg = false
+  for _, tk in ipairs(tokenizeSearch(q)) do
+    if tk.op == "!" then
+      pendingNeg = true
+    elseif tk.op then
+      parts[#parts + 1] = { sep = tk.op }
+    else
+      local p = explainPart(tk.word)
+      if pendingNeg then p.neg = true; pendingNeg = false end
+      parts[#parts + 1] = p
+    end
   end
-  return (#sides > 0) and sides or nil
+  return (#parts > 0) and { parts } or nil
+end
+
+-- A rule flattened to { mode = "all"|"any", conds = {{axis,token,neg},...} } for the chip editor, or nil
+-- when it is too structured for a flat list (brackets, mixed & and |, or "!" over a group) — the editor
+-- shows the raw field for those. Round-trips with RuleFromParts.
+function ns.RuleParts(q)
+  q = (q or ""):gsub("^%s+", ""):gsub("%s+$", "")
+  if q == "" then return { mode = "all", conds = {} } end
+  local conds, mode = {}, nil
+  local pendingNeg, afterOperand = false, false
+  for _, tk in ipairs(tokenizeSearch(q)) do
+    if tk.op == "(" or tk.op == ")" then
+      return nil
+    elseif tk.op == "|" then
+      if mode == "all" then return nil end
+      mode, afterOperand, pendingNeg = "any", false, false
+    elseif tk.op == "&" then
+      if mode == "any" then return nil end
+      mode, afterOperand, pendingNeg = "all", false, false
+    elseif tk.op == "!" then
+      -- Only the first "!" of an operand triggers the implicit AND a space means; "!!" just toggles sign.
+      if not pendingNeg then
+        if afterOperand then
+          if mode == "any" then return nil end
+          mode = "all"
+        end
+        afterOperand = false
+      end
+      pendingNeg = not pendingNeg
+    elseif tk.word then
+      if not pendingNeg and afterOperand then
+        if mode == "any" then return nil end
+        mode = "all"
+      end
+      local part = explainPart(tk.word)
+      local n = pendingNeg
+      if part.neg then n = not n end -- word carried its own "-"/"!"; two negations cancel
+      conds[#conds + 1] = { axis = part.axis, token = part.token, neg = n or nil }
+      pendingNeg, afterOperand = false, true
+    end
+  end
+  if pendingNeg then return nil end -- trailing "!"
+  return { mode = mode or "all", conds = conds }
+end
+
+-- Chip list back to a canonical English rule string: All joins with a space, Any with " | ", neg takes
+-- "!". Inverse of RuleParts.
+function ns.RuleFromParts(mode, conds)
+  local words = {}
+  for _, c in ipairs(conds or {}) do
+    if c.token and c.token ~= "" then
+      words[#words + 1] = (c.neg and "!" or "") .. c.token
+    end
+  end
+  return table.concat(words, mode == "any" and " | " or " ")
 end
 
 function ns.MetaWarbound(m)
@@ -2444,6 +2878,14 @@ function ns.MatchSearch(m, f)
       if ns.MatchSearch(m, sub) then return true end
     end
     return false
+  end
+  -- An ands node is the mirror of ors: every part must match. Like ors it carries no flat fields of its
+  -- own, so it returns here before the leaf checks below.
+  if f.ands then
+    for _, sub in ipairs(f.ands) do
+      if not ns.MatchSearch(m, sub) then return false end
+    end
+    return true
   end
   if f.nots then
     for _, n in ipairs(f.nots) do
@@ -2624,6 +3066,7 @@ function Bags:SortBags()
   self:SortSettle()
   C_Container.SortBags()
 end
+
 
 function Bags:SortSettle()
   self.sortGen = (self.sortGen or 0) + 1

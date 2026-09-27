@@ -803,7 +803,10 @@ local function linkInto(text)
     if box:IsVisible() and box:HasFocus() then
       local out
       if box.wpeLinkID then
-        out = text:match("|H(item:[^|]+)|h") or text:match("^(item:[^|%s]+)")
+        -- The bare numeric item id: the only id-mode box (the category pin adder) is numeric, so it takes
+        -- the number itself, not the item:… string a shift-click carries.
+        local link = text:match("|H(item:[^|]+)|h") or text:match("^(item:[^|%s]+)")
+        out = link and link:match("^item:(%d+)")
       else
         out = text:match("%[(.-)%]")
       end

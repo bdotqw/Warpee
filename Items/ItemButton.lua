@@ -1546,9 +1546,12 @@ function ns.UpdateItemButton(b)
   return b.itemName, true
 end
 
-function ns.PaintVaultButton(b, d, bagID)
+function ns.PaintVaultButton(b, d, bagID, forceCount)
   local link = (d and d.l) or false
-  local count = (d and d.c) or 0
+  -- forceCount is the combine-stacks sum a grouped snapshot cell draws in place of its own slot count;
+  -- it joins the paint key so a fold whose total changed repaints even when the bound slot's own count did
+  -- not. nil falls back to the record's stored count, the plain per-slot number.
+  local count = forceCount or (d and d.c) or 0
   if b.link == link and b.wpeCount == count then return b.itemName end
   b.link, b.wpeCount = link, count
   b.vaultLink = d and d.l or nil

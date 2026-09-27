@@ -1,6 +1,9 @@
 local addonName, ns = ...
 
 local WORDS = {
+  ["trank"] = "potion", ["fläschchen"] = "flask", ["essen"] = "food",
+  ["spielzeug"] = "toy", ["wohnen"] = "housing",
+  ["kampfhaustier"] = "battlepet", ["kriegsmeutenbindung"] = "warbound",
   ["schlecht"] = "poor", ["schund"] = "junk", ["schrott"] = "junk", ["grau"] = "gray",
   ["gewöhnlich"] = "common", ["weiß"] = "white", ["weiss"] = "white",
   ["ungewöhnlich"] = "uncommon", ["grün"] = "green", ["gruen"] = "green",
@@ -44,6 +47,10 @@ local WORDS = {
 }
 
 local STRINGS = {
+  ["Every condition has to match"] = "Alle Bedingungen müssen zutreffen",
+  ["Any one condition is enough"] = "Eine Bedingung genügt",
+  ["Drag an item here to pin it, or click to write an id"] = "Zieh einen Gegenstand hierher, um ihn anzuheften, oder klicke, um eine ID einzugeben",
+  ["Item ID"] = "Gegenstands-ID",
   ["Kind"] = "Art",
   ["Slot"] = "Slot",
   ["Quality"] = "Qualität",
@@ -65,6 +72,13 @@ local STRINGS = {
   ["Unpin"] = "Lösen",
   ["Reset categories"] = "Kategorien zurücksetzen",
   ["Sort within a section"] = "Sortierung im Abschnitt",
+  ["Priority"] = "Priorität",
+  ["Show in"] = "Anzeigen in",
+  ["Operators"] = "Operatoren",
+  ["Match any"] = "beliebiges",
+  ["Exclude"] = "ausschließen",
+  ["Pick a search word from the list. You can still type the rule by hand."] =
+    "Ein Suchwort aus der Liste wählen. Die Regel lässt sich weiterhin von Hand eintippen.",
   ["Sort"] = "Sortierung",
   ["By rule"] = "Nach Regel",
   ["By expansion"] = "Nach Erweiterung",
@@ -73,6 +87,11 @@ local STRINGS = {
   ["Name"] = "Name",
   ["General"] = "Allgemein",
   ["Grid"] = "Raster",
+  ["Welcome to Warpee"] = "Willkommen bei Warpee",
+  ["Choose how your bags are laid out. You can change this later."] = "Wähle, wie deine Taschen angeordnet sind. Du kannst das später ändern.",
+  ["One grid, sorted by bag slot. The classic bag."] = "Ein Raster, nach Taschenplatz sortiert. Die klassische Tasche.",
+  ["Items grouped into labelled sections by type."] = "Gegenstände nach Art in benannte Abschnitte gruppiert.",
+  ["Decide later"] = "Später entscheiden",
   ["Categories"] = "Kategorien",
   ["Items"] = "Gegenstände",
   ["Vendor"] = "Händler",
@@ -107,7 +126,7 @@ local STRINGS = {
     "Die Stufe von Ausrüstung und von Schlüsselsteinen.",
   ["How many items the stack holds."] = "Wie viele Gegenstände im Stapel liegen.",
   ["BoE while unbound, WuE for warbound until equipped, BoA for account bound."] =
-    "BoE solange nicht gebunden, WuE für kriegsmeutengebunden bis angelegt, BoA für accountgebunden.",
+    "BoE solange nicht gebunden, KbA für kriegsmeutengebunden bis angelegt, BoA für accountgebunden.",
   ["The equipment set the item belongs to, cut to a few letters."] =
     "Das Ausrüstungsset, zu dem der Gegenstand gehört, auf wenige Buchstaben gekürzt.",
   ["A coin on gray junk items."] = "Eine Münze auf grauem Schund.",
@@ -192,6 +211,14 @@ local STRINGS = {
   ["Category spacing Y"] = "Kategorieabstand Y",
   ["Horizontal gap between categories on a shelf, in the grouped view."] = "Waagerechter Abstand zwischen Kategorien in einer Reihe, in der gruppierten Ansicht.",
   ["Vertical gap between category rows, in the grouped view."] = "Senkrechter Abstand zwischen Kategoriereihen, in der gruppierten Ansicht.",
+  ["Combine stacks"] = "Stapel zusammenfassen",
+  ["Show several stacks of one item as a single cell with the total. This only changes how they look; the items stay in their own bag slots. Gear, pets and keystones stay one cell each."] =
+    "Zeigt mehrere Stapel eines Gegenstands als eine einzige Zelle mit der Gesamtzahl. Das ändert nur die Anzeige; die Gegenstände bleiben in ihren eigenen Taschenplätzen. Ausrüstung, Haustiere und Schlüsselsteine bleiben je eine Zelle.",
+  ["Drag to pin"] = "Ziehen zum Anheften",
+  ["Hold Alt"] = "Alt gedrückt halten",
+  ["Always"] = "Immer",
+  ["Drag an item onto a category in the grouped view to pin it there. Hold Alt pins only while Alt is held, so an ordinary drag never leaves a surprise pin. Off leaves pinning to the editor. A drop on the category the rules already choose unpins instead."] =
+    "Zieht einen Gegenstand in der gruppierten Ansicht auf eine Kategorie, um ihn dort anzuheften. „Alt gedrückt halten“ heftet nur bei gedrückter Alt-Taste an, sodass ein normales Ziehen keine versehentliche Anheftung hinterlässt. „Aus“ überlässt das Anheften dem Editor. Ein Ablegen auf der Kategorie, die die Regeln ohnehin wählen, löst die Anheftung stattdessen.",
   ["Hide reagents"] = "Reagenzien ausblenden",
   ["Reverse slot order"] = "Taschenplätze umkehren",
   ["Fill grid upwards"] = "Raster von unten füllen",
@@ -355,11 +382,9 @@ local STRINGS = {
   ["Short (5M, 284.4K)"] = "Kurz (5 Mio., 284,4k)",
   ["%d of %d"] = "%d von %d",
   ["1 item"] = "1 Gegenstand",
-  ["%d items"] = "%d Gegenstände",
+  ["%d items"] = { "%d Gegenstand", "%d Gegenstände" },
   ["%d and %d wide"] = "%d und %d pro Reihe",
   ["Slots %d/%d"] = "Plätze %d/%d",
-  ["Clean up bags"] = "Taschen sortieren",
-  ["Clean up"] = "Sortieren",
   ["Settings"] = "Einstellungen",
   ["Bags"] = "Taschen",
   ["Bank / Warband"] = "Bank / Kriegsmeute",
@@ -416,8 +441,10 @@ local STRINGS = {
   ["Talk to a merchant first"] = "Nur bei einem Händler möglich",
   ["This merchant only repairs"] = "Dieser Händler repariert nur",
   ["%d items for %s"] = "Zu verkaufen: %d für %s",
-  ["%d items could not be sold and stayed in the bags"] =
-    "Nicht verkauft: %d – diese Gegenstände bleiben in den Taschen",
+  ["%d items could not be sold and stayed in the bags"] = {
+    "%d Gegenstand ließ sich nicht verkaufen und blieb in den Taschen",
+    "%d Gegenstände ließen sich nicht verkaufen und blieben in den Taschen",
+  },
   ["repaired for %s from %s"] = "Reparatur für %s aus %s",
   ["guild funds"] = "der Gildenkasse",
   ["your gold"] = "eigenem Gold",
@@ -528,6 +555,7 @@ local STRINGS = {
   ["ilvl %d-%d"] = "GS %d-%d",
   ["ilvl %d+"] = "GS ab %d",
   ["ilvl <%d"] = "GS unter %d",
+  ["ilvl %s %d"] = "GS %s %d",
   ["Clear the cell"] = "Platz leeren",
   ["Right-click to unbind"] = "Rechtsklick hebt die Belegung auf",
   ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "„Platz leeren“ lässt sich nicht auf Maustasten legen, das Spiel schluckt sie über den Feldern. Die Tastaturtaste funktioniert weiter, nur die Maustaste wurde entfernt.",
@@ -578,7 +606,26 @@ local STRINGS = {
   ["Shift-click item or ID"] = "Shift-Klick auf Gegenstand oder ID",
   ["Click the × to remove"] = "Klicken Sie auf × zum Entfernen",
   ["The order items take inside every section, unless one sets its own from its + panel. Each falls back to name, so it never flickers. By rule follows a search written with |, drawing its parts in written order; By expansion groups by expansion, newest first."] = "Die Reihenfolge der Gegenstände in jedem Abschnitt, sofern dieser nicht über sein „+\"-Feld eine eigene wählt. Bei Gleichstand fallen alle auf den Namen zurück, damit nichts springt. Nach Regel folgt der geschriebenen Reihenfolge der mit | getrennten Teile; Nach Erweiterung gruppiert nach Erweiterungen, die neueste oben.",
+  ["Add condition"] = "Bedingung hinzufügen",
+  ["Match"] = "Übereinstimmung",
+  ["All"] = "Alle",
+  ["Any"] = "Beliebig",
+  ["All: every condition must match. Any: one condition is enough."] = "Alle: es müssen alle Bedingungen zutreffen. Beliebig: eine Bedingung genügt.",
+  ["catches %d in bags"] = "Fängt %d in den Taschen",
+  ["item shows here"] = "Gegenstand erscheint hier",
+  ["Type an item id to preview and pin it, or drag an item here"] = "Gegenstands-ID eintippen, um den Gegenstand vorab zu sehen und anzuheften, oder einen Gegenstand hierher ziehen",
+  ["Left click flips to Not, right click removes"] = "Linksklick schaltet auf Nicht um, Rechtsklick entfernt",
+  ["Use chips"] = "Als Bedingungen bearbeiten",
+  ["Edit as text"] = "Als Text bearbeiten",
+  ["Item class"] = "Gegenstandsklasse",
+  ["Armor type"] = "Rüstungsart",
+  ["Property"] = "Eigenschaft",
+  ["Collectible"] = "Sammlungen",
   ["The order this one section takes, overriding the sort above it. Default follows that sort. By rule draws items in the order a search's | parts are written; By expansion groups by expansion, newest first."] = "Die Reihenfolge dieses einen Abschnitts, die die Sortierung oben überstimmt. Standard folgt jener Sortierung. Nach Regel zeichnet die Gegenstände in der Reihenfolge der mit | getrennten Teile; Nach Erweiterung gruppiert nach Erweiterungen, die neueste oben.",
+  ["Drop an item here, or type an id"] = "Gegenstand hierher ziehen oder ID eingeben",
+  ["Drop an item here to pin it, or type its id. Pins beat rules, so a pinned item always lands in this category."] = "Zieh einen Gegenstand hierher, um ihn anzuheften, oder tippe seine ID ein. Angeheftetes schlägt Regeln, deshalb landet ein angehefteter Gegenstand immer in dieser Kategorie.",
+  ["Which section claims an item that more than one rule matches: the higher priority wins, whatever the order in the list. Left at 0, the section higher in the list wins, as before."] = "Welcher Abschnitt einen Gegenstand nimmt, auf den mehrere Regeln passen: Der höhere Wert gewinnt, unabhängig von der Reihenfolge in der Liste. Bei 0 nimmt ihn wie bisher der Abschnitt weiter oben.",
+  ["Which windows this category shows in. Unchecked windows drop its items through to the next matching category."] = "In welchen Fenstern diese Kategorie erscheint. Ein abgeschaltetes Fenster lässt ihre Gegenstände zur nächsten passenden Kategorie durchfallen.",
 }
 
 ns.AddLocale("deDE", "German", {

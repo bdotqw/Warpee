@@ -280,7 +280,13 @@ function View:Build()
   local sort = ns.CreateGlyphButton(f, "", HBTN, "icon")
   sort:SetPoint("TOPRIGHT", gear, "TOPLEFT", -4, 0)
   sort:SetScript("OnClick", function() self:Sort() end)
-  addTip(sort, "Clean up", nil, "top")
+  -- The client's own name for this button, read live per mode so it always matches the game in every
+  -- locale: the account bank has its own string, the personal bank another. Literals only stand in on
+  -- the rare load where the global is not set yet.
+  addTip(sort, function()
+    if self.mode == "warband" then return _G.BAG_CLEANUP_ACCOUNT_BANK or "Clean Up Warband Bank" end
+    return _G.BAG_CLEANUP_BANK or "Clean Up Bank"
+  end, nil, "top")
   local sortIcon = sort:CreateTexture(nil, "ARTWORK")
   sortIcon:SetAtlas("auctionhouse-ui-sortarrow")
   sortIcon:SetSize(13, 15)
@@ -1394,6 +1400,8 @@ function View:PlanCats(st, size, cols, gap)
           local s = b.slots[k]
           local c = plan[n] or {}
           c.bag, c.slot = s.bag, s.slot
+          -- Combine-stacks: the cell binds its own slot but draws the folded sum. nil for a single.
+          c.force = (s.count and s.count > 1) and s.count or nil
           local col, row = (k - 1) % w, math.floor((k - 1) / w)
           c.x, c.y = sx + col * step, -(cellsTop + row * step)
           plan[n] = c
@@ -1702,8 +1710,11 @@ function View:Run(st, repaint, tag)
     if repaint then b.link = nil end
     if not h:IsShown() then h:Show() end
     if not b:IsShown() then b:Show() end
+    -- Combine-stacks sum for a folded cell (grouped view only; nil everywhere else), overriding just the
+    -- drawn count. Kept off b so a plan entry reused as a single clears it.
+    b.wpeForce = c.force
     if snap then
-      ns.PaintVaultButton(b, ns.Vault:Slot(st.mode, c.bag, c.slot), c.bag)
+      ns.PaintVaultButton(b, ns.Vault:Slot(st.mode, c.bag, c.slot), c.bag, c.force)
     else
       ns.UpdateItemButton(b)
     end

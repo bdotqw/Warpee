@@ -169,6 +169,21 @@ function Vendor:Toggle(id, name)
   blackRepaint()
 end
 
+-- Whether a merchant would buy the item at all. A padlock on an item no vendor buys stops nothing, so
+-- the alt-click is refused and the tooltip says nothing about it. The container's own flag answers
+-- without a cache lookup, which is the whole story for a bag or bank cell; a cell that is not a slot —
+-- a pinned one, the pocket, a bank snapshot — falls back to the item's sell price, and stays open to
+-- the lock while the client has not cached the item. That is the answer it gave before: refusing on
+-- unknown data would take the hint off a first hover and put it back on the second.
+function Vendor:CanLock(info, item)
+  if info then return not info.hasNoValue end
+  local p = item and (select(11, C_Item.GetItemInfo(item)))
+  if p == nil then return true end
+  return tonumber(p) ~= 0
+end
+
+-- The cell under the cursor, walked up from the mouse focus. Handed back rather than answered with a
+-- boolean, because the alt-click needs the slot itself to ask the container what the item is worth.
 local function ownSlotFocus()
   local f
   if GetMouseFoci then
@@ -176,11 +191,11 @@ local function ownSlotFocus()
     f = type(list) == "table" and list[1] or nil
   end
   for _ = 1, 4 do
-    if not f or f == UIParent then return false end
-    if f.wpeBagID ~= nil then return true end
+    if not f or f == UIParent then return nil end
+    if f.wpeBagID ~= nil then return f end
     f = f.GetParent and f:GetParent() or nil
   end
-  return false
+  return nil
 end
 
 if type(HandleModifiedItemClick) == "function" then
@@ -188,9 +203,18 @@ if type(HandleModifiedItemClick) == "function" then
     if not (link and IsAltKeyDown() and not IsShiftKeyDown() and not IsControlKeyDown()) then
       return
     end
-    if not ownSlotFocus() then return end
+    local b = ownSlotFocus()
+    if not b then return end
     local id = (C_Item.GetItemInfoInstant(link))
     if not id then return end
+    -- Taking a lock off is never refused, whatever the item is worth: a lock written before the piece
+    -- lost its value has to stay removable, or the player keeps a padlock they cannot take off.
+    if not Vendor:Blocked(id) then
+      local info = C_Container.GetContainerItemInfo(b.wpeBagID, b:GetID())
+      -- A cell that has moved on to another item is not a source of truth about this one.
+      if info and info.itemID ~= id then info = nil end
+      if not Vendor:CanLock(info, link) then return end
+    end
     Vendor:Toggle(id, link:match("%[(.-)%]") or (C_Item.GetItemInfo(link)))
   end)
 end
@@ -320,7 +344,7 @@ function Vendor:TipLines()
   if #list == 0 then
     out[#out + 1] = { text = "Nothing to sell", color = "dim", size = 12 }
   else
-    out[#out + 1] = { text = (L["%d items for %s"]):format(#list, ns.FormatMoney(total, false)),
+    out[#out + 1] = { text = ns.LN("%d items for %s", #list, ns.FormatMoney(total, false)),
                       color = "accentInk" }
   end
   if self:Busy() then
@@ -362,7 +386,7 @@ local function finish()
   pump:Hide()
   ev:UnregisterEvent("BAG_UPDATE_DELAYED")
   if stuck > 0 then
-    print("|cffd9a85fWarpee|r |cffffffff" .. (L["%d items could not be sold and stayed in the bags"]):format(stuck) .. "|r")
+    print("|cffd9a85fWarpee|r |cffffffff" .. ns.LN("%d items could not be sold and stayed in the bags", stuck) .. "|r")
   end
   if open then Vendor:Repair() end
 end

@@ -257,6 +257,13 @@ local soon
 local function detect()
   local counts = tally()
   local seen = bodyDiff()
+  -- Nothing is decided while the cursor carries an item, the same guard prune keeps. A split lifts part of
+  -- a stack onto the cursor, so this pass would read the source slot as shrunk, write the smaller number as
+  -- the new baseline, and then read the piece landing back down as an arrival, listing your own split as
+  -- recent loot. Freezing the whole pass keeps known/got untouched until the piece lands, so the count on
+  -- release matches the baseline and nothing is added. bodyDiff above still runs so equipment tracking
+  -- stays live; guidHad/known persist across the skipped passes.
+  if GetCursorInfo() then return end
   -- A pass that reads no item and no equipment at once is the client between worlds, not an
   -- emptied inventory: around a loading screen the container calls and the equipment calls
   -- go away together, and the pass is over before either answers again. Judged on its own it

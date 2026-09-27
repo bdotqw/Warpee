@@ -1,6 +1,9 @@
 local addonName, ns = ...
 
 local WORDS = {
+  ["flacon"] = "flask", ["nourriture"] = "food", ["jouet"] = "toy",
+  ["logement"] = "housing", ["familier-de-combat"] = "battlepet",
+  ["peu-commun"] = "uncommon", ["lié-au-bataillon"] = "warbound",
   ["médiocre"] = "poor", ["mediocre"] = "poor", ["camelote"] = "junk", ["gris"] = "gray",
   ["commun"] = "common", ["blanc"] = "white",
   ["vert"] = "green", ["bleu"] = "blue",
@@ -55,6 +58,10 @@ local WORDS = {
 }
 
 local STRINGS = {
+  ["Every condition has to match"] = "Toutes les conditions doivent correspondre",
+  ["Any one condition is enough"] = "Une seule condition suffit",
+  ["Drag an item here to pin it, or click to write an id"] = "Glisse un objet ici pour l'épingler, ou clique pour saisir un id",
+  ["Item ID"] = "ID d'objet",
   ["Kind"] = "Type",
   ["Slot"] = "Emplacement",
   ["Quality"] = "Qualité",
@@ -76,6 +83,13 @@ local STRINGS = {
   ["Unpin"] = "Retirer",
   ["Reset categories"] = "Réinitialiser les catégories",
   ["Sort within a section"] = "Tri dans la section",
+  ["Priority"] = "Priorité",
+  ["Show in"] = "Afficher dans",
+  ["Operators"] = "Opérateurs",
+  ["Match any"] = "au moins un",
+  ["Exclude"] = "exclure",
+  ["Pick a search word from the list. You can still type the rule by hand."] =
+    "Choisissez un mot de recherche dans la liste. Vous pouvez toujours saisir la règle à la main.",
   ["Sort"] = "Tri",
   ["By rule"] = "Par règle",
   ["By expansion"] = "Par extension",
@@ -84,6 +98,11 @@ local STRINGS = {
   ["Name"] = "Nom",
   ["General"] = "Général",
   ["Grid"] = "Grille",
+  ["Welcome to Warpee"] = "Bienvenue dans Warpee",
+  ["Choose how your bags are laid out. You can change this later."] = "Choisissez la disposition de vos sacs. Vous pourrez la changer plus tard.",
+  ["One grid, sorted by bag slot. The classic bag."] = "Une grille, triée par emplacement de sac. Le sac classique.",
+  ["Items grouped into labelled sections by type."] = "Les objets regroupés par type dans des sections nommées.",
+  ["Decide later"] = "Décider plus tard",
   ["Categories"] = "Catégories",
   ["Items"] = "Objets",
   ["Vendor"] = "Marchand",
@@ -118,7 +137,7 @@ local STRINGS = {
     "Le niveau d'objet de l'équipement et celui d'une clé de voûte.",
   ["How many items the stack holds."] = "Combien d'objets contient la pile.",
   ["BoE while unbound, WuE for warbound until equipped, BoA for account bound."] =
-    "BoE tant que non lié, WuE pour lié au bataillon jusqu'à l'équipement, BoA pour lié au compte.",
+    "LqE tant que non lié, WuE pour lié au bataillon jusqu'à l'équipement, LqA pour lié au compte.",
   ["The equipment set the item belongs to, cut to a few letters."] =
     "L'ensemble d'équipement auquel appartient l'objet, coupé à quelques lettres.",
   ["A coin on gray junk items."] = "Une pièce sur la camelote grise.",
@@ -203,6 +222,14 @@ local STRINGS = {
   ["Category spacing Y"] = "Espacement des catégories Y",
   ["Horizontal gap between categories on a shelf, in the grouped view."] = "Espace horizontal entre les catégories sur une rangée, dans la vue groupée.",
   ["Vertical gap between category rows, in the grouped view."] = "Espace vertical entre les rangées de catégories, dans la vue groupée.",
+  ["Combine stacks"] = "Regrouper les piles",
+  ["Show several stacks of one item as a single cell with the total. This only changes how they look; the items stay in their own bag slots. Gear, pets and keystones stay one cell each."] =
+    "Affiche plusieurs piles d'un même objet comme une seule case avec le total. Cela ne change que l'affichage ; les objets restent dans leurs propres emplacements de sac. L'équipement, les mascottes et les clés gardent chacun une case.",
+  ["Drag to pin"] = "Glisser pour épingler",
+  ["Hold Alt"] = "Maintenir Alt",
+  ["Always"] = "Toujours",
+  ["Drag an item onto a category in the grouped view to pin it there. Hold Alt pins only while Alt is held, so an ordinary drag never leaves a surprise pin. Off leaves pinning to the editor. A drop on the category the rules already choose unpins instead."] =
+    "Glissez un objet sur une catégorie dans la vue groupée pour l'y épingler. « Maintenir Alt » n'épingle que si la touche Alt est enfoncée, ainsi un glissement ordinaire ne laisse jamais d'épingle inattendue. « Désactivé » laisse l'épinglage à l'éditeur. Un dépôt sur la catégorie que les règles choisissent déjà désépingle au contraire.",
   ["Hide reagents"] = "Masquer les composants",
   ["Reverse slot order"] = "Emplacements inversés",
   ["Fill grid upwards"] = "Lignes de bas en haut",
@@ -366,11 +393,9 @@ local STRINGS = {
   ["Short (5M, 284.4K)"] = "Court (5 M, 284,4 k)",
   ["%d of %d"] = "%d sur %d",
   ["1 item"] = "1 objet",
-  ["%d items"] = "%d objets",
+  ["%d items"] = { "%d objet", "%d objets" },
   ["%d and %d wide"] = "%d et %d par ligne",
   ["Slots %d/%d"] = "Emplacements %d/%d",
-  ["Clean up bags"] = "Ranger les sacs",
-  ["Clean up"] = "Ranger",
   ["Settings"] = "Réglages",
   ["Bags"] = "Sacs",
   ["Bank / Warband"] = "Banque / Bataillon",
@@ -429,8 +454,10 @@ local STRINGS = {
   ["Talk to a merchant first"] = "Uniquement chez un marchand",
   ["This merchant only repairs"] = "Ce marchand répare uniquement",
   ["%d items for %s"] = "À vendre : %d pour %s",
-  ["%d items could not be sold and stayed in the bags"] =
+  ["%d items could not be sold and stayed in the bags"] = {
+    "%d objet n'a pas pu être vendu et est resté dans les sacs",
     "%d objets n'ont pas pu être vendus et sont restés dans les sacs",
+  },
   ["repaired for %s from %s"] = "réparation pour %s avec %s",
   ["guild funds"] = "les fonds de guilde",
   ["your gold"] = "votre or",
@@ -541,6 +568,7 @@ local STRINGS = {
   ["ilvl %d-%d"] = "niv. objet %d-%d",
   ["ilvl %d+"] = "niv. objet %d+",
   ["ilvl <%d"] = "niv. objet <%d",
+  ["ilvl %s %d"] = "niv. objet %s %d",
   ["Clear the cell"] = "Vider la case",
   ["Right-click to unbind"] = "Clic droit pour dissocier",
   ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "«Vider la case» ne peut pas utiliser les boutons de la souris, le jeu les intercepte au-dessus des cases. La touche du clavier fonctionne toujours, seule celle de la souris a été retirée.",
@@ -592,7 +620,26 @@ local STRINGS = {
   ["Shift-click item or ID"] = "Maj-clic sur un objet ou un ID",
   ["Click the × to remove"] = "Cliquez sur × pour retirer",
   ["The order items take inside every section, unless one sets its own from its + panel. Each falls back to name, so it never flickers. By rule follows a search written with |, drawing its parts in written order; By expansion groups by expansion, newest first."] = "L'ordre des objets dans chaque section, sauf si celle-ci fixe le sien via son panneau « + ». À égalité, tous retombent sur le nom, donc rien ne saute. Par règle suit l'ordre des parties écrites avec | ; Par extension regroupe par extension, la plus récente en premier.",
+  ["Add condition"] = "Ajouter une condition",
+  ["Match"] = "Correspondance",
+  ["All"] = "Toutes",
+  ["Any"] = "Au moins une",
+  ["All: every condition must match. Any: one condition is enough."] = "Toutes : toutes les conditions doivent correspondre. Au moins une : une seule suffit.",
+  ["catches %d in bags"] = "capture %d dans les sacs",
+  ["item shows here"] = "l'objet apparaît ici",
+  ["Type an item id to preview and pin it, or drag an item here"] = "Saisissez l'id d'un objet pour le prévisualiser et l'épingler, ou glissez un objet ici",
+  ["Left click flips to Not, right click removes"] = "Clic gauche bascule sur Non, clic droit retire",
+  ["Use chips"] = "Modifier avec des conditions",
+  ["Edit as text"] = "Modifier en texte",
+  ["Item class"] = "Classe d'objet",
+  ["Armor type"] = "Type d'armure",
+  ["Property"] = "Propriété",
+  ["Collectible"] = "Collection",
   ["The order this one section takes, overriding the sort above it. Default follows that sort. By rule draws items in the order a search's | parts are written; By expansion groups by expansion, newest first."] = "L'ordre de cette section, qui prime sur le tri ci-dessus. Par défaut suit ce tri. Par règle dessine les objets dans l'ordre des parties écrites avec | ; Par extension regroupe par extension, la plus récente en premier.",
+  ["Drop an item here, or type an id"] = "Glissez un objet ici ou saisissez un id",
+  ["Drop an item here to pin it, or type its id. Pins beat rules, so a pinned item always lands in this category."] = "Glissez un objet ici pour l'épingler, ou saisissez son id. Les objets épinglés priment sur les règles : un objet épinglé arrive toujours dans cette catégorie.",
+  ["Which section claims an item that more than one rule matches: the higher priority wins, whatever the order in the list. Left at 0, the section higher in the list wins, as before."] = "Quelle section récupère un objet qui correspond à plusieurs règles : la priorité la plus haute l'emporte, quel que soit l'ordre dans la liste. Laissée à 0, c'est la section la plus haute de la liste qui le prend, comme avant.",
+  ["Which windows this category shows in. Unchecked windows drop its items through to the next matching category."] = "Dans quelles fenêtres cette catégorie apparaît. Une fenêtre décochée laisse ses objets passer à la catégorie correspondante suivante.",
 }
 
 ns.AddLocale("frFR", "French", {

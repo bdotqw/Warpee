@@ -41,6 +41,12 @@ local DEFAULTS = {
   -- so the rows read as a block. A player overrides either from its own slider, and a save that already
   -- carried the old single gap seeds both.
   catGapX = 8, catGapY = 6,
+  catCombine = true,
+  -- Drag a piece onto a section in the grouped view to pin it there. "off" keeps a bag drag meaning only
+  -- "put it down" (the editor is the sole way to pin); "alt" pins only while Alt is held, so an ordinary
+  -- drag never leaves a surprise pin; "on" pins on every section drop. Alt is the default: it keeps the
+  -- plain drag safe and makes pinning a deliberate gesture.
+  catPinDrag = "alt",
   goldFormat = "short", goldLetters = true, goldOnly = true,
   vendorIlvl = 100, vendorIlvlMin = 10, vendorConsum = false, vendorAuto = false,
   vendorTokens = false, vendorTokenExp = {},
@@ -263,6 +269,10 @@ function ns.Toggle(show)
        and (not WarpeeDB or WarpeeDB.pocketWithBags ~= false) then
       ns.Pocket:Open()
     end
+    -- First open on a profile that has never been prompted announces the category view and offers a
+    -- starting layout. It gates itself on the per-profile flag and on combat, and sets the flag only when
+    -- dismissed, so an open in combat simply tries again next time.
+    if ns.Welcome then ns.Welcome:MaybeShow() end
   else
     f:Hide()
   end
@@ -413,6 +423,15 @@ function autoCloseBags(key)
   ns.Toggle(false)
 end
 
+-- Relayout whichever grouped windows are open so the Combine-stacks fold tracks a stack-splitting window
+-- opening or closing. Only the grouped view cares (the fold lives there), and the layout is cheap and
+-- idempotent, so this no-ops in effect for a grid or a closed window. Bank refresh covers its own snap.
+function ns.RelayoutForSplit()
+  if not (WarpeeDB and WarpeeDB.catCombine) then return end
+  if Bags.frame and Bags.frame:IsShown() and Bags.CatMode and Bags:CatMode() then Bags:Layout() end
+  if ns.Bank and ns.Bank.Refresh then ns.Bank:Refresh() end
+end
+
 local INTERACT_KEY
 local function interactKey(t)
   if not (Enum and Enum.PlayerInteractionType) then return nil end
@@ -498,7 +517,13 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     return
   end
   if event == "PLAYER_LOGIN" then
+    -- The view chooser is for first installs only. A save that already carries any key predates
+    -- this release: that player set their bags up the way they like long before categories, so
+    -- mark it prompted here and the chooser never appears for them. Only a genuinely empty save
+    -- (a fresh install, nothing written yet) is left unmarked, so MaybeShow can offer the choice.
+    local freshInstall = (WarpeeDB == nil) or (next(WarpeeDB) == nil)
     WarpeeDB = WarpeeDB or {}
+    if not freshInstall and WarpeeDB.startPrompted == nil then WarpeeDB.startPrompted = 1 end
     if WarpeeDB.goldLetters == nil then
       WarpeeDB.goldLetters = WarpeeDB.goldMode == nil or WarpeeDB.goldMode == "letters"
     end
@@ -554,12 +579,17 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     -- pair into the one ordered list once, markers and all, and drops the leftovers. Empty and Other
     -- are real, movable category rows but neither is deletable, so both rows must always exist; an
     -- older or short custom list gets them restored at the tail here, on every login.
-    -- UpgradeFloor sits between them because it is about the shipped rules rather than the shape of the
-    -- list: the four gear rows gained an item-level floor after saves existed, and it carries the floor
-    -- onto those rows where they are still exactly as shipped, leaving written rules alone.
+    -- The upgrades sit between them because they are about the shipped rules rather than the shape of the
+    -- list: two shipped rules were rewritten so the rule editor can show them as chips, the four gear rows
+    -- gained an item-level floor after saves existed, and five rule words were later spelled the way the
+    -- picker spells them, so their chips read as words the player can pick back and a language can
+    -- translate. Each carries its change onto those rows alone where they are still exactly as shipped,
+    -- leaving written rules alone.
     if ns.Categories then
       ns.Categories:Migrate()
+      ns.Categories:UpgradePresetRules()
       ns.Categories:UpgradeFloor()
+      ns.Categories:UpgradeRuleWords()
       ns.Categories:EnsureEmpty()
       ns.Categories:EnsureOther()
     end
@@ -725,6 +755,10 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     end
     local k = interactKey(a1)
     if k then autoOpenBags(k) end
+    -- A stack-splitting window just opened: if the grouped view is up with Combine stacks on, relayout so
+    -- the fold lifts and every physical stack is its own cell (Categories reads the window live). Harmless
+    -- otherwise — a grid or an ungrouped window relayouts to the same picture.
+    ns.RelayoutForSplit()
   elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
     local IT = Enum and Enum.PlayerInteractionType
     if ns.Bank and IT and (a1 == IT.AccountBanker or a1 == IT.Banker
@@ -733,6 +767,8 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     end
     local k = interactKey(a1)
     if k then autoCloseBags(k) end
+    -- The window closed: fold the stacks back if Combine stacks is on.
+    ns.RelayoutForSplit()
   elseif event == "PLAYERBANKSLOTS_CHANGED" or event == "PLAYERBANKBAGSLOTS_CHANGED"
       or event == "PLAYERREAGENTBANKSLOTS_CHANGED" or event == "REAGENTBANK_UPDATE"
       or event == "BANK_TABS_CHANGED" or event == "BANK_TAB_SETTINGS_UPDATED"
@@ -846,12 +882,21 @@ local function itemTooltip(tt, data)
   if ownSlot(tt) then
     local V = ns.Vendor
     local locked = (V and V.Blocked and V:Blocked(id)) and true or false
-    local r, g, b = 0.5, 0.5, 0.5
-    if locked and V and V.IsOpen and V:IsOpen() then r, g, b = 1, 0.4, 0.4 end
-    if not drew then tt:AddLine(" ") end
-    tt:AddLine(TT(locked and "Locked from the vendor. ALT-click to unlock"
-                          or "ALT-click to lock it from the vendor"), r, g, b)
-    drew = true
+    -- The line is a promise, so it is only made about an item a merchant would buy: on one with no vendor
+    -- value the padlock stops nothing. The slot under the tooltip answers that without asking the item
+    -- cache, and a cell that is not a slot falls back to the price of the item itself. An item already
+    -- locked is offered the way out whatever it is worth, or an old lock could not be taken off.
+    local o = tt.GetOwner and tt:GetOwner()
+    local info = o and o.wpeBagID and C_Container.GetContainerItemInfo(o.wpeBagID, o:GetID())
+    if info and info.itemID ~= id then info = nil end
+    if locked or (V and V.CanLock and V:CanLock(info, id)) then
+      local r, g, b = 0.5, 0.5, 0.5
+      if locked and V and V.IsOpen and V:IsOpen() then r, g, b = 1, 0.4, 0.4 end
+      if not drew then tt:AddLine(" ") end
+      tt:AddLine(TT(locked and "Locked from the vendor. ALT-click to unlock"
+                            or "ALT-click to lock it from the vendor"), r, g, b)
+      drew = true
+    end
   end
   tt.wpeCounted = drew or nil
 end
@@ -863,7 +908,12 @@ end
 
 SLASH_WARPEE1 = "/warpee"
 SLASH_WARPEE2 = "/wpe"
-SlashCmdList["WARPEE"] = function()
+SlashCmdList["WARPEE"] = function(msg)
+  local arg = (msg or ""):match("^%s*(%S*)")
+  if arg and arg:lower() == "welcome" and ns.Welcome then
+    ns.Welcome:Reopen()
+    return
+  end
   if ns.Options then ns.Options:Toggle() end
 end
 

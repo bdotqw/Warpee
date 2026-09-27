@@ -1,17 +1,70 @@
 local addonName, ns = ...
 
 local TABLES, COINS, SHORTS, WORDS, ALIAS, WORDMAP = {}, {}, {}, {}, {}, {}
+local PLURAL = {}
 local order
 local FALLBACK = { esMX = "esES" }
 
-local L = setmetatable({}, { __index = function(_, k)
-  local code = ns.LocalePick()
+-- The raw stored value for a key: the current language first, then its fallback, then nil. A value may be a
+-- string or, for a count phrase whose noun bends with the number, a list of forms read by ns.LN.
+local function lookupKey(code, k)
   local t = TABLES[code]
   local v = t and t[k]
   if v == nil then
     local fb = TABLES[FALLBACK[code]]
     v = fb and fb[k]
   end
+  return v
+end
+
+-- English and German split at one versus many; Russian takes a third form for the 2-4 tail. A language
+-- with no rule of its own reads the plain string form and never asks, so the default here only has to be
+-- safe for the two-form languages that do store a list. The rule is a property of the language, so a
+-- locale file may hand its own through def.plural; these seed the shipped set. CJK and Korean count with a
+-- measure word and never bend the noun, so they get no rule and keep a single string for every count phrase.
+local function twoForm(n) return (n == 1) and 1 or 2 end
+-- French and Portuguese keep the singular for zero as well as one.
+local function romance(n) return (n <= 1) and 1 or 2 end
+local function slavic(n)
+  local m10, m100 = n % 10, n % 100
+  if m10 == 1 and m100 ~= 11 then return 1 end
+  if m10 >= 2 and m10 <= 4 and not (m100 >= 12 and m100 <= 14) then return 2 end
+  return 3
+end
+PLURAL.enUS = twoForm
+PLURAL.deDE = twoForm
+PLURAL.esES = twoForm
+PLURAL.itIT = twoForm
+PLURAL.frFR = romance
+PLURAL.ptBR = romance
+PLURAL.ruRU = slavic
+
+local function pluralPick(code)
+  return PLURAL[code] or PLURAL[FALLBACK[code]] or PLURAL.enUS
+end
+
+-- A localized count phrase: the value may be one string (same wording for every number, formatted as is) or
+-- a list of forms, one per plural class, picked by the language's own rule. The number is the first format
+-- argument, extra args follow. So "catches %d in bags" bends the noun on ruRU ("1 предмет" / "2 предмета"
+-- / "5 предметов") and stays one string where the language does not bend it.
+function ns.LN(key, n, ...)
+  local code = ns.LocalePick()
+  local v = lookupKey(code, key)
+  local s
+  if type(v) == "table" then
+    local idx = pluralPick(code)(n)
+    s = v[idx] or v[#v] or key
+  else
+    s = v or key
+  end
+  return s:format(n, ...)
+end
+
+local L = setmetatable({}, { __index = function(_, k)
+  local v = lookupKey(ns.LocalePick(), k)
+  -- A plural-list value is only ever read through ns.LN; a bare L[key] on such a key would hand back a
+  -- table, so fall to the key text rather than let a caller format a table.
+  if type(v) == "table" then return k end
   return v or k
 end })
 ns.L = L
@@ -21,6 +74,19 @@ ns.LOCALE_LABELS = { enUS = "English" }
 
 COINS.enUS = { g = "g", s = "s", c = "c" }
 SHORTS.enUS = { dec = ".", units = { { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } } }
+
+-- English carries its own plural on the count phrases where the noun rides the number: "1 item" against
+-- "5 items". Count phrases whose noun does not attach to the number ("catches 5 in bags") stay plain keys
+-- with no list. English keeps no full strings table, so this holds only the keys that bend; a key absent
+-- here still falls straight through to itself.
+TABLES.enUS = {
+  ["%d items"] = { "%d item", "%d items" },
+  ["%d items for %s"] = { "%d item for %s", "%d items for %s" },
+  ["%d items could not be sold and stayed in the bags"] = {
+    "%d item could not be sold and stayed in the bags",
+    "%d items could not be sold and stayed in the bags",
+  },
+}
 
 ALIAS.enGB = "enUS"
 
@@ -32,6 +98,7 @@ function ns.AddLocale(code, label, def)
   TABLES[code] = def.strings
   COINS[code] = def.coin
   SHORTS[code] = def.short
+  if def.plural then PLURAL[code] = def.plural end
   if def.words then WORDS[#WORDS + 1] = def.words; WORDMAP[code] = def.words end
   for _, c in ipairs(def.also or {}) do ALIAS[c] = code end
   aliasMap, wordCache = nil, {}
@@ -116,6 +183,17 @@ function ns.Upper(s)
     return pair
   end)
   return folded:upper()
+end
+
+-- Capitalize the first character only, leaving the rest as written. The first character may be a
+-- multi-byte utf-8 letter (a Cyrillic word, say), so its byte length is measured before it is handed to
+-- ns.Upper; a CJK or digit first character has no capital and passes through unchanged.
+function ns.UpperFirst(s)
+  if type(s) ~= "string" or s == "" then return s end
+  local b = s:byte(1)
+  local len = 1
+  if b >= 240 then len = 4 elseif b >= 224 then len = 3 elseif b >= 192 then len = 2 end
+  return ns.Upper(s:sub(1, len)) .. s:sub(len + 1)
 end
 
 local function supported(code)

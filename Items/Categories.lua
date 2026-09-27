@@ -5,13 +5,38 @@ ns.Categories = Cats
 
 -- Forward-declared here, above Cats:PinItem, so its `filterStamp = nil` (the cache invalidation on a
 -- pin change) writes this upvalue and not a stray global. The classify cache below (FILTERS/PINS/
--- ACTIVE) is assigned into these same names once they are in scope; without this line PinItem sat
+-- ACTIVE/ORDER) is assigned into these same names once they are in scope; without this line PinItem sat
 -- textually before the local and its assignment silently missed the cache.
-local FILTERS, PINS, ACTIVE, filterStamp
+local FILTERS, PINS, ACTIVE, ORDER, filterStamp
 
 -- The Empty section's own id. It owns no items, so it never collides with a real category id
 -- (shipped ids are words, custom ids start with "u").
 Cats.EMPTY_ID = "empty"
+
+-- A window is open that takes items one physical stack at a time: trade, mail, a merchant, a banker or
+-- guild bank, the scrapper, or the socket UI. While one is up, Combine stacks must not fold: a folded
+-- cell binds a single slot and draws the sum, so a stack the player split off to hand over would be
+-- hidden behind the fold and could not be picked up on its own. Suppressing the fold here makes every
+-- physical stack its own cell again for the duration, then the fold returns when the window closes.
+-- Read live each layout; the events that open and close these windows already relayout the grouped view.
+local SPLIT_TYPES
+local function splitWindowOpen()
+  local M = C_PlayerInteractionManager
+  local IT = Enum and Enum.PlayerInteractionType
+  if not (M and M.IsInteractingWithNpcOfType and IT) then return false end
+  if not SPLIT_TYPES then
+    SPLIT_TYPES = {}
+    for _, k in ipairs({ "TradePartner", "MailInfo", "Merchant", "Banker", "CharacterBanker",
+                         "AccountBanker", "GuildBanker", "ScrappingMachine", "ItemInteraction",
+                         "VoidStorageBanker" }) do
+      if IT[k] then SPLIT_TYPES[#SPLIT_TYPES + 1] = IT[k] end
+    end
+  end
+  for _, t in ipairs(SPLIT_TYPES) do
+    if M.IsInteractingWithNpcOfType(t) then return true end
+  end
+  return false
+end
 -- The catch-all's id. Like EMPTY_ID it is no real category, only the tag the bag reads to know a drop
 -- here should do nothing: Empty is the one unfile target now, Other is inert.
 Cats.OTHER_ID = "other"
@@ -27,18 +52,19 @@ local function isMarker(e) return isHead(e) or isDiv(e) end
 local function isCat(e) return type(e) == "table" and not isMarker(e) end
 Cats.IsCat, Cats.IsMarker, Cats.IsHead = isCat, isMarker, isHead
 
--- Ordered list, first match wins, so a piece lands in one section and the order is its priority.
--- Sharp edges to keep in mind before reordering: Weapon is by slot (`weapon shield` — shield is a
--- slot and ORs into the weapon slot-set; it must not be mixed with an armor kind-row, since slot and
--- kind are different axes and AND to nothing). Jewelry is `ring neck` only, with Trinkets split into
--- its own row below; leave trinket in Jewelry and the Trinkets row goes empty, since Jewelry sits
--- higher and claims them first. Collectibles unites three things on different axes — Toy is a flag,
--- Mount and Battlepet are kinds — so it needs the top-level "|": `toy | mount battlepet` = toy OR
--- (mount OR battlepet). Junk sits just above Other so it reads low like the bag it replaces: there is
--- no Misc row here, so grey vendor trash (classID Miscellaneous) falls past everything into Junk, and
--- the gear rows above Junk carry "!junk" so a grey piece drops past its type into Junk too. Delete the
--- "!junk" from a gear row and its greys stay in it.
--- Those four gear rows also carry an item-level floor, `ilvl>180`. It is strictly above, so a piece at
+-- Ordered list, first match wins within one priority, so a piece lands in one section and its place
+-- in the list is the tie-break. Sharp edges to keep in mind before reordering: Weapon is by slot
+-- (`weapon shield offhand` — every word is a slot and they OR into one set; it must not be mixed with an
+-- armor kind-row, since slot and kind are different axes and AND to nothing). Jewelry is `finger neck`
+-- only, with Trinkets split into its own row below; leave trinket in Jewelry and the Trinkets row goes
+-- empty, since Jewelry sits higher and claims them first. Collectibles unites three things on different
+-- axes — Toy is a flag, Mount and Battlepet are kinds — so it needs the top-level "|": `toy | mount
+-- battlepet` = toy OR (mount OR battlepet). Grey vendor trash matches both its type (a grey Miscellaneous
+-- piece answers to the `misc` row, a grey weapon to a gear row) and the `poor` quality; the Junk row
+-- carries prio 2 so it wins that contest wherever it sits, which is why no other rule needs a "!junk" to
+-- push greys past itself. Drop Junk's priority to 0 and a grey would fall to whichever type row sits
+-- above it instead.
+-- The four gear rows carry an item-level floor, `ilvl>180`. It is strictly above, so a piece at
 -- exactly 180 is out, and a piece whose level cannot be read yet — a bank snapshot row with no level, an
 -- item the client has not cached — does not match the floor at all and falls past it. The floor narrows
 -- what the band keeps rather than holding a row back from the bag: levelling gear, an heirloom and a
@@ -51,44 +77,68 @@ Cats.IsCat, Cats.IsMarker, Cats.IsHead = isCat, isMarker, isHead
 -- ORs with the two item ids so a couple of specific pieces (a codex, a tome) join the block; the
 -- specific consumable rows above it (flasks/food/potions) claim their own subclasses first. "misc"
 -- is the Miscellaneous item class, not the text word: collectibles sits above it so mounts, pets and
--- toys are pulled out before the class catch-all. Every token here is one classify() understands.
+-- toys are pulled out before the class catch-all. Every token here is one classify() understands, and
+-- written the way the "+" picker spells it: where the parser also takes a synonym (ring for finger, junk
+-- for poor, container for bag, consumables for consumable, held for offhand) the shipped rule uses the
+-- word the axes offer. A chip reads through the picker, so the picker's word is the one that comes back
+-- translated and pickable; a synonym typed by hand still matches, it only falls back to the token.
+--
+-- `prio` is a claim priority, kept apart from list position: which section a piece lands in when more
+-- than one rule matches it is decided by prio (higher wins), where a section draws is decided by its
+-- place in the list. Default 0. Only Junk ships raised (prio 2) so it can sit low in the list — where
+-- the player wants to see it — yet still pull grey trash out from under the type rows and the
+-- Miscellaneous class row above it. Ties fall back to list order, so the old top-down behaviour holds
+-- wherever prio is equal. Legacy ships at the default 0: raising it would drag current-item-level gear
+-- that still carries a past-expansion tag down into it, so that trade-off is left to the player.
 local DEFAULTS = {
   { head = "essentials" },
-  { id = "hearthstone",   search = "id6948" },
+  -- A named single item is a pin, not a rule: that is the one consistent home for "this exact piece", the
+  -- same place the two consumables gadgets sit, and it renders in the rack with the item's art. Hearthstone
+  -- owns no word rule, only the pin.
+  { id = "hearthstone",   pins = { [6948] = true } },
   { id = "keystone",      search = "keystone" },
   { id = "flasks",        search = "flask" },
   { id = "food",          search = "food" },
   { id = "potions",       search = "potion" },
-  { id = "consumables",   search = "consumables !legacy !junk | id132514 id109076" },
+  -- Consumables from the current expansion, one "and" the rule editor shows as chips. The two old gadgets
+  -- this row used to name by id (Auto-hammer, Goblin Glider Kit) stay with it, but as pins: naming them in
+  -- the rule mixed an "or" into an "and", which no chip row can read back, and a rule the editor cannot draw
+  -- is a rule the player cannot edit either. Pinned, they are still guaranteed to this row, they show in its
+  -- rack like any hand-filed piece, and the rule stays one the chips read and the player can change.
+  { id = "consumables",   search = "consumable !legacy", pins = { [132514] = true, [109076] = true } },
   { id = "gem",           search = "gem" },
   { id = "enhancement",   search = "enhancement" },
   { id = "quest",         search = "quest" },
   { head = "gear" },
-  { id = "weapons",       search = "weapon shield held !junk ilvl>180" },
-  { id = "jewelry",       search = "ring neck !junk ilvl>180" },
-  { id = "armor",         search = "cloth leather mail plate !junk ilvl>180" },
-  { id = "trinkets",      search = "trinket !junk ilvl>180" },
+  -- "offhand" is the slot word the picker carries: it takes the off-hand weapon and the shield as well as
+  -- the hold, where "held" (the holdable slot alone) is a word no language but three can spell as one token.
+  { id = "weapons",       search = "weapon shield offhand ilvl>180" },
+  { id = "jewelry",       search = "finger neck ilvl>180" },
+  { id = "armor",         search = "cloth leather mail plate ilvl>180" },
+  { id = "trinkets",      search = "trinket ilvl>180" },
   { head = "crafting" },
-  { id = "reagents",      search = "reagent !legacy !junk" },
+  { id = "reagents",      search = "reagent !legacy" },
   { id = "profgear",      search = "profgear tool" },
   { id = "recipe",        search = "recipe" },
-  { id = "bag",           search = "container" },
+  { id = "bag",           search = "bag" },
   { id = "housing",       search = "housing" },
   { head = "hoard" },
-  { id = "wardrobe",      search = "cosmetic | glyph | tabard shirt" },
+  -- Every pair written out, rather than two slot words side by side inside an "or": the parser unions
+  -- them either way, but only the written-out form is one the chip editor can show.
+  { id = "wardrobe",      search = "cosmetic | glyph | tabard | shirt" },
   { id = "collectibles",  search = "toy | mount | battlepet" },
+  { id = "legacy",        search = "legacy", sort = "expac" },
+  { id = "miscellaneous", search = "misc" },
+  { id = "other",         other = true },
+  { id = "junk",          search = "poor", prio = 2 },
+  { id = "empty",         empty = true },
+  -- Free space, not a rule: owns no search, matches nothing. The grouped view's stand-in for the
+  -- grid's trailing blank cells; kept last, movable from the editor.
+  -- The catch-all: every item no rule claimed lands here. Never switched off or deleted, since items
+  -- must always have somewhere to land. Its list position sets where it draws, not what it claims.
   -- Legacy gathers gear from every past expansion, so it ships pre-set to draw by expansion (newest
   -- first): the one shipped section where that order reads better than quality. The player can change it
   -- from the row's + panel like any other, and every other section still follows the global sort.
-  { id = "legacy",        search = "legacy", sort = "expac" },
-  { id = "miscellaneous", search = "misc !junk" },
-  -- The catch-all: every item no rule claimed lands here. Never switched off or deleted, since items
-  -- must always have somewhere to land. Its list position sets where it draws, not what it claims.
-  { id = "other",         other = true },
-  { id = "junk",          search = "junk" },
-  -- Free space, not a rule: owns no search, matches nothing. The grouped view's stand-in for the
-  -- grid's trailing blank cells; kept last, movable from the editor.
-  { id = "empty",         empty = true },
 }
 
 local GROUP_NAMEKEY = {
@@ -141,8 +191,13 @@ end
 local function seedEntry(c)
   if isHead(c) then return { head = c.head, name = c.name, folded = c.folded } end
   if isDiv(c) then return { div = true, folded = c.folded } end
+  -- hide and pins are tables, so each is copied fresh rather than shared: a seed must never hand the new save
+  -- a reference into the constant (or the source profile), or editing one would bleed into the other.
+  local hide, pins
+  if type(c.hide) == "table" then hide = {}; for k, v in pairs(c.hide) do hide[k] = v end end
+  if type(c.pins) == "table" then pins = {}; for k, v in pairs(c.pins) do pins[k] = v end end
   return { id = c.id, search = c.search, name = c.name, enabled = c.enabled,
-           empty = c.empty, other = c.other, sort = c.sort }
+           empty = c.empty, other = c.other, sort = c.sort, prio = c.prio, hide = hide, pins = pins }
 end
 
 local function seed()
@@ -194,6 +249,9 @@ local PRESET_IDS = {
 }
 local PRESET_SEARCH = {}
 local PRESET_SORT = {}
+-- The pins a shipped preset carries, so adding one from the shelf brings its hand-filed pieces with it: the
+-- rack is part of what the preset is, not something only a fresh save gets.
+local PRESET_PINS = {}
 -- The shipped band each preset sits in, taken off the same walk: the shelf a ready-made category stands on
 -- in the editor's strip is the band it ships under, so the strip and the default list cannot disagree
 -- about where a category belongs. A marker opens the band that follows it.
@@ -209,6 +267,11 @@ for _, c in ipairs(DEFAULTS) do
     PRESET_SEARCH[c.id] = c.search
     PRESET_SORT[c.id] = c.sort
     PRESET_BAND[c.id] = band
+    if type(c.pins) == "table" then
+      local pins = {}
+      for k, v in pairs(c.pins) do pins[k] = v end
+      PRESET_PINS[c.id] = pins
+    end
   end
 end
 
@@ -247,15 +310,23 @@ function Cats:InsertAt(list)
 end
 
 -- Add a preset by id: a fresh independent row (never a reference into DEFAULTS) with the preset's
--- search, inserted in the rule region. A second add of the same preset is a no-op, so the strip's
--- one-click add can never make two "Armor" rows; the caller dims an in-list preset to signal that.
+-- search and its own copy of the preset's pins, inserted in the rule region. A second add of the same
+-- preset is a no-op, so the strip's one-click add can never make two "Armor" rows; the caller dims an
+-- in-list preset to signal that.
 function Cats:AddPreset(id)
   if not id or self:Has(id) then return end
   local search = PRESET_SEARCH[id]
-  if search == nil then return end
+  -- A preset can ship pins with no search (Hearthstone is one exact item), so it is addable when it has
+  -- either; only a preset with neither is not a real category.
+  if search == nil and not PRESET_PINS[id] then return end
+  local pins
+  if PRESET_PINS[id] then
+    pins = {}
+    for k, v in pairs(PRESET_PINS[id]) do pins[k] = v end
+  end
   local list = self:EnsureCustom()
   local at = self:InsertAt(list)
-  table.insert(list, at, { id = id, search = search, sort = PRESET_SORT[id] })
+  table.insert(list, at, { id = id, search = search, sort = PRESET_SORT[id], pins = pins })
   return at
 end
 
@@ -277,6 +348,25 @@ end
 function Cats:SetSearch(i, text)
   local list = self:EnsureCustom()
   if list[i] then list[i].search = text or "" end
+end
+
+-- The rule of a category by id, and the setter by id, for the visual chip editor: the panel knows a row
+-- by its id (a drag can slide indices under an open panel, so the index is not safe to hold), exactly as
+-- the sort and priority controls do. The read returns "" for a row with no rule.
+function Cats:SearchById(id)
+  if not id then return "" end
+  for _, c in ipairs(self:List()) do
+    if type(c) == "table" and c.id == id then return c.search or "" end
+  end
+  return ""
+end
+
+function Cats:SetSearchById(id, text)
+  if not id then return end
+  local list = self:EnsureCustom()
+  for _, c in ipairs(list) do
+    if type(c) == "table" and c.id == id then c.search = text or ""; return end
+  end
 end
 
 -- The per-category sort override, set from the pin panel. Keyed by category id, not list index: the
@@ -304,6 +394,70 @@ function Cats:SortOf(id)
     if type(c) == "table" and c.id == id then return c.sort or "default" end
   end
   return "default"
+end
+
+-- The claim priority of a category, set from the editor. Keyed by id, not index, for the same reason
+-- the sort override is: a drag can slide indices under an open control. It decides which section wins
+-- an item that several rules match — higher takes it — but never where the section draws, which stays
+-- the list position. Stored only when non-zero so a default list carries no prio field; 0 clears it.
+-- Only the classify order depends on it, so a change nils the stamp to force a reclassify, exactly as
+-- a pin change does. Range is clamped to the editor's own -2..2.
+function Cats:SetPrioById(id, n)
+  if not id then return end
+  n = tonumber(n) or 0
+  if n < -2 then n = -2 elseif n > 2 then n = 2 end
+  local list = self:EnsureCustom()
+  for _, c in ipairs(list) do
+    if type(c) == "table" and c.id == id then
+      c.prio = (n ~= 0) and n or nil
+      filterStamp = nil
+      return
+    end
+  end
+end
+
+-- The stored priority of the category with this id, 0 when it carries none. Read side for the editor.
+function Cats:PrioOf(id)
+  if not id then return 0 end
+  for _, c in ipairs(self:List()) do
+    if type(c) == "table" and c.id == id then return tonumber(c.prio) or 0 end
+  end
+  return 0
+end
+
+-- "Show in": a category can be hidden in one or more of the three windows (bags, bank, warband) while
+-- still classifying everywhere else. Stored as c.hide = { bank = true, ... }; a window absent from the
+-- table (or no table) means shown. Hidden is not the same as removed: an item a hidden category would
+-- have claimed in that window falls through to the next matching rule (ultimately Other), so nothing
+-- ever disappears from a bag — only which section draws it changes. bucketsCore reads c.hide live off
+-- the ACTIVE entries, so no cache stamp depends on it; a toggle is a plain relayout.
+local WINDOW_KEYS = { bags = true, bank = true, warband = true }
+
+function Cats:HiddenIn(id, window)
+  if not (id and WINDOW_KEYS[window]) then return false end
+  for _, c in ipairs(self:List()) do
+    if type(c) == "table" and c.id == id then
+      return (type(c.hide) == "table" and c.hide[window]) and true or false
+    end
+  end
+  return false
+end
+
+function Cats:ToggleHidden(id, window)
+  if not (id and WINDOW_KEYS[window]) then return end
+  local list = self:EnsureCustom()
+  for _, c in ipairs(list) do
+    if type(c) == "table" and c.id == id then
+      -- Empty and Other always show: Empty is the free-space stand-in and Other must always have a place
+      -- to land the unclaimed, so neither is hideable however this is called.
+      if c.empty or c.other then return end
+      local h = c.hide
+      if type(h) ~= "table" then h = {}; c.hide = h end
+      h[window] = (not h[window]) or nil
+      if next(h) == nil then c.hide = nil end
+      return
+    end
+  end
 end
 
 -- enabled is nil for on, so a fresh category and a shipped default both read as on. A plain
@@ -389,10 +543,11 @@ local SORT_KEYS = { quality = true, ilvl = true, name = true, match = true, expa
 local SHARE_MAX, SHARE_PINS_MAX, SHARE_TEXT_MAX = 400, 200, 400
 
 -- One list entry as a code carries it: a head keeps its name, a divider is only itself, a category
--- keeps its rule, its caption, whether it is on, its manual homes and its own draw order. Fold state
--- does not travel — a folded band is how the sender's view stood, not part of the list, and a code
--- that carried it would hand over the sender's clutter — and neither does any field a later version
--- may add, since one this build does not know is not read back.
+-- keeps its rule, its caption, whether it is on, its manual homes, its own draw order, its claim
+-- priority and which windows it is hidden in. Fold state does not travel — a folded band is how the
+-- sender's view stood, not part of the list, and a code that carried it would hand over the sender's
+-- clutter — and neither does any field a later version may add, since one this build does not know is
+-- not read back.
 -- The same function cleans an incoming entry, so a code from outside is cut to this shape before it is
 -- ever stored: a number where a table belongs, a rule several pages long, and a run of pins with no
 -- end all stop here rather than in the classify pass.
@@ -411,6 +566,20 @@ local function shareEntry(e)
   if e.empty == true then out.empty = true end
   if e.other == true then out.other = true end
   if type(e.sort) == "string" and SORT_KEYS[e.sort] then out.sort = e.sort end
+  if type(e.prio) == "number" and e.prio ~= 0 then
+    local n = e.prio
+    if n < -2 then n = -2 elseif n > 2 then n = 2 end
+    out.prio = n
+  end
+  -- Only the three known window keys travel, so a code cannot smuggle a stray field into c.hide; an
+  -- empty table is dropped rather than stored, matching how the toggle clears it.
+  if type(e.hide) == "table" then
+    local hide
+    for _, w in ipairs({ "bags", "bank", "warband" }) do
+      if e.hide[w] then hide = hide or {}; hide[w] = true end
+    end
+    if hide then out.hide = hide end
+  end
   if type(e.pins) == "table" then
     local pins, n = nil, 0
     for k in pairs(e.pins) do
@@ -706,6 +875,65 @@ local FLOOR_FROM = {
   armor    = "cloth leather mail plate !junk",
   trinkets = "trinket !junk",
 }
+-- Two shipped rules used to be written so that the chip editor could not read them back. Consumables
+-- mixed "and" with "or" to name two old gadgets it still wants; Wardrobe left two slot words side by side
+-- inside an "or", which the parser unions but the chip view would not flatten. Both are corrected in the
+-- shipped table above — Consumables keeps only the general rule, with the two gadgets pinned to that row
+-- instead, and Wardrobe writes its "or" between every pair — and this pass carries the correction onto a
+-- save that still holds the old text exactly. A rule the player has typed over no longer matches the old
+-- string and is left as it is, and a row already corrected does not match either, so the pass is safe to
+-- run again; the flag keeps it to the one time.
+-- The pins are a second pass with a flag of their own, because a build in between shipped the two gadgets
+-- pinned, then moved them into the rule text: a save that took that build holds the flat rule with an empty
+-- rack, and its rule flag is already set. A save that took the first shape gets the rule rewritten and the
+-- pins written in the same walk; a save that took the second gets only the pins.
+local PRESET_RULE_FROM = {
+  consumables = { search = "consumables !legacy | id132514 id109076", flat = "consumables !legacy",
+                  pin = { 132514, 109076 } },
+  wardrobe    = { search = "cosmetic | glyph | tabard shirt" },
+  -- Hearthstone shipped as the rule "id6948"; it is a pin now. A save still holding that exact rule gets it
+  -- cleared and the item pinned, once.
+  hearthstone = { search = "id6948", pin = { 6948 }, clearSearch = true },
+}
+function Cats:UpgradePresetRules()
+  if not WarpeeDB then return end
+  local doRules, doPins = not WarpeeDB.catRuleChips, not WarpeeDB.catConsumPins
+  -- Hearthstone id-rule -> pin is its own flag, since the two above are already set on any save from the
+  -- in-between build and would skip this.
+  local doHearth = not WarpeeDB.catHearthPin
+  if not (doRules or doPins or doHearth) then return end
+  WarpeeDB.catRuleChips, WarpeeDB.catConsumPins, WarpeeDB.catHearthPin = true, true, true
+  local db = WarpeeDB.categories
+  if type(db) ~= "table" then return end
+  for _, c in ipairs(db) do
+    local from = isCat(c) and type(c.id) == "string" and PRESET_RULE_FROM[c.id]
+    if from then
+      -- A row holding the shipped rule string exactly gets pins written in and, when the preset carries no
+      -- rule any more (Hearthstone), its search cleared. A rule the player typed over is left alone.
+      local held = (c.search == from.search) or (from.flat and c.search == from.flat)
+      if from.clearSearch then
+        if doHearth and held then
+          c.search = nil
+          if from.pin then
+            for _, id in ipairs(from.pin) do c.pins = c.pins or {}; c.pins[id] = true end
+          end
+        end
+      else
+        if doRules and held then
+          c.search = PRESET_SEARCH[c.id] or c.search
+        end
+        if doPins and from.pin and c.search == PRESET_SEARCH[c.id] then
+          for _, id in ipairs(from.pin) do
+            c.pins = c.pins or {}
+            c.pins[id] = true
+          end
+        end
+      end
+    end
+  end
+  filterStamp = nil
+end
+
 function Cats:UpgradeFloor()
   if not WarpeeDB or WarpeeDB.catIlvl180 then return end
   WarpeeDB.catIlvl180 = true
@@ -715,6 +943,34 @@ function Cats:UpgradeFloor()
   if type(db) ~= "table" then return end
   for _, c in ipairs(db) do
     if isCat(c) and type(c.id) == "string" and c.search == FLOOR_FROM[c.id] then
+      c.search = PRESET_SEARCH[c.id] or c.search
+    end
+  end
+  filterStamp = nil
+end
+
+-- Five shipped rules named their concept with a word the parser takes but the picker never shows: "held"
+-- for the off-hand, "ring" for the finger slot, "junk" for the poor quality, "container" for the bag
+-- class and "consumables" for the general rule, the plural only some languages spell. A chip reads
+-- through the picker, so such a word is a chip that falls back to its English token — and "held" has no
+-- one-word name in most languages at all, since the client spells that slot as a phrase. The shipped text
+-- above now says what the axes say, and this brings a save holding the old spelling over once. A rule the
+-- player has typed over matches nothing here and is left as it is; a row already carrying the picker's
+-- word does not match either, so the pass is safe to run again.
+local RULE_WORD_FROM = {
+  consumables = "consumables !legacy",
+  weapons     = "weapon shield held ilvl>180",
+  jewelry     = "ring neck ilvl>180",
+  bag         = "container",
+  junk        = "junk",
+}
+function Cats:UpgradeRuleWords()
+  if not WarpeeDB or WarpeeDB.catRuleWords then return end
+  WarpeeDB.catRuleWords = true
+  local db = WarpeeDB.categories
+  if type(db) ~= "table" then return end
+  for _, c in ipairs(db) do
+    if isCat(c) and type(c.id) == "string" and c.search == RULE_WORD_FROM[c.id] then
       c.search = PRESET_SEARCH[c.id] or c.search
     end
   end
@@ -792,7 +1048,7 @@ end
 -- rules say. FILTERS[i] is nil for a section that has pins but no search, so it never search-matches.
 -- Assigned into the forward-declared upvalues at the top of the file (not re-declared) so PinItem's
 -- earlier `filterStamp = nil` and this table both bind the same locals.
-FILTERS, PINS, ACTIVE, filterStamp = {}, {}, {}, nil
+FILTERS, PINS, ACTIVE, ORDER, filterStamp = {}, {}, {}, {}, nil
 
 local function hasSearch(c) return (c.search or ""):find("%S") ~= nil end
 local function hasPins(c) return type(c.pins) == "table" and next(c.pins) ~= nil end
@@ -832,8 +1088,10 @@ local function ensureFilters()
       -- what a reclassify depends on. A marker lands in it as an empty part, so moving one rebuilds the
       -- cache too; that is only a wasted pass, since the bands themselves are read off the list at draw
       -- time and never cached, so a marker move shows up in the view whether or not the stamp moved.
+      -- prio joins the stamp because it reorders which section claims an item, so a change to it must
+      -- rebuild the classify order below just as a search or a pin change does.
       parts[i] = (c.id or "") .. "\1" .. (c.search or "") .. "\1" .. tostring(c.enabled)
-                 .. "\1" .. pinPrint(c)
+                 .. "\1" .. pinPrint(c) .. "\1" .. tostring(c.prio or 0)
     else
       parts[i] = "\1\1"
     end
@@ -844,14 +1102,28 @@ local function ensureFilters()
   wipe(FILTERS)
   wipe(PINS)
   wipe(ACTIVE)
+  ORDER = ORDER or {}
+  wipe(ORDER)
   for _, c in ipairs(list) do
     if isActive(c) then
       local idx = #ACTIVE + 1
       ACTIVE[idx] = c
       FILTERS[idx] = hasSearch(c) and ns.ParseSearch((c.search or ""):lower()) or nil
       PINS[idx] = hasPins(c) and c.pins or nil
+      ORDER[idx] = idx
     end
   end
+  -- ORDER is the sequence classify walks its search pass in: highest priority first, list order within
+  -- a tie. It is kept apart from ACTIVE (which stays in list order, so order[i] in bucketsCore and the
+  -- band lookup still read straight across) — only the claim contest consults ORDER. A stable sort is
+  -- faked by breaking ties on the original index, so equal-priority rows keep the top-down order the
+  -- view has always had and nothing shifts for a list that sets no priority at all.
+  table.sort(ORDER, function(a, b)
+    local pa = tonumber(ACTIVE[a].prio) or 0
+    local pb = tonumber(ACTIVE[b].prio) or 0
+    if pa ~= pb then return pa > pb end
+    return a < b
+  end)
 end
 
 -- The same fields UpdateItemButton writes onto a cell, read straight off the container because
@@ -872,6 +1144,7 @@ local function buildMeta(bag, slot, info)
   m.name = nm
   m.text = (nm .. " " .. (iType or "") .. " " .. (iSub or "")):lower()
   m.q = info.quality
+  m.count = info.stackCount or 1
   m.classID, m.subID, m.id, m.equipLoc = iClassID, iSubID, iItemID, iEquipLoc
   m.isGear = isGear
   m.bag, m.slot = bag, slot
@@ -935,6 +1208,7 @@ local function buildMetaSnap(bag, d)
   m.name = nm
   m.text = (nm .. " " .. (iType or "") .. " " .. (iSub or "")):lower()
   m.q = d.q
+  m.count = d.c or 1
   m.classID, m.subID, m.id, m.equipLoc = iClassID, iSubID, iItemID, iEquipLoc
   m.isGear = isGear
   m.bag, m.slot = nil, nil
@@ -964,19 +1238,29 @@ end
 
 -- A pin beats every search, so the piece the player dropped on a section lands there even when an
 -- earlier section's rule would also take it. That means two passes, not one: all pins first across
--- every section, then searches in list order. Within each pass first match wins. Looped over ACTIVE
--- because a pin-only section leaves FILTERS[i] nil and a single #FILTERS walk would miss it.
-local function classify(m)
+-- every section, then searches in priority-then-list order. Within each pass first match wins. The pin
+-- pass loops ACTIVE directly (a pin is unique per item, so order cannot change the outcome); the search
+-- pass walks ORDER so a higher-priority rule claims a shared item before a lower one, whatever their
+-- list positions. ORDER holds the same indices as ACTIVE, so order[ORDER[k]] still names the section.
+-- `skip` (optional) is a set of ACTIVE indices the current window hides: a hidden section neither claims
+-- a pin nor matches a search here, so its items fall through to the next rule (ultimately Other), which
+-- is what "Show in" means — the item stays in the bag, only which section draws it changes.
+local function classify(m, skip)
   local id = m.id
   if id then
     for i = 1, #ACTIVE do
-      local pins = PINS[i]
-      if pins and pins[id] then return i end
+      if not (skip and skip[i]) then
+        local pins = PINS[i]
+        if pins and pins[id] then return i end
+      end
     end
   end
-  for i = 1, #ACTIVE do
-    local f = FILTERS[i]
-    if f and ns.MatchSearch(m, f) then return i end
+  for k = 1, #ORDER do
+    local i = ORDER[k]
+    if not (skip and skip[i]) then
+      local f = FILTERS[i]
+      if f and ns.MatchSearch(m, f) then return i end
+    end
   end
   return nil
 end
@@ -1021,7 +1305,8 @@ function Cats:RuleHome(itemID)
   if not itemID then return nil end
   ensureFilters()
   local m = metaFromID(itemID)
-  for i = 1, #ACTIVE do
+  for k = 1, #ORDER do
+    local i = ORDER[k]
     local f = FILTERS[i]
     if f and ns.MatchSearch(m, f) then return ACTIVE[i].id end
   end
@@ -1112,6 +1397,18 @@ local function bucketsCore(find, snap, snapMode, bagList, reagentBag)
   -- WarpeeDB.catSort. Resolved here so file() can compute only the sort key its bucket needs (a rank for
   -- "by rule", an expansion for "by expansion") rather than every key for every item on every pass.
   local globalMode = (WarpeeDB and WarpeeDB.catSort) or "ilvl"
+  -- Which sections are hidden in this window, as a set of ACTIVE indices classify() skips. The window is
+  -- snapMode ("bags"/"bank"/"warband"); a hidden section is left out of the claim entirely so its items
+  -- fall through to the next rule here while still filing normally in the windows it is shown in. Built
+  -- once per pass rather than read per slot. A hidden section still gets its bucket below (so a toggle is
+  -- a live relayout, not a structural rebuild), it simply never receives a slot and so does not draw.
+  local skip
+  do
+    for i = 1, #ACTIVE do
+      local h = ACTIVE[i].hide
+      if type(h) == "table" and h[snapMode] then skip = skip or {}; skip[i] = true end
+    end
+  end
   local order = {}
   for i = 1, #ACTIVE do
     order[i] = { id = ACTIVE[i].id, name = catName(ACTIVE[i]), slots = {}, hits = 0,
@@ -1129,16 +1426,34 @@ local function bucketsCore(find, snap, snapMode, bagList, reagentBag)
     order[#order + 1] = otherBucket
   end
   local used, total = 0, 0
+  -- Combine stacks: when on, several slots of one stackable item fold into a single cell that shows the
+  -- summed count, so a category is as compact as the items allow rather than one tile per bag slot. Gear,
+  -- caged pets and keystones are never merged — each of those is its own piece (a distinct ilvl, pet
+  -- level or key), so folding them would hide real differences. The cell still binds one real bag slot,
+  -- so the secure right-click is untouched; only the drawn count is the sum. Read once per pass.
+  -- Suppressed while a stack-splitting window is open (trade, mail, merchant, bank, scrapper, socket):
+  -- a folded cell hides the individual physical stacks, so a piece split off to hand over could not be
+  -- picked up on its own. Unfolding for the duration puts every physical stack back as its own cell.
+  local combine = (WarpeeDB and WarpeeDB.catCombine and not splitWindowOpen()) and true or false
   -- One buckets pass files a slot from its meta whatever built it: a live container reads it straight,
   -- a snapshot rebuilds the same meta from the record the Vault kept. The sort keys ride on the slot
   -- entry, read off the scratch meta now, since the meta is reused on the next slot and would be gone
   -- by the time the bucket is sorted. rank and exp are only read when the destination's own sort asks
   -- for them, so a plain quality view never pays for a branch match or an expansion lookup.
   local function file(bag, slot, m)
-    local idx = classify(m)
+    local idx = classify(m, skip)
     local dest = (idx and order[idx]) or otherBucket
+    if find and ns.MatchSearch(m, find) then dest.hits = dest.hits + 1 end
+    -- Fold into the item's existing cell when combining: same id, and not one of the per-piece kinds.
+    local canMerge = combine and m.id and not (m.isGear or m.battlepet or m.keystone)
+    if canMerge then
+      dest.byId = dest.byId or {}
+      local prev = dest.byId[m.id]
+      if prev then prev.count = prev.count + (m.count or 1); return end
+    end
     local entry = {
       bag = bag, slot = slot, q = m.q or -1, ilvl = m.ilvl or 0, name = m.name or "",
+      count = m.count or 1,
     }
     local mode = dest.mode
     if mode == "match" then
@@ -1147,7 +1462,7 @@ local function bucketsCore(find, snap, snapMode, bagList, reagentBag)
       entry.exp = ns.MetaExp(m)
     end
     dest.slots[#dest.slots + 1] = entry
-    if find and ns.MatchSearch(m, find) then dest.hits = dest.hits + 1 end
+    if canMerge then dest.byId[m.id] = entry end
   end
   -- A snapshot has no live container, so its slots and their contents come from the Vault instead:
   -- the same bag ids the grid walks, each packed slot turned back into a classify meta. used and total
@@ -1239,11 +1554,13 @@ function Cats:Preview(search)
 end
 
 -- The whole editor list in one slot pass, and the number beside each row is what its section
--- actually holds: first match wins in list order, exactly like Buckets, so a slot is tallied once
--- to the first active category that claims it. A disabled or blank row is not a section, so it
--- counts 0, matching isActive and the layout. buildMeta runs once per slot, not once per slot per
--- category. Returns the per index array and, second, how many occupied slots matched nothing and
--- would fall to Other, so the editor can show the coverage the rules leave behind.
+-- actually holds: pins first, then searches in priority-then-list order, exactly like classify, so a
+-- slot is tallied once to the section that would really claim it. A disabled or blank row is not a
+-- section, so it counts 0, matching isActive and the layout. Per-window "Show in" hiding is NOT applied
+-- here: the editor is window-agnostic, so it shows the true rule division a category holds across the
+-- bags, not what any one window draws. buildMeta runs once per slot, not once per slot per category.
+-- Returns the per index array and, second, how many occupied slots matched nothing and would fall to
+-- Other, so the editor can show the coverage the rules leave behind.
 function Cats:Counts()
   local list = self:List()
   local filters, pins, out = {}, {}, {}
@@ -1256,6 +1573,17 @@ function Cats:Counts()
     end
     out[i] = 0
   end
+  -- Searches are tried in priority order, list order within a tie, so the tally matches classify's own
+  -- ORDER walk. Built over the full list index (not ACTIVE) since Counts keys everything by list index;
+  -- only rows with a filter take part, the rest sort harmlessly among themselves and are skipped below.
+  local searchOrder = {}
+  for i = 1, #list do if filters[i] then searchOrder[#searchOrder + 1] = i end end
+  table.sort(searchOrder, function(a, b)
+    local pa = tonumber(list[a].prio) or 0
+    local pb = tonumber(list[b].prio) or 0
+    if pa ~= pb then return pa > pb end
+    return a < b
+  end)
   local other = 0
   for _, bag in ipairs(countBags()) do
     local num = C_Container.GetContainerNumSlots(bag) or 0
@@ -1272,8 +1600,9 @@ function Cats:Counts()
           end
         end
         if not hit then
-          for i = 1, #list do
-            if filters[i] and ns.MatchSearch(m, filters[i]) then out[i] = out[i] + 1; hit = true; break end
+          for k = 1, #searchOrder do
+            local i = searchOrder[k]
+            if ns.MatchSearch(m, filters[i]) then out[i] = out[i] + 1; hit = true; break end
           end
         end
         if not hit then other = other + 1 end
