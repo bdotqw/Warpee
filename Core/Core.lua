@@ -32,6 +32,7 @@ local DEFAULTS = {
   -- would settle that question before the migration ever gets to ask it.
   pocketLock = NONE,
   revFill = false, fillUp = false, questMarks = true, newItemGlow = false,
+  newOnTop = false,
   reagentTint = true, unusableBorder = true,
   bagView = "grid", bankView = "grid", categories = {},
   catSort = "ilvl",
@@ -160,6 +161,7 @@ function ns.PushConfig()
   Bags.hideReagents     = WarpeeDB.hideReagents
   Bags.revFill          = WarpeeDB.revFill
   Bags.fillUp           = WarpeeDB.fillUp
+  Bags.newOnTop         = WarpeeDB.newOnTop
   Bags.questMarks       = WarpeeDB.questMarks
   Bags.newItemGlow      = WarpeeDB.newItemGlow
   Bags.reagentTint      = WarpeeDB.reagentTint

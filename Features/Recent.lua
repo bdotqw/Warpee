@@ -18,6 +18,30 @@ local guidNow, guidHad, everWorn = {}, {}, {}
 local wornN = 0
 local ILOC
 
+-- The id the cursor is carrying, and when it last put one down. A split is C_Container.SplitContainerItem:
+-- it lifts part of a stack onto the cursor and the piece only lands when a click drops it, so the cursor is
+-- always the go-between. The plain "freeze while GetCursorInfo is set" guard is not enough: at pickup the
+-- source slot shrinks and fires BAG_UPDATE a frame before the cursor reads as holding the item, so a pass
+-- can slip in, read the shrunk total, and write it as the new baseline; then the piece landing reads as an
+-- arrival of that difference and lists the player's own split. Stamping the id the moment the cursor shows
+-- it (a CURSOR_CHANGED pass) and swallowing that id's next increase closes the window the freeze leaves open.
+local carriedId, carriedAt, carrying = nil, 0, false
+local CARRY_HOLD = 1.5
+local function noteCursor()
+  local t, id = GetCursorInfo()
+  if t == "item" and id then
+    carriedId, carrying = id, true
+  elseif carrying then
+    carrying, carriedAt = false, GetTime()
+  end
+end
+local function fromCursor(id)
+  return carriedId == id and (carrying or (GetTime() - carriedAt) < CARRY_HOLD)
+end
+-- Shared with the bags' new-on-top: the same "did this come off the cursor" test, one tracker, so a
+-- hand-placed item or a split is told apart from an arrival in both places off one CURSOR_CHANGED feed.
+ns.CursorHeldItem = fromCursor
+
 local function itemGuid(bag, slot)
   local G = C_Item and C_Item.GetItemGUID
   if not (G and ItemLocation) then return nil end
@@ -284,7 +308,10 @@ local function detect()
     local was = known[id] or 0
     if c > was then
       local d = pardon(id, c - was)
-      if d > 0 and not hold and not poor[id] then
+      -- An increase in an id the cursor is carrying (or just put down) is a split or a move landing, not
+      -- loot: swallow it so the player's own stack surgery never lists as recent. The baseline still moves
+      -- to the new count below, so the piece is accounted for, just not announced.
+      if d > 0 and not hold and not poor[id] and not fromCursor(id) then
         if seq[id] then mark(id, d) else add(id, n, d) end
       end
     elseif c < was and got[id] then
@@ -550,7 +577,14 @@ ev:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 ev:RegisterEvent("PLAYER_REGEN_ENABLED")
 ev:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 ev:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
+-- The cursor picking an item up or putting it down. Stamped before any bag pass so a split in flight is
+-- already on record when the source-shrunk BAG_UPDATE arrives; without this the pass beats the cursor read.
+ev:RegisterEvent("CURSOR_CHANGED")
 ev:SetScript("OnEvent", function(_, event)
+  if event == "CURSOR_CHANGED" then
+    noteCursor()
+    return
+  end
   if event == "PLAYER_EQUIPMENT_CHANGED" then
     bodyDiff()
     return

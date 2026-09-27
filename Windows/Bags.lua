@@ -62,7 +62,7 @@ local Bags = { pool = {}, vpool = {}, cols = COLS_DEFAULT, gap = GAP_DEFAULT, ic
                font = ns.Fonts.DEFAULT, query = "", dirty = {},
                badge = ns.BadgeDefaults(),
                qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, reagentTint = true, unusableBorder = true,
-               revFill = false, fillUp = false, reagentTop = false, hideReagents = false,
+               revFill = false, fillUp = false, newOnTop = false, reagentTop = false, hideReagents = false,
                bagView = "grid",
                styleGen = 1 }
 ns.Bags = Bags
@@ -72,6 +72,70 @@ ns.Bags = Bags
 -- many call sites read unchanged.
 local gridWidth = ns.GridWidth
 local fitLabel = ns.FitLabel
+
+-- New-on-top freshness. A slot is fresh when it took an item that arrived on its own (loot, a vendor
+-- right-click deposit's mirror, a quest reward) rather than one the player set down by hand. Slot-keyed
+-- because an untouched arrival keeps its slot until a sort, and a sort or the slot emptying clears the
+-- mark. Only cheap container reads, no tooltip scan. The cursor go-between (a hand-placed item, a split)
+-- is told apart through ns.CursorHeldItem, the same guard the recent row uses, so manual moves never float.
+local freshAt = {}
+local freshSeq = 0
+local baseId, baseCount = {}, {}
+
+-- Reads every bag slot once, the reagent bag included, and marks the ones that just took a new item.
+-- The reagent bag flows loot the same way the main bags do (mined ore, gathered herbs), so it earns the
+-- same treatment. The first pass after the mode turns on (or after a sort) only primes the baseline, so
+-- a bag already full of items does not all read as fresh at once. Returns whether the fresh set changed.
+function Bags:DetectFresh()
+  if self.snap or not self.newOnTop then return false end
+  if GetCursorInfo() then return false end
+  local held = ns.CursorHeldItem
+  -- A sort moves items in a cascade of bag updates that can straddle the settle timer, so a late move
+  -- lands after the baseline was primed and reads as an arrival, floating a sorted item back down. While
+  -- the grace window after a sort is open, every pass only re-primes the baseline and marks nothing, so
+  -- the whole cascade is absorbed as the new settled state. freshPrimed is left unset until it closes.
+  local grace = self.freshGraceUntil and GetTime() < self.freshGraceUntil
+  local prime = grace or not self.freshPrimed
+  local changed = false
+  local scan = { ns.reagentBag }
+  for _, bag in ipairs(ns.playerBags) do scan[#scan + 1] = bag end
+  for _, bag in ipairs(scan) do
+    local num = C_Container.GetContainerNumSlots(bag) or 0
+    for slot = 1, num do
+      local key = bag * 1000 + slot
+      local info = C_Container.GetContainerItemInfo(bag, slot)
+      local id = info and info.itemID
+      local cnt = (info and info.stackCount) or 0
+      if not id then
+        if freshAt[key] then freshAt[key] = nil; changed = true end
+      elseif not prime then
+        local arrived = (id ~= baseId[key]) or (cnt > (baseCount[key] or 0))
+        if arrived and not freshAt[key] and not (held and held(id)) then
+          freshSeq = freshSeq + 1
+          freshAt[key] = freshSeq
+          changed = true
+        end
+      end
+      baseId[key], baseCount[key] = id, cnt
+    end
+  end
+  if not grace then self.freshPrimed = true end
+  return changed
+end
+
+-- A sort (or a mode change) drops everything back into the ordinary packed order: wipe the marks and
+-- re-prime, so the settled bag is the new baseline and nothing reads as fresh until the next arrival.
+-- withGrace opens a short window during which every pass only re-primes the baseline, so the sort's
+-- cascade of bag moves is swallowed instead of being read as fresh arrivals landing after the reset.
+function Bags:ResetFresh(withGrace)
+  wipe(freshAt); wipe(baseId); wipe(baseCount)
+  freshSeq = 0
+  self.freshPrimed = nil
+  self.freshGraceUntil = withGrace and (GetTime() + 1.0) or nil
+end
+
+function Bags:FreshAt(bag, slot) return freshAt[bag * 1000 + slot] end
+
 
 function Bags:HeadShift()
   return self.showGauge and 0 or (ROW2_Y - GAUGE_Y + 2)
@@ -640,6 +704,9 @@ function Bags:Layout(capture)
           and self.gridBg and self.money and self.reagentLabel) then return end
   local cols = self.cols
   self:AnchorHeader()
+  -- New-on-top reads the bags for arrivals before the grid is placed, so the fresh marks are current for
+  -- this pass. In the grouped view the sections own the order, so it does not run there.
+  if self.newOnTop and not self.snap and not self:CatMode() then self:DetectFresh() end
   local size, gap, step = ns.GridMetrics(self.frame, self.iconSize, self.gap)
   self.pxSize, self.pxGap = size, gap
   local i, used, total = 0, 0, 0
@@ -754,13 +821,32 @@ function Bags:Layout(capture)
       return col * step, -(top + row * step)
     end
 
+    -- Raw cell number to screen coords: fill-up is a row direction so it is honored here, but reverse is
+    -- NOT, because new-on-top flips reverse per region (see placeBand) rather than against the whole grid.
+    -- Flipping against the whole grid was what let the reagent count shift the bag block, so it is kept
+    -- strictly region-local.
+    local function cellNT(k, rows, top)
+      local col, row = (k - 1) % cols, math.floor((k - 1) / cols)
+      if self.fillUp then row = rows - 1 - row end
+      return col * step, -(top + row * step)
+    end
+
+    -- The main grid's cell flow. Normally every slot is placed in order, so the settled items pack from
+    -- the origin corner and free slots trail behind. New-on-top splits the grid into bands and lays each
+    -- one on its own: the four bags float (settled items pack one end, fresh arrivals fill from the other),
+    -- and the merged reagent block sits plainly on the tail, never floated. Reverse is applied as an
+    -- end-for-end flip inside each band, so it decides which corner the settled mass packs into and the
+    -- fresh block mirrors it, the same in every band; because the flip is region-local, the reagent count
+    -- can never shift the bag band. Fill-up is a row direction kept by cellNT. It is a pure display remap
+    -- over the same bound slots: the secure click and drag are untouched and nothing moves inside the bags.
+    -- A sort clears the marks and the grid packs plainly again.
+    local mainSlots, reagSlots = {}, {}
+    local bagCells = 0
     for _, bag in ipairs(ns.playerBags) do
       local num = self:Slots(bag)
       self.bagSlots[bag] = num
-      for slot = 1, num do
-        n = n + 1
-        place(bag, slot, cellXY(n, mainCount, mainRows, mainTop))
-      end
+      for slot = 1, num do mainSlots[#mainSlots + 1] = { bag, slot } end
+      bagCells = bagCells + num
       total = total + num
       used = used + self:Taken(bag)
     end
@@ -768,9 +854,39 @@ function Bags:Layout(capture)
       total = total + rnum
       used = used + self:Taken(ns.reagentBag)
       if merge then
-        for slot = 1, rnum do
+        for slot = 1, rnum do reagSlots[#reagSlots + 1] = { ns.reagentBag, slot } end
+      end
+    end
+    if self.newOnTop and not self.snap then
+      -- Lay one band of M cells starting at global cell `base`+1. Settled slots take the near end, fresh
+      -- the far end; reverse flips the local position within the band [1..M] so both ends swap together.
+      local function placeBand(list, base, M, float)
+        local settled, fresh = {}, {}
+        for _, e in ipairs(list) do
+          local f = float and self:FreshAt(e[1], e[2])
+          if f then e.fresh = f; fresh[#fresh + 1] = e else settled[#settled + 1] = e end
+        end
+        table.sort(fresh, function(a, b) return a.fresh < b.fresh end)
+        local function put(e, p)
+          local lp = self.revFill and (M - p + 1) or p
+          place(e[1], e[2], cellNT(base + lp, mainRows, mainTop))
+        end
+        local p = 1
+        for _, e in ipairs(settled) do put(e, p); p = p + 1 end
+        local q = M
+        for _, e in ipairs(fresh) do put(e, q); q = q - 1 end
+      end
+      placeBand(mainSlots, 0, bagCells, true)
+      if merge and rnum > 0 then placeBand(reagSlots, bagCells, rnum, false) end
+    else
+      for _, e in ipairs(mainSlots) do
+        n = n + 1
+        place(e[1], e[2], cellXY(n, mainCount, mainRows, mainTop))
+      end
+      if merge then
+        for _, e in ipairs(reagSlots) do
           n = n + 1
-          place(ns.reagentBag, slot, cellXY(n, mainCount, mainRows, mainTop))
+          place(e[1], e[2], cellXY(n, mainCount, mainRows, mainTop))
         end
       end
     end
@@ -3049,6 +3165,10 @@ function Bags:UpdateDirty()
     used = used + (rnum - (select(1, C_Container.GetContainerNumFreeSlots(ns.reagentBag)) or 0))
   end
   if moved or total ~= self.total then self.dirty = {}; self:Layout(true); return end
+  -- New-on-top: an arrival into an existing slot does not change the slot count, so the incremental
+  -- path would repaint in place and never lift the new item to the top. If the fresh set changed, the
+  -- cells have to be reordered, which only a full layout does.
+  if self.newOnTop and self:DetectFresh() then self.dirty = {}; self:Layout(true); return end
   self.used = used
   for bag in pairs(self.dirty) do
     local num = C_Container.GetContainerNumSlots(bag) or 0
@@ -3063,6 +3183,10 @@ end
 
 function Bags:SortBags()
   self.sorting = true
+  -- The sort is the "drop everything into the packed order" action: clear the fresh marks and open a
+  -- grace window, so the whole cascade of moves the sort fires is absorbed as the new settled baseline
+  -- rather than a few late moves reading as arrivals and floating sorted items back down.
+  self:ResetFresh(true)
   self:SortSettle()
   C_Container.SortBags()
 end
@@ -3074,6 +3198,16 @@ function Bags:SortSettle()
   C_Timer.After(0.2, function()
     if self.sortGen ~= gen then return end
     self.sorting = false
+    -- New-on-top floats fresh cells to the far corner, so a sort has to re-place the whole grid to drop
+    -- them back into the packed order: the incremental repaint keeps each button where it was and would
+    -- leave the floated cells sitting over the sorted ones. The grace window opened in SortBags is left
+    -- running (not reset here) so the passes during the sort's move cascade keep re-priming the baseline
+    -- and none of those moves reads as a fresh arrival. A full layout draws the settled order.
+    if self.newOnTop and self.frame and self.frame:IsShown() then
+      self.dirty = {}
+      self:Layout(true)
+      return
+    end
     for _, bag in ipairs(ns.playerBags) do self.dirty[bag] = true end
     self.dirty[ns.reagentBag] = true
     if self.frame and self.frame:IsShown() then self:UpdateDirty() end

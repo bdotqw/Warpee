@@ -237,6 +237,8 @@ local STRINGS = {
     "Перетащите предмет на категорию в виде по категориям, чтобы прикрепить его туда. «С зажатым Alt» прикрепляет только при зажатом Alt, так что обычное перетаскивание не оставит случайного прикрепления. «Выкл» оставляет прикрепление только редактору. Сброс на категорию, куда предмет и так попадает по правилам, наоборот открепляет.",
   ["Hide reagents"] = "Скрыть реагенты",
   ["Reverse slot order"] = "Обратный порядок слотов",
+  ["Keep new items apart"] = "Новые предметы отдельно",
+  ["Grid order"] = "Порядок сетки",
   ["Fill grid upwards"] = "Ряды снизу вверх",
   ["Slot background"] = "Фон ячейки",
   ["Pay with"] = "Источник оплаты",
@@ -260,6 +262,8 @@ local STRINGS = {
     "Слоты сумок идут в обратном порядке: последний слот последней сумки попадает в первую ячейку. В самих сумках ничего не двигается, меняется только порядок отрисовки.",
   ["The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top."] =
     "Ряды ячеек выстраиваются от нижнего края сетки вверх. Неполный последний ряд оказывается сверху.",
+  ["Items that just arrived are kept apart from the rest of your bags, so you can see what is new at a glance. Using an item or pressing sort returns everything to the ordinary order. Only the drawing order changes, nothing moves inside your bags."] =
+    "Только что полученные предметы держатся отдельно от остальных сумок, чтобы сразу было видно, что нового. Использование предмета или сортировка возвращают всё в обычный порядок. Меняется только порядок отрисовки, в самих сумках ничего не двигается.",
   ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
     "Что находится за иконкой. «Прозрачный» — сквозь ячейку видна подложка, «Подсветка» — ячейка чуть светлее фона, «Заливка» — фон полностью закрыт.",
   ["The plate the items stand on, an extra surface over the window's own background. At 0 it is invisible and the window keeps its own background; raised, it covers the window from top to bottom, except the header a skin draws for itself."] = "Подложка под предметами — дополнительный слой поверх собственного фона окна. При 0 она не видна, и окно остаётся со своим фоном; выше — накрывает окно сверху донизу, кроме шапки, которую рисует сам скин.",

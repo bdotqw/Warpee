@@ -1979,6 +1979,18 @@ flow.hideGet, flow.hideSet = field("hideReagents")
 flow.offGet = function() return mergeGet() or flow.hideGet() end
 flow.revGet, flow.revSet = field("revFill")
 flow.upGet, flow.upSet   = field("fillUp")
+-- New-on-top is bags-only (the bank has no passive loot flow) and, unlike reverse/fill-up which the
+-- bank grid also reads, it is meaningless in the grouped view where sections own the order. So it hides
+-- whenever the bags are grouped, not on the both-grouped test the other two use.
+flow.newTopGet = function() return Bags.newOnTop end
+flow.newTopSet = function(v)
+  Bags.newOnTop = v
+  WarpeeDB.newOnTop = v
+  -- Turning it off (or on) starts fresh: drop any marks so the grid returns to the packed order at once
+  -- rather than keeping whatever was floated when it was last on.
+  if Bags.ResetFresh then Bags:ResetFresh() end
+  relayout()
+end
 -- The view is a string on disk, the row a toggle, so the pair maps bool to "grid"/"cat".
 flow.catGet = function() return Bags.bagView == "cat" end
 -- The inverse gate: rows that only make sense in the grouped view hide themselves in the grid with
@@ -4694,6 +4706,11 @@ local GRID_PAGE = {
     set = function(v) Bags.catGapY = v; WarpeeDB.catGapY = v; relayout() end,
     hidden = flow.noCat, half = "right",
     desc = "Vertical gap between category rows, in the grouped view." },
+  -- Grid-only layout, split under two faint subheadings so the long arrangement list reads as groups
+  -- rather than one pile: where the reagent bag sits, then how the whole grid is ordered. Both subheads
+  -- carry section = "arrange" so they fold with it, and each hides on the same test as the rows under it
+  -- (reagent rows on catGet, the order rows while any grid is left), so a heading never stands alone.
+  { type = "header", name = "Reagents", section = "arrange", hidden = flow.catGet },
   { type = "toggle", name = "Hide reagents", col = 1, of = 2, section = "arrange",
     get = flow.hideGet, set = flow.hideSet, hidden = flow.catGet,
     desc = "Leave the reagent bag out of the window. Its slots still count in the header, and reagents still go into it." },
@@ -4703,12 +4720,16 @@ local GRID_PAGE = {
   { type = "toggle", name = "Reagents on top", section = "arrange",
     get = flow.topGet, set = flow.topSet, disabled = flow.offGet, hidden = flow.catGet,
     desc = "Draw the reagent bag above the main bags instead of below them." },
+  { type = "header", name = "Grid order", section = "arrange", hidden = flow.gridGone },
   { type = "toggle", name = "Fill grid upwards", col = 1, of = 2, section = "arrange",
     get = flow.upGet, set = flow.upSet, hidden = flow.gridGone,
     desc = "The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top." },
   { type = "toggle", name = "Reverse slot order", col = 2, of = 2, section = "arrange",
     get = flow.revGet, set = flow.revSet, hidden = flow.gridGone,
     desc = "The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in." },
+  { type = "toggle", name = "Keep new items apart", section = "arrange",
+    get = flow.newTopGet, set = flow.newTopSet, hidden = flow.catGet,
+    desc = "Items that just arrived are kept apart from the rest of your bags, so you can see what is new at a glance. Using an item or pressing sort returns everything to the ordinary order. Only the drawing order changes, nothing moves inside your bags." },
   { type = "header", name = "Quick access" },
   { type = "toggle", name = "Recent in bags", col = 1,
     get = fav.recentBagsGet, set = fav.recentBagsSet,

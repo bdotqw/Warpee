@@ -221,6 +221,8 @@ local STRINGS = {
     "Zieht einen Gegenstand in der gruppierten Ansicht auf eine Kategorie, um ihn dort anzuheften. „Alt gedrückt halten“ heftet nur bei gedrückter Alt-Taste an, sodass ein normales Ziehen keine versehentliche Anheftung hinterlässt. „Aus“ überlässt das Anheften dem Editor. Ein Ablegen auf der Kategorie, die die Regeln ohnehin wählen, löst die Anheftung stattdessen.",
   ["Hide reagents"] = "Reagenzien ausblenden",
   ["Reverse slot order"] = "Taschenplätze umkehren",
+  ["Keep new items apart"] = "Neue Gegenstände getrennt halten",
+  ["Grid order"] = "Rasterreihenfolge",
   ["Fill grid upwards"] = "Raster von unten füllen",
   ["Slot background"] = "Platzhintergrund",
   ["Pay with"] = "Zahlungsquelle",
@@ -244,6 +246,8 @@ local STRINGS = {
     "Die Taschenplätze laufen rückwärts: der letzte Platz der letzten Tasche steht an erster Stelle im Raster. In den Taschen selbst wird nichts verschoben, nur die Zeichenreihenfolge ändert sich.",
   ["The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top."] =
     "Die Reihen des Rasters werden von der Unterkante nach oben gestapelt. Die letzte, unvollständige Reihe steht dann oben.",
+  ["Items that just arrived are kept apart from the rest of your bags, so you can see what is new at a glance. Using an item or pressing sort returns everything to the ordinary order. Only the drawing order changes, nothing moves inside your bags."] =
+    "Soeben erhaltene Gegenstände werden getrennt vom Rest der Taschen gehalten, sodass Ihr auf einen Blick seht, was neu ist. Sobald Ihr einen Gegenstand benutzt oder sortiert, kehrt alles zur gewöhnlichen Anordnung zurück. Nur die Anordnung ändert sich, in den Taschen selbst bewegt sich nichts.",
   ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
     "Was hinter jedem Symbol liegt. »Transparent« lässt die Unterlage durchscheinen, »Aufgehellt« hebt den Platz leicht hervor, »Deckend« schließt ihn ganz ab.",
   ["The plate the items stand on, an extra surface over the window's own background. At 0 it is invisible and the window keeps its own background; raised, it covers the window from top to bottom, except the header a skin draws for itself."] = "Die Unterlage, auf der die Gegenstände stehen — eine zusätzliche Fläche über dem eigenen Hintergrund des Fensters. Bei 0 ist sie unsichtbar und das Fenster behält seinen Hintergrund; höher deckt sie das Fenster von oben bis unten ab, außer der Kopfzeile, die der Skin selbst zeichnet.",

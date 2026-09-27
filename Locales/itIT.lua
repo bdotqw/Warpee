@@ -224,6 +224,8 @@ local STRINGS = {
     "Trascina un oggetto su una categoria nella vista raggruppata per fissarlo lì. «Tieni premuto Alt» fissa solo con Alt premuto, così un normale trascinamento non lascia mai un aggancio inatteso. «Off» lascia l'aggancio all'editor. Rilasciare sulla categoria che le regole già scelgono lo sgancia invece.",
   ["Hide reagents"] = "Nascondi i reagenti",
   ["Reverse slot order"] = "Inverti l'ordine degli scomparti",
+  ["Keep new items apart"] = "Tieni separati gli oggetti nuovi",
+  ["Grid order"] = "Ordine della griglia",
   ["Fill grid upwards"] = "Riempi la griglia verso l'alto",
   ["Slot background"] = "Sfondo degli scomparti",
   ["Pay with"] = "Pagare con",
@@ -247,6 +249,8 @@ local STRINGS = {
     "Gli scomparti delle borse vengono mostrati al contrario: l'ultimo scomparto dell'ultima borsa occupa la prima cella. Nulla si sposta nelle borse, cambia solo l'ordine di visualizzazione.",
   ["The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top."] =
     "Le righe si dispongono dal basso verso l'alto, così l'ultima riga incompleta resta in cima.",
+  ["Items that just arrived are kept apart from the rest of your bags, so you can see what is new at a glance. Using an item or pressing sort returns everything to the ordinary order. Only the drawing order changes, nothing moves inside your bags."] =
+    "Gli oggetti appena ottenuti restano separati dal resto delle borse, così vedi a colpo d'occhio cosa è nuovo. Usando un oggetto o premendo l'ordinamento tutto torna alla disposizione abituale. Cambia solo l'ordine di visualizzazione, nelle borse non si muove nulla.",
   ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
     "Ciò che appare dietro ogni icona. Trasparente mostra lo sfondo, Evidenziato mette in risalto lo scomparto, Pieno lo chiude.",
   ["The plate the items stand on, an extra surface over the window's own background. At 0 it is invisible and the window keeps its own background; raised, it covers the window from top to bottom, except the header a skin draws for itself."] = "Il supporto sotto gli oggetti: una superficie extra sopra lo sfondo della finestra stessa. A 0 è invisibile e la finestra mantiene il suo sfondo; salendo copre la finestra da cima a fondo, tranne l'intestazione disegnata dallo skin.",

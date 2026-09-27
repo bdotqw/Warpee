@@ -550,6 +550,13 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
   -- Size and nudge are the share of a slot the game's own mark holds; FitOverlays lays them on
   -- again on every pass, so the mark is cut for our slot at whatever size that slot is.
   suppress(b.IconQuestTexture);   suppress(_G[nm.."IconQuestTexture"])
+  -- The template paints its own context fade in the game's interaction windows (item upgrade, the
+  -- scrapper, a gem socket, the runeforge, void storage): a flat black at 0.8 over any cell the open
+  -- window rejects. We already dim those cells ourselves through ContextBlocked, the same grey the bank
+  -- and a search miss use, so the template's overlay only stacks a second, darker fade on top and the
+  -- two windows end up looking different. Suppressed so one dim, ours, shows in every context. The bank
+  -- never triggered it (its own path is not an ItemButtonUtil context), which is why it looked right.
+  suppress(b.ItemContextOverlay)
   local quest = b.borderFrame:CreateTexture(nil, "OVERLAY", nil, 6)
   quest:SetAtlas("Crosshair_Quest_64")
   quest:SetSize(28, 28)

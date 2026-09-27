@@ -231,6 +231,8 @@ local STRINGS = {
     "Arrastra un objeto sobre una categoría en la vista agrupada para fijarlo ahí. «Mantener Alt» fija solo con Alt pulsado, así un arrastre normal nunca deja una fijación inesperada. «Desactivado» deja la fijación al editor. Soltar en la categoría que las reglas ya eligen, en cambio, lo desfija.",
   ["Hide reagents"] = "Ocultar los componentes",
   ["Reverse slot order"] = "Orden inverso de espacios",
+  ["Keep new items apart"] = "Mantener aparte los objetos nuevos",
+  ["Grid order"] = "Orden de la cuadrícula",
   ["Fill grid upwards"] = "Filas de abajo arriba",
   ["Slot background"] = "Fondo de los espacios",
   ["Pay with"] = "Pagar con",
@@ -254,6 +256,8 @@ local STRINGS = {
     "Los espacios de las bolsas se recorren al revés: el último espacio de la última bolsa ocupa la primera casilla. Dentro de las bolsas nada se mueve, solo cambia el orden en que se dibujan.",
   ["The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top."] =
     "Las filas de casillas se apilan desde el borde inferior hacia arriba. La última fila incompleta queda arriba.",
+  ["Items that just arrived are kept apart from the rest of your bags, so you can see what is new at a glance. Using an item or pressing sort returns everything to the ordinary order. Only the drawing order changes, nothing moves inside your bags."] =
+    "Los objetos recién obtenidos se mantienen aparte del resto de las bolsas, para que veas de un vistazo lo que es nuevo. Al usar un objeto o pulsar el orden, todo vuelve a la disposición habitual. Solo cambia el orden de dibujado, dentro de las bolsas no se mueve nada.",
   ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
     "Lo que hay detrás de cada icono. «Transparente» deja ver el fondo, «Aclarado» resalta un poco el espacio, «Opaco» lo cierra del todo.",
   ["The plate the items stand on, an extra surface over the window's own background. At 0 it is invisible and the window keeps its own background; raised, it covers the window from top to bottom, except the header a skin draws for itself."] = "El fondo bajo los objetos: una superficie extra sobre el fondo propio de la ventana. En 0 es invisible y la ventana conserva su fondo; al subir cubre la ventana de arriba abajo, salvo la cabecera que dibuja el propio skin.",

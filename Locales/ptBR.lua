@@ -222,6 +222,8 @@ local STRINGS = {
     "Arraste um item para uma categoria na visão agrupada para fixá-lo ali. «Segurar Alt» fixa só com Alt pressionado, então um arraste comum nunca deixa uma fixação inesperada. «Desligado» deixa a fixação para o editor. Soltar na categoria que as regras já escolhem, em vez disso, desafixa.",
   ["Hide reagents"] = "Ocultar reagentes",
   ["Reverse slot order"] = "Inverter ordem dos espaços",
+  ["Keep new items apart"] = "Manter itens novos à parte",
+  ["Grid order"] = "Ordem da grade",
   ["Fill grid upwards"] = "Preencher a grade de baixo para cima",
   ["Slot background"] = "Fundo dos espaços",
   ["Pay with"] = "Pagar com",
@@ -245,6 +247,8 @@ local STRINGS = {
     "Exibe os espaços das bolsas ao contrário: o último espaço da última bolsa ocupa a primeira célula. Nada se move nas bolsas; somente a ordem de exibição muda.",
   ["The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top."] =
     "As linhas de células se acumulam da borda inferior para cima, deixando a última linha incompleta no topo.",
+  ["Items that just arrived are kept apart from the rest of your bags, so you can see what is new at a glance. Using an item or pressing sort returns everything to the ordinary order. Only the drawing order changes, nothing moves inside your bags."] =
+    "Os itens recém-obtidos ficam à parte do resto das bolsas, para você ver num relance o que é novo. Ao usar um item ou acionar a organização, tudo volta à disposição comum. Só muda a ordem de exibição, nada se move dentro das bolsas.",
   ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
     "O que aparece atrás de cada ícone. Transparente mostra o fundo, Realçado destaca o espaço e Sólido o fecha.",
   ["The plate the items stand on, an extra surface over the window's own background. At 0 it is invisible and the window keeps its own background; raised, it covers the window from top to bottom, except the header a skin draws for itself."] = "A base sob os itens: uma superfície extra sobre o fundo próprio da janela. Em 0 ela fica invisível e a janela mantém o seu fundo; ao subir cobre a janela de cima a baixo, exceto o cabeçalho que o próprio skin desenha.",
