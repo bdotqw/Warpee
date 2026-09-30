@@ -37,6 +37,9 @@ local function splitWindowOpen()
   end
   return false
 end
+-- Read by the grouped views to freeze their layout while any such window is open: an item leaving the
+-- bags (sold, deposited) then keeps its cell in place instead of the whole view reflowing.
+ns.SplitWindowOpen = splitWindowOpen
 -- The catch-all's id. Like EMPTY_ID it is no real category, only the tag the bag reads to know a drop
 -- here should do nothing: Empty is the one unfile target now, Other is inert.
 Cats.OTHER_ID = "other"
@@ -478,6 +481,16 @@ end
 -- no-op after the lift. id is the plain numeric itemID. targetId nil or an id no section owns just
 -- clears the pin everywhere, which is how a drop on Other unfiles a piece. The classify cache is
 -- keyed on the pin sets, so a change nils the stamp to force a reclassify on the next pass.
+-- Is drag-to-pin armed right now? "off" never pins, "on" always, "alt" only while Alt is held. Read at
+-- the moment of the drop so the modifier is live, and read by both grouped views, which drop a piece on a
+-- section the same way. A missing or unknown saved value falls back to the "alt" default.
+function Cats.PinDragActive()
+  local mode = (WarpeeDB and WarpeeDB.catPinDrag) or "alt"
+  if mode == "off" then return false end
+  if mode == "on" then return true end
+  return IsAltKeyDown() and true or false
+end
+
 function Cats:PinItem(itemID, targetId)
   if not itemID then return end
   local list = self:EnsureCustom()
@@ -1132,6 +1145,10 @@ end
 -- the previous slot's memoized answer leaks.
 local scratch = {}
 local scratchLoc = ItemLocation and ItemLocation.CreateEmpty and ItemLocation:CreateEmpty()
+-- Set for the duration of a bucketing pass that needs slot-memory keys (the grouped anti-jump while a
+-- take-items window is open). Off otherwise: reading the instance GUID costs a container lookup per slot,
+-- and a plain pass has no use for it.
+local KEYED = false
 local function buildMeta(bag, slot, info)
   local hl = info.hyperlink
   local m = scratch
@@ -1156,10 +1173,19 @@ local function buildMeta(bag, slot, info)
   m.exp = nil
   m.boa = nil
   m.toy = nil
+  -- The slot-memory key: a unique instance GUID for a live item, so the grouped anti-jump can tell a
+  -- returning piece from a genuinely new one. nil unless a keyed pass, and nil on a snapshot (no live
+  -- container) or anything the client will not answer for, where the itemID stands in.
+  m.guid = nil
   if isGear and scratchLoc then
     scratchLoc:SetBagAndSlot(bag, slot)
     m.loc = scratchLoc
     if C_Item.DoesItemExist(scratchLoc) then m.ilvl = C_Item.GetCurrentItemLevel(scratchLoc) end
+  end
+  if KEYED and hl then
+    -- The gear branch above already pointed scratchLoc at this slot; reuse it, else set it now.
+    if not m.loc then scratchLoc:SetBagAndSlot(bag, slot) end
+    if C_Item.DoesItemExist(scratchLoc) then m.guid = C_Item.GetItemGUID(scratchLoc) end
   end
   if isGear and not m.ilvl then
     local getIL = C_Item.GetDetailedItemLevelInfo or GetDetailedItemLevelInfo
@@ -1371,6 +1397,358 @@ local function branchRank(idx, m)
   return #f.ors + 1
 end
 
+-- Slot memory for the grouped anti-jump. A category keeps the ordered keys of the slots it last drew;
+-- while a window that takes items is open the next pass walks that order and rebuilds the section from
+-- it: a remembered piece still present keeps its place, one that left becomes an inert hole carrying its
+-- old key, and anything present no remembered entry claimed is new and appends. So a deposit leaves holes
+-- in place (no reflow under the cursor) and a piece coming back from the bank drops into its own hole;
+-- Does live slot `e` hold the remembered piece `p`? The instance GUID is the exact match, tried first. If
+-- it does not match, the itemID is the fallback, and it is allowed even for a unique piece (gear): a piece
+-- that goes into the warband bank and comes back is issued a FRESH GUID, so its old GUID never matches
+-- again, and only the itemID ties the returning piece to the hole it left. The counted round-one/round-two
+-- match below is what keeps this fallback honest: a still-present twin of the same itemID claims its own
+-- slot by position in round one, so it is already taken and cannot be handed to a departed piece's entry in
+-- round two. (onScreen, separately, stays GUID-only, so that same twin never masks the departure itself.)
+local function sameKey(e, p)
+  if p.guid and e.guid and e.guid == p.guid then return true end
+  return (p.nokey and e.nokey and e.nokey == p.nokey) or false
+end
+
+-- `live` holds every identity still on screen anywhere in this pass, so a hole can tell whether the piece
+-- it stands for left the bags or merely moved (a merged stack, a piece re-filed into another category).
+-- Only a hole whose piece is nowhere is a removal, and that is what the caller times its hold off.
+-- The instance GUID is trusted alone whenever the piece has one: a moved piece keeps its GUID (it shifts
+-- only in and out of the warband bank, and a piece there was matched by key in its own category already),
+-- so a GUID that is nowhere means the piece truly left. The earlier itemID fallback here was the bug behind
+-- "not every stack got a hole": depositing one stack of an itemID while another stack of the same itemID
+-- stayed read the survivor as the deposited one still being present, and drew no hole. The itemID is used
+-- only when the client answered no GUID at all.
+local function onScreen(live, p)
+  if not live then return false end
+  if p.guid then return live.guid[p.guid] == true end
+  return (p.nokey and live.nokey[p.nokey]) and true or false
+end
+local function reconcile(b, prev, live)
+  if not (prev and #prev > 0) then return end
+  local slots, used, out = b.slots, {}, {}
+  -- A pass that brought this category nothing it did not already hold is a pure removal: the pieces that
+  -- stood here left and their places are worth holding, since nothing is pushing them out of the way. A
+  -- pass that brought something new is a rebuild instead, and a gap held through a rebuild stands over a
+  -- piece that is not coming back. Counted by item key, not by identity, because a stack's GUID shifts as
+  -- it moves and one arriving of a kind the category already held is still an arrival: only a key the
+  -- category has never seen makes the pass a rebuild.
+  local held = {}
+  for i = 1, #prev do
+    local key = prev[i].nokey
+    if key then held[key] = (held[key] or 0) + 1 end
+  end
+  local fresh = false
+  for k = 1, #slots do
+    local key = slots[k].nokey
+    if key and (held[key] or 0) > 0 then held[key] = held[key] - 1
+    elseif key then fresh = true; break end
+  end
+  -- Round one, for every remembered piece at once: the live slot in the very bag and slot it was
+  -- remembered in is that piece. It has to be a round of its own rather than a preference inside the
+  -- loop below. Two identical stacks carry the same itemID and a stack's GUID shifts when it moves, so
+  -- nothing else tells them apart, and an earlier entry left to look for a match by key would take the
+  -- later one's cell: picking one of two identical stacks up emptied the other one's cell instead.
+  local claim, at = {}, {}
+  for k = 1, #slots do at[slots[k].bag * 1000 + slots[k].slot] = k end
+  for i = 1, #prev do
+    local p = prev[i]
+    local k = at[p.bag * 1000 + p.slot]
+    if k and not used[k] and sameKey(slots[k], p) then
+      used[k], claim[i] = true, k
+    end
+  end
+  -- Round two: what is left, in remembered order, matched by key. Among the live slots still free a
+  -- stack of the same size comes first, since its count is the last thing that tells two apart.
+  local pick = {}
+  for i = 1, #prev do
+    local p = prev[i]
+    if not claim[i] then
+      local byCount, byKey
+      for k = 1, #slots do
+        local s = slots[k]
+        if not used[k] and sameKey(s, p) then
+          if not byCount and p.count and s.count == p.count then byCount = k end
+          byKey = byKey or k
+        end
+      end
+      pick[i] = byCount or byKey
+      if pick[i] then used[pick[i]] = true end
+    end
+  end
+  for i = 1, #prev do
+    local p = prev[i]
+    local k = claim[i] or pick[i]
+    if k then
+      out[#out + 1] = slots[k]
+    elseif not (fresh or onScreen(live, p)) then
+      local d = { dummy = true, guid = p.guid, nokey = p.nokey, count = p.count,
+                  bag = p.bag, slot = p.slot }
+      -- A hole stands for a piece that left the window's containers: a deposit, a sale, a destroy. The
+      -- piece stood here as a live cell last pass and stands nowhere now, so there is nothing left to take
+      -- this place and holding it keeps the view from reflowing under the cursor. A hole carried over from
+      -- an earlier pass (p.dummy) was already counted on the pass that made it.
+      if not p.dummy then b.left = (b.left or 0) + 1 end
+      out[#out + 1] = d
+    end
+    -- The other two ways out leave no hole at all, and neither is a removal: the pass is a rebuild (fresh,
+    -- something new arrived in this category), or the piece is still on screen somewhere else in this
+    -- window — it changed category, or moved within this one. A gap in that case would be a mark nothing
+    -- could take, standing over a piece the player can see two cells away.
+  end
+  for k = 1, #slots do
+    if not used[k] then out[#out + 1] = slots[k] end
+  end
+  b.slots = out
+end
+
+-- The ordered keys of a buckets pass, one list per category id, for the next pass to reconcile against.
+-- Dummies carry their remembered keys forward so a hole survives pass after pass until its piece returns.
+-- `holes` says whether the pass that produced these buckets is drawing them: a pass that draws the
+-- compacted view hands back the compacted order, or the holes it just dropped would come back the moment a
+-- window opened over it.
+function Cats:CaptureMemory(buckets, holes)
+  local mem = {}
+  for _, b in ipairs(buckets or {}) do
+    if not b.empty then
+      local list = {}
+      for i = 1, #b.slots do
+        local s = b.slots[i]
+        if holes or not s.dummy then
+          list[#list + 1] = { guid = s.guid, nokey = s.nokey, count = s.count,
+                              bag = s.bag, slot = s.slot, dummy = s.dummy }
+        end
+      end
+      if #list > 0 then mem[b.id] = list end
+    end
+  end
+  return mem
+end
+
+-- Drop the held holes from a pass's buckets, in place, for a layout that is not holding: the cells after a
+-- piece that left move up, which is what an ordinary rebuild does.
+function Cats:Compact(buckets)
+  for _, b in ipairs(buckets or {}) do
+    local slots, n = b.slots, 0
+    for i = 1, #slots do
+      if not slots[i].dummy then n = n + 1; slots[n] = slots[i] end
+    end
+    for i = n + 1, #slots do slots[i] = nil end
+  end
+end
+
+-- Handed in as the memory on the first held pass, before any memory exists: a non-nil empty table, so the
+-- pass records keys (a nil memory would read as "not keyed") yet reconciles against nothing.
+Cats.EMPTY_MEMORY = {}
+
+-- The category transfer: move a section's slots through the game's own UseContainerItem, a batch at a
+-- time. Modelled on the vendor sell pump (Features/Vendor.lua): a slot whose item is gone or locked is
+-- never forced, a slot that will not clear after a few tries is left alone, and the run stops the moment
+-- the window closes or combat starts. Deposit and withdraw both come through here: `send(bag, slot)` is the
+-- one game call that moves a piece (deposit passes the bank type, withdraw does not), and `dummy` entries
+-- (held holes) are skipped since their bag/slot is stale.
+--
+-- Two speeds, and which one a run gets is the `warband` argument. The character bank takes a move and has
+-- it done by the time the next line runs, so its runs send batch after batch with nothing but a short gap
+-- between them. The account bank answers a server round-trip per move, and a second batch fired into a
+-- move still in flight leaves those slots locked and drops the moves behind it: its runs are the smaller
+-- batch and do not send the next one until the one before it landed. What "landed" is read from is the
+-- run's own list, since either direction empties the slot it sent, so it costs no container reads.
+local ctstate = nil
+local CT_BATCH, CT_TRIES, CT_WAIT = 6, 4, 0.12
+-- A slot that reads locked is a move in flight, so the sweep waits it out rather than firing at it. But a
+-- lock that never clears is a server-side stall (the state a reload does not fix, only a relog): waited on
+-- forever it would spin the pump on that one slot without end. This is how many consecutive sweeps a slot
+-- may sit locked before it is given up on, so the run finishes instead of looping. Generous, since a real
+-- warband round-trip can hold a lock for a second or two; at ~0.1s a sweep, this is a few seconds.
+local CT_LOCK_WAITS = 40
+-- The account bank's batch, kept small: the warband answers a server round-trip per move, and firing more
+-- than a handful before they land is what left pieces server-side locked (a state a reload does not clear,
+-- only a relog). Three at a time, well within what the server accepts in one breath.
+Cats.WARBAND_BATCH = 3
+-- A batch sent to the account bank is given this long to land before the run sweeps again. It is not a
+-- give-up: the sweep re-reads the container, marks the pieces that did land as done, and re-sends any that
+-- did not (the server drops a move now and then), which is how a skipped piece is gone back for rather than
+-- abandoned. A piece that truly cannot move is caught by the per-slot try cap in ctSweep, not here. The poll
+-- count is generous, since a slow warband round-trip must be waited out rather than raced.
+local CT_SETTLE, CT_SETTLE_POLLS = 0.10, 40
+
+-- The client is mid-update: a burst of container changes has fired BAG_UPDATE but not yet the settling
+-- BAG_UPDATE_DELAYED, so slots are in motion and a move issued now can land on a slot the server is still
+-- rewriting and lock it. The reference addon gates its whole transfer on exactly this (its bag cache marks
+-- itself pending on BAG_UPDATE and clears on BAG_UPDATE_DELAYED); WoW exposes no such flag, so it is tracked
+-- here off the same two events, plus the bank-slot events that a deposit or withdraw stirs. The pump holds
+-- until it clears, which is what makes a whole batch settle before the next goes out. A hard ceiling
+-- (bagPendingUntil) drops the flag if the settling event never arrives, so the pump can never wedge on it;
+-- it is long, because dropping it early is exactly the race that locked pieces on the warband.
+local bagPending, bagPendingUntil = false, 0
+do
+  local w = CreateFrame("Frame")
+  w:RegisterEvent("BAG_UPDATE")
+  w:RegisterEvent("BAG_UPDATE_DELAYED")
+  w:RegisterEvent("PLAYERBANKSLOTS_CHANGED")
+  w:RegisterEvent("PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED")
+  w:RegisterEvent("BANK_TABS_CHANGED")
+  w:SetScript("OnEvent", function(_, event)
+    if event == "BAG_UPDATE_DELAYED" then
+      bagPending = false
+    else
+      -- Any container change opens the pending window; BAG_UPDATE_DELAYED closes it. The ceiling covers a
+      -- bank event that the client does not follow with a delayed sweep.
+      bagPending, bagPendingUntil = true, GetTime() + 2.0
+    end
+  end)
+end
+local function clientSettling()
+  if not bagPending then return false end
+  if GetTime() >= bagPendingUntil then bagPending = false; return false end
+  return true
+end
+
+-- Has the batch just sent actually landed? Read per moved entry, and which side is read depends on the
+-- move. A deposit records the bank slot it aimed at (destBag/destSlot): the source (a bag) empties the
+-- instant the piece is lifted onto the cursor, well before the account bank answers the round-trip, so
+-- reading the source would call the batch done too early and the next batch would fire into slots the
+-- warband has not finished locking. The destination slot fills only when the server confirms, so a deposit
+-- is pending until its target slot holds something. A withdraw has no recorded target (the game picks the
+-- bag slot), but its source IS the account bank, which empties only on the round-trip, so the source read
+-- is the right signal there. A move with neither still on its side is done.
+local function ctPending(moved)
+  local n = 0
+  for i = 1, #moved do
+    local m = moved[i]
+    if not m.s.done then
+      if m.destBag then
+        local info = C_Container.GetContainerItemInfo(m.destBag, m.destSlot)
+        if not (info and (info.hyperlink or info.itemID)) then n = n + 1 end
+      else
+        local info = C_Container.GetContainerItemInfo(m.s.bag, m.s.slot)
+        if info and (info.hyperlink or info.itemID) then n = n + 1 end
+      end
+    end
+  end
+  return n
+end
+
+-- One sweep of the slot list: send up to `batch` pieces that are present and unlocked, mark gone or stuck
+-- ones done. `send(bag, slot, info)` returns a truthy value for a move actually issued (a deposit returns
+-- its target {bag, slot}; a withdraw returns true, the game choosing the bag slot), false for a move it
+-- declined (the bank refuses the piece, or is full). A declined slot is marked done, so a full bank ends
+-- the run instead of hammering the same slots: the space check lives in `send`, and the sweep trusts it.
+-- Each issued move is recorded in `moved` with the target slot the pacing reads to know it landed.
+local function ctSweep(slots, send, tries, batch, moved)
+  local cap = batch or CT_BATCH
+  local sent = 0
+  for i = 1, #slots do
+    local s = slots[i]
+    if not s.dummy and not s.done and sent < cap then
+      local info = C_Container.GetContainerItemInfo(s.bag, s.slot)
+      if not (info and (info.hyperlink or info.itemID)) then
+        s.done = true
+        s.locks = nil
+      elseif info.isLocked then
+        -- A move is in flight on this slot; wait it out. But a lock that never clears is a server-side
+        -- stall (only a relog frees it), and waited on forever it would spin the pump on this one slot with
+        -- nothing else left to do. Count the consecutive locked sweeps and give up past the cap, so the run
+        -- ends instead of looping. The count resets the moment the slot reads unlocked again below.
+        s.locks = (s.locks or 0) + 1
+        if s.locks > CT_LOCK_WAITS then s.done = true end
+      else
+        s.locks = nil
+        local k = s.bag * 1000 + s.slot
+        tries[k] = (tries[k] or 0) + 1
+        if tries[k] > CT_TRIES then
+          s.done = true
+        else
+          local ok = send(s.bag, s.slot, info)
+          if ok then
+            sent = sent + 1
+            if moved then
+              local rec = { s = s }
+              if type(ok) == "table" then rec.destBag, rec.destSlot = ok[1], ok[2] end
+              moved[#moved + 1] = rec
+            end
+          else
+            s.done = true
+          end
+        end
+      end
+    end
+  end
+  return sent
+end
+
+-- Start a transfer of `slots`. `send(bag,slot,info)` returns true when a move was actually issued;
+-- `alive()` says the window is still open and live (checked every pass); `warband` is true for a run that
+-- touches the account bank, either way, and it is what selects the smaller batch and the waiting for each
+-- batch to land. Re-entrant: a second call replaces the run, since only one category moves at a time.
+function Cats:MoveSlots(slots, send, alive, warband)
+  ctstate = { slots = slots, send = send, alive = alive, tries = {},
+              batch = warband and Cats.WARBAND_BATCH or CT_BATCH, pace = warband or nil }
+  local function step()
+    local st = ctstate
+    if not (st and st.slots) then return end
+    if not st.alive() then ctstate = nil; return end
+    if InCombatLockdown() or CursorHasItem() or GetCursorInfo()
+       or (ns.ItemTargeting and ns.ItemTargeting()) then
+      C_Timer.After(0.25, step)
+      return
+    end
+    -- The client is still settling a burst of container changes (BAG_UPDATE fired, BAG_UPDATE_DELAYED not
+    -- yet): hold the whole run. A move issued into that window can land on a slot the server is still
+    -- rewriting and lock it, which is what left pieces stuck mid-transfer. This is the global gate the
+    -- reference addon puts at the head of every transfer step; the per-slot lock check below is not enough
+    -- on its own, since a target slot can be mid-rewrite without the source reading locked.
+    if clientSettling() then
+      C_Timer.After(CT_SETTLE, step)
+      return
+    end
+    -- An account-bank run sends no new batch until the one before it has landed on the far side: a second
+    -- batch fired into moves still in flight locks the target slots and drops the moves behind them. The
+    -- wait reads the container (ctPending) on the side that answers the round-trip: a deposit's target bank
+    -- slot, which fills only on the server's confirm, so the pause is the real warband round-trip and the
+    -- pieces are seen to arrive before the next batch goes (reading the source bag instead would end the
+    -- wait the instant the piece is lifted, far too early). On the poll cap it does not abandon anything: it
+    -- falls through to the sweep, which marks the landed pieces done and re-sends any straggler the server
+    -- dropped. A character-bank run skips all of this; the bank is done with the move by the next line.
+    if st.pace and st.moved then
+      if ctPending(st.moved) == 0 then
+        st.moved, st.polls = nil, nil
+      elseif (st.polls or 0) >= CT_SETTLE_POLLS then
+        st.moved, st.polls = nil, nil
+      else
+        st.polls = (st.polls or 0) + 1
+        C_Timer.After(CT_SETTLE, step)
+        return
+      end
+    end
+    local moved = {}
+    local sent = ctSweep(st.slots, st.send, st.tries, st.batch, moved)
+    -- The receiving window is driven by the client's own bag events, and during a paced run those can
+    -- hold off until the burst is over: the piece then appears only once everything has landed. Each
+    -- batch lays both split views out again, so a piece landing shows as the one before it leaves.
+    if sent > 0 and st.pace then st.moved, st.polls = moved, 0 end
+    if sent > 0 and ns.RelayoutForSplit then ns.RelayoutForSplit() end
+    local left = false
+    for i = 1, #st.slots do
+      local s = st.slots[i]
+      if not s.done and not s.dummy then left = true; break end
+    end
+    if left then
+      -- A paced run comes back on the settle poll while it is waiting for its batch, and on the plain gap
+      -- once that batch has landed.
+      C_Timer.After((st.pace and st.moved) and CT_SETTLE or CT_WAIT, step)
+    else
+      ctstate = nil
+    end
+  end
+  step()
+end
+
 -- Every occupied slot into its section, sections that hold anything returned in list order. The
 -- catch-all is a row like the rest now, so it draws where the player put it, not forced last. The
 -- reagent bag is always bucketed here: cat-view is a full inventory grouping, the grid's
@@ -1380,8 +1758,13 @@ end
 -- `snap`/`snapMode` pick the Vault store when a cached character is shown, `reagentBag` is the one
 -- extra container the bags append (nil for the bank), and `find` is the parsed live query for the
 -- per-section hit count. Returns the same {out, used, total} the bags always did.
-local function bucketsCore(find, snap, snapMode, bagList, reagentBag)
+local function bucketsCore(find, snap, snapMode, bagList, reagentBag, memory)
   ensureFilters()
+  -- A memory means this pass reconciles against last pass's slot order, so it must also record the
+  -- instance GUIDs the reconcile matches on. The grouped view hands one on every pass: a piece can vanish
+  -- with no window open at all (a destroy), and by the time the pass sees it gone the order it stood in is
+  -- already last pass's, so it has to have been recorded then. This read is what that costs.
+  KEYED = memory ~= nil
   -- Band membership, read fresh off the list on every pass so a marker the player just moved shows up
   -- at once: each category maps to the marker it sits under, as the entry itself (nil for the run before
   -- the first marker, which draws with no heading). The bucket carries it through to the layout.
@@ -1454,6 +1837,12 @@ local function bucketsCore(find, snap, snapMode, bagList, reagentBag)
     local entry = {
       bag = bag, slot = slot, q = m.q or -1, ilvl = m.ilvl or 0, name = m.name or "",
       count = m.count or 1,
+      -- The slot-memory keys. guid = a unique instance (from C_Item.GetItemGUID this pass); nokey = the
+      -- itemID fallback. Both ride the entry so the reconcile pass can tie a returning piece to the hole it
+      -- left without re-reading the container. The GUID matches an unmoved or in-place-moved piece exactly;
+      -- the itemID catches a piece that came back through the warband bank, which is issued a fresh GUID on
+      -- the way out and so can never match its old GUID again.
+      guid = m.guid, nokey = m.id,
     }
     local mode = dest.mode
     if mode == "match" then
@@ -1492,36 +1881,60 @@ local function bucketsCore(find, snap, snapMode, bagList, reagentBag)
   end
   for _, bag in ipairs(bagList) do tally(bag) end
   if reagentBag then tally(reagentBag) end
+  -- Each bucket sorts by its own resolved mode: a category's override, or the global fall-through.
+  -- The comparator only reads keys file() filled for that mode, so mixing modes across sections in one
+  -- pass is free. Sorted before reconcile so the holes insert into the settled order.
+  for i = 1, #order do table.sort(order[i].slots, sorter(order[i].mode)) end
+  -- Slot-memory reconcile: hold each emptied cell as an inert hole where it was and drop a returning piece
+  -- back into its own hole, so the grouped view does not reflow under the cursor mid-transfer. `memory` is
+  -- the previous pass's per-category ordered slot keys, handed back by the window on every grouped pass.
+  -- Runs over every order bucket, before the show/hide filter below, so a category emptied to its last cell
+  -- keeps its holes on screen.
+  if memory then
+    -- Every identity still on screen anywhere this pass, so the holes the reconcile makes can say which of
+    -- their pieces really left the bags; the window times its hold off those. GUIDs and itemIDs kept apart:
+    -- onScreen trusts the GUID set alone whenever a piece has a GUID, so a departure is never masked by a
+    -- twin of the same itemID that is still present (the itemID set is only its no-GUID fallback).
+    local live = { guid = {}, nokey = {} }
+    for i = 1, #order do
+      local slots = order[i].slots
+      for k = 1, #slots do
+        local s = slots[k]
+        if s.guid then live.guid[s.guid] = true end
+        if s.nokey then live.nokey[s.nokey] = true end
+      end
+    end
+    for i = 1, #order do
+      if not order[i].empty then reconcile(order[i], memory[order[i].id], live) end
+    end
+  end
   local out = {}
   for i = 1, #order do
     -- Empty is kept on its list position whether or not it holds anything: it is the free-space
     -- stand-in and owns no slots by design. Other and every real category show only when they hold
     -- something, so an empty catch-all does not clutter the view, but when Other does hold items it
-    -- now draws at its own list position rather than pinned last.
+    -- now draws at its own list position rather than pinned last. A bucket carrying only holes (its
+    -- items all just left) still draws, so the transfer leaves gaps rather than collapsing the section.
     if order[i].empty or #order[i].slots > 0 then out[#out + 1] = order[i] end
   end
-  -- Each bucket sorts by its own resolved mode: a category's override, or the global fall-through.
-  -- The comparator only reads keys file() filled for that mode, so mixing modes across sections in one
-  -- pass is free.
-  for _, b in ipairs(out) do table.sort(b.slots, sorter(b.mode)) end
   return out, used, total
 end
 
 -- Every occupied bag slot into its section, sections that hold anything returned in list order. The
 -- window hands its live query so the per-section hit count drives what a search shows;
 -- the reagent bag is always included, since cat-view is a full-inventory grouping.
-function Cats:Buckets(bags)
+function Cats:Buckets(bags, memory)
   local q = bags and bags.query or ""
   local find = (q ~= "") and bags.filters or nil
-  return bucketsCore(find, bags and bags.snap, "bags", ns.playerBags, ns.reagentBag)
+  return bucketsCore(find, bags and bags.snap, "bags", ns.playerBags, ns.reagentBag, memory)
 end
 
 -- The bank's grouping: the same rules over the bank or warband containers instead of the bags. mode
 -- is "bank" or "warband" (the Vault store and the container set both key on it), snap picks the
 -- cached-character store, and find is the parsed live query. No reagent bag is appended: the bank has
 -- none. The container id list is handed in by the caller, which owns the BANK_MAIN / WARBAND tables.
-function Cats:BankBuckets(mode, snap, find, bagList)
-  return bucketsCore(find, snap, mode, bagList or {}, nil)
+function Cats:BankBuckets(mode, snap, find, bagList, memory)
+  return bucketsCore(find, snap, mode, bagList or {}, nil, memory)
 end
 
 -- The bags the editor's counts read: cat-view always includes the reagent bag, so the count

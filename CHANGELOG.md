@@ -1,17 +1,31 @@
 # Warpee
 
-## 11.2
+## 11.3
 
 ENG
 
-- New option "Keep new items apart" for the plain grid: freshly looted items gather away from the rest of your bags so you can see what just arrived, and using an item or pressing sort drops everything back into the ordinary order. Works alongside reverse order and fill upwards, and covers the reagent bag. Only the drawing order changes, nothing moves inside your bags.
-- Dimming in the item upgrade, scrapper, socket and other interaction windows now matches the bank instead of doubling up, so an unavailable slot reads the same everywhere.
-- Splitting a stack no longer lists the split as recent loot, in every case.
-- The sort button tooltip now reads the client's own wording in every language.
+- Right-click a category name to move the whole category into the bank, or back to your bags.
+- The category view now holds still while you move items in and out.
+- Bags can open together with the item upgrade window and the Catalyst.
+- Drag an item onto a category in the bank to file it there, like in your bags.
+- The reagent border now follows the item, not the bag.
+- The Latin American Spanish option now reads "Spanish (Mexico)".
+- Switching the bank between categories and the grid redraws every cell cleanly.
+- The bank sort button now works even when only the warband bank has tabs.
+- The clean up button tooltip now follows Warpee's own language.
+- Keep new items apart now shuffles nothing but the items that just arrived.
+- You can now tell at a glance which bank tab is open.
 
 RU
 
-- Новая опция «Держать новые отдельно» для обычной сетки: только что полученные предметы собираются в стороне от остальных сумок, чтобы сразу видеть, что прибыло, а использование предмета или сортировка возвращают всё в обычный порядок. Работает вместе с обратным порядком и заполнением снизу вверх, распространяется и на сумку реагентов. Меняется только порядок отрисовки, в самих сумках ничего не двигается.
-- Затемнение в окнах улучшения, распылителя, гнёзд и других окнах взаимодействия теперь такое же, как в банке, а не двойное, так что недоступная ячейка выглядит одинаково везде.
-- Отделённая часть стопки больше не показывается в «Недавнем» как новое поступление ни в одном случае.
-- Подсказка кнопки сортировки читается словами самого клиента на каждом языке.
+- Правой кнопкой по названию категории переносите её целиком в банк и обратно.
+- Вид категорий больше не перестраивается, пока предметы уходят и приходят.
+- Сумки могут открываться с окном улучшения и Катализатором.
+- Перетащите предмет на категорию в банке, чтобы привязать его к другой категории.
+- Обводка реагентов в категориях теперь следует за предметом, а не за сумкой.
+- Пункт латиноамериканского испанского теперь называется «Spanish (Mexico)».
+- Переключение банка между категориями и сеткой аккуратно перерисовывает ячейки.
+- Сортировка в банке работает, даже когда вкладки есть только у варбанка.
+- Подсказка кнопки очистки теперь следует за языком Warpee.
+- «Новые предметы отдельно» теперь двигает только сами приехавшие предметы.
+- Теперь сразу видно, какая вкладка банка открыта.

@@ -267,6 +267,18 @@ function Fav:Unpin(index)
   self:Set(index, nil)
 end
 
+-- Grey the row cell mirroring a bag slot that just locked or unlocked, so a pinned item picked up or
+-- mid-move desaturates like the grid cell it tracks. The cell binds a real (favBag, favSlot); match those.
+function Fav:RefreshLock(bag, slot)
+  for i = 1, MAX_SLOTS do
+    local b = self.slots[i]
+    if b and b.favBag == bag and b.favSlot == slot and b.holder and b.holder:IsVisible() then
+      ns.UpdateItemLock(b)
+      return
+    end
+  end
+end
+
 function Fav:Lock(index)
   local id = ns.ItemStubID(self:List()[index])
   local V = ns.Vendor

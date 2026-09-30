@@ -30,7 +30,7 @@ local STRINGS = {
   ["Take gold out of the Warband bank"] = "Sacar oro del banco de la tropa",
   ["Buy another Warband bank tab"] = "Comprar otra pestaña del banco de la tropa",
   ["Warband bank"] = "Banco de la tropa",
-  ["Spanish (LatAm)"] = "Español (LatAm)",
+  ["Spanish (Mexico)"] = "Español (México)",
   ["New group"] = "Nuevo grupo",
   ["Ungrouped"] = "Sin grupo",
   ["Group"] = "Grupo",
@@ -71,7 +71,7 @@ local STRINGS = {
   ["Which windows this category shows in. Unchecked windows drop its items through to the next matching category."] = "En qué ventanas aparece esta categoría. Las ventanas sin marcar dejan pasar sus objetos a la siguiente categoría que encaje.",
 }
 
-ns.AddLocale("esMX", "Spanish (LatAm)", {
+ns.AddLocale("esMX", "Spanish (Mexico)", {
   strings = STRINGS,
   words = WORDS,
 })

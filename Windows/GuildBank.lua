@@ -148,21 +148,26 @@ end
 
 local function paintToggle(b)
   if not b.SetBackdrop then return end
-  local hot = b.wpeLit or b.wpeHot
-  -- The game switches a tab off when it is not one this player may open, and the art that said
-  -- so went with the rest: a tab that is off and is not the one being looked at is drawn faint
-  -- here, instead of looking ready and doing nothing when it is clicked. The lit tab keeps its
-  -- own look, because the game disables that one too.
-  local off = (not hot) and b.IsEnabled and not b:IsEnabled()
-  ns.SetBg(b, Theme:C(hot and "panelHi" or "panel"))
-  ns.SetEdge(b, Theme:C(hot and "accent" or (off and "strokeSoft" or "stroke")))
+  local lit = b.wpeLit
+  local hot = b.wpeHot and not lit
+  -- Three states kept apart: the picked tab, one under the cursor, the rest. The accent edge is the
+  -- picked tab's alone, so a hovered tab (which still lights its own highlight texture) can never read
+  -- as the one that is open. Idle tabs dim their icon so the picked one stands out of the row on its
+  -- own. The game switches a tab off when the player may not open it; an off tab that is neither picked
+  -- nor hovered is drawn faint, so it says so instead of looking ready and doing nothing when clicked.
+  local off = (not (lit or hot)) and b.IsEnabled and not b:IsEnabled()
+  ns.SetBg(b, Theme:C((lit or hot) and "panelHi" or "panel"))
+  ns.SetEdge(b, Theme:C(lit and "accent" or (off and "strokeSoft" or "stroke")))
+  if b.wpeIcon and not b.wpeBuy then
+    b.wpeIcon:SetAlpha(lit and 1 or (hot and 0.85 or 0.55))
+  end
   if b.wpeHl then
     b.wpeHl:SetColorTexture(Theme:C("accent"))
     b.wpeHl:SetAlpha(0.22)
   end
   local fs = textOf(b)
   if fs then
-    fs:SetTextColor(Theme:C(hot and "accent" or (off and "faint" or (b.wpeTextKey or "text"))))
+    fs:SetTextColor(Theme:C(lit and "accent" or (off and "faint" or (b.wpeTextKey or "text"))))
   end
 end
 

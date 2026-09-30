@@ -12,6 +12,13 @@ local Welcome = {}
 ns.Welcome = Welcome
 
 local PAD = 16
+-- The re-announce marker. A player already prompted once (startPrompted) who is still on the plain grid
+-- is shown the chooser one more time, so the category view is not missed by everyone who was upgraded
+-- silently into it. It is a strict one-time event: the flag is a plain presence, written the instant the
+-- window appears (Welcome:Show), and MaybeShow gates on whether it is set at all, never on its value. A
+-- future release bumping anything can therefore never re-show it to a grid user who has already seen it
+-- once. The number itself is only there to record which release did the announce.
+local WELCOME_REANNOUNCE = 2
 -- The window grows from WMIN to fit the widest localized line at the face the labels draw in (a bold
 -- font, a long German or Russian word), capped at WMAX so it never runs off a small screen. Height is
 -- measured against the chosen width so a wrapped line in any locale is never clipped.
@@ -47,7 +54,7 @@ end
 -- next time instead of being spent. A preview may be in flight (the pointer left a tile as it closed), so
 -- the committed view is put back here rather than left on the hover state.
 function Welcome:Finish()
-  if WarpeeDB then WarpeeDB.startPrompted = 1 end
+  if WarpeeDB then WarpeeDB.startPrompted = 1; WarpeeDB.welcomeSeen = WELCOME_REANNOUNCE end
   self:Restore()
   if self.frame then self.frame:Hide() end
   if ns.Options and ns.Options.RefreshOpen then ns.Options:RefreshOpen() end
@@ -113,17 +120,17 @@ function Welcome:Build()
   title:SetPoint("RIGHT", m, "RIGHT", -(PAD + 26), 0)
   title:SetJustifyH("LEFT")
   title:SetWordWrap(true)
-  ns.LocalText(title, "Welcome to Warpee")
+  ns.LocalText(title, "Choose your bag layout")
 
   local close = ns.CreateGlyphButton(m, "×", 22)
   ns.SnapPoint(close, "TOPRIGHT", m, "TOPRIGHT", -PAD, -PAD)
   close:SetScript("OnClick", function() Welcome:Finish() end)
-  ns.AddTip(close, "Decide later", "bottom")
+  ns.AddTip(close, "Decide later", "top")
 
   local sub = Theme:Label(m, SUB_SZ, "text")
   sub:SetJustifyH("LEFT")
   sub:SetWordWrap(true)
-  ns.LocalText(sub, "Choose how your bags are laid out. You can change this later.")
+  ns.LocalText(sub, "You can change this any time.")
   self.title, self.sub, self.close = title, sub, close
 
   local grid = self:Tile(m, "grid", "Grid", "One grid, sorted by bag slot. The classic bag.")
@@ -170,7 +177,7 @@ function Welcome:FitLayout()
   -- German) has room to spare rather than sitting flush against the edge.
   local SLACK = 26
   local need = WMIN
-  need = math.max(need, width(ns.L["Welcome to Warpee"], TITLE_SZ) + PAD * 2 + 30)
+  need = math.max(need, width(ns.L["Choose your bag layout"], TITLE_SZ) + PAD * 2 + 30)
   for _, t in ipairs({ self.gridTile, self.catTile }) do
     need = math.max(need, width(t.wpeHead:GetText(), HEAD_SZ) + PAD * 4)
   end
@@ -183,7 +190,6 @@ function Welcome:FitLayout()
   -- whose words break onto an extra line (Spanish, German) is measured, not guessed at from a width
   -- ratio that ignores where the words actually break.
   local innerW = w - PAD * 2       -- subtitle wraps in the window
-  local tileInnerW = w - PAD * 4   -- a tile's description wraps inside the tile's own padding
   local function wrapped(text, size, wrapW)
     if not text or text == "" then return 0 end
     mm:SetFont(face, size, ns.OutlineFlags())
@@ -192,19 +198,30 @@ function Welcome:FitLayout()
     mm:SetText(text)
     return math.ceil(mm:GetStringHeight() or size)
   end
-  local subH = wrapped(ns.L["Choose how your bags are laid out. You can change this later."], SUB_SZ, innerW)
+  local subH = wrapped(ns.L["You can change this any time."], SUB_SZ, innerW)
   local y = PAD + TITLE_SZ + 10           -- below the title row
   self.sub:ClearAllPoints()
   ns.SnapPoint(self.sub, "TOPLEFT", m, "TOPLEFT", PAD, -y)
   self.sub:SetPoint("RIGHT", m, "RIGHT", -PAD, 0)
   y = y + subH + 14
 
+  -- Height each tile from its own live FontStrings, not a proxy. The measure string matched the face and
+  -- point size but not the engine's line leading, which it adds on top when a description wraps to a second
+  -- line, so a two-line locale under-read by that leading and the text sat almost against the bottom edge.
+  -- The real head and desc already carry their width (anchored left and right inside the tile), so their
+  -- own GetStringHeight is the true rendered height, leading and outline included: the same PAD then closes
+  -- the tile top and bottom on every locale, one and two line alike. Anchor the desc first so its width is
+  -- fixed before it is measured.
   for _, t in ipairs({ self.gridTile, self.catTile }) do
-    local descH = wrapped(t.wpeDesc:GetText(), DESC_SZ, tileInnerW)
-    local tileH = PAD + HEAD_SZ + 6 + descH + PAD
     t:ClearAllPoints()
     ns.SnapPoint(t, "TOPLEFT", m, "TOPLEFT", PAD, -y)
     t:SetPoint("RIGHT", m, "RIGHT", -PAD, 0)   -- width from the anchors; only the height is snapped
+    local headH = math.ceil(t.wpeHead:GetStringHeight() or HEAD_SZ)
+    t.wpeDesc:ClearAllPoints()
+    ns.SnapPoint(t.wpeDesc, "TOPLEFT", t, "TOPLEFT", PAD, -(PAD + headH + 6))
+    t.wpeDesc:SetPoint("RIGHT", t, "RIGHT", -PAD, 0)
+    local descH = math.ceil(t.wpeDesc:GetStringHeight() or DESC_SZ)
+    local tileH = PAD + headH + 6 + descH + PAD
     t:SetHeight(ns.SnapValue(t, tileH))
     y = y + tileH + 10
   end
@@ -216,10 +233,18 @@ function Welcome:FitLayout()
 end
 
 -- Show the chooser. committed is the view in force now: hovering previews the other, leaving restores this,
--- and a plain dismiss keeps it. Shown via MaybeShow (gated by the per-profile flag) or /wpe welcome.
+-- and a plain dismiss keeps it. Shown via MaybeShow (gated below) or /wpe welcome.
+--
+-- welcomeSeen is written HERE, the instant the window is actually on screen, not at dismiss. The
+-- re-announce to existing grid users must fire at most once ever: writing it on show spends it even when
+-- the window then leaves by a path that runs no dismiss code (a /reload with it up, a disconnect), so no
+-- one is prompted twice, and no later release can bring it back for a grid user who already saw it once.
+-- startPrompted stays on Finish, so only a brand-new install that closes the window unread is offered the
+-- choice again, which is the one repeat we want.
 function Welcome:Show()
   local m = self:Build()
   if not m then return end
+  if WarpeeDB then WarpeeDB.welcomeSeen = WELCOME_REANNOUNCE end
   self.committed = Bags.bagView or "grid"
   self:MarkSelected()
   self:FitLayout()
@@ -227,10 +252,18 @@ function Welcome:Show()
   m:Raise()
 end
 
--- The first out-of-combat bag open on a profile that has never been prompted. The flag is only set when
--- the chooser is dismissed, so an open in combat (no-op here) simply tries again next time.
+-- The first out-of-combat bag open where the chooser is still owed. Two ways in: a profile never prompted
+-- at all (a fresh install), or one prompted by an older release that is still on the plain grid and has
+-- never been shown the re-announce. The second is the one-time nudge toward the category view, offered
+-- only to grid users, since a player already in categories has plainly found them. welcomeSeen is a
+-- presence flag, not a version compare: once it is set at all the re-announce never returns, so 11.4, 12
+-- and every later release leave a grid user who saw it once alone for good.
 function Welcome:MaybeShow()
-  if not WarpeeDB or WarpeeDB.startPrompted ~= nil then return end
+  if not WarpeeDB then return end
+  local firstEver = WarpeeDB.startPrompted == nil
+  local reannounce = not firstEver and WarpeeDB.welcomeSeen == nil
+                     and (Bags.bagView or "grid") ~= "cat"
+  if not (firstEver or reannounce) then return end
   if InCombatLockdown() then return end
   self:Show()
 end

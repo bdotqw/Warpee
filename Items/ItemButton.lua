@@ -326,6 +326,12 @@ local function tierTake(b, src)
   local t = tierTex(b)
   local k = (b:GetHeight() or 37) / 37
   t:SetAtlas(src:GetAtlas(), true)
+  -- Stamped with the link the cell handed the game this pass, not read back off the cell: the game shows
+  -- this atlas from inside the quality call, when the cell still holds the piece it drew last, so a stamp
+  -- read off the cell named the previous item and the pass dropped the mirror it had just taken. The link
+  -- also tells two copies of one item apart where an itemID cannot (a crafted copy carries its rank), which
+  -- a whole-category transfer needs, since it sends several copies through one cell.
+  b.wpeTierSeen, b.wpeTierShown, t.wpeLink = true, b.wpeQualityLink, b.wpeQualityLink
   local w0, h0 = t:GetWidth() or 0, t:GetHeight() or 0
   if w0 > 0 and h0 > 0 then
     t.wpeW0, t.wpeH0, t.wpeSrc = w0, h0, src
@@ -343,12 +349,13 @@ end
 local function tierHook(t)
   if t.wpeTierHook then return end
   t.wpeTierHook = true
-  hooksecurefunc(t, "Show", function(s)
+  local function shown(s)
     if tierAtlas(s) then tierTake(s:GetParent(), s) end
-  end)
+  end
+  hooksecurefunc(t, "Show", shown)
   if t.SetShown then
     hooksecurefunc(t, "SetShown", function(s, on)
-      if on and tierAtlas(s) then tierTake(s:GetParent(), s) end
+      if on then shown(s) end
     end)
   end
 end
@@ -919,14 +926,28 @@ function ns.FitOverlays(b)
     local t = b[key] or _G[nm .. key]
     if t then
       tierHook(t)
-      if not took and t:IsShown() and tierAtlas(t) then took = t end
+      -- The atlas the game is showing belongs to the link its own quality call was last given, and a cell
+      -- moves on between calls, so a source is read as this cell's only when the show it carries was seen
+      -- for the link the cell hands over now. A source that was here before any show was seen is the
+      -- cell's first pass, which is this pass's own call and so this pass's own link. Otherwise the
+      -- overlay belongs to the piece before, and taking it puts a rank on a piece that never had one.
+      local stale = b.wpeTierSeen and b.wpeTierShown ~= b.wpeQualityLink
+      if not took and not stale and t:IsShown() and tierAtlas(t) then took = t end
     end
   end
   if took then tierTake(b, took)
   elseif b.wpeTier then
     local t, src = b.wpeTier, b.wpeTier.wpeSrc
-    if t:IsShown() and t.wpeW0 and src and tierAtlas(src) then tierFit(b)
-    else t:Hide() end
+    -- The mirror belongs to the piece it was taken for. The game leaves its own atlas sitting on its
+    -- texture when the cell moves to another item, so asking the source alone kept a tier the new item
+    -- never had, and kept the tier of the piece that used to be here on whatever the cell draws now.
+    if b.wpeQualityLink and t:IsShown() and t.wpeW0 and src and tierAtlas(src)
+       and t.wpeLink == b.wpeQualityLink then
+      tierFit(b)
+    else
+      t:Hide()
+      t.wpeSrc, t.wpeLink, t.wpeW0 = nil, nil, nil
+    end
   end
   -- The cell changes size with the window setting, so the mark is measured off the cell on every
   -- pass. The atlas carries a margin of its own, so the texture is laid under the cell at a share
@@ -1404,6 +1425,9 @@ function ns.UpdateItemButton(b)
   end
   b.link, b.wpeCount, b.wpeMark, b.wpeQuestKey, b.wpeBound = link, count, mark, qkey, bound
   if not info then
+    -- An empty slot hands the game no link at all, so the cell keeps no craft-tier identity either.
+    b.wpeQualityLink, b.wpeTierShown = nil, nil
+    b.wpeItemLocked = nil
     SetItemButtonTexture(b, nil)
     SetItemButtonCount(b, 0)
     SetItemButtonDesaturated(b, false)
@@ -1416,7 +1440,9 @@ function ns.UpdateItemButton(b)
     local nt = b:GetNormalTexture()
     if nt then nt:SetAlpha(0) end
     ns.SetSlotBorder(b, Theme:C("emptyLine"))
-    if ns.Bags.reagentTint and bagID == ns.reagentBag then
+    -- An empty slot has no class to read, so the reagent ring on it only ever means the reagent bag,
+    -- and that is a grid idea: the grouped view rings by class and never tints an empty cell.
+    if ns.Bags.reagentTint and not b.wpeCat and bagID == ns.reagentBag then
       local r = Theme.colors.reagent
       ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
     else
@@ -1478,6 +1504,10 @@ function ns.UpdateItemButton(b)
       b.ilvl:SetTextColor(Theme:C("overlay"))
     end
   end
+  -- The link the game's own quality call is about to be given: what the craft tier mirror below is stamped
+  -- and verified against. Moving to another link also drops what the cell has seen of the game's overlay,
+  -- since the atlas standing on it now says nothing about the piece arriving.
+  if b.wpeQualityLink ~= hl then b.wpeQualityLink, b.wpeTierShown = hl, nil end
   SetItemButtonQuality(b, info and info.quality, hl, false, info and info.isBound)
   ns.FitOverlays(b)
   ns.ApplyIconZoom(b)
@@ -1485,15 +1515,28 @@ function ns.UpdateItemButton(b)
   ns.MarkNewItem(b, bagID, slot, info and info.quality)
   ns.MarkJunk(b, info and info.quality)
   ns.MarkBlocked(b, info and info.itemID)
-  SetItemButtonDesaturated(b, info and info.isLocked)
+  -- The game locks a slot the instant a move is issued and unlocks it when it lands; a locked cell greys,
+  -- the same read Blizzard's own bags show. Stashed on the cell (wpeItemLocked) because ApplySearchToButton
+  -- runs right after every layout and sets desaturation from the search miss alone: without the piece here
+  -- it would clear the lock grey the moment it was set, which is why a mid-transfer cell never looked
+  -- locked. Both this and ApplySearchToButton now OR the two states, so whichever paints last is right.
+  b.wpeItemLocked = (info and info.isLocked) and true or false
+  SetItemButtonDesaturated(b, b.wpeItemLocked)
   local icon = b.icon or _G[(b:GetName() or "").."IconTexture"]
   if icon then icon:SetVertexColor(1, 1, 1, 1) end
   local nt = b:GetNormalTexture()
   if nt then nt:SetAlpha(0) end
   local q = info and info.quality
   ns.SetSlotBorder(b, Theme:C("emptyLine"))
-  if ns.Bags.reagentTint and not b.wpeNoReagent
-         and b.wpeBagID == ns.reagentBag then
+  -- In the grid the reagent ring means "sits in the reagent bag"; in the grouped view it means "is a
+  -- reagent" by item class, so a Reagents section reads with one ring whatever bag each item came from.
+  local reagentRing
+  if b.wpeCat then
+    reagentRing = (iClassID == Enum.ItemClass.Tradegoods or iClassID == Enum.ItemClass.Reagent)
+  else
+    reagentRing = (bagID == ns.reagentBag)
+  end
+  if ns.Bags.reagentTint and not b.wpeNoReagent and reagentRing then
     local r = Theme.colors.reagent
     ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
   elseif ns.Bags.unusableBorder and hl and ns.IsItemUnusable(bagID, slot, hl) then
@@ -1592,6 +1635,9 @@ function ns.PaintVaultButton(b, d, bagID, forceCount)
   SetItemButtonTexture(b, iconID)
   SetItemButtonCount(b, count)
   SetItemButtonDesaturated(b, false)
+  -- A snapshot has no live container, so nothing is ever locked here; clear any lock grey a cell carried
+  -- over from a live paint, or ApplySearchToButton would OR it back on over a cached character's item.
+  b.wpeItemLocked = nil
   if link then
     SetItemButtonQuality(b, q, link, false, d.b)
     ns.FitOverlays(b)
@@ -1631,7 +1677,15 @@ function ns.PaintVaultButton(b, d, bagID, forceCount)
     end
   end
   ns.SetSlotBorder(b, Theme:C("emptyLine"))
-  if ns.Bags.reagentTint and bagID == ns.reagentBag then
+  -- Grouped view rings a reagent by its item class; the grid rings the reagent bag. Snapshot cells have
+  -- no live bag to read, so grid mode rings only what was captured under the reagent bag (bagID here).
+  local reagentRing
+  if b.wpeCat then
+    reagentRing = (classID == Enum.ItemClass.Tradegoods or classID == Enum.ItemClass.Reagent)
+  else
+    reagentRing = (bagID == ns.reagentBag)
+  end
+  if ns.Bags.reagentTint and reagentRing then
     local r = Theme.colors.reagent
     ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
   elseif link and ns.Bags.unusableBorder and ns.IsLinkUnusable(link) then
@@ -1680,7 +1734,12 @@ function ns.ApplySearchToButton(b, filters, blocked)
   local miss = (blocked or (filters and not ns.MatchSearch(b.meta, filters))) and true or false
   b.searchMiss = miss
   b:SetAlpha(miss and 0.20 or 1)
-  SetItemButtonDesaturated(b, miss)
+  -- A locked slot (a move in flight) greys the same as a search miss, so the two are ORed: this pass runs
+  -- right after every layout, and setting desaturation from the miss alone would wipe the lock grey that
+  -- UpdateItemButton/UpdateItemLock just set. The lock does not dim the whole cell (no alpha 0.20), only
+  -- greys the art, so a locked-but-matching cell stays readable while it shows it is busy.
+  local grey = miss or (b.wpeItemLocked and true or false)
+  SetItemButtonDesaturated(b, grey)
   -- Desaturation reaches the icon alone, so the quality ring kept its hue on a dimmed
   -- cell and stayed the one colored thing on it. A color texture greys out under
   -- SetDesaturated the same way, and the flag survives a SetColorTexture repaint.
@@ -1710,7 +1769,8 @@ end
 function ns.UpdateItemLock(b)
   if not (b and b.wpeBagID) then return end
   local info = C_Container.GetContainerItemInfo(b.wpeBagID, b:GetID())
-  SetItemButtonDesaturated(b, ((info and info.isLocked) or b.searchMiss) and true or false)
+  b.wpeItemLocked = (info and info.isLocked) and true or false
+  SetItemButtonDesaturated(b, (b.wpeItemLocked or b.searchMiss) and true or false)
 end
 
 function ns.CreateBagButton(parent, bagID, size)

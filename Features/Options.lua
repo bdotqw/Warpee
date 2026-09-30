@@ -1986,9 +1986,9 @@ flow.newTopGet = function() return Bags.newOnTop end
 flow.newTopSet = function(v)
   Bags.newOnTop = v
   WarpeeDB.newOnTop = v
-  -- Turning it off (or on) starts fresh: drop any marks so the grid returns to the packed order at once
-  -- rather than keeping whatever was floated when it was last on.
-  if Bags.ResetFresh then Bags:ResetFresh() end
+  -- Turning it on kicks the pump so any items that arrived while it was off move to the far end at once;
+  -- turning it off leaves the bags exactly as they are (the new pieces simply stop being kept apart).
+  if v and Bags.ArrangeNew then Bags:ArrangeNew() end
   relayout()
 end
 -- The view is a string on disk, the row a toggle, so the pair maps bool to "grid"/"cat".
@@ -4474,6 +4474,8 @@ local mailGet, mailSet = autoField("mail")
 local profGet, profSet = autoField("professions")
 local tradeGet, tradeSet = autoField("trade")
 local vendGet, vendSet = autoField("vendor")
+local upgGet, upgSet   = autoField("itemupgrade")
+local cataGet, cataSet = autoField("catalyst")
 
 local GENERAL_PAGE = {
   { type = "header", name = "Look" },
@@ -4528,18 +4530,25 @@ local GENERAL_PAGE = {
     desc = "While both windows are open, typing in either box searches both at once." },
   { type = "header", name = "Open bags with", key = "autoopen",
     state = function()
-      return onOf({ aucGet, bankGet, gbGet, mailGet, profGet, tradeGet, vendGet })
+      return onOf({ aucGet, bankGet, gbGet, mailGet, profGet, tradeGet, vendGet, upgGet, cataGet })
     end },
   { type = "description", section = "autoopen",
     name = "The bags open together with these windows and close with them again." },
+  -- Paired by kind down each row: the two banks, then mail and the auction house, then the two
+  -- face-to-face windows, then the two item stations. Professions trails alone.
   { type = "toggle", name = "Bank", col = 1, section = "autoopen", get = bankGet, set = bankSet },
-  { type = "toggle", name = "Vendor", col = 2, section = "autoopen", get = vendGet, set = vendSet },
+  { type = "toggle", name = "Guild bank", col = 2, section = "autoopen", get = gbGet, set = gbSet },
   { type = "toggle", name = "Mail", col = 1, section = "autoopen", get = mailGet, set = mailSet },
   { type = "toggle", name = "Auction house", col = 2, section = "autoopen",
     get = aucGet, set = aucSet },
-  { type = "toggle", name = "Trade", col = 1, section = "autoopen",
+  { type = "toggle", name = "Vendor", col = 1, section = "autoopen", get = vendGet, set = vendSet },
+  { type = "toggle", name = "Trade", col = 2, section = "autoopen",
     get = tradeGet, set = tradeSet },
-  { type = "toggle", name = "Guild bank", col = 2, section = "autoopen", get = gbGet, set = gbSet },
+  -- Item Upgrade reads the client's own window name; the Revival Catalyst window has no stable global
+  -- string, so "Catalyst" is a Warpee key.
+  { type = "toggle", name = function() return _G.ITEM_UPGRADE or "Item Upgrade" end, col = 1,
+    section = "autoopen", get = upgGet, set = upgSet },
+  { type = "toggle", name = "Catalyst", col = 2, section = "autoopen", get = cataGet, set = cataSet },
   { type = "toggle", name = "Professions", col = 1, section = "autoopen",
     get = profGet, set = profSet },
 }

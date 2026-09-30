@@ -468,6 +468,18 @@ function Rec:Cooldowns()
     if b and b.link and b.holder:IsVisible() then ns.UpdateCooldown(b) end
   end
 end
+
+-- Grey the row cell mirroring a bag slot that just locked or unlocked, so a recent item picked up or
+-- mid-move desaturates like it does in the grid. The cell binds a real (recBag, recSlot); match on those.
+function Rec:RefreshLock(bag, slot)
+  for i = 1, MAX_SLOTS do
+    local b = self.slots[i]
+    if b and b.recBag == bag and b.recSlot == slot and b.holder and b.holder:IsVisible() then
+      ns.UpdateItemLock(b)
+      return
+    end
+  end
+end
 function Rec:Apply(bags, x, top, size, gap)
   if not (bags and bags.frame) then return 0 end
   local frame = bags.frame

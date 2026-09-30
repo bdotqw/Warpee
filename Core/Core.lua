@@ -65,7 +65,8 @@ local DEFAULTS = {
   optSections = { interface = false, bankgrid = false, badges = true, autoopen = false,
                   tokenexp = false, arrange = true, pocketsize = true, categories = true },
   autoOpen = { auction = true, bank = true, mail = true, trade = true,
-               vendor = true, guildbank = true, professions = false },
+               vendor = true, guildbank = true, professions = false,
+               itemupgrade = true, catalyst = true },
   bagWinPos = NONE,
   pos = { p = "BOTTOMRIGHT", rp = "BOTTOMRIGHT", x = -8, y = 20 },
   bankPos = { p = "BOTTOMLEFT", rp = "BOTTOMLEFT", x = 5, y = 20 },
@@ -425,13 +426,17 @@ function autoCloseBags(key)
   ns.Toggle(false)
 end
 
--- Relayout whichever grouped windows are open so the Combine-stacks fold tracks a stack-splitting window
--- opening or closing. Only the grouped view cares (the fold lives there), and the layout is cheap and
--- idempotent, so this no-ops in effect for a grid or a closed window. Bank refresh covers its own snap.
+-- Relayout whichever grouped windows are open when a stack-splitting / take-items window opens or closes.
+-- Two things ride on this: the Combine-stacks fold (a folded cell hides physical stacks a split needs), and
+-- the anti-jump slot memory (LayoutCats/PlanCats hold emptied cells as holes while such a window is open,
+-- and compact them once it closes). Cheap and idempotent, so it no-ops for a plain grid or a closed window.
+-- Deferred one frame: the interaction-manager state is only updated after the event, so a layout run inside
+-- the handler would still read the window as open and keep the holes the close was meant to settle.
 function ns.RelayoutForSplit()
-  if not (WarpeeDB and WarpeeDB.catCombine) then return end
-  if Bags.frame and Bags.frame:IsShown() and Bags.CatMode and Bags:CatMode() then Bags:Layout() end
-  if ns.Bank and ns.Bank.Refresh then ns.Bank:Refresh() end
+  C_Timer.After(0, function()
+    if Bags.frame and Bags.frame:IsShown() and Bags.CatMode and Bags:CatMode() then Bags:Layout() end
+    if ns.Bank and ns.Bank.Refresh then ns.Bank:Refresh() end
+  end)
 end
 
 local INTERACT_KEY
@@ -445,6 +450,10 @@ local function interactKey(t)
       [IT.MailInfo]    = "mail",
       [IT.Merchant]    = "vendor",
       [IT.TradePartner] = "trade",
+      -- Item Upgrade window (53) and the Revival Catalyst (44, an ItemInteraction), both arriving on
+      -- the same interaction-manager event as the others.
+      [IT.ItemUpgrade]   = "itemupgrade",
+      [IT.ItemInteraction] = "catalyst",
     }
   end
   return INTERACT_KEY[t]
@@ -561,6 +570,13 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     end
 
     fillDefaults(WarpeeDB)
+    -- autoOpen is a table default, so fillDefaults only seeds it whole on a fresh profile; a profile
+    -- that predates these two keys keeps its table and would read them as nil (off). Seed the pair so
+    -- the shipped default (on) reaches everyone, the way the rest of the auto-open toggles ship on.
+    if WarpeeDB.autoOpen then
+      if WarpeeDB.autoOpen.itemupgrade == nil then WarpeeDB.autoOpen.itemupgrade = true end
+      if WarpeeDB.autoOpen.catalyst == nil then WarpeeDB.autoOpen.catalyst = true end
+    end
     for i = 1, #NUMERIC do
       local k = NUMERIC[i]
       if WarpeeDB[k] ~= nil then WarpeeDB[k] = tonumber(WarpeeDB[k]) or DEFAULTS[k] end
@@ -668,12 +684,27 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if event == "PLAYER_MONEY" and Bags.frame and Bags.frame:IsShown() then Bags:UpdateMeta() end
     if ns.Bank and ns.Bank.frame and ns.Bank.frame:IsShown() then ns.Bank:UpdateFooter() end
   elseif event == "ITEM_LOCK_CHANGED" then
-    if not Bags.sorting and not Bags.snap and Bags.frame and Bags.frame:IsShown()
-       and a2 and Bags.byKey then
+    -- The game locks a slot the instant a move is issued and unlocks it when the move lands, so this is
+    -- what greys a cell mid-transfer, the way Blizzard's own bags desaturate a locked item. a2 nil means an
+    -- equipment slot (a1 is the equip slot), which no container cell draws, so those are skipped. The change
+    -- is fanned to every surface that draws live cells, not just the bag grid: the bank, and the pinned rows
+    -- (Recent, Favorites, Pocket) all mirror bag or bank slots and have to grey the same slot the same way.
+    if a2 and not Bags.sorting and not Bags.snap and Bags.frame and Bags.frame:IsShown()
+       and Bags.byKey then
       local b = Bags.byKey[a1 * 1000 + a2]
       if b then ns.UpdateItemLock(b) end
     end
+    if a2 then
+      if ns.Bank and ns.Bank.RefreshLock then ns.Bank:RefreshLock(a1, a2) end
+      if ns.Recent and ns.Recent.RefreshLock then ns.Recent:RefreshLock(a1, a2) end
+      if ns.Fav and ns.Fav.RefreshLock then ns.Fav:RefreshLock(a1, a2) end
+      if ns.Pocket and ns.Pocket.RefreshLock then ns.Pocket:RefreshLock(a1, a2) end
+    end
   elseif event == "BAG_NEW_ITEMS_UPDATED" then
+    -- A fresh new-item flag is the pump's trigger: an item just acquired (loot, buy, quest) is flagged
+    -- here. Run whether or not the window is open, so a piece taken while it was shut is already at the far
+    -- end by the time it opens: the move is done unseen instead of jumping the moment the bag appears.
+    if Bags.newOnTop and not Bags.snap and Bags.ArrangeNew then Bags:ArrangeNew() end
     Bags:RefreshNewItems()
     if ns.Bank then ns.Bank:RefreshNewItems() end
   elseif event == "QUEST_ACCEPTED" or event == "UNIT_QUEST_LOG_CHANGED" then
@@ -730,6 +761,9 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
   elseif event == "BANKFRAME_CLOSED" then
     if ns.Bank then ns.Bank.bankerOpen = false; ns.Bank:OnBankClosed() end
     autoCloseBags("bank")
+    -- Settle the grouped anti-jump freeze the bank interactions left: holes held in place while the
+    -- banker was open (a deposit from the bags, a withdraw in the bank) relay into the packed order now.
+    ns.RelayoutForSplit()
   elseif event == "TRADE_SKILL_SHOW" then
     autoOpenBags("professions")
   elseif event == "TRADE_SKILL_CLOSE" then

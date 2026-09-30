@@ -377,6 +377,96 @@ function ns.PixelBackdrop(frame, painter)
   end, "backdrop")
 end
 
+-- The inert marker the grouped view leaves where an item just left: a cell-shaped gap that is
+-- deliberately not a slot. The bags and the bank both draw one and they have to look the same, so it
+-- is built here. A plain frame carrying no bag or slot id, with its own size and show handlers as the
+-- only scripts on it, so a drop here lands nowhere and no click reaches a container. Pooled by the
+-- caller.
+function ns.CatHole(parent)
+  local t = CreateFrame("Frame", nil, parent)
+  local bg = t:CreateTexture(nil, "BACKGROUND")
+  bg:SetAllPoints(t)
+  local function paintBg(x) local r, g, b = Theme:C("faint"); x:SetColorTexture(r, g, b, 0.10) end
+  paintBg(bg)
+  Theme:Track(bg, paintBg)
+  t.bg = bg
+  -- The border hands its colour key to Theme:Rect instead of being tracked by hand. A keyless rect is
+  -- left at full white until something recolours it and nothing here did, so the marker sat in a white
+  -- box; a keyed one is painted on the spot and repainted on every theme change. The vertical edges
+  -- take PixelLine's "w": the axis argument sets the side the points do not already fix, and a left or
+  -- right edge given a height instead of a width is zero pixels wide and never draws at all.
+  t.edges = {}
+  for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
+    local e = Theme:Rect(t, "emptyLine", "OVERLAY")
+    if side == "TOP" then
+      e:SetPoint("TOPLEFT", t, "TOPLEFT", 0, 0); e:SetPoint("TOPRIGHT", t, "TOPRIGHT", 0, 0)
+    elseif side == "BOTTOM" then
+      e:SetPoint("BOTTOMLEFT", t, "BOTTOMLEFT", 0, 0); e:SetPoint("BOTTOMRIGHT", t, "BOTTOMRIGHT", 0, 0)
+    elseif side == "LEFT" then
+      e:SetPoint("TOPLEFT", t, "TOPLEFT", 0, 0); e:SetPoint("BOTTOMLEFT", t, "BOTTOMLEFT", 0, 0)
+    else
+      e:SetPoint("TOPRIGHT", t, "TOPRIGHT", 0, 0); e:SetPoint("BOTTOMRIGHT", t, "BOTTOMRIGHT", 0, 0)
+    end
+    if side == "TOP" or side == "BOTTOM" then ns.PixelLine(e, 1) else ns.PixelLine(e, 1, "w") end
+    t.edges[#t.edges + 1] = e
+  end
+  -- Two diagonal strokes, not a typed glyph (a "x" carries the label outline and side bearings and read
+  -- as a fat letter). A diagonal has no pixel grid of its own, so the same 2px stroke reads as 2 or 3px
+  -- depending on where the grid cuts it; markShift nudges the crossing by up to half a pixel so both arms
+  -- read as 2px at every density step, scale and cell position. A move of (a, b) shifts the arms' pixel
+  -- sums by a + b and their differences by a - b, so both readings are satisfied from one anchor.
+  local MARK_PHASE = 0.25
+  local function markShift(x)
+    local s = x:GetEffectiveScale()
+    local per = (s and s > 0) and (s * (physH / 768)) or 0
+    local l, b = x:GetLeft(), x:GetBottom()
+    if per <= 0 or not (l and b) then return 0, 0 end
+    local cx, cy = l * per, b * per
+    local ds = (MARK_PHASE - (cx + cy) % 1 + 0.5) % 1 - 0.5
+    local dd = (MARK_PHASE - (cx - cy) % 1 + 0.5) % 1 - 0.5
+    return ((ds + dd) / 2) / per, ((ds - dd) / 2) / per
+  end
+  t.mark = {}
+  for i = 1, 2 do
+    local d = t:CreateTexture(nil, "ARTWORK")
+    -- The stroke needs a texture of its own: SetVertexColor only tints what is already there, so a bare
+    -- CreateTexture tinted and nothing else draws nothing at all.
+    d:SetColorTexture(1, 1, 1, 1)
+    -- Snapping would take the phase nudge straight back: the engine rounds a region onto the grid, and a
+    -- quarter pixel is rounded to nothing at the pixel-perfect scale and to the wrong quarter anywhere
+    -- else, so markShift below would compute a correction that never reaches the screen. Nothing is lost
+    -- by taking a diagonal stroke out of it — its edges are off the axes and carry no grid of their own.
+    ns.NoPixelSnap(d)
+    local function paint(x) local r, g, b = Theme:C("faint"); x:SetVertexColor(r, g, b, 0.85) end
+    paint(d)
+    Theme:Track(d, paint)
+    d:SetPoint("CENTER", t, "CENTER", 0, 0)
+    d.wpeAngle = math.rad(i == 1 and 45 or -45)
+    t.mark[i] = d
+  end
+  local function markSize(x)
+    local w, h = x:GetWidth(), x:GetHeight()
+    if not (w and h) or w <= 0 or h <= 0 then return end
+    -- Two physical pixels: a one pixel stroke rotated off the axes reads as a hairline and disappears
+    -- against the plate.
+    local len, px = math.sqrt(w * w + h * h) * 0.44, ns.PX(x, 2)
+    local ox, oy = markShift(x)
+    for i = 1, #x.mark do
+      local d = x.mark[i]
+      -- The phase nudge goes on every pass, not only on a size change: the hole is anchored anew by the
+      -- layout each pass, so the same size can stand in a different place and read differently.
+      d:SetPoint("CENTER", x, "CENTER", ox, oy)
+      -- Size, then rotate: a rotated texture's geometry is built when the rotation is set, so rotating
+      -- one that is still sizeless leaves it rotated about nothing.
+      d:SetSize(len, px)
+      d:SetRotation(d.wpeAngle)
+    end
+  end
+  t:SetScript("OnSizeChanged", markSize)
+  t:SetScript("OnShow", markSize)
+  return t
+end
+
 function ns.SnapFrame(frame)
   local p, rel, rp, x, y = frame:GetPoint()
   if not p then return end

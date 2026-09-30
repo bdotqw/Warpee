@@ -73,68 +73,192 @@ ns.Bags = Bags
 local gridWidth = ns.GridWidth
 local fitLabel = ns.FitLabel
 
--- New-on-top freshness. A slot is fresh when it took an item that arrived on its own (loot, a vendor
--- right-click deposit's mirror, a quest reward) rather than one the player set down by hand. Slot-keyed
--- because an untouched arrival keeps its slot until a sort, and a sort or the slot emptying clears the
--- mark. Only cheap container reads, no tooltip scan. The cursor go-between (a hand-placed item, a split)
--- is told apart through ns.CursorHeldItem, the same guard the recent row uses, so manual moves never float.
-local freshAt = {}
-local freshSeq = 0
-local baseId, baseCount = {}, {}
+-- New-on-top: freshly acquired items are kept apart from the settled ones by moving each new piece to the
+-- far end of its own container, so the grid draws it there honestly. The cell binds the real slot, so the
+-- drag and the secure click stay the game's own, and there is no display remap to make a swap land on the
+-- wrong slot. "New" is the client's own flag, the same one the new-item glow reads: it clears when the
+-- piece is clicked, moved or sorted, which is exactly when it should stop being kept apart. Grid only; the
+-- grouped view owns its own order.
+local function isNew(bag, slot)
+  if not (C_NewItems and C_NewItems.IsNewItem) then return false end
+  local ok, new = pcall(C_NewItems.IsNewItem, bag, slot)
+  return (ok and new) and true or false
+end
 
--- Reads every bag slot once, the reagent bag included, and marks the ones that just took a new item.
--- The reagent bag flows loot the same way the main bags do (mined ore, gathered herbs), so it earns the
--- same treatment. The first pass after the mode turns on (or after a sort) only primes the baseline, so
--- a bag already full of items does not all read as fresh at once. Returns whether the fresh set changed.
-function Bags:DetectFresh()
-  if self.snap or not self.newOnTop then return false end
-  if GetCursorInfo() then return false end
-  local held = ns.CursorHeldItem
-  -- A sort moves items in a cascade of bag updates that can straddle the settle timer, so a late move
-  -- lands after the baseline was primed and reads as an arrival, floating a sorted item back down. While
-  -- the grace window after a sort is open, every pass only re-primes the baseline and marks nothing, so
-  -- the whole cascade is absorbed as the new settled state. freshPrimed is left unset until it closes.
-  local grace = self.freshGraceUntil and GetTime() < self.freshGraceUntil
-  local prime = grace or not self.freshPrimed
-  local changed = false
+-- The item instance GUID for a slot, stable across a move between bag slots, so a piece can be recognized
+-- after it is relocated. nil for an empty or unreadable slot. No tooltip scan; the same read Categories
+-- makes for its slot keys.
+local function slotGUID(bag, slot)
+  if not (ItemLocation and C_Item and C_Item.GetItemGUID) then return nil end
+  local loc = ItemLocation:CreateFromBagAndSlot(bag, slot)
+  if not (loc and loc:IsValid()) then return nil end
+  local ok, guid = pcall(C_Item.GetItemGUID, loc)
+  return (ok and guid) or nil
+end
+
+-- Pieces already parked at the far end, keyed by their instance GUID. A new piece is moved there exactly
+-- once and its GUID remembered; from then on it is never pulled again, so dragging one parked piece out of
+-- its end slot does not make the pump chase another new piece into the freed slot. The GUID is unique per
+-- item instance, so this set is never pruned by scanning the bags: a piece that leaves (sold, mailed) simply
+-- never has its GUID seen again, and a re-bought copy carries a fresh GUID and counts as new on its own. The
+-- set is dropped only on a sort or when the mode is toggled. The game's own new-item flag is left untouched,
+-- so the new-item glow keeps its own life independent of this.
+local placed = {}
+
+-- The grid's slot order for a set of bags: each bag in list order, slots ascending. The last entry is the
+-- far end, so the last free slot there is where a new piece is sent and the pieces stack inward from it.
+local function runOrder(bagList)
+  local order = {}
+  for _, bag in ipairs(bagList) do
+    local num = C_Container.GetContainerNumSlots(bag) or 0
+    for slot = 1, num do order[#order + 1] = { bag, slot } end
+  end
+  return order
+end
+
+-- One tick of one run of bags. Two things happen here. First, every new piece already sitting past the last
+-- free slot is parked in place: it is in the trailing occupied block, so it is at rest at the end and must
+-- be remembered now, or a slot freed later before it (a piece dragged out) would make it look movable and
+-- the pump would chase it. This is the fix for a bought piece the game drops straight into a high slot when
+-- only the end is free, which never got moved and so never got parked. Second, the earliest new unparked
+-- piece before the last free slot is sent to that slot, and returned for the caller to confirm and park once
+-- it has actually left. A piece already parked or given up on is skipped. Returns guid, {bag, slot} of the
+-- piece it moved, or nil when there was nothing to move (parking in place counts as nothing to move).
+function Bags:ArrangeRun(bagList, failed)
+  local order = runOrder(bagList)
+  local lastFree
+  for k = 1, #order do
+    local e = order[k]
+    local info = C_Container.GetContainerItemInfo(e[1], e[2])
+    if not (info and (info.hyperlink or info.itemID)) then lastFree = k end
+  end
+  -- No free slot anywhere: every new piece is as far back as it can go, so park them all in place.
+  local from = lastFree and (lastFree + 1) or 1
+  for k = from, #order do
+    local e = order[k]
+    if isNew(e[1], e[2]) then
+      local g = slotGUID(e[1], e[2])
+      if g then placed[g] = true end
+    end
+  end
+  if not lastFree then return nil end
+  for k = 1, lastFree - 1 do
+    local e = order[k]
+    local info = C_Container.GetContainerItemInfo(e[1], e[2])
+    if info and (info.hyperlink or info.itemID) and not info.isLocked and isNew(e[1], e[2]) then
+      local g = slotGUID(e[1], e[2])
+      -- Skip a piece already parked (landed at the end once, so it stays put even if the game still flags it
+      -- new) and one given up on after repeated failures (so a truly stuck slot cannot loop).
+      if g and not placed[g] and not (failed and failed[g]) then
+        local dst = order[lastFree]
+        -- PickupContainerItem is unprotected and used the same way the drop handler and the game's own bag
+        -- buttons use it, so a timer-driven move here is taint free. Src then empty dst = a plain relocation.
+        C_Container.PickupContainerItem(e[1], e[2])
+        C_Container.PickupContainerItem(dst[1], dst[2])
+        if CursorHasItem() then ClearCursor() end
+        return g, { e[1], e[2] }
+      end
+    end
+  end
+  return nil
+end
+
+-- The new-item pump. Kept apart is a physical arrangement, so it moves one piece at a time and confirms
+-- each landed before the next: a piece is parked only once it has actually left its source slot, so a move
+-- the server drops (which happens under a fast burst of buys) is re-issued instead of being marked parked at
+-- the front and stranded. It keeps sweeping through a short lull after the last move so a straggler still
+-- settling or not yet flagged new is caught.
+--
+-- Only one pump runs at a time. The triggers (a loot, a buy, the window opening, a bag update) fire in
+-- bursts, and a naive restart on each would throw away the in-flight move and the give-up set every time,
+-- so a fast run of buys kept resetting the pump and never finished. Instead a trigger while the pump is
+-- already running only wakes it (resets the idle countdown): the running pump re-scans the bags every tick,
+-- so it picks up the new arrivals on its own. Suppressed in combat, on a held cursor, and during a sort.
+local MOVE_TRIES, LOCK_POLLS, IDLE_MAX = 12, 40, 14
+local MOVE_WAIT, LOCK_WAIT, IDLE_WAIT = 0.22, 0.15, 0.35
+function Bags:ArrangeNew()
+  if self.snap or not self.newOnTop or self.sorting then return end
+  -- Already sweeping: just keep it alive so the arrivals from this trigger are gathered too, and let the
+  -- running pump find them. Starting a second would drop the first's in-flight move.
+  if self.arrangeActive then self.arrangeWake = true; return end
+  self.arrangeActive = true
+  self.arrangeWake = false
+  local inflight, failed, idle = nil, {}, 0
+  local function tick()
+    if not self.newOnTop or self.snap or self.sorting then self.arrangeActive = false; return end
+    if InCombatLockdown() or CursorHasItem() or GetCursorInfo() then
+      C_Timer.After(0.25, tick)
+      return
+    end
+    if inflight then
+      local g = slotGUID(inflight.src[1], inflight.src[2])
+      if g ~= inflight.guid then
+        -- The piece left its source: the move landed. Park it so it is never pulled again, even while the
+        -- game still flags it new, and go straight on to the next piece this tick.
+        placed[inflight.guid] = true
+        inflight = nil
+      else
+        local info = C_Container.GetContainerItemInfo(inflight.src[1], inflight.src[2])
+        if info and info.isLocked then
+          -- Still in flight: the server has the move but has not answered. Wait, patiently, then treat a
+          -- move that never resolves as stuck and give up on that piece so the pump cannot wedge.
+          if (inflight.polls or 0) < LOCK_POLLS then
+            inflight.polls = (inflight.polls or 0) + 1
+            C_Timer.After(LOCK_WAIT, tick)
+            return
+          end
+          failed[inflight.guid] = true
+          inflight = nil
+        else
+          -- Unlocked and still sitting in its source: the move was dropped (common under a burst). Re-issue
+          -- many times before giving up, so a busy server is ridden out rather than a piece abandoned.
+          inflight.tries = (inflight.tries or 0) + 1
+          if inflight.tries > MOVE_TRIES then failed[inflight.guid] = true end
+          inflight = nil
+        end
+      end
+    end
+    -- The normal bags are one run and the reagent bag another, so a new plain item goes to the last
+    -- ordinary bag slot and a new reagent to the last reagent slot: neither crosses into the other, which
+    -- is why a bought item never lands past the reagents.
+    local g, src = self:ArrangeRun(ns.playerBags, failed)
+    if not g and ns.reagentBag then g, src = self:ArrangeRun({ ns.reagentBag }, failed) end
+    if g then
+      inflight = { guid = g, src = src, tries = 0, polls = 0 }
+      idle = 0
+      self.arrangeWake = false
+      -- Come back to confirm the move; the receiving side is repainted from its own bag events.
+      C_Timer.After(MOVE_WAIT, tick)
+    else
+      -- Nothing to move now. A trigger that arrived mid-sweep (self.arrangeWake) means more may be settling,
+      -- so the idle countdown restarts rather than the pump stopping short of a late arrival.
+      if self.arrangeWake then idle = 0; self.arrangeWake = false end
+      if idle < IDLE_MAX then
+        idle = idle + 1
+        C_Timer.After(IDLE_WAIT, tick)
+      else
+        self.arrangeActive = false
+      end
+    end
+  end
+  tick()
+end
+
+-- A sort repacks the bags into the ordinary order. The game treats a piece the player drags to another slot
+-- as no longer new, so a sort, which moves pieces the same way, clears the new-item flags too: the glow
+-- leaves the sorted pieces exactly as it would after a manual move. A later arrival is flagged new again and
+-- glows and parks as usual. The parked set is dropped as well, so the pump does not pull the just-sorted
+-- pieces back out to the far end.
+function Bags:ClearNewFlags()
+  wipe(placed)
+  if not (C_NewItems and C_NewItems.RemoveNewItem) then return end
   local scan = { ns.reagentBag }
   for _, bag in ipairs(ns.playerBags) do scan[#scan + 1] = bag end
   for _, bag in ipairs(scan) do
     local num = C_Container.GetContainerNumSlots(bag) or 0
-    for slot = 1, num do
-      local key = bag * 1000 + slot
-      local info = C_Container.GetContainerItemInfo(bag, slot)
-      local id = info and info.itemID
-      local cnt = (info and info.stackCount) or 0
-      if not id then
-        if freshAt[key] then freshAt[key] = nil; changed = true end
-      elseif not prime then
-        local arrived = (id ~= baseId[key]) or (cnt > (baseCount[key] or 0))
-        if arrived and not freshAt[key] and not (held and held(id)) then
-          freshSeq = freshSeq + 1
-          freshAt[key] = freshSeq
-          changed = true
-        end
-      end
-      baseId[key], baseCount[key] = id, cnt
-    end
+    for slot = 1, num do pcall(C_NewItems.RemoveNewItem, bag, slot) end
   end
-  if not grace then self.freshPrimed = true end
-  return changed
 end
-
--- A sort (or a mode change) drops everything back into the ordinary packed order: wipe the marks and
--- re-prime, so the settled bag is the new baseline and nothing reads as fresh until the next arrival.
--- withGrace opens a short window during which every pass only re-primes the baseline, so the sort's
--- cascade of bag moves is swallowed instead of being read as fresh arrivals landing after the reset.
-function Bags:ResetFresh(withGrace)
-  wipe(freshAt); wipe(baseId); wipe(baseCount)
-  freshSeq = 0
-  self.freshPrimed = nil
-  self.freshGraceUntil = withGrace and (GetTime() + 1.0) or nil
-end
-
-function Bags:FreshAt(bag, slot) return freshAt[bag * 1000 + slot] end
 
 
 function Bags:HeadShift()
@@ -285,6 +409,9 @@ function Bags:Build()
     -- opened window read as an auto open, so it did not pull the pocket with it, and a
     -- merchant closing later shut a window the player had opened himself.
     ns.autoOpened = nil
+    -- The anti-jump memory says what is on screen, and the screen is going away. Kept, a piece that left
+    -- while the window was shut (sold at a vendor it was not open for) would reopen as a hole.
+    Bags.catMemory, Bags.catHold = nil, nil
     ns.ClearSearch(Bags.search)
     if ns.CharPicker then ns.CharPicker:Close() end
     if Bags.bagWindow then Bags.bagWindow:Hide() end
@@ -333,10 +460,12 @@ function Bags:Build()
   -- category view the grouped picture does not change, but the grid slots under it get sorted and stacked,
   -- so switching back to the grid shows a tidied bag.
   sort:SetScript("OnClick", function() Bags:SortBags() end)
-  -- The client's own name for this button, read from the live global so it always matches the game in
-  -- every locale and rides along with any wording change Blizzard makes; the literal only stands in on
-  -- the vanishingly rare load where the global is not set yet.
-  addTip(sort, _G.BAG_CLEANUP_BAGS or "Clean Up Bags")
+  -- The game's own name for this action, but keyed to Warpee's own language so it follows the addon's
+  -- language dropdown, not the game client's fixed locale: _G.BAG_CLEANUP_BAGS reads only in the client
+  -- language and never changes when the player switches Warpee's language, so the authentic Blizzard
+  -- wording for each language is carried in the locale tables and read through ns.L instead. A function,
+  -- so it is re-read on every hover after a language change rather than captured once here.
+  addTip(sort, function() return ns.L["Clean Up Bags"] end)
   local sortIcon = sort:CreateTexture(nil, "ARTWORK")
   sortIcon:SetAtlas("auctionhouse-ui-sortarrow")
   sortIcon:SetSize(13, 15)
@@ -704,9 +833,10 @@ function Bags:Layout(capture)
           and self.gridBg and self.money and self.reagentLabel) then return end
   local cols = self.cols
   self:AnchorHeader()
-  -- New-on-top reads the bags for arrivals before the grid is placed, so the fresh marks are current for
-  -- this pass. In the grouped view the sections own the order, so it does not run there.
-  if self.newOnTop and not self.snap and not self:CatMode() then self:DetectFresh() end
+  -- New-on-top keeps new pieces physically at the far end of their bag, so the plain grid draws them there
+  -- with no display remap. The move pump is kicked here too, so opening the window tidies any arrivals that
+  -- landed while it was shut. In the grouped view the sections own the order, so it does not run there.
+  if self.newOnTop and not self.snap and not self:CatMode() then self:ArrangeNew() end
   local size, gap, step = ns.GridMetrics(self.frame, self.iconSize, self.gap)
   self.pxSize, self.pxGap = size, gap
   local i, used, total = 0, 0, 0
@@ -773,6 +903,10 @@ function Bags:Layout(capture)
     -- summed count of every folded slot. wpeForce overrides only the number UpdateItemButton shows; nil
     -- clears it, so a cell reused from a merged layout in the plain grid shows its own slot count again.
     b.wpeForce = forceCount
+    -- Grouped view rings reagents by item class, not by which bag holds them, so the Reagents section
+    -- reads alike; the paint reads this off the cell. Cleared to false so a cell reused in the grid
+    -- goes back to the reagent-bag rule.
+    b.wpeCat = self:CatMode()
     h:Show(); b:Show()
     if self.snap then
       ns.PaintVaultButton(b, ns.Vault:Slot("bags", bag, slot), bag, forceCount)
@@ -794,9 +928,13 @@ function Bags:Layout(capture)
     self:HideCatLabels(0)
     self:HideCatCounts(0)
     self:HideCatHeaders(0)
+    self:HideCatHoles(0)
     self:HideCatZones(0)
     self:HideCatGroups(0)
     self:HideEmptyTiles(0)
+    -- The grouped anti-jump memory belongs to the grouped view: drop it on the way out, so a switch back
+    -- into groups does not reconcile against a stale order from before the grid was shown.
+    self.catMemory, self.catHold = nil, nil
     if self.catFree then self.catFree:Hide() end
     local n = 0
     local hide = self.hideReagents and true or false
@@ -821,73 +959,34 @@ function Bags:Layout(capture)
       return col * step, -(top + row * step)
     end
 
-    -- Raw cell number to screen coords: fill-up is a row direction so it is honored here, but reverse is
-    -- NOT, because new-on-top flips reverse per region (see placeBand) rather than against the whole grid.
-    -- Flipping against the whole grid was what let the reagent count shift the bag block, so it is kept
-    -- strictly region-local.
-    local function cellNT(k, rows, top)
-      local col, row = (k - 1) % cols, math.floor((k - 1) / cols)
-      if self.fillUp then row = rows - 1 - row end
-      return col * step, -(top + row * step)
-    end
-
-    -- The main grid's cell flow. Normally every slot is placed in order, so the settled items pack from
-    -- the origin corner and free slots trail behind. New-on-top splits the grid into bands and lays each
-    -- one on its own: the four bags float (settled items pack one end, fresh arrivals fill from the other),
-    -- and the merged reagent block sits plainly on the tail, never floated. Reverse is applied as an
-    -- end-for-end flip inside each band, so it decides which corner the settled mass packs into and the
-    -- fresh block mirrors it, the same in every band; because the flip is region-local, the reagent count
-    -- can never shift the bag band. Fill-up is a row direction kept by cellNT. It is a pure display remap
-    -- over the same bound slots: the secure click and drag are untouched and nothing moves inside the bags.
-    -- A sort clears the marks and the grid packs plainly again.
+    -- The main grid's cell flow: every slot in physical order, so the items pack from the origin corner and
+    -- free slots trail behind. New-on-top needs no special path here — the pump has already moved the new
+    -- pieces to the far end of their bag, so drawing the slots in order shows them there honestly.
     local mainSlots, reagSlots = {}, {}
-    local bagCells = 0
     for _, bag in ipairs(ns.playerBags) do
       local num = self:Slots(bag)
       self.bagSlots[bag] = num
       for slot = 1, num do mainSlots[#mainSlots + 1] = { bag, slot } end
-      bagCells = bagCells + num
       total = total + num
       used = used + self:Taken(bag)
     end
     if rnum > 0 then
       total = total + rnum
       used = used + self:Taken(ns.reagentBag)
-      if merge then
+      -- Listed whenever the reagent slots are drawn: merged into the main grid or as a block of their own.
+      -- A hidden reagent bag draws no cell, so it takes part in neither.
+      if merge or split then
         for slot = 1, rnum do reagSlots[#reagSlots + 1] = { ns.reagentBag, slot } end
       end
     end
-    if self.newOnTop and not self.snap then
-      -- Lay one band of M cells starting at global cell `base`+1. Settled slots take the near end, fresh
-      -- the far end; reverse flips the local position within the band [1..M] so both ends swap together.
-      local function placeBand(list, base, M, float)
-        local settled, fresh = {}, {}
-        for _, e in ipairs(list) do
-          local f = float and self:FreshAt(e[1], e[2])
-          if f then e.fresh = f; fresh[#fresh + 1] = e else settled[#settled + 1] = e end
-        end
-        table.sort(fresh, function(a, b) return a.fresh < b.fresh end)
-        local function put(e, p)
-          local lp = self.revFill and (M - p + 1) or p
-          place(e[1], e[2], cellNT(base + lp, mainRows, mainTop))
-        end
-        local p = 1
-        for _, e in ipairs(settled) do put(e, p); p = p + 1 end
-        local q = M
-        for _, e in ipairs(fresh) do put(e, q); q = q - 1 end
-      end
-      placeBand(mainSlots, 0, bagCells, true)
-      if merge and rnum > 0 then placeBand(reagSlots, bagCells, rnum, false) end
-    else
-      for _, e in ipairs(mainSlots) do
+    for _, e in ipairs(mainSlots) do
+      n = n + 1
+      place(e[1], e[2], cellXY(n, mainCount, mainRows, mainTop))
+    end
+    if merge then
+      for _, e in ipairs(reagSlots) do
         n = n + 1
         place(e[1], e[2], cellXY(n, mainCount, mainRows, mainTop))
-      end
-      if merge then
-        for _, e in ipairs(reagSlots) do
-          n = n + 1
-          place(e[1], e[2], cellXY(n, mainCount, mainRows, mainTop))
-        end
       end
     end
 
@@ -1078,29 +1177,36 @@ function Bags:CatHeader(i)
   local btn = self.catHeaders[i]
   if not btn then
     btn = CreateFrame("Button", nil, self.content)
-    btn:RegisterForClicks("LeftButtonUp")
+    btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     -- A drop on a caption sets the piece down like a drop anywhere else on the body: it joins the bags
     -- and files under its own category by the rules, no forced pin to this section. DropToBackground
     -- handles the worn-piece unequip and clears the cursor.
     local function drop() self:DropToBackground() end
     btn:SetScript("OnReceiveDrag", drop)
-    btn:SetScript("OnClick", drop)
+    -- Left click drops a held piece; right click sends the whole category to an open bank, the way a
+    -- manual right click on each item would. The two never overlap: a right click is only ever a
+    -- transfer, and a drop rides the left button or OnReceiveDrag.
+    btn:SetScript("OnClick", function(s, button)
+      if button == "RightButton" then self:TransferCategory(s.wpeSlots) else drop() end
+    end)
     btn:SetScript("OnEnter", function(s)
       if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("accentInk")) end
-      -- A caption cut to fit its section shows the whole name on hover, so nothing is lost to the
-      -- ellipsis. Only a truncated one gets the tooltip; a name that fit reads for itself.
-      if s.wpeFull and s.wpeCut then
-        GameTooltip:SetOwner(s, "ANCHOR_TOPLEFT")
-        GameTooltip:SetText(s.wpeFull)
-        GameTooltip:Show()
-      end
     end)
     btn:SetScript("OnLeave", function(s)
       -- Back to the caption's resting tone, which the layout paints accent; a lesser tone here would
       -- leave any header the cursor crossed stuck dim while its untouched neighbours kept the accent.
       if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("accent")) end
-      GameTooltip:Hide()
     end)
+    -- A caption cut to fit its section shows the whole name on hover, so nothing is lost to the
+    -- ellipsis. Only a truncated one reads out; a name that fit speaks for itself. The right-click hint
+    -- rides along only while a banker is open, when the click would actually do it. Both go on the
+    -- addon's own tip: the game's tooltip is built for item links and drew this one sentence in a box
+    -- the size of a paragraph, with a face that carried across the window.
+    ns.AddTip(btn, function(s) return (s.wpeFull and s.wpeCut) and s.wpeFull or nil end, "top",
+      function(s)
+        if not (ns.Bank and ns.Bank.bankerOpen and s.wpeSlots and s.wpeSlots[1]) then return nil end
+        return { { text = "Right click to move this category to the bank", color = "dim" } }
+      end)
     self.catHeaders[i] = btn
   end
   return btn
@@ -1267,13 +1373,36 @@ function Bags:DropToBackground(targetId, toEmpty)
   if ns.Options and ns.Options.RefreshOpen then ns.Options:RefreshOpen() end
 end
 
--- Is drag-to-pin armed right now? "off" never pins, "on" always, "alt" only while Alt is held. Read at
--- the moment of the drop so the modifier is live. Missing/unknown value falls back to the "alt" default.
+-- Is drag-to-pin armed right now? The rule — off, on, or only while Alt is held — lives with the
+-- categories, since the bank drops a piece on a section the same way and both views read one answer.
 function Bags:PinDragActive()
-  local mode = (WarpeeDB and WarpeeDB.catPinDrag) or "alt"
-  if mode == "off" then return false end
-  if mode == "on" then return true end
-  return IsAltKeyDown()
+  return ns.Categories.PinDragActive()
+end
+
+-- Right click on a category caption sends the whole section where an open window wants it: into the bank
+-- while a banker is up. Each piece goes through the game's own UseContainerItem on a real right click path
+-- (ContainerFrame.lua), the bank reading its own active type; the moves are paced by Cats:MoveSlots so the
+-- warband bank's per-move round-trip does not drop any. A piece the bank will not take (soulbound into the
+-- warband bank) is skipped silently and stays in the bags. Only the bank is wired: a merchant right-click
+-- sell was judged too easy to misfire, and the sell button covers that. Guards mirror the vendor pass:
+-- never in combat, never with the cursor already holding something. `slots` is the section's own list
+-- captured at layout; nil (Empty) does nothing.
+function Bags:TransferCategory(slots)
+  if not slots or not ns.Bank or not ns.Bank.bankerOpen then return end
+  if InCombatLockdown() or CursorHasItem() or GetCursorInfo() then return end
+  local bt = ns.Bank.depositType
+  if not bt then return end
+  -- Bank slots already claimed by a move still in flight this transfer, so a paced burst does not aim two
+  -- pieces at the same empty slot before the first has landed.
+  local alloc = {}
+  ns.Categories:MoveSlots(slots, function(bag, slot)
+    -- Deposit as a real slot move (ns.BankDepositMove), never UseContainerItem with a bank type: the latter
+    -- equips an equippable piece instead of banking it, which wore a BoE item and left no hole. It also runs
+    -- the account-bank soulbound check and skips a piece the bank refuses, leaving it in the bags.
+    return ns.BankDepositMove(bag, slot, alloc)
+  end, function()
+    return ns.Bank.bankerOpen and Bags.frame and Bags.frame:IsShown()
+  end, bt == (Enum and Enum.BankType and Enum.BankType.Account))
 end
 
 -- The drop target over a section's body while an item rides the cursor. A release sets the held piece
@@ -1415,6 +1544,26 @@ function Bags:HideEmptyTiles(from)
   end
 end
 
+-- The inert crosshair the grouped anti-jump leaves where an item just left: a placeholder for a cell
+-- that is deliberately not a slot. ns.CatHole builds it, so the bank draws the same one. Pooled by
+-- index like the empty tiles, drawn only while a take-items window holds.
+function Bags:CatHole(i)
+  self.catHoles = self.catHoles or {}
+  local t = self.catHoles[i]
+  if not t then
+    t = ns.CatHole(self.content)
+    self.catHoles[i] = t
+  end
+  return t
+end
+
+function Bags:HideCatHoles(from)
+  if not self.catHoles then return end
+  for i = (from or 0) + 1, #self.catHoles do
+    if self.catHoles[i] then self.catHoles[i]:Hide() end
+  end
+end
+
 -- One watcher flips the zones the moment the cursor picks up or sets down an item, so the highlight
 -- tracks the drag with no per-frame polling. Declared before SyncDropZones so that function can reach it
 -- as an upvalue. While a drag is live it also polls the cursor so the cell under it lights like the native
@@ -1460,9 +1609,47 @@ end)
 -- its caption) so several share a row and the list reads left to right in priority order. A section
 -- is always drawn whole: only a group band folds, and it does so from the caption row above its own
 -- sections. A live search narrows the pass to the hits, so a match is never hidden behind a band.
+-- How long a piece that left with no window open keeps its cell after it went. A destroy is over in one
+-- frame and leaves nothing behind to watch, so the hold is armed by the removal itself and slides with
+-- each further one; when it runs out the view compacts, the way it does the moment a window closes.
+local CATHOLD = 8
+
 function Bags:LayoutCats(place, size, gap, step, cols)
-  local buckets, used, total = ns.Categories:Buckets(self)
+  -- The bucketer is handed last pass's slot memory on every grouped pass, so a piece leaving keeps its
+  -- cell as an inert hole and a returning piece drops back into its own. Holding is what decides whether
+  -- those holes are drawn: while a window that takes items is open (bank, vendor, scrapper...) and for a
+  -- short while after a removal that had no such window. Either way a live search or a snapshot compacts,
+  -- since a search answers a different question and a snapshot has no live container.
   local Cats = ns.Categories
+  local open = ns.SplitWindowOpen and ns.SplitWindowOpen()
+  local live = (not self.snap) and (self.query or "") == ""
+  local now = GetTime()
+  local hold = live and (open or (self.catHold and now < self.catHold))
+  local buckets, used, total = Cats:Buckets(self,
+    live and (self.catMemory or Cats.EMPTY_MEMORY) or nil)
+  if live then
+    if open then
+      self.catHold = nil
+    else
+      local left = 0
+      for i = 1, #buckets do left = left + (buckets[i].left or 0) end
+      if left > 0 then
+        self.catHold = now + CATHOLD
+        -- Nothing else would bring the view back when the hold runs out: the gap would stand in a quiet
+        -- moment looking like a slot that is really there. The layout is idempotent, so this pass is
+        -- wasted only if the bags are shut or a window has taken the hold over.
+        C_Timer.After(CATHOLD + 0.1, function()
+          if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
+        end)
+      end
+    end
+    -- Re-read after arming: the removal just seen has to be held on this very pass, not the next one.
+    hold = open or (self.catHold and now < self.catHold)
+    self.catMemory = Cats:CaptureMemory(buckets, hold)
+  else
+    self.catMemory, self.catHold, hold = nil, nil, false
+  end
+  if not hold then Cats:Compact(buckets) end
   local d = ns.Density(size)
   local capH = d.labelH + d.labelGap
   local gridW = gridWidth(size, cols, gap)
@@ -1543,6 +1730,7 @@ function Bags:LayoutCats(place, size, gap, step, cols)
     if (not searching) or band.n > 0 then drawn[#drawn + 1] = band end
   end
   local gi, si = 0, 0
+  local holes = 0
   for k = 1, #drawn do
     local band = drawn[k]
     local open = bandOpen(band)
@@ -1680,6 +1868,9 @@ function Bags:LayoutCats(place, size, gap, step, cols)
     local head = self:CatHeader(si)
     head.wpeId, head.wpeLabel = id, label
     head.wpeFull, head.wpeCut = ns.Upper(name or ""), truncated
+    -- The section's own slots, for a right-click transfer to an open window. Empty owns none, so a
+    -- right click there does nothing.
+    head.wpeSlots = (not isEmpty) and b.slots or nil
     head:ClearAllPoints()
     ns.SnapPoint(head, "TOPLEFT", self.content, "TOPLEFT", sx, -sy)
     head:SetSize(math.max(1, sw), capH)
@@ -1716,10 +1907,22 @@ function Bags:LayoutCats(place, size, gap, step, cols)
       for k, s in ipairs(b.slots) do
         local col = (k - 1) % w
         local row = math.floor((k - 1) / w)
-        -- A folded stack draws the summed count on its one bound slot; an unmerged cell passes nil so it
-        -- shows its own slot count. (count is always set, so the > 1 test is what tells a fold from a single.)
-        place(s.bag, s.slot, sx + col * step, -(cellsTop + row * step),
-              (s.count and s.count > 1) and s.count or nil)
+        local cx, cy = sx + col * step, -(cellsTop + row * step)
+        if s.dummy then
+          -- Held hole: an item just left this spot while a take-items window is open. Draw the inert
+          -- crosshair instead of a live cell, so nothing can be dropped or clicked here and the view
+          -- does not reflow under the cursor.
+          holes = holes + 1
+          local t = self:CatHole(holes)
+          ns.SnapSize(t, size, size)
+          t:ClearAllPoints()
+          ns.SnapPoint(t, "TOPLEFT", self.content, "TOPLEFT", cx, cy)
+          t:Show()
+        else
+          -- A folded stack draws the summed count on its one bound slot; an unmerged cell passes nil so it
+          -- shows its own slot count. (count is always set, so the > 1 test is what tells a fold from a single.)
+          place(s.bag, s.slot, cx, cy, (s.count and s.count > 1) and s.count or nil)
+        end
       end
       local rows = math.max(1, math.ceil(n / w))
       secH = capH + (rows - 1) * step + size
@@ -1756,6 +1959,7 @@ function Bags:LayoutCats(place, size, gap, step, cols)
   self:HideCatZones(si)
   self:HideCatGroups(gi)
   self:HideEmptyTiles(shownTiles)
+  self:HideCatHoles(holes)
   -- Opened with an item already on the cursor? Light the zones now; otherwise this hides them.
   self:SyncDropZones()
   return contentH, used, total
@@ -3140,7 +3344,8 @@ function Bags:UpdateDirty()
   end
   -- Cat mode rebuilds the whole pass because a changed slot can leave its section, and
   -- Layout(true) captures the bags itself, so the incremental capture here would be thrown
-  -- away a line later. Skip it and let the full pass do the one capture.
+  -- away a line later. Skip it and let the full pass do the one capture. The anti-jump while a
+  -- take-items window is open lives in LayoutCats (slot memory + holes), not here.
   if self:CatMode() then
     if next(self.dirty) then self.dirty = {}; self:Layout(true) end
     return
@@ -3165,10 +3370,10 @@ function Bags:UpdateDirty()
     used = used + (rnum - (select(1, C_Container.GetContainerNumFreeSlots(ns.reagentBag)) or 0))
   end
   if moved or total ~= self.total then self.dirty = {}; self:Layout(true); return end
-  -- New-on-top: an arrival into an existing slot does not change the slot count, so the incremental
-  -- path would repaint in place and never lift the new item to the top. If the fresh set changed, the
-  -- cells have to be reordered, which only a full layout does.
-  if self.newOnTop and self:DetectFresh() then self.dirty = {}; self:Layout(true); return end
+  -- New-on-top: an arrival lands in a slot without changing the slot count, so kick the move pump. The
+  -- move it makes changes the slot layout, which comes back through the moved/total path above and draws
+  -- the settled grid; here the incremental repaint just refreshes the touched cells in place.
+  if self.newOnTop and not self.snap then self:ArrangeNew() end
   self.used = used
   for bag in pairs(self.dirty) do
     local num = C_Container.GetContainerNumSlots(bag) or 0
@@ -3183,10 +3388,10 @@ end
 
 function Bags:SortBags()
   self.sorting = true
-  -- The sort is the "drop everything into the packed order" action: clear the fresh marks and open a
-  -- grace window, so the whole cascade of moves the sort fires is absorbed as the new settled baseline
-  -- rather than a few late moves reading as arrivals and floating sorted items back down.
-  self:ResetFresh(true)
+  -- A sort counts as touching every piece: it clears the new-item flags (so the glow drops, as a manual
+  -- move would) and the parked set, so the pump leaves the sorted grid alone. sorting stays true through
+  -- the move cascade, so ArrangeNew is held off until SortSettle clears it on the settled order.
+  self:ClearNewFlags()
   self:SortSettle()
   C_Container.SortBags()
 end
@@ -3198,11 +3403,8 @@ function Bags:SortSettle()
   C_Timer.After(0.2, function()
     if self.sortGen ~= gen then return end
     self.sorting = false
-    -- New-on-top floats fresh cells to the far corner, so a sort has to re-place the whole grid to drop
-    -- them back into the packed order: the incremental repaint keeps each button where it was and would
-    -- leave the floated cells sitting over the sorted ones. The grace window opened in SortBags is left
-    -- running (not reset here) so the passes during the sort's move cascade keep re-priming the baseline
-    -- and none of those moves reads as a fresh arrival. A full layout draws the settled order.
+    -- The sort moved cells, so the whole grid is re-placed rather than repainted in place; the parked set
+    -- was dropped in SortBags so the pump finds nothing to move against the freshly sorted order.
     if self.newOnTop and self.frame and self.frame:IsShown() then
       self.dirty = {}
       self:Layout(true)

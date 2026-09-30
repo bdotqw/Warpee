@@ -321,6 +321,20 @@ function Pocket:Unpin(index)
   self:Set(index, nil)
 end
 
+-- Grey the pocket cell mirroring a bag slot that just locked or unlocked, so a pinned or recent-in-pocket
+-- item picked up or mid-move desaturates like the grid cell it tracks. Both cell pools (pinned and the
+-- recent row) bind a real (pkBag, pkSlot); scan both and grey the one that matches.
+function Pocket:RefreshLock(bag, slot)
+  for _, pool in ipairs({ self.slots, self.recSlots }) do
+    for _, b in pairs(pool) do
+      if b and b.pkBag == bag and b.pkSlot == slot and b.holder and b.holder:IsVisible() then
+        ns.UpdateItemLock(b)
+        return
+      end
+    end
+  end
+end
+
 function Pocket:Lock(index)
   local id = ns.ItemStubID(self:List()[index])
   local V = ns.Vendor
