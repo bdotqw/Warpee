@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
-local TABLES, COINS, SHORTS, WORDS, ALIAS, WORDMAP = {}, {}, {}, {}, {}, {}
+local TABLES, COINS, SHORTS, WORDS, ALIAS, WORDMAP, PRIMARY = {}, {}, {}, {}, {}, {}, {}
 local PLURAL = {}
 local order
 local FALLBACK = { esMX = "esES" }
@@ -90,7 +90,7 @@ TABLES.enUS = {
 
 ALIAS.enGB = "enUS"
 
-local aliasMap, wordCache
+local aliasMap, aliasByCode, wordCache, ilvlPrefixes
 
 function ns.AddLocale(code, label, def)
   ns.LOCALES[#ns.LOCALES + 1] = code
@@ -100,8 +100,16 @@ function ns.AddLocale(code, label, def)
   SHORTS[code] = def.short
   if def.plural then PLURAL[code] = def.plural end
   if def.words then WORDS[#WORDS + 1] = def.words; WORDMAP[code] = def.words end
+  -- The words the language names its things by, folded once here: a language takes several spellings for
+  -- one thing, and without a name of its own the label a concept is drawn under would be whichever of
+  -- them the word map happened to hand back first.
+  if def.primary then
+    local set = {}
+    for _, w in ipairs(def.primary) do set[ns.SearchFold(w)] = true end
+    PRIMARY[code] = set
+  end
   for _, c in ipairs(def.also or {}) do ALIAS[c] = code end
-  aliasMap, wordCache = nil, {}
+  aliasMap, aliasByCode, wordCache, ilvlPrefixes = nil, nil, {}, nil
   order = nil
 end
 
@@ -155,6 +163,8 @@ function ns.ApplyLocaleText()
   end
   if ns.Pocket and ns.Pocket.Apply then ns.Pocket:Apply() end
   if ns.Profiles and ns.Profiles.Reflow then ns.Profiles:Reflow() end
+  -- The search-words window rebuilds from the live locale, so an open one follows a language switch.
+  if ns.RefreshSearchWords then ns.RefreshSearchWords() end
 end
 
 -- Section headers are set in capitals, and Lua 5.1 maps case for ascii alone: a German
@@ -279,14 +289,55 @@ function ns.SearchFold(s)
   return (s:lower():gsub("[\195\208\209][\128-\191]", foldByte))
 end
 
+-- Whether this is the spelling the language on screen names the thing by (see def.primary above). The
+-- picker's labels and the help sheet's group heads read it; a language that names none keeps the first
+-- spelling its word map hands back.
+function ns.SearchPrimary(word)
+  local code = ns.LocalePick()
+  local set = PRIMARY[code] or PRIMARY[FALLBACK[code]]
+  return (set and set[ns.SearchFold(word)] == true) or false
+end
+
+-- A localized word resolved to the English token it stands for. The language on screen is asked first,
+-- then every language's map as a fallback: so a word is read the way the player's own language means it,
+-- and only a word their language has no meaning for falls through to another language's reading. Without
+-- the first pass a spelling two languages give different meanings (German "hast" = haste, French "hast" =
+-- polearm; "cintura" waist in Spanish, belt in Italian) resolved to whichever language loaded last, which
+-- is not the one on screen. The merged map is still there, so cross-language search keeps working.
 function ns.SearchAlias(token)
   if not aliasMap then
-    aliasMap = {}
+    aliasMap, aliasByCode = {}, {}
     for _, t in ipairs(WORDS) do
       for k, v in pairs(t) do aliasMap[ns.SearchFold(k)] = v end
     end
+    for code, t in pairs(WORDMAP) do
+      local set = {}
+      for k, v in pairs(t) do set[ns.SearchFold(k)] = v end
+      aliasByCode[code] = set
+    end
   end
-  return aliasMap[ns.SearchFold(token)]
+  local folded = ns.SearchFold(token)
+  local code = ns.LocalePick()
+  local own = aliasByCode[code] or aliasByCode[FALLBACK[code]]
+  if own and own[folded] ~= nil then return own[folded] end
+  return aliasMap[folded]
+end
+
+-- Spellings of the item-level prefix itself ("gs", "илвл", "装等"): a token starting with one
+-- reads as ilvl plus whatever follows it, so gs400 and 装等400 parse like ilvl400. Gathered from
+-- every language's word map, so they work whatever the interface language is; longest first,
+-- so a longer spelling wins over its own prefix.
+function ns.IlvlPrefixes()
+  if not ilvlPrefixes then
+    ilvlPrefixes = {}
+    for _, t in ipairs(WORDS) do
+      for k, v in pairs(t) do
+        if v == "ilvl" then ilvlPrefixes[#ilvlPrefixes + 1] = ns.SearchFold(k) end
+      end
+    end
+    table.sort(ilvlPrefixes, function(a, b) return #a > #b end)
+  end
+  return ilvlPrefixes
 end
 
 -- The words the language being read adds of its own, each with the token it stands for, in the spelling

@@ -1582,6 +1582,7 @@ function ns.UpdateItemButton(b)
     m.bound = info.isBound and true or false
     m.wb = nil
     m.exp = nil
+    m.statset = nil
     m.reagent = (bagID == ns.reagentBag) or iClassID == Enum.ItemClass.Tradegoods
                 or iClassID == Enum.ItemClass.Reagent
     m.keystone = hl:find("keystone:", 1, true) ~= nil
@@ -1713,6 +1714,7 @@ function ns.PaintVaultButton(b, d, bagID, forceCount)
     m.bound = d.b and true or false
     m.wb = nil
     m.exp = nil
+    m.statset = nil
     m.reagent = classID == Enum.ItemClass.Tradegoods
                 or classID == Enum.ItemClass.Reagent
     m.keystone = link:find("keystone:", 1, true) ~= nil

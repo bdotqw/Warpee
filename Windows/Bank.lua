@@ -2489,7 +2489,9 @@ function View:UpdateFooter()
       end
       if sum == nil then sum = ns.Vault:WarbandMoney() end
     else
-      sum = GetMoney()
+      -- The viewed character's purse: own reads live, another character reads its remembered gold, and a
+      -- wiped purse reads nil so the footer draws a dash rather than the viewer's own money.
+      sum = ns.Vault:CharGold(ns.Vault:ViewKey("bank"))
     end
     self.money:SetText(sum and ns.FormatMoney(sum, nil, Theme:IsLight()) or "—")
     self.moneyCaption:SetText(ns.L[warband and "WARBAND BANK" or "ON HAND"])

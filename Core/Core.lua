@@ -683,6 +683,8 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
   elseif event == "PLAYER_MONEY" or event == "ACCOUNT_MONEY" then
     if event == "PLAYER_MONEY" and Bags.frame and Bags.frame:IsShown() then Bags:UpdateMeta() end
     if ns.Bank and ns.Bank.frame and ns.Bank.frame:IsShown() then ns.Bank:UpdateFooter() end
+    -- The warband read has to happen while the bank is open, so this event waits less.
+    ns.Vault:QueueGold(event == "ACCOUNT_MONEY" and 0.5 or 2)
   elseif event == "ITEM_LOCK_CHANGED" then
     -- The game locks a slot the instant a move is issued and unlocks it when the move lands, so this is
     -- what greys a cell mid-transfer, the way Blizzard's own bags desaturate a locked item. a2 nil means an
@@ -723,6 +725,11 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     repaintSoon()
   elseif event == "PLAYER_ENTERING_WORLD" then
     ns.ClearUnusableCache()
+    -- The character's coins are stamped here and never at login or logout: at both ends of a session
+    -- the money reads as 0 while the client is still loading the character or already tearing it down,
+    -- so a stamp there wrote that zero over the number the store had, and the gold list lost the
+    -- character. A couple of beats after the world is up the read is the player's real purse.
+    ns.Vault:QueueGold(2)
     -- Timewalking rescales every equippable item to the event's level, and the number changes at the
     -- instance boundary with no BAG_UPDATE behind it. GetCurrentItemLevel is read live per paint, so a
     -- window left open across the zone-in kept the outside ilvl on its cells. Difficulty 33 is
@@ -756,6 +763,8 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     repaintSoon()
   elseif event == "BANKFRAME_OPENED" then
     ns.Sets:Dirty()
+    -- A banker or the warband portal: the one moment the account bank is readable.
+    ns.Vault:StampGold()
     if ns.Bank then ns.Bank.bankerOpen = true; ns.Bank:OnBankOpened() end
     autoOpenBags("bank")
   elseif event == "BANKFRAME_CLOSED" then
@@ -945,8 +954,8 @@ end
 SLASH_WARPEE1 = "/warpee"
 SLASH_WARPEE2 = "/wpe"
 SlashCmdList["WARPEE"] = function(msg)
-  local arg = (msg or ""):match("^%s*(%S*)")
-  if arg and arg:lower() == "welcome" and ns.Welcome then
+  local arg = ((msg or ""):match("^%s*(%S*)") or ""):lower()
+  if arg == "welcome" and ns.Welcome then
     ns.Welcome:Reopen()
     return
   end

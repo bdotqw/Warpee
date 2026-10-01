@@ -1173,6 +1173,7 @@ local function buildMeta(bag, slot, info)
   m.exp = nil
   m.boa = nil
   m.toy = nil
+  m.statset = nil
   -- The slot-memory key: a unique instance GUID for a live item, so the grouped anti-jump can tell a
   -- returning piece from a genuinely new one. nil unless a keyed pass, and nil on a snapshot (no live
   -- container) or anything the client will not answer for, where the itemID stands in.
@@ -1250,6 +1251,7 @@ local function buildMetaSnap(bag, d)
   m.exp = nil
   m.boa = nil
   m.toy = nil
+  m.statset = nil
   m.reagent = (bag == ns.reagentBag) or iClassID == Enum.ItemClass.Tradegoods
               or iClassID == Enum.ItemClass.Reagent
   m.keystone = (hl and hl:find("keystone:", 1, true) ~= nil) or false
@@ -1312,6 +1314,7 @@ local function metaFromID(itemID)
   m.isGear = classID == Enum.ItemClass.Armor or classID == Enum.ItemClass.Weapon
   m.link = nil
   m.bound, m.ilvl, m.loc, m.wb, m.exp, m.boa, m.toy = false, nil, nil, nil, nil, nil, nil
+  m.statset = nil
   m.reagent = classID == Enum.ItemClass.Tradegoods or classID == Enum.ItemClass.Reagent
   -- Every Mythic keystone is item 180653, so an id-only meta can flag it without a link (buildMeta
   -- reads the keystone: hyperlink instead). Left false here, RuleHome could not see a dropped keystone

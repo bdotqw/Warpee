@@ -54,6 +54,67 @@ local WORDS = {
   ["ligado"] = "soulbound", ["recoger"] = "soulbound",
   ["equipar"] = "boe",
   ["actual"] = "current", ["antiguo"] = "legacy", ["viejo"] = "legacy",
+
+  -- The Spanish words a player reaches for beyond the one canonical spelling above: the game's own item
+  -- names for a slot, plurals a search is as likely typed in, and everyday short forms. Each resolves to
+  -- the same English token, so a Spanish search finds the same items as the English one.
+  ["yelmo"] = "head", ["capucha"] = "head", ["sombrero"] = "head", ["corona"] = "head",
+  ["collar"] = "neck", ["amuleto"] = "neck", ["colgante"] = "neck",
+  ["hombreras"] = "shoulder", ["capa-espalda"] = "back", ["manto"] = "cloak",
+  ["coraza"] = "chest", ["peto"] = "chest", ["túnica"] = "chest", ["tunica"] = "chest",
+  ["muñeca"] = "wrist", ["muneca"] = "wrist", ["brazal"] = "bracers", ["brazalete"] = "wrist",
+  ["mano"] = "hands", ["guante"] = "hands", ["manopla"] = "hands", ["manoplas"] = "hands",
+  ["faja"] = "waist", ["cinto"] = "waist",
+  ["pierna"] = "legs", ["grebas"] = "legs", ["pantalón"] = "pants", ["pantalon"] = "pants",
+  ["pie"] = "feet", ["zapatos"] = "feet", ["sandalias"] = "feet",
+  ["sortija"] = "finger", ["sello"] = "finger",
+  ["dije"] = "trinket", ["amuleto-de-mano"] = "trinket", ["talismán"] = "trinket", ["talisman"] = "trinket",
+  ["escudos"] = "shield", ["broquel"] = "shield",
+  ["tabardos"] = "tabard", ["camisas"] = "shirt",
+  ["flecha"] = "ammo", ["flechas"] = "ammo", ["balas"] = "ammo", ["herramientas"] = "tool",
+  ["dagas"] = "dagger", ["puñal"] = "dagger", ["punal"] = "dagger",
+  ["espadas"] = "sword", ["hojas"] = "sword",
+  ["hachas"] = "axe", ["mazas"] = "mace", ["martillo"] = "mace",
+  ["astas"] = "polearm", ["lanza"] = "polearm", ["alabarda"] = "polearm",
+  ["bastones"] = "staff", ["arcos"] = "bow",
+  ["escopeta"] = "gun", ["rifle"] = "gun", ["ballestas"] = "crossbow",
+  ["varitas"] = "wand", ["puños"] = "fist", ["punos"] = "fist",
+  ["guadañas"] = "warglaive", ["guadanas"] = "warglaive", ["caña"] = "fishing", ["cana"] = "fishing",
+  ["monturas"] = "mount", ["gemas"] = "gem", ["joya"] = "gem",
+  ["recetas"] = "recipe", ["patrón"] = "recipe", ["patron"] = "recipe", ["plano"] = "recipe",
+  ["glifos"] = "glyph", ["bolsas"] = "bag", ["morral"] = "bag",
+  ["mascotas"] = "battlepet", ["mascota-de-batalla"] = "battlepet", ["compañero"] = "battlepet",
+  ["elixir"] = "potion", ["pociones"] = "potion", ["vial"] = "flask", ["banquete"] = "food",
+  ["normal"] = "common", ["reliquia-herencia"] = "heirloom", ["herencia"] = "heirloom",
+  ["material"] = "reagent", ["mejoras"] = "enhancement",
+  ["llaves"] = "keystone", ["piedra-angular"] = "keystone",
+  ["misiones"] = "quest", ["decoración"] = "housing", ["decoracion"] = "housing", ["mueble"] = "housing",
+  ["vinculado-a-la-cuenta"] = "boa", ["obsoleto"] = "legacy", ["medianoche"] = "midnight",
+  ["nivel-de-objeto"] = "ilvl",
+
+  -- Stats: the short forms a player types, each to the canonical English stat token.
+  ["fuerza"] = "strength", ["agilidad"] = "agility", ["intelecto"] = "intellect",
+  ["aguante"] = "stamina", ["crit"] = "crit", ["crítico"] = "crit", ["critico"] = "crit",
+  ["golpe-crítico"] = "crit", ["golpe-critico"] = "crit",
+  ["celeridad"] = "haste", ["maestría"] = "mastery", ["maestria"] = "mastery",
+  ["versatilidad"] = "versatility", ["versa"] = "versatility",
+  ["robo-de-vida"] = "leech", ["robovida"] = "leech",
+  ["evasión"] = "avoidance", ["evasion"] = "avoidance",
+  ["velocidad"] = "speed",
+}
+
+-- The spelling the window and the picker draw a concept under: one per thing, so a synonym added above can
+-- never become the label a group is headed by. The canonical Spanish word for each; the rest is synonyms.
+local PRIMARY = {
+  "poción", "frasco", "comida", "juguete", "vivienda", "mascota-de-combate", "ligado-a-la-banda-guerrera",
+  "pobre", "común", "poco-común", "raro", "épico", "legendario", "artefacto", "reliquia-de-herencia",
+  "cabeza", "cuello", "hombros", "espalda", "capa", "pecho", "muñecas", "manos", "cintura", "piernas",
+  "pies", "dedo", "abalorio", "escudo", "tabardo", "camisa", "reliquia", "distancia", "arrojadiza",
+  "munición", "carcaj", "herramienta", "profesión", "arma", "derecha", "izquierda", "tela", "cuero",
+  "malla", "placas", "cosmético", "daga", "espada", "hacha", "maza", "asta", "bastón", "arco", "ballesta",
+  "varita", "puño", "guadaña", "pesca", "montura", "gema", "receta", "glifo", "bolsa", "contenedor",
+  "proyectil", "artesanía", "varios", "mejora", "componente", "misión", "consumible", "equipo", "llave",
+  "ficha", "bloqueado", "guerrera", "ligado", "equipar", "actual", "antiguo",
 }
 
 local STRINGS = {
@@ -349,6 +410,7 @@ local STRINGS = {
     "Guarda el banco compartido de la banda guerrera mientras estás con un banquero.",
   ["Delete the saved Warband bank?"] = "¿Borrar el banco de la banda guerrera guardado?",
   ["Account"] = "Cuenta",
+  ["Forget the remembered gold of every character?"] = "¿Olvidar el oro recordado de todos los personajes?",
   ["Nothing saved for other characters yet"] = "Todavía no hay nada guardado de otros personajes",
   ["Sell junk"] = "Vender la basura",
   ["Repair"] = "Reparar",
@@ -635,6 +697,15 @@ local STRINGS = {
   ["Type an item id to preview and pin it, or drag an item here"] = "Escribe un id de objeto para previsualizarlo y fijarlo, o arrastra un objeto aquí",
   ["Left click flips to Not, right click removes"] = "Clic izquierdo lo cambia a No, clic derecho lo quita",
   ["Use chips"] = "Editar con condiciones",
+  ["Search words"] = "Palabras de búsqueda",
+  ["Attributes"] = "Atributos",
+  ["stat strength"] = "Fuerza", ["stat agility"] = "Agilidad",
+  ["stat intellect"] = "Intelecto", ["stat stamina"] = "Aguante",
+  ["stat crit"] = "Golpe crítico", ["stat haste"] = "Celeridad",
+  ["stat mastery"] = "Maestría", ["stat versatility"] = "Versatilidad",
+  ["stat leech"] = "Robo de vida", ["stat avoidance"] = "Evasión",
+  ["stat speed"] = "Velocidad",
+  ["Type several words: an item must match all of them. %s = space, %s = |, %s = !. For example, (mount | toy) !quest means mounts or toys, but no quest items. More forms: id:6948; 400; ilvl400; ilvl>400; ilvl>=400; ilvl<400; ilvl<=400; ilvl400-450."] = "Varias palabras: un objeto encaja si cumple todas. %s = espacio, %s = |, %s = !. Por ejemplo, (montura | juguete) !misión significa monturas o juguetes, pero ningún objeto de misión. Más formas: id:6948; 400; ilvl400; ilvl>400; ilvl>=400; ilvl<400; ilvl<=400; ilvl400-450.",
   ["Edit as text"] = "Editar como texto",
   ["Item class"] = "Clase de objeto",
   ["Armor type"] = "Tipo de armadura",
@@ -651,5 +722,6 @@ ns.AddLocale("esES", "Spanish", {
   coin = { g = "o", s = "p", c = "c" },
   short = { dec = ",", units = { { 1e6, " M" }, { 1e3, " k" } } },
   words = WORDS,
+  primary = PRIMARY,
   strings = STRINGS,
 })

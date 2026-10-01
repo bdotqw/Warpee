@@ -47,6 +47,66 @@ local WORDS = {
   ["bloccato"] = "locked", ["protetto"] = "locked", ["brigata"] = "warband",
   ["vincolato"] = "soulbound", ["equipaggiare"] = "boe",
   ["attuale"] = "current", ["vecchio"] = "legacy", ["retaggio"] = "legacy",
+
+  -- The Italian words a player reaches for beyond the one canonical spelling above: the game's own item
+  -- names for a slot, plurals a search is as likely typed in, and everyday short forms. Each resolves to
+  -- the same English token, so an Italian search finds the same items as the English one.
+  ["elmetto"] = "head", ["cappuccio"] = "head", ["cappello"] = "head", ["corona"] = "head",
+  ["collana"] = "neck", ["amuleto"] = "neck", ["ciondolo"] = "neck",
+  ["spallacci"] = "shoulder", ["mantello-schiena"] = "back", ["manto"] = "cloak",
+  ["corazza"] = "chest", ["pettorale"] = "chest", ["veste"] = "chest",
+  ["polso"] = "wrist", ["bracciale"] = "wrist",
+  ["mano"] = "hands", ["guanto"] = "hands", ["manopole"] = "hands",
+  ["fascia"] = "waist", ["cinto"] = "waist",
+  ["gamba"] = "legs", ["gambali"] = "legs", ["cosciali"] = "legs",
+  ["piede"] = "feet", ["scarpe"] = "feet", ["sandali"] = "feet",
+  ["sigillo"] = "finger",
+  ["ciondolo-mano"] = "trinket", ["talismano"] = "trinket",
+  ["scudi"] = "shield", ["brocchiere"] = "shield", ["camicie"] = "shirt",
+  ["freccia"] = "ammo", ["frecce"] = "ammo", ["proiettili-arma"] = "ammo", ["strumenti"] = "tool",
+  ["pugnali"] = "dagger", ["spade"] = "sword", ["lama"] = "sword",
+  ["asce"] = "axe", ["mazze"] = "mace", ["martello"] = "mace",
+  ["alabarda"] = "polearm", ["lancia"] = "polearm", ["picca"] = "polearm",
+  ["bastoni"] = "staff", ["archi"] = "bow",
+  ["fucili"] = "gun", ["balestre"] = "crossbow",
+  ["bacchette"] = "wand", ["tirapugni-arma"] = "fist",
+  ["glaives"] = "warglaive", ["canna-da-pesca"] = "fishing",
+  ["cavalcature"] = "mount", ["gemme"] = "gem", ["gioiello"] = "gem",
+  ["ricette"] = "recipe", ["schema"] = "recipe", ["progetto"] = "recipe",
+  ["glifi"] = "glyph", ["borse"] = "bag", ["sacca"] = "bag",
+  ["mascotte-combattimento"] = "battlepet", ["compagno"] = "battlepet",
+  ["elisir"] = "potion", ["pozioni"] = "potion", ["ampolla"] = "flask", ["banchetto"] = "food",
+  ["normale"] = "common", ["eredità"] = "heirloom", ["eredita"] = "heirloom",
+  ["materiale"] = "reagent", ["potenziamenti"] = "enhancement",
+  ["chiavi"] = "keystone", ["pietra-angolare"] = "keystone",
+  ["decorazione"] = "housing", ["mobilio"] = "housing", ["mobile"] = "housing",
+  ["vincolato-all-account"] = "boa", ["obsoleto"] = "legacy", ["mezzanotte"] = "midnight",
+  ["livello-oggetto"] = "ilvl",
+
+  -- Stats: the short forms a player types, each to the canonical English stat token.
+  ["forza"] = "strength", ["agilità"] = "agility", ["agilita"] = "agility",
+  ["intelletto"] = "intellect", ["tempra"] = "stamina",
+  ["crit"] = "crit", ["critico"] = "crit",
+  ["celerità"] = "haste", ["celerita"] = "haste",
+  ["maestria"] = "mastery",
+  ["versatilità"] = "versatility", ["versatilita"] = "versatility", ["versa"] = "versatility",
+  ["ritorno-vitale"] = "leech", ["elusione"] = "avoidance",
+  ["velocità"] = "speed", ["velocita"] = "speed",
+}
+
+-- The spelling the window and the picker draw a concept under: one per thing, so a synonym added above can
+-- never become the label a group is headed by. The canonical Italian word for each; the rest is synonyms.
+local PRIMARY = {
+  "pozione", "fiala", "cibo", "giocattolo", "abitazioni", "mascotte-da-battaglia", "vincolato-alla-brigata",
+  "scadente", "comune", "noncomune", "raro", "epico", "leggendario", "artefatto", "cimelio",
+  "testa", "collo", "spalla", "schiena", "mantello", "polsi", "mani", "vita", "gambe", "piedi",
+  "dito", "monile", "scudo", "insegna", "camicia", "reliquia", "distanza", "lancio", "munizioni",
+  "faretra", "strumento", "professione", "slotborsa", "arma", "primaria", "secondaria", "stoffa",
+  "cuoio", "maglia", "piastre", "cosmetico", "pugnale", "spada", "ascia", "mazza", "asta", "bastone",
+  "arco", "fucile", "balestra", "bacchetta", "tirapugni", "glaive", "pesca", "cavalcatura", "gemma",
+  "ricetta", "glifo", "borsa", "contenitore", "proiettile", "merci", "varie", "potenziamento",
+  "reagente", "missione", "consumabile", "equipaggiamento", "chiave", "gettone", "bloccato", "brigata",
+  "vincolato", "equipaggiare", "attuale", "vecchio",
 }
 
 local STRINGS = {
@@ -342,6 +402,7 @@ local STRINGS = {
     "Salva la banca condivisa della Brigata mentre sei presso un banchiere.",
   ["Delete the saved Warband bank?"] = "Eliminare la banca della Brigata salvata?",
   ["Account"] = "Account",
+  ["Forget the remembered gold of every character?"] = "Dimenticare l'oro memorizzato di tutti i personaggi?",
   ["Nothing saved for other characters yet"] = "Nessun dato salvato per gli altri personaggi",
   ["Sell junk"] = "Vendi cianfrusaglie",
   ["Repair"] = "Riparazione",
@@ -628,6 +689,15 @@ local STRINGS = {
   ["Type an item id to preview and pin it, or drag an item here"] = "Digita l'id di un oggetto per vederlo in anteprima e appuntarlo, oppure trascina qui un oggetto",
   ["Left click flips to Not, right click removes"] = "Il clic sinistro passa a Non, il clic destro rimuove",
   ["Use chips"] = "Modifica con condizioni",
+  ["Search words"] = "Parole di ricerca",
+  ["Attributes"] = "Attributi",
+  ["stat strength"] = "Forza", ["stat agility"] = "Agilità",
+  ["stat intellect"] = "Intelletto", ["stat stamina"] = "Tempra",
+  ["stat crit"] = "Critico", ["stat haste"] = "Celerità",
+  ["stat mastery"] = "Maestria", ["stat versatility"] = "Versatilità",
+  ["stat leech"] = "Ritorno vitale", ["stat avoidance"] = "Elusione",
+  ["stat speed"] = "Velocità",
+  ["Type several words: an item must match all of them. %s = space, %s = |, %s = !. For example, (mount | toy) !quest means mounts or toys, but no quest items. More forms: id:6948; 400; ilvl400; ilvl>400; ilvl>=400; ilvl<400; ilvl<=400; ilvl400-450."] = "Più parole: un oggetto va bene se le soddisfa tutte. %s = spazio, %s = |, %s = !. Ad esempio, (cavalcatura | giocattolo) !missione significa cavalcature o giocattoli, ma nessun oggetto di missione. Altre forme: id:6948; 400; ilvl400; ilvl>400; ilvl>=400; ilvl<400; ilvl<=400; ilvl400-450.",
   ["Edit as text"] = "Modifica come testo",
   ["Item class"] = "Classe oggetto",
   ["Armor type"] = "Tipo di armatura",
@@ -644,5 +714,6 @@ ns.AddLocale("itIT", "Italian", {
   coin = { g = "o", s = "a", c = "r" },
   short = { dec = ",", units = { { 1e9, " mld" }, { 1e6, " mln" }, { 1e3, " mila" } } },
   words = WORDS,
+  primary = PRIMARY,
   strings = STRINGS,
 })

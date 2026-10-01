@@ -2052,7 +2052,16 @@ function ns.FormatMoney(money, goldOnly, deep, plain)
   if cp > 0 or #parts == 0 then parts[#parts + 1] = coinSeg(cp, "c", deep, plain) end
   return table.concat(parts, " ")
 end
-function Bags:FormatMoney() return ns.FormatMoney(GetMoney(), nil, Theme:IsLight()) end
+-- The money the corner shows: the live purse on the own bags, the viewed character's remembered gold on a
+-- snapshot. A snapshot of a character whose gold was wiped (or never kept) has no number, so it reads as a
+-- dash instead of the viewer's own money -- the corner then matches the bags being shown, not the player.
+function Bags:FormatMoney()
+  if self.snap then
+    local m = ns.Vault:CharGold(ns.Vault:ViewKey("bags"))
+    return m and ns.FormatMoney(m, nil, Theme:IsLight()) or "—"
+  end
+  return ns.FormatMoney(GetMoney(), nil, Theme:IsLight())
+end
 
 function ns.FormatGold(copper, deep, plain)
   return coinSeg(ns.FormatNumber(math.floor((copper or 0) / 10000)), "g", deep, plain)
@@ -2403,41 +2412,78 @@ function Bags:UpdateMeta()
   self:FitHeader()
 end
 
+-- Quality: one line per tier, the canonical word first and then the other spellings a player reaches
+-- for — the colour names, the trading slang, and the British spelling of artifact.
 local QUALITY_WORDS = {
-  poor = 0, junk = 0, grey = 0, gray = 0, common = 1, white = 1,
-  uncommon = 2, green = 2, rare = 3, blue = 3, epic = 4, purple = 4,
-  legendary = 5, orange = 5, artifact = 6, heirloom = 7,
+  poor = 0, junk = 0, trash = 0, rubbish = 0, grey = 0, gray = 0,
+  common = 1, white = 1, normal = 1,
+  uncommon = 2, green = 2,
+  rare = 3, blue = 3,
+  epic = 4, purple = 4, violet = 4,
+  legendary = 5, orange = 5,
+  artifact = 6, artefact = 6,
+  heirloom = 7, loom = 7, looms = 7,
 }
+-- Equipment slot: one line per position, the canonical word first and then the words the game's own
+-- item names use for that position plus the plain English a player types instead ("shoes" for feet,
+-- "band" for a finger). A weapon hand keeps both the short forms and the spelled-out ones.
 local SLOT_WORDS = {
-  head = {INVTYPE_HEAD=1}, helm = {INVTYPE_HEAD=1},
-  neck = {INVTYPE_NECK=1},
+  head = {INVTYPE_HEAD=1}, helm = {INVTYPE_HEAD=1}, helmet = {INVTYPE_HEAD=1},
+  hood = {INVTYPE_HEAD=1}, hat = {INVTYPE_HEAD=1}, crown = {INVTYPE_HEAD=1},
+  neck = {INVTYPE_NECK=1}, amulet = {INVTYPE_NECK=1}, necklace = {INVTYPE_NECK=1},
+  collar = {INVTYPE_NECK=1},
   shoulder = {INVTYPE_SHOULDER=1}, shoulders = {INVTYPE_SHOULDER=1},
-  back = {INVTYPE_CLOAK=1}, cloak = {INVTYPE_CLOAK=1},
-  chest = {INVTYPE_CHEST=1, INVTYPE_ROBE=1},
-  wrist = {INVTYPE_WRIST=1}, bracers = {INVTYPE_WRIST=1},
-  hands = {INVTYPE_HAND=1}, gloves = {INVTYPE_HAND=1},
-  waist = {INVTYPE_WAIST=1}, belt = {INVTYPE_WAIST=1},
-  legs = {INVTYPE_LEGS=1}, pants = {INVTYPE_LEGS=1},
-  feet = {INVTYPE_FEET=1}, boots = {INVTYPE_FEET=1},
+  pauldron = {INVTYPE_SHOULDER=1}, pauldrons = {INVTYPE_SHOULDER=1},
+  back = {INVTYPE_CLOAK=1}, cloak = {INVTYPE_CLOAK=1}, cape = {INVTYPE_CLOAK=1},
+  chest = {INVTYPE_CHEST=1, INVTYPE_ROBE=1}, robe = {INVTYPE_CHEST=1, INVTYPE_ROBE=1},
+  torso = {INVTYPE_CHEST=1},
+  wrist = {INVTYPE_WRIST=1}, bracer = {INVTYPE_WRIST=1}, bracers = {INVTYPE_WRIST=1},
+  bracelet = {INVTYPE_WRIST=1}, bracelets = {INVTYPE_WRIST=1},
+  hands = {INVTYPE_HAND=1}, glove = {INVTYPE_HAND=1}, gloves = {INVTYPE_HAND=1},
+  gauntlet = {INVTYPE_HAND=1}, gauntlets = {INVTYPE_HAND=1}, mitts = {INVTYPE_HAND=1},
+  waist = {INVTYPE_WAIST=1}, belt = {INVTYPE_WAIST=1}, belts = {INVTYPE_WAIST=1},
+  girdle = {INVTYPE_WAIST=1}, sash = {INVTYPE_WAIST=1},
+  legs = {INVTYPE_LEGS=1}, pants = {INVTYPE_LEGS=1}, leggings = {INVTYPE_LEGS=1},
+  trousers = {INVTYPE_LEGS=1}, greaves = {INVTYPE_LEGS=1},
+  feet = {INVTYPE_FEET=1}, boot = {INVTYPE_FEET=1}, boots = {INVTYPE_FEET=1},
+  shoes = {INVTYPE_FEET=1}, sabatons = {INVTYPE_FEET=1},
   finger = {INVTYPE_FINGER=1}, ring = {INVTYPE_FINGER=1}, rings = {INVTYPE_FINGER=1},
+  band = {INVTYPE_FINGER=1}, signet = {INVTYPE_FINGER=1},
   trinket = {INVTYPE_TRINKET=1}, trinkets = {INVTYPE_TRINKET=1},
-  shield = {INVTYPE_SHIELD=1}, tabard = {INVTYPE_TABARD=1}, shirt = {INVTYPE_BODY=1},
+  trink = {INVTYPE_TRINKET=1}, charm = {INVTYPE_TRINKET=1}, talisman = {INVTYPE_TRINKET=1},
+  shield = {INVTYPE_SHIELD=1}, shields = {INVTYPE_SHIELD=1}, buckler = {INVTYPE_SHIELD=1},
+  tabard = {INVTYPE_TABARD=1}, tabards = {INVTYPE_TABARD=1},
+  shirt = {INVTYPE_BODY=1}, shirts = {INVTYPE_BODY=1},
   body = {INVTYPE_BODY=1},
-  relic = {INVTYPE_RELIC=1},
-  held = {INVTYPE_HOLDABLE=1},
+  relic = {INVTYPE_RELIC=1}, relics = {INVTYPE_RELIC=1},
+  held = {INVTYPE_HOLDABLE=1}, holdable = {INVTYPE_HOLDABLE=1},
   ranged = {INVTYPE_RANGED=1, INVTYPE_RANGEDRIGHT=1, INVTYPE_THROWN=1},
   thrown = {INVTYPE_THROWN=1},
-  ammo = {INVTYPE_AMMO=1},
-  quiver = {INVTYPE_QUIVER=1},
-  tool = {INVTYPE_PROFESSION_TOOL=1},
+  ammo = {INVTYPE_AMMO=1}, arrow = {INVTYPE_AMMO=1}, arrows = {INVTYPE_AMMO=1},
+  bullet = {INVTYPE_AMMO=1}, bullets = {INVTYPE_AMMO=1},
+  quiver = {INVTYPE_QUIVER=1}, quivers = {INVTYPE_QUIVER=1},
+  tool = {INVTYPE_PROFESSION_TOOL=1}, tools = {INVTYPE_PROFESSION_TOOL=1},
+  toolkit = {INVTYPE_PROFESSION_TOOL=1},
   profgear = {INVTYPE_PROFESSION_GEAR=1},
   bagslot = {INVTYPE_BAG=1},
   weapon = {INVTYPE_WEAPON=1, INVTYPE_2HWEAPON=1, INVTYPE_WEAPONMAINHAND=1,
             INVTYPE_WEAPONOFFHAND=1, INVTYPE_RANGED=1, INVTYPE_RANGEDRIGHT=1},
+  wep = {INVTYPE_WEAPON=1, INVTYPE_2HWEAPON=1, INVTYPE_WEAPONMAINHAND=1,
+         INVTYPE_WEAPONOFFHAND=1, INVTYPE_RANGED=1, INVTYPE_RANGEDRIGHT=1},
+  weapons = {INVTYPE_WEAPON=1, INVTYPE_2HWEAPON=1, INVTYPE_WEAPONMAINHAND=1,
+             INVTYPE_WEAPONOFFHAND=1, INVTYPE_RANGED=1, INVTYPE_RANGEDRIGHT=1},
   mainhand = {INVTYPE_WEAPONMAINHAND=1, INVTYPE_WEAPON=1, INVTYPE_2HWEAPON=1},
+  mh = {INVTYPE_WEAPONMAINHAND=1, INVTYPE_WEAPON=1, INVTYPE_2HWEAPON=1},
   offhand = {INVTYPE_WEAPONOFFHAND=1, INVTYPE_HOLDABLE=1, INVTYPE_SHIELD=1},
+  oh = {INVTYPE_WEAPONOFFHAND=1, INVTYPE_HOLDABLE=1, INVTYPE_SHIELD=1},
   ["2h"] = {INVTYPE_2HWEAPON=1, INVTYPE_RANGED=1, INVTYPE_RANGEDRIGHT=1},
+  ["2hand"] = {INVTYPE_2HWEAPON=1, INVTYPE_RANGED=1, INVTYPE_RANGEDRIGHT=1},
+  twohanded = {INVTYPE_2HWEAPON=1, INVTYPE_RANGED=1, INVTYPE_RANGEDRIGHT=1},
+  ["two-handed"] = {INVTYPE_2HWEAPON=1, INVTYPE_RANGED=1, INVTYPE_RANGEDRIGHT=1},
   ["1h"] = {INVTYPE_WEAPON=1, INVTYPE_WEAPONMAINHAND=1, INVTYPE_WEAPONOFFHAND=1},
+  ["1hand"] = {INVTYPE_WEAPON=1, INVTYPE_WEAPONMAINHAND=1, INVTYPE_WEAPONOFFHAND=1},
+  onehanded = {INVTYPE_WEAPON=1, INVTYPE_WEAPONMAINHAND=1, INVTYPE_WEAPONOFFHAND=1},
+  ["one-handed"] = {INVTYPE_WEAPON=1, INVTYPE_WEAPONMAINHAND=1, INVTYPE_WEAPONOFFHAND=1},
 }
 local IC  = Enum.ItemClass or {}
 local IAS = Enum.ItemArmorSubclass or {}
@@ -2460,53 +2506,167 @@ local KIND_WORDS = {
   -- cosmetic is a flag, not a kind: see m.cosmetic (C_Item.IsCosmeticItem) and the classify branch,
   -- because Blizzard does not keep cosmetic appearances in the Cosmetic armor subclass.
   dagger   = kind(IC.Weapon, IWS.Dagger),
+  daggers  = kind(IC.Weapon, IWS.Dagger),
+  knife    = kind(IC.Weapon, IWS.Dagger),
   sword    = kind(IC.Weapon, IWS.Sword1H, IWS.Sword2H),
+  swords   = kind(IC.Weapon, IWS.Sword1H, IWS.Sword2H),
+  blade    = kind(IC.Weapon, IWS.Sword1H, IWS.Sword2H),
   axe      = kind(IC.Weapon, IWS.Axe1H, IWS.Axe2H),
+  axes     = kind(IC.Weapon, IWS.Axe1H, IWS.Axe2H),
+  hatchet  = kind(IC.Weapon, IWS.Axe1H, IWS.Axe2H),
   mace     = kind(IC.Weapon, IWS.Mace1H, IWS.Mace2H),
+  maces    = kind(IC.Weapon, IWS.Mace1H, IWS.Mace2H),
+  hammer   = kind(IC.Weapon, IWS.Mace1H, IWS.Mace2H),
   polearm  = kind(IC.Weapon, IWS.Polearm),
+  polearms = kind(IC.Weapon, IWS.Polearm),
+  halberd  = kind(IC.Weapon, IWS.Polearm),
+  spear    = kind(IC.Weapon, IWS.Polearm),
   staff    = kind(IC.Weapon, IWS.Staff),
+  staves   = kind(IC.Weapon, IWS.Staff),
   bow      = kind(IC.Weapon, IWS.Bows),
+  bows     = kind(IC.Weapon, IWS.Bows),
+  longbow  = kind(IC.Weapon, IWS.Bows),
   gun      = kind(IC.Weapon, IWS.Guns),
+  guns     = kind(IC.Weapon, IWS.Guns),
+  rifle    = kind(IC.Weapon, IWS.Guns),
   crossbow = kind(IC.Weapon, IWS.Crossbow),
+  crossbows = kind(IC.Weapon, IWS.Crossbow),
   wand     = kind(IC.Weapon, IWS.Wand),
+  wands    = kind(IC.Weapon, IWS.Wand),
   fist     = kind(IC.Weapon, IWS.Unarmed),
+  fists    = kind(IC.Weapon, IWS.Unarmed),
+  unarmed  = kind(IC.Weapon, IWS.Unarmed),
   warglaive = kind(IC.Weapon, IWS.Warglaive),
+  warglaives = kind(IC.Weapon, IWS.Warglaive),
+  glaive   = kind(IC.Weapon, IWS.Warglaive),
+  glaives  = kind(IC.Weapon, IWS.Warglaive),
   fishing  = kind(IC.Weapon, IWS.Fishingpole),
+  fishingpole = kind(IC.Weapon, IWS.Fishingpole),
+  fishingrod = kind(IC.Weapon, IWS.Fishingpole),
+  rod      = kind(IC.Weapon, IWS.Fishingpole),
   mount    = kind(IC.Miscellaneous, IMS.Mount),
+  mounts   = kind(IC.Miscellaneous, IMS.Mount),
   gem      = kind(IC.Gem),
+  gems     = kind(IC.Gem),
+  jewel    = kind(IC.Gem),
   recipe   = kind(IC.Recipe),
+  recipes  = kind(IC.Recipe),
+  pattern  = kind(IC.Recipe),
   glyph    = kind(IC.Glyph),
+  glyphs   = kind(IC.Glyph),
   bag      = kind(IC.Container),
+  bags     = kind(IC.Container),
   container = kind(IC.Container),
+  containers = kind(IC.Container),
   -- pet / battlepet are NOT kinds: a caged pet's bag link is a battlepet: link, so GetItemInfoInstant
   -- gives no classID and a kind row never sees it. They are flags below, read off the link in buildMeta.
   projectile = kind(IC.Projectile),
+  projectiles = kind(IC.Projectile),
   tradegoods = kind(IC.Tradegoods),
+  tradegood = kind(IC.Tradegoods),
   misc     = kind(IC.Miscellaneous),
+  miscellaneous = kind(IC.Miscellaneous),
   enhancement = kind(IC.ItemEnhancement),
+  enchant  = kind(IC.ItemEnhancement),
+  enchantment = kind(IC.ItemEnhancement),
   -- Consumable subclasses by number, the way Vendor.lua already keys them (1 potion, 3 flask/phial,
   -- 5 food/drink). A number can never be a wrong-name nil the way Enum.ItemConsumableSubclass.X
   -- would, and a nil sub would widen kind() to every consumable.
   potion   = kind(IC.Consumable, 1),
+  potions  = kind(IC.Consumable, 1),
+  elixir   = kind(IC.Consumable, 1),
   flask    = kind(IC.Consumable, 3),
+  flasks   = kind(IC.Consumable, 3),
+  phial    = kind(IC.Consumable, 3),
   food     = kind(IC.Consumable, 5),
+  foods    = kind(IC.Consumable, 5),
+  drink    = kind(IC.Consumable, 5),
+  feast    = kind(IC.Consumable, 5),
 }
+-- Expansion: one line per expansion, the codes first and then the names a player is as likely to type
+-- for it — the continent and, for the current one, what it is called in full.
 local EXP_WORDS = {
   classic = 0, vanilla = 0,
-  tbc = 1, bc = 1, burningcrusade = 1,
-  wotlk = 2, wrath = 2, lich = 2,
+  tbc = 1, bc = 1, burningcrusade = 1, outland = 1,
+  wotlk = 2, wrath = 2, lich = 2, lichking = 2, northrend = 2,
   cata = 3, cataclysm = 3,
-  mop = 4, pandaria = 4,
-  wod = 5, draenor = 5,
-  legion = 6,
+  mop = 4, pandaria = 4, mists = 4, mistsofpandaria = 4,
+  wod = 5, draenor = 5, warlords = 5, warlordsofdraenor = 5,
+  legion = 6, brokenisles = 6,
   bfa = 7, azeroth = 7,
   sl = 8, shadowlands = 8,
-  df = 9, dragonflight = 9,
-  tww = 10, warwithin = 10,
+  df = 9, dragonflight = 9, dragonisles = 9,
+  tww = 10, warwithin = 10, khazalgar = 10,
   midnight = 11,
 }
+-- The boolean flags classify answers to, by every spelling the parser takes: the line maps a word to
+-- the filter field it sets. Adding a word here is enough — the parser, the picker's vocabulary and the
+-- help sheet all read this table, so a new synonym shows up in all three at once.
+local FLAG_WORDS = {
+  warbound = "warbound", wb = "warbound", warband = "warbound",
+  soulbound = "soulbound", sb = "soulbound", bound = "soulbound", bop = "soulbound",
+  boe = "boe", unbound = "boe",
+  boa = "boa", accountbound = "boa",
+  token = "token", tokens = "token", tier = "token", tiertoken = "token",
+  locked = "locked", blocked = "locked", lock = "locked",
+  reagent = "reagent", reagents = "reagent", mats = "reagent", material = "reagent",
+  materials = "reagent",
+  keystone = "keystone", keystones = "keystone", key = "keystone", mythic = "keystone",
+  battlepet = "battlepet", battlepets = "battlepet", pet = "battlepet", pets = "battlepet",
+  companion = "battlepet", companions = "battlepet",
+  quest = "quest", quests = "quest",
+  consumable = "consumable", consumables = "consumable",
+  gear = "gear", equip = "gear", equipment = "gear", equipped = "gear",
+  armor = "gear", armour = "gear",
+  toy = "toy", toys = "toy",
+  cosmetic = "cosmetic", cosmetics = "cosmetic", tmog = "cosmetic", transmog = "cosmetic",
+  housing = "housing", decor = "housing", decoration = "housing", decorations = "housing",
+  furniture = "housing", furnishings = "housing",
+}
+-- Item stats, the way the vendor sell-rules read a slot: an English spelling maps to the substring the
+-- game's own GetItemStats keys the stat by (ITEM_MOD_CRIT_RATING, STAT_STRENGTH, CR_LIFESTEAL, …). The
+-- key is locale-independent, so a match is the same whatever the game client's language; the English
+-- words here are always typeable, and each locale adds its own spellings in its word map. "critical" and
+-- "strike" both point at crit so the two-word "critical strike" ANDs back to one stat.
+local STAT_WORDS = {
+  strength = "STRENGTH", str = "STRENGTH",
+  agility = "AGILITY", agi = "AGILITY",
+  intellect = "INTELLECT", int = "INTELLECT",
+  stamina = "STAMINA", stam = "STAMINA",
+  crit = "CRIT_RATING", crits = "CRIT_RATING", critical = "CRIT_RATING",
+  strike = "CRIT_RATING", criticalstrike = "CRIT_RATING", critstrike = "CRIT_RATING",
+  haste = "HASTE_RATING",
+  mastery = "MASTERY_RATING",
+  versatility = "VERSATILITY", vers = "VERSATILITY", versa = "VERSATILITY",
+  leech = "CR_LIFESTEAL", lifesteal = "CR_LIFESTEAL",
+  avoidance = "CR_AVOIDANCE", avoid = "CR_AVOIDANCE",
+  speed = "CR_SPEED",
+}
+-- The official English stat name a chip reads, by canonical token. The chip label follows the ADDON
+-- language, never the game client: a locale that spells the stat (ns.L["stat crit"]) wins, and English
+-- falls back to these. No _G read -- an English client must not force English labels on a Russian addon.
+local STAT_DISPLAY_EN = {
+  strength = "Strength", agility = "Agility", intellect = "Intellect", stamina = "Stamina",
+  crit = "Critical Strike", haste = "Haste", mastery = "Mastery", versatility = "Versatility",
+  leech = "Leech", avoidance = "Avoidance", speed = "Speed",
+}
+
 local CUR_EXP = LE_EXPANSION_LEVEL_CURRENT
-                or (GetExpansionLevel and GetExpansionLevel()) or 0
+                 or (GetExpansionLevel and GetExpansionLevel()) or 0
+-- A localized spelling of the ilvl prefix ("gs", "илвл", "装等") plus its tail reads as the
+-- canonical token, so gs>400 parses and its chip reads through the same localized labels as
+-- ilvl>400. A bare prefix with no numeric tail is not a filter and passes through untouched.
+local function ilvlToken(token)
+  if token:match("^ilvl") then return token end
+  local folded = ns.SearchFold(token)
+  for _, p in ipairs(ns.IlvlPrefixes()) do
+    if folded:sub(1, #p) == p then
+      local tail = folded:sub(#p + 1)
+      if tail:match("^[%d><]") then return "ilvl" .. tail end
+    end
+  end
+  return token
+end
 do
   for i = 0, CUR_EXP do
     local n = _G["EXPANSION_NAME" .. i]
@@ -2517,6 +2677,7 @@ do
   end
 end
 local function classify(f, token)
+  token = ilvlToken(token)
   local bare = token:match("^[!%-](.+)$")
   local lo, hi = token:match("^ilvl(%d+)%-(%d+)$")
   local gt = token:match("^ilvl>=?(%d+)$")
@@ -2546,6 +2707,9 @@ local function classify(f, token)
   elseif SLOT_WORDS[token] then
     f.slots = f.slots or {}
     for k in pairs(SLOT_WORDS[token]) do f.slots[k] = true end
+  elseif STAT_WORDS[token] then
+    f.stats = f.stats or {}
+    f.stats[STAT_WORDS[token]] = true
   elseif KIND_WORDS[token] then
     f.kinds = f.kinds or {}
     f.kinds[#f.kinds + 1] = KIND_WORDS[token]
@@ -2557,36 +2721,9 @@ local function classify(f, token)
     f.exps[CUR_EXP] = true
   elseif token == "legacy" or token == "old" then
     f.expMax = CUR_EXP - 1
-  elseif token == "warbound" or token == "wb" or token == "warband" then
-    f.warbound = true
-  elseif token == "soulbound" or token == "sb" or token == "bound" or token == "bop" then
-    f.soulbound = true
-  elseif token == "boe" or token == "unbound" then
-    f.boe = true
-  elseif token == "boa" or token == "accountbound" then
-    f.boa = true
-  elseif token == "token" or token == "tier" then
-    f.token = true
-  elseif token == "locked" or token == "blocked" then
-    f.locked = true
-  elseif token == "reagent" or token == "reagents" or token == "mats" then
-    f.reagent = true
-  elseif token == "keystone" or token == "key" or token == "mythic" then
-    f.keystone = true
-  elseif token == "battlepet" or token == "pet" then
-    f.battlepet = true
-  elseif token == "quest" then
-    f.quest = true
-  elseif token == "consumable" or token == "consumables" then
-    f.consumable = true
-  elseif token == "gear" or token == "equip" or token == "equipment" then
-    f.gear = true
-  elseif token == "toy" then
-    f.toy = true
-  elseif token == "cosmetic" then
-    f.cosmetic = true
-  elseif token == "housing" or token == "decor" then
-    f.housing = true
+  elseif FLAG_WORDS[token] then
+    -- Every boolean flag, from the one table above: a new spelling is a line there and nothing here.
+    f[FLAG_WORDS[token]] = true
   else
     return false
   end
@@ -2744,6 +2881,7 @@ local EXPLAIN_ROWS = {
   { "ids", "item" }, { "quality", "quality" },
   { "ilvl", "level" }, { "ilvlMin", "level" }, { "ilvlMax", "level" },
   { "slots", "slot" }, { "kinds", "kind" }, { "exps", "expansion" }, { "expMax", "expansion" },
+  { "stats", "stat" },
   { "reagent", "kind" }, { "keystone", "kind" }, { "battlepet", "kind" }, { "quest", "kind" },
   { "consumable", "kind" }, { "gear", "kind" }, { "toy", "kind" }, { "housing", "kind" },
   { "cosmetic", "kind" }, { "token", "kind" },
@@ -2751,14 +2889,11 @@ local EXPLAIN_ROWS = {
   { "locked", "flag" },
 }
 
--- The words classify answers to by name, as spelled. The four tables above cover the rest; every word
--- here is handed to classify before it is kept, so this list can never offer a word the parser refuses.
-local FLAG_SPELLINGS = {
-  "current", "legacy", "old", "warbound", "wb", "warband", "soulbound", "sb", "bound", "bop",
-  "boe", "unbound", "boa", "accountbound", "token", "tier", "locked", "blocked",
-  "reagent", "reagents", "mats", "keystone", "key", "mythic", "battlepet", "pet", "quest",
-  "consumable", "consumables", "gear", "equip", "equipment", "toy", "housing", "decor",
-}
+-- Every flag spelling for the word lists, read off FLAG_WORDS plus the two words that are not plain
+-- booleans (current fills the current expansion, legacy everything below it), so a synonym is written
+-- down once. Each is handed to classify before it is kept, so a word the parser refuses is never offered.
+local FLAG_SPELLINGS = { "current", "legacy", "old" }
+for word in pairs(FLAG_WORDS) do FLAG_SPELLINGS[#FLAG_SPELLINGS + 1] = word end
 
 -- The whole vocabulary the parser takes, each word with the axis it is read on, gathered from the tables
 -- classify reads instead of being listed a second time. A language's own words are in there too, resolved
@@ -2858,6 +2993,11 @@ local PICK_TOKENS = {
   -- Quality (one word per tier; the parser also takes the colour names grey/white/green/…)
   { "poor", "quality" }, { "common", "quality" }, { "uncommon", "quality" }, { "rare", "quality" },
   { "epic", "quality" }, { "legendary", "quality" }, { "artifact", "quality" }, { "heirloom", "quality" },
+  -- Stat: the stats a piece of gear carries, read off the game's own GetItemStats. Primary four first,
+  -- then the secondaries, then the tertiaries, the order a character sheet reads them in.
+  { "strength", "stat" }, { "agility", "stat" }, { "intellect", "stat" }, { "stamina", "stat" },
+  { "crit", "stat" }, { "haste", "stat" }, { "mastery", "stat" }, { "versatility", "stat" },
+  { "leech", "stat" }, { "avoidance", "stat" }, { "speed", "stat" },
   -- Expansion (one word per expansion; the parser also takes tbc/bc, wotlk/wrath, …)
   { "classic", "expansion" }, { "tbc", "expansion" }, { "wotlk", "expansion" }, { "cata", "expansion" },
   { "mop", "expansion" }, { "wod", "expansion" }, { "legion", "expansion" }, { "bfa", "expansion" },
@@ -2886,8 +3026,12 @@ function ns.SearchTokenList()
   local disp = {}
   if ns.SearchWords then
     for _, pair in ipairs(ns.SearchWords()) do
-      -- pair = { localized word, english token }; keep the first localized spelling for a token.
-      if not disp[pair[2]] then disp[pair[2]] = pair[1] end
+      -- pair = { localized word, english token }: the language's own name for a token where it names one,
+      -- else the first localized spelling the word map hands back. That map has no order, so a synonym added
+      -- beside a name could otherwise become the label the picker and the help sheet draw the thing under.
+      if not disp[pair[2]] or (ns.SearchPrimary and ns.SearchPrimary(pair[1])) then
+        disp[pair[2]] = pair[1]
+      end
     end
   end
   local out = {}
@@ -2910,6 +3054,13 @@ function ns.SearchTokenList()
         local key = "expansion " .. token
         local own = ns.L[key]
         show = (own ~= key and own) or _G["EXPANSION_NAME" .. EXP_WORDS[token]]
+      elseif axis == "stat" then
+        -- The official stat name in the ADDON language: the locale's own string if it carries one, else
+        -- the English name. Never the game client's spelling -- the chip must follow Warpee's language,
+        -- not the game's, so it is spelled from a dictionary we ship and not read off _G.
+        local key = "stat " .. token
+        local own = ns.L[key]
+        show = (own ~= key and own) or STAT_DISPLAY_EN[token]
       end
       -- Otherwise the localized word if the locale spells this token, else the English token, and either
       -- way with a capital first letter so the column reads as a list of names, not lowercase search bits.
@@ -2923,10 +3074,136 @@ function ns.SearchTokenList()
   return out
 end
 
+-- The fill fields a word's meaning is read off, so two spellings the parser takes the same way can be
+-- shown as one entry. Built out of a scratch filter rather than a table of synonym groups, so a word
+-- added to the vocabulary above joins its concept with nothing to keep in step.
+local MEAN_NUM = { "quality", "ilvl", "ilvlMin", "ilvlMax", "expMax" }
+local MEAN_BOOL = { "reagent", "keystone", "battlepet", "quest", "consumable", "gear", "toy",
+                    "housing", "cosmetic", "token", "warbound", "soulbound", "boe", "boa", "locked" }
+local function meaningKey(word)
+  local f = {}
+  local alias = ns.SearchAlias(ns.SearchFold(word))
+  if not (classify(f, word) or (alias and classify(f, alias))) then return nil end
+  -- A flag stands alone whatever else its scratch filter holds: "armor" and "equip" are one word with
+  -- "gear", while "current" stays apart from the expansion whose number it happens to fill.
+  local flag = FLAG_WORDS[word] or (alias and FLAG_WORDS[alias])
+  if flag then return "flag:" .. flag end
+  if word == "current" or alias == "current" then return "flag:current" end
+  if word == "legacy" or word == "old" or alias == "legacy" then return "flag:legacy" end
+  local parts = {}
+  for _, k in ipairs(MEAN_NUM) do
+    if f[k] ~= nil then parts[#parts + 1] = k .. f[k] end
+  end
+  for _, k in ipairs(MEAN_BOOL) do
+    if f[k] then parts[#parts + 1] = k end
+  end
+  for _, k in ipairs({ "slots", "exps", "ids", "stats" }) do
+    local v = f[k]
+    if v then
+      local keys = {}
+      for key in pairs(v) do keys[#keys + 1] = tostring(key) end
+      table.sort(keys)
+      parts[#parts + 1] = k .. table.concat(keys, ",")
+    end
+  end
+  if f.kinds then
+    local ks = {}
+    for _, row in ipairs(f.kinds) do
+      local subs = {}
+      for s in pairs(row.subs or {}) do subs[#subs + 1] = tostring(s) end
+      table.sort(subs)
+      ks[#ks + 1] = tostring(row.class) .. ":" .. table.concat(subs, ",")
+    end
+    table.sort(ks)
+    parts[#parts + 1] = "kinds" .. table.concat(ks, ";")
+  end
+  return table.concat(parts, "|")
+end
+
+-- The vocabulary gathered by concept for the help window: one entry per thing the search knows, holding the
+-- words the language on screen spells for it. A language reads its own list and nothing else: the canonical
+-- tokens and the synonyms written down in the tables above are the English dictionary, and standing them
+-- beside a language's own words turned one group into two languages at once. A thing this language has no
+-- word for is left out of its sheet rather than shown in English; the field still takes the English token,
+-- the sheet only lists what the reader can write and get an answer from. English has no dictionary of its own
+-- (those tables are English), so English keeps them. The picker's list leads, so a concept carries the axis
+-- and the label the editor shows it under; whatever the parser takes that the picker has no row for follows
+-- under its own axis. Cached by language, like the picker's list.
+local CONCEPTS, CONCEPTS_LOCALE
+function ns.SearchConcepts()
+  local code = ns.LocalePick and ns.LocalePick() or nil
+  if CONCEPTS and CONCEPTS_LOCALE == code then return CONCEPTS end
+  -- The words this language spells, folded, and whether it spells any of its own at all.
+  local own, owns = {}, false
+  if ns.SearchWords then
+    for _, pair in ipairs(ns.SearchWords()) do own[ns.SearchFold(pair[1])] = true; owns = true end
+  end
+  local function spoken(word) return (not owns) or own[ns.SearchFold(word)] == true end
+  local byKey, out = {}, {}
+  local function place(key, axis, head, token, word)
+    local c = byKey[key]
+    if not c then
+      c = { axis = axis, head = head, token = token, words = {} }
+      byKey[key] = c
+      out[#out + 1] = c
+    elseif token and not c.token then
+      c.token, c.head, c.axis = token, head, axis
+    end
+    if word then c.words[#c.words + 1] = word end
+    return c
+  end
+  if ns.SearchTokenList then
+    for _, e in ipairs(ns.SearchTokenList()) do
+      local key = meaningKey(e.token)
+      -- The canonical token leads a list only where it is a word of this language: for English it always is,
+      -- and for a language with a dictionary of its own it is another language's word and stays out of it.
+      if key then place(key, e.axis, e.display, e.token, spoken(e.token) and e.token or nil) end
+    end
+  end
+  for _, e in ipairs(tokenWords()) do
+    -- One pass over everything the parser takes, keeping the words this language spells: the English
+    -- synonyms drop out here rather than being marked in the tables above.
+    if spoken(e.word) then
+      local key = meaningKey(e.word)
+      if key then place(key, e.axis, ns.UpperFirst(e.word), nil, e.word) end
+    end
+  end
+  -- One row reads the same way every time: the words in the alphabet of the language on screen, a spelling
+  -- that appears twice only once, and the head always one of its own words -- a concept the picker has no row
+  -- for arrives with a token as its head, and an English head has no place over a language's words.
+  local kept = {}
+  for _, c in ipairs(out) do
+    local seen, words = {}, {}
+    for _, w in ipairs(c.words) do
+      local f = ns.SearchFold(w)
+      if not seen[f] then seen[f] = true; words[#words + 1] = w end
+    end
+    table.sort(words, function(a, b)
+      if c.token then
+        if a == c.token then return b ~= c.token end
+        if b == c.token then return false end
+      end
+      return ns.SearchFold(a) < ns.SearchFold(b)
+    end)
+    c.words = words
+    if #words > 0 then
+      local head, has = ns.SearchFold(c.head or ""), false
+      for _, w in ipairs(words) do
+        if ns.SearchFold(w) == head then has = true; break end
+      end
+      if not has then c.head = words[1] end
+      kept[#kept + 1] = c
+    end
+  end
+  CONCEPTS, CONCEPTS_LOCALE = kept, code
+  return kept
+end
+
 -- A token's localized chip label. Reads the cached picker list so display never disagrees with it;
 -- falls back to the title-cased token for words the picker omits (raw ids, name terms).
 function ns.TokenDisplay(token)
   if not token or token == "" then return token end
+  token = ilvlToken(token)
   -- Item-level thresholds read as themselves with the operator spaced out, so "ilvl>180" is a clean chip
   -- instead of a title-cased run ("Ilvl>180"). The word before the operator comes from the locale, through
   -- the same two keys the settings readout writes its threshold with, so a German chip reads "GS > 180"
@@ -3188,6 +3465,26 @@ function ns.MetaHousing(m)
   return m.classID == HOUSING_CLASS
 end
 
+-- The stats a piece carries, as a list of the keys GetItemStats hands back (ITEM_MOD_CRIT_RATING,
+-- ITEM_MOD_STRENGTH, ITEM_MOD_CR_LIFESTEAL, …). A list, not a set, because the match is a substring: a
+-- rule's token is the bare stat ("CRIT_RATING") and the game's key wraps it ("ITEM_MOD_CRIT_RATING_SHORT").
+-- Lazy like MetaExp/MetaBoA: only built when a stat token is in the filter, and parked on the scratch
+-- meta for the pass. GetItemStats is a cached data read, not a tooltip scan, so this costs nothing per
+-- slot unless a stat search is active. A meta with no link (RuleHome's id-only metas) reads as no stats.
+-- The call lives under C_Item on retail and as a bare global on some clients, so both are tried.
+local GetItemStats = (C_Item and C_Item.GetItemStats) or GetItemStats
+function ns.MetaStats(m)
+  if m.statset == nil then
+    local list = {}
+    if m.link and GetItemStats then
+      local raw = GetItemStats(m.link)
+      if raw then for k in pairs(raw) do list[#list + 1] = k end end
+    end
+    m.statset = list
+  end
+  return m.statset
+end
+
 function ns.MatchSearch(m, f)
   if not f or f.empty then return true end
   if not m then return false end
@@ -3221,6 +3518,19 @@ function ns.MatchSearch(m, f)
   if f.ilvlMin and not (m.ilvl and m.ilvl >= f.ilvlMin) then return false end
   if f.ilvlMax and not (m.ilvl and m.ilvl <= f.ilvlMax) then return false end
   if f.slots and not (m.equipLoc and f.slots[m.equipLoc]) then return false end
+  if f.stats then
+    local keys = ns.MetaStats(m)
+    local ok = false
+    if keys then
+      for want in pairs(f.stats) do
+        for _, have in ipairs(keys) do
+          if have:find(want, 1, true) then ok = true; break end
+        end
+        if ok then break end
+      end
+    end
+    if not ok then return false end
+  end
   if f.kinds then
     local ok = false
     for _, k in ipairs(f.kinds) do

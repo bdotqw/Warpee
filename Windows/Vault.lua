@@ -14,6 +14,35 @@ local migrated
 local FIELD = { bank = "bank", bags = "inv" }
 local KEEP = { bags = "keepBags", bank = "keepBank", warband = "keepWarband" }
 
+-- Gold keeps its own store, apart from the snapshots: a toggle switched off, a snapshot never taken
+-- or a deleted one must not cost a number. The old copy sat in the character record, so the first
+-- read moves it across once and clears the field.
+local GOLD_VERSION = 1
+
+local function goldStore()
+  if not WarpeeDB then return nil end
+  local g = WarpeeDB.gold
+  if not g then g = {}; WarpeeDB.gold = g end
+  g.chars = g.chars or {}
+  if (g.v or 0) < GOLD_VERSION then
+    local v = WarpeeDB.vault
+    if v then
+      for key, c in pairs(v.chars or {}) do
+        if type(c) == "table" and c.money then
+          if not g.chars[key] then g.chars[key] = { m = c.money, class = c.class } end
+          c.money = nil
+        end
+      end
+      if type(v.warband) == "table" and v.warband.money then
+        if g.warband == nil then g.warband = v.warband.money end
+        v.warband.money = nil
+      end
+    end
+    g.v = GOLD_VERSION
+  end
+  return g
+end
+
 local function hasBags(box)
   return (box and box.bags and next(box.bags)) and true or false
 end
@@ -315,27 +344,107 @@ function Vault:Sections(mode)
 end
 
 local function stampClass(mode)
+  if mode == "warband" then return end
   local v = store()
   local key = v and ns.Vault:Owner()
   local c = key and v.chars[key]
   if not c then return end
-  c.money = GetMoney()
-  if mode == "warband" then return end
   local _, class = UnitClass("player")
   if class then c.class = class end
 end
 
-local function stampMoney(box, mode)
-  if mode ~= "warband" or not box then return end
-  if not (C_Bank and C_Bank.FetchDepositedMoney and Enum and Enum.BankType) then return end
-  local ok, v = pcall(C_Bank.FetchDepositedMoney, Enum.BankType.Account)
-  if ok and v then box.money = v end
+-- The warband coins are readable only while the account bank is in reach. A missed read must never
+-- wipe a kept number, so a zero lands only with the bank open.
+local function accountBankOpen()
+  if not (C_Bank and C_Bank.CanViewBank and Enum and Enum.BankType) then return false end
+  local ok, can = pcall(C_Bank.CanViewBank, Enum.BankType.Account)
+  return (ok and can) and true or false
+end
+
+-- The one place gold is written: a snapshot asks for the coins, this store keeps them. It is called
+-- from the middle of a session only, never from login or logout: at both ends of it the money reads as
+-- 0 while the client is loading the character or already tearing it down, and one such read was enough
+-- to write a zero over every character's remembered gold.
+function Vault:StampGold()
+  local g = goldStore()
+  if not g then return end
+  self:StampGoldChar(g)
+  if C_Bank and C_Bank.FetchDepositedMoney and Enum and Enum.BankType then
+    local ok, v = pcall(C_Bank.FetchDepositedMoney, Enum.BankType.Account)
+    if ok and type(v) == "number" and (v > 0 or accountBankOpen()) then
+      g.warband = v
+      g.warbandAt = time()
+    end
+  end
+end
+
+-- The character half of a stamp, split out so a wipe can re-seed the list with this character's purse
+-- without pulling the warband number back in from FetchDepositedMoney's cache.
+function Vault:StampGoldChar(g)
+  g = g or goldStore()
+  if not g then return end
+  local key = self:Owner()
+  if not key then return end
+  local row = g.chars[key]
+  if not row then row = {}; g.chars[key] = row end
+  local m = GetMoney()
+  if m then row.m = m end
+  local _, class = UnitClass("player")
+  if class then row.class = class end
+  row.at = time()
+end
+
+-- A sale, a loot and a repair each fire PLAYER_MONEY, so only the last timer writes.
+local goldGen = 0
+function Vault:QueueGold(delay)
+  goldGen = goldGen + 1
+  local gen = goldGen
+  C_Timer.After(delay or 2, function()
+    if goldGen ~= gen then return end
+    Vault:StampGold()
+  end)
 end
 
 function Vault:WarbandMoney()
-  local v = store()
-  return v and v.warband and v.warband.money or nil
+  local g = goldStore()
+  return g and g.warband or nil
 end
+
+-- The gold a given character has, for the money corner when a snapshot is open: the own character reads
+-- live, another character reads the remembered number. nil means nothing is kept for them -- the purse was
+-- wiped or never recorded -- which the window draws as a dash rather than falling back to the viewer's own
+-- gold, so a snapshot never shows the wrong character's money.
+function Vault:CharGold(key)
+  if not key or key == self:Owner() then return GetMoney() end
+  local g = goldStore()
+  local c = g and g.chars[key]
+  return (type(c) == "table" and c.m) or nil
+end
+
+-- Whether anything is kept in the gold store at all: a character with a number, or the warband purse.
+-- The settings page shows the gold row only when there is something to show or clear.
+function Vault:HasGold()
+  local g = goldStore()
+  if not g then return false end
+  if g.warband then return true end
+  for _, c in pairs(g.chars) do
+    if type(c) == "table" and c.m then return true end
+  end
+  return false
+end
+
+-- Throw away every remembered purse at once, then re-seed only this character so the list is not left
+-- empty: the gold is kept apart from the snapshots, so this clears only gold and leaves bags and bank
+-- saves alone. Only the character's own purse is written back, never the warband -- a plain StampGold
+-- would pull the warband number straight back out of FetchDepositedMoney's cache and the wipe would not
+-- clear it. The current character reads back in as the single entry, the natural result of a wipe online.
+function Vault:WipeGold()
+  if not WarpeeDB then return false end
+  WarpeeDB.gold = nil
+  self:StampGoldChar()
+  return true
+end
+
 
 -- A pattern match and a short string per stored slot, over every character's bags and bank
 -- plus the warband: one hover that misses the count cache walked thousands of records and
@@ -409,17 +518,20 @@ function Vault:ItemCounts(itemID)
 end
 
 function Vault:MoneyList()
-  local v = store()
+  local g = goldStore()
   local out, total = {}, 0
   local ownKey = self:Owner()
   local seen = false
-  if v then
-    for key, c in pairs(v.chars) do
+  if g then
+    for key, c in pairs(g.chars) do
       if type(c) == "table" then
         local own = (key == ownKey)
-        local m = own and GetMoney() or c.money
+        local m = own and GetMoney() or c.m
         if own then seen = true end
-        if m and m > 0 then
+        -- A character whose purse is empty is listed as an empty purse. The number being 0 is a fact
+        -- the player asked to have remembered; dropping the row read as the character never having been
+        -- recorded at all, which is how a visited alt went missing from the list.
+        if m then
           out[#out + 1] = { key = key, name = key:match("^(.-)%-") or key,
                             class = c.class, money = m, own = own }
           total = total + m
@@ -429,7 +541,7 @@ function Vault:MoneyList()
   end
   if not seen and ownKey then
     local m = GetMoney()
-    if m and m > 0 then
+    if m then
       local _, class = UnitClass("player")
       out[#out + 1] = { key = ownKey, name = ownKey:match("^(.-)%-") or ownKey,
                         class = class, money = m, own = true }
@@ -463,7 +575,7 @@ function Vault:Capture(mode, only)
     if not touched then return false end
     box.at = time()
     stampClass(mode)
-    stampMoney(box, mode)
+    self:StampGold()
     invalidate()
     return true
   end
@@ -481,7 +593,7 @@ function Vault:Capture(mode, only)
   box.at = time()
   box.bags = bags
   stampClass(mode)
-  stampMoney(box, mode)
+  self:StampGold()
   invalidate()
   return true
 end

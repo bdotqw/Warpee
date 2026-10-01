@@ -10,6 +10,7 @@ local WORDS = {
   ["史诗"] = "epic", ["紫色"] = "purple", ["紫"] = "purple", ["紫装"] = "purple",
   ["传说"] = "legendary", ["橙色"] = "orange", ["橙"] = "orange", ["橙装"] = "orange",
   ["神器"] = "artifact", ["传家宝"] = "heirloom",
+  ["装等"] = "ilvl",
   ["头部"] = "head", ["头盔"] = "helm", ["头"] = "head",
   ["颈部"] = "neck", ["项链"] = "neck",
   ["肩部"] = "shoulder", ["护肩"] = "shoulder", ["肩膀"] = "shoulder",
@@ -54,6 +55,62 @@ local WORDS = {
   ["装备后绑定"] = "boe", ["装绑"] = "boe", ["未绑定"] = "boe",
   ["当前版本"] = "current", ["当前"] = "current",
   ["旧版本"] = "legacy", ["旧"] = "legacy",
+
+  -- The Simplified-Chinese words a player reaches for beyond the one canonical spelling above: the game's
+  -- own item names for a slot and the everyday short forms. Each resolves to the same English token, so a
+  -- Chinese search finds the same items as the English one.
+  ["帽子"] = "head", ["头饰"] = "head",
+  ["脖子"] = "neck", ["颈部装备"] = "neck",
+  ["肩甲"] = "shoulder",
+  ["背"] = "back", ["背部装备"] = "back",
+  ["护胸"] = "chest",
+  ["腕部"] = "wrist",
+  ["手"] = "hands", ["手部装备"] = "hands",
+  ["腰"] = "waist",
+  ["腿"] = "legs", ["裤"] = "legs",
+  ["鞋"] = "feet", ["脚"] = "feet",
+  ["指"] = "finger", ["手指装备"] = "finger",
+  ["小饰品"] = "trinket",
+  ["盾构"] = "shield",
+  ["箭"] = "ammo", ["子弹"] = "ammo",
+  ["短剑"] = "dagger", ["长剑"] = "sword", ["单手剑"] = "sword", ["双手剑"] = "sword",
+  ["斧子"] = "axe", ["战斧"] = "axe", ["锤子"] = "mace", ["钉锤"] = "mace",
+  ["长矛"] = "polearm", ["枪矛"] = "polearm",
+  ["杖"] = "staff", ["长弓"] = "bow",
+  ["步枪"] = "gun", ["十字弓"] = "crossbow",
+  ["法棒"] = "wand", ["拳刃"] = "fist",
+  ["钓鱼竿"] = "fishing", ["鱼杆"] = "fishing",
+  ["坐骑类"] = "mount", ["珠宝"] = "gem", ["宝珠"] = "gem",
+  ["食谱"] = "recipe", ["图样"] = "recipe",
+  ["袋子"] = "bag", ["战斗宠物"] = "battlepet",
+  ["药剂"] = "potion", ["瓶子"] = "flask",
+  ["材料物品"] = "reagent", ["附魔"] = "enhancement",
+  ["钥匙石"] = "keystone", ["钥匙"] = "keystone",
+  ["任务道具"] = "quest",
+  ["玩具类"] = "toy", ["家园"] = "housing", ["家具"] = "housing", ["装饰"] = "housing",
+  ["帐号绑定"] = "boa", ["账号绑定"] = "boa", ["旧世界"] = "legacy", ["午夜"] = "midnight",
+
+  -- Stats: the short forms a player types, each to the canonical English stat token.
+  ["力量"] = "strength", ["敏捷"] = "agility", ["智力"] = "intellect", ["耐力"] = "stamina",
+  ["爆击"] = "crit", ["暴击"] = "crit", ["急速"] = "haste",
+  ["精通"] = "mastery", ["全能"] = "versatility",
+  ["吸血"] = "leech", ["闪避"] = "avoidance",
+  ["加速"] = "speed", ["移速"] = "speed",
+}
+
+-- The spelling the window and the picker draw a concept under: one per thing, so a synonym added above can
+-- never become the label a group is headed by. The canonical Chinese word for each; the rest is synonyms.
+local PRIMARY = {
+  "药水", "合剂", "食物", "玩具", "住宅", "小宠物", "战团绑定",
+  "粗糙", "普通", "优秀", "精良", "史诗", "传说", "神器", "传家宝",
+  "头部", "颈部", "肩部", "背部", "胸部", "手腕", "手部", "腰部", "腿部", "脚部",
+  "手指", "饰品", "盾牌", "战袍", "衬衣", "圣物", "远程武器", "投掷武器",
+  "弹药", "箭袋", "专业工具", "专业装备", "背包格", "武器", "主手", "副手",
+  "布甲", "皮甲", "锁甲", "板甲", "装饰品", "匕首", "剑", "斧", "锤", "长柄武器",
+  "法杖", "弓", "枪", "弩", "魔杖", "拳套", "战刃", "鱼竿", "坐骑",
+  "宝石", "配方", "雕文", "包", "容器", "投掷物", "商品", "杂项", "物品强化",
+  "材料", "任务物品", "消耗品", "装备", "钥石", "徽章", "已锁定", "战团",
+  "灵魂绑定", "装备后绑定", "当前", "旧",
 }
 
 local STRINGS = {
@@ -301,6 +358,7 @@ local STRINGS = {
   ["Save the shared Warband bank while you stand at a banker."] = "打开银行时保存共用的战团银行。",
   ["Delete the saved Warband bank?"] = "删除保存的战团银行？",
   ["Account"] = "账号",
+  ["Forget the remembered gold of every character?"] = "忘记所有角色记录的金钱？",
   ["Nothing saved for other characters yet"] = "还没有保存其他角色的数据",
   ["Sell junk"] = "出售灰色物品",
   ["Repair"] = "修理",
@@ -560,6 +618,15 @@ local STRINGS = {
   ["Type an item id to preview and pin it, or drag an item here"] = "输入物品 ID 可以预览并固定，也可以把物品拖到这里",
   ["Left click flips to Not, right click removes"] = "左键切换为非，右键移除",
   ["Use chips"] = "以条件编辑",
+  ["Search words"] = "搜索词",
+  ["Attributes"] = "属性",
+  ["stat strength"] = "力量", ["stat agility"] = "敏捷",
+  ["stat intellect"] = "智力", ["stat stamina"] = "耐力",
+  ["stat crit"] = "爆击", ["stat haste"] = "急速",
+  ["stat mastery"] = "精通", ["stat versatility"] = "全能",
+  ["stat leech"] = "吸血", ["stat avoidance"] = "闪避",
+  ["stat speed"] = "加速",
+  ["Type several words: an item must match all of them. %s = space, %s = |, %s = !. For example, (mount | toy) !quest means mounts or toys, but no quest items. More forms: id:6948; 400; ilvl400; ilvl>400; ilvl>=400; ilvl<400; ilvl<=400; ilvl400-450."] = "多个词：物品需全部满足才算命中。%s = 空格，%s = |，%s = !。例如 (坐骑 | 玩具) !任务物品 表示坐骑或玩具，但不含任务物品。其他写法：id:6948；400；ilvl400；ilvl>400；ilvl>=400；ilvl<400；ilvl<=400；ilvl400-450。",
   ["Edit as text"] = "以文本编辑",
   ["Item class"] = "物品分类",
   ["Armor type"] = "护甲类型",
@@ -577,5 +644,6 @@ ns.AddLocale("zhCN", "Chinese (Simplified)", {
   coin = { g = "金", s = "银", c = "铜" },
   short = { dec = ".", units = { { 1e8, "亿" }, { 1e4, "万" }, { 1e3, "千" } } },
   words = WORDS,
+  primary = PRIMARY,
   strings = STRINGS,
 })

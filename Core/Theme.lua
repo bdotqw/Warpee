@@ -664,6 +664,10 @@ function Theme:Restyle(name)
   if ns.Profiles and ns.Profiles.ApplySkin then ns.Profiles:ApplySkin() end
   self:ApplyGridAlpha()
   if ns.Options and ns.Options.ReflowPages then ns.Options:ReflowPages() end
+  -- The search-words sheet places its own header per skin, so it has to be refilled here: the repaint
+  -- above moves its art to the new theme but leaves the numbers the last fill chose, and a sheet left
+  -- open across a switch then showed the old theme's offsets until it was closed and reopened.
+  if ns.RefreshSearchWords then ns.RefreshSearchWords() end
 end
 
 function Theme:GridAlpha()

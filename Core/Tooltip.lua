@@ -196,8 +196,11 @@ local function showGoldTip(anchor)
   end
 
   for _, e in ipairs(list) do
-    local col = e.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
-    row(e.name, ns.FormatMoney(e.money, true, true), "text", col)
+    -- An empty purse is listed but not dressed up: dim and uncoloured, so a run of zeroes does not read
+    -- as gold the way the class colours do.
+    local live = (e.money or 0) > 0
+    local col = live and e.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
+    row(e.name, ns.FormatMoney(e.money, true, true), live and "text" or "dim", col)
   end
   if n == 0 then row(ns.L["No gold recorded yet"], "", "dim") end
 
