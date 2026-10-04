@@ -1688,14 +1688,24 @@ end
 -- Start a transfer of `slots`. `send(bag,slot,info)` returns true when a move was actually issued;
 -- `alive()` says the window is still open and live (checked every pass); `warband` is true for a run that
 -- touches the account bank, either way, and it is what selects the smaller batch and the waiting for each
--- batch to land. Re-entrant: a second call replaces the run, since only one category moves at a time.
-function Cats:MoveSlots(slots, send, alive, warband)
-  ctstate = { slots = slots, send = send, alive = alive, tries = {},
+-- batch to land. `done()` is called once when the run ends, however it ends: a caller with a live surface
+-- of its own (the transfer chips) repaints it there instead of waiting for the next layout. Re-entrant: a
+-- second call replaces the run, and the run it replaces is not told, since only one moves at a time.
+function Cats:MoveSlots(slots, send, alive, warband, done)
+  ctstate = { slots = slots, send = send, alive = alive, done = done, tries = {},
               batch = warband and Cats.WARBAND_BATCH or CT_BATCH, pace = warband or nil }
+  -- The run is over: the state is dropped and the caller told. The last pieces land after the windows'
+  -- own events have redrawn them, so a caller with a live surface (the transfer chip) reads its final
+  -- count from this rather than waiting for the next layout.
+  local function finish()
+    local st = ctstate
+    ctstate = nil
+    if st and st.done then st.done() end
+  end
   local function step()
     local st = ctstate
     if not (st and st.slots) then return end
-    if not st.alive() then ctstate = nil; return end
+    if not st.alive() then finish(); return end
     if InCombatLockdown() or CursorHasItem() or GetCursorInfo()
        or (ns.ItemTargeting and ns.ItemTargeting()) then
       C_Timer.After(0.25, step)
@@ -1746,10 +1756,30 @@ function Cats:MoveSlots(slots, send, alive, warband)
       -- once that batch has landed.
       C_Timer.After((st.pace and st.moved) and CT_SETTLE or CT_WAIT, step)
     else
-      ctstate = nil
+      finish()
     end
   end
   step()
+end
+
+-- Arm both transfer chips: the count and the stop state follow the run itself instead of waiting for
+-- the next layout, since the last pieces land after the windows have already been redrawn by their own
+-- events. Called after every batch and once at the end of a run.
+function ns.ArmTransferChips()
+  if ns.Bags and ns.Bags.ArmTransfer then ns.Bags:ArmTransfer() end
+  if ns.Bank and ns.Bank.ArmTransfer then ns.Bank:ArmTransfer() end
+end
+
+-- Whether a transfer is in flight. The chip reads this to keep standing (and to offer the stop) while
+-- the pieces it is moving fall out of the count it shows.
+function Cats:Busy()
+  return ctstate ~= nil
+end
+
+-- Stop the run in flight. Nothing is left half moved: a slot the sweep has not reached is simply never
+-- sent, and one already handed to the server lands on its own.
+function Cats:StopMove()
+  ctstate = nil
 end
 
 -- Every occupied slot into its section, sections that hold anything returned in list order. The
@@ -1758,10 +1788,11 @@ end
 -- hide-reagents toggle does not gate it.
 -- The shared bucketing core, so the bags and the bank group by the exact same rules. It is told its
 -- world through opts rather than reading ns.playerBags directly: `bagList` is the containers to walk,
--- `snap`/`snapMode` pick the Vault store when a cached character is shown, `reagentBag` is the one
--- extra container the bags append (nil for the bank), and `find` is the parsed live query for the
--- per-section hit count. Returns the same {out, used, total} the bags always did.
-local function bucketsCore(find, snap, snapMode, bagList, reagentBag, memory)
+-- `snap`/`snapMode` pick the Vault store when a cached character is shown, and `reagentBag` is the one
+-- extra container the bags append (nil for the bank). It knows nothing of the search: a query dims
+-- what it did not match on the cells themselves, and never changes what is bucketed or drawn. Returns
+-- the same {out, used, total} the bags always did.
+local function bucketsCore(snap, snapMode, bagList, reagentBag, memory)
   ensureFilters()
   -- A memory means this pass reconciles against last pass's slot order, so it must also record the
   -- instance GUIDs the reconcile matches on. The grouped view hands one on every pass: a piece can vanish
@@ -1797,7 +1828,7 @@ local function bucketsCore(find, snap, snapMode, bagList, reagentBag, memory)
   end
   local order = {}
   for i = 1, #ACTIVE do
-    order[i] = { id = ACTIVE[i].id, name = catName(ACTIVE[i]), slots = {}, hits = 0,
+    order[i] = { id = ACTIVE[i].id, name = catName(ACTIVE[i]), slots = {},
                  band = bandOf[ACTIVE[i].id], empty = ACTIVE[i].empty, other = ACTIVE[i].other,
                  mode = ACTIVE[i].sort or globalMode }
   end
@@ -1807,7 +1838,7 @@ local function bucketsCore(find, snap, snapMode, bagList, reagentBag, memory)
   local otherBucket
   for i = 1, #order do if order[i].other then otherBucket = order[i]; break end end
   if not otherBucket then
-    otherBucket = { id = Cats.OTHER_ID, name = ns.L["Other"], slots = {}, hits = 0, other = true,
+    otherBucket = { id = Cats.OTHER_ID, name = ns.L["Other"], slots = {}, other = true,
                     band = bandOf[Cats.OTHER_ID], mode = globalMode }
     order[#order + 1] = otherBucket
   end
@@ -1829,7 +1860,6 @@ local function bucketsCore(find, snap, snapMode, bagList, reagentBag, memory)
   local function file(bag, slot, m)
     local idx = classify(m, skip)
     local dest = (idx and order[idx]) or otherBucket
-    if find and ns.MatchSearch(m, find) then dest.hits = dest.hits + 1 end
     -- Fold into the item's existing cell when combining: same id, and not one of the per-piece kinds.
     local canMerge = combine and m.id and not (m.isGear or m.battlepet or m.keystone)
     if canMerge then
@@ -1923,21 +1953,18 @@ local function bucketsCore(find, snap, snapMode, bagList, reagentBag, memory)
   return out, used, total
 end
 
--- Every occupied bag slot into its section, sections that hold anything returned in list order. The
--- window hands its live query so the per-section hit count drives what a search shows;
--- the reagent bag is always included, since cat-view is a full-inventory grouping.
+-- Every occupied bag slot into its section, sections that hold anything returned in list order.
+-- The reagent bag is always included, since cat-view is a full-inventory grouping.
 function Cats:Buckets(bags, memory)
-  local q = bags and bags.query or ""
-  local find = (q ~= "") and bags.filters or nil
-  return bucketsCore(find, bags and bags.snap, "bags", ns.playerBags, ns.reagentBag, memory)
+  return bucketsCore(bags and bags.snap, "bags", ns.playerBags, ns.reagentBag, memory)
 end
 
 -- The bank's grouping: the same rules over the bank or warband containers instead of the bags. mode
--- is "bank" or "warband" (the Vault store and the container set both key on it), snap picks the
--- cached-character store, and find is the parsed live query. No reagent bag is appended: the bank has
--- none. The container id list is handed in by the caller, which owns the BANK_MAIN / WARBAND tables.
-function Cats:BankBuckets(mode, snap, find, bagList, memory)
-  return bucketsCore(find, snap, mode, bagList or {}, nil, memory)
+-- is "bank" or "warband" (the Vault store and the container set both key on it) and snap picks the
+-- cached-character store. No reagent bag is appended: the bank has none. The container id list is
+-- handed in by the caller, which owns the BANK_MAIN / WARBAND tables.
+function Cats:BankBuckets(mode, snap, bagList, memory)
+  return bucketsCore(snap, mode, bagList or {}, nil, memory)
 end
 
 -- The bags the editor's counts read: cat-view always includes the reagent bag, so the count
@@ -1950,23 +1977,67 @@ local function countBags()
   return out
 end
 
--- Count for one search as it is typed: how many occupied slots it would claim, on its own. A
--- blank box reads 0, not the whole bag: an empty search is inert in the layout, so the preview
--- says the same instead of flashing the match-everything total.
-function Cats:Preview(search)
-  if not (search or ""):find("%S") then return 0 end
+-- How many occupied slots one search claims in a given set of containers, on its own. A blank box
+-- reads 0, not the whole bag: an empty search is inert in the layout, and the transfer chip that
+-- reads this says the same instead of flashing the match-everything total. `bags` is handed in, so
+-- one pass serves the bags window, the bank window and the category editor's own preview. `allow` is
+-- the caller's own rule about a match (the account bank refusing a piece bound to this character,
+-- when that bank is the destination); nil takes every match. Two numbers come back: what can move,
+-- and how many matches the rule leaves behind, so a surface can say so instead of offering a count
+-- that never falls to zero.
+function Cats:Count(search, bags, allow)
+  if not (search or ""):find("%S") then return 0, 0 end
   local filter = ns.ParseSearch((search or ""):lower())
-  local n = 0
-  for _, bag in ipairs(countBags()) do
+  local n, stays = 0, 0
+  for _, bag in ipairs(bags or {}) do
     local num = C_Container.GetContainerNumSlots(bag) or 0
     for slot = 1, num do
       local info = C_Container.GetContainerItemInfo(bag, slot)
       if info and (info.hyperlink or info.itemID) then
-        if ns.MatchSearch(buildMeta(bag, slot, info), filter) then n = n + 1 end
+        if ns.MatchSearch(buildMeta(bag, slot, info), filter) then
+          if allow and not allow(bag, slot, info) then stays = stays + 1 else n = n + 1 end
+        end
       end
     end
   end
-  return n
+  return n, stays
+end
+
+-- The slots a transfer hands the pump, in walk order: the same rule Count reads, `allow` included, so
+-- the number the chip showed and the pieces that move agree. Fresh entries on every call, since the
+-- pump writes its own bookkeeping onto them (done, locks, the target slot a deposit aims for).
+function Cats:Matched(search, bags, allow)
+  local out = {}
+  if not (search or ""):find("%S") then return out end
+  local filter = ns.ParseSearch((search or ""):lower())
+  for _, bag in ipairs(bags or {}) do
+    local num = C_Container.GetContainerNumSlots(bag) or 0
+    for slot = 1, num do
+      local info = C_Container.GetContainerItemInfo(bag, slot)
+      if info and (info.hyperlink or info.itemID) then
+        if ns.MatchSearch(buildMeta(bag, slot, info), filter)
+           and (not allow or allow(bag, slot, info)) then
+          out[#out + 1] = { bag = bag, slot = slot }
+        end
+      end
+    end
+  end
+  return out
+end
+
+-- Nothing standing in the way of a move right now: no combat, nothing on the cursor, no spell or
+-- enchant waiting for its target. The run defers on the same three, so a click on the chip and the
+-- passes of the run agree on whether the move may happen.
+function Cats:Free()
+  if InCombatLockdown() or CursorHasItem() or GetCursorInfo() then return false end
+  if ns.ItemTargeting and ns.ItemTargeting() then return false end
+  return true
+end
+
+-- Count for one search as it is typed, over the containers the editor's rows walk: cat-view always
+-- includes the reagent bag, so the number beside a row matches the sections it would file into.
+function Cats:Preview(search)
+  return self:Count(search, countBags())
 end
 
 -- The whole editor list in one slot pass, and the number beside each row is what its section

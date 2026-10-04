@@ -63,7 +63,8 @@ local DEFAULTS = {
   -- panel preview from the same numbers. A second copy here is how the two drifted.
   badge = ns.BadgeDefaults(),
   optSections = { interface = false, bankgrid = false, badges = true, autoopen = false,
-                  tokenexp = false, arrange = true, pocketsize = true, categories = true },
+                  tokenexp = false, arrange = true, pocketsize = true, categories = true,
+                  badgeorder = false },
   autoOpen = { auction = true, bank = true, mail = true, trade = true,
                vendor = true, guildbank = true, professions = false,
                itemupgrade = true, catalyst = true },
@@ -613,7 +614,10 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     end
 
     WarpeeDB.favorites = WarpeeDB.favorites or {}
-    WarpeeDB.vendorBlack = WarpeeDB.vendorBlack or {}
+    -- The sale carousel's store (Features/Vendor.lua): any older vendor lock is folded into it here,
+    -- and the folded ids that are gear are moved onto the copies at hand on PLAYER_ENTERING_WORLD.
+    WarpeeDB.sellMark = WarpeeDB.sellMark or {}
+    if ns.Vendor and ns.Vendor.FoldLocks then ns.Vendor:FoldLocks() end
 
     WarpeeDB.highContrast = nil
     WarpeeDB.bgAlpha = nil
@@ -755,6 +759,9 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
       repaintLater()
     end
   elseif event == "ITEM_CHANGED" then
+    -- The link from before and after: a marked or locked piece keeps its entry through an upgrade, a
+    -- gem or an enchant instead of being left on a key that is no longer there.
+    if ns.Vendor and ns.Vendor.RetargetMarks then ns.Vendor:RetargetMarks(a1, a2) end
     repaintSoon()
     repaintLater()
   elseif event == "EQUIPMENT_SETS_CHANGED" or event == "EQUIPMENT_SWAP_FINISHED"
@@ -926,20 +933,31 @@ local function itemTooltip(tt, data)
   end
   if ownSlot(tt) then
     local V = ns.Vendor
-    local locked = (V and V.Blocked and V:Blocked(id)) and true or false
-    -- The line is a promise, so it is only made about an item a merchant would buy: on one with no vendor
-    -- value the padlock stops nothing. The slot under the tooltip answers that without asking the item
-    -- cache, and a cell that is not a slot falls back to the price of the item itself. An item already
-    -- locked is offered the way out whatever it is worth, or an old lock could not be taken off.
+    -- The line is a promise, so it is made only where the alt-click would keep it: Vendor:Markable is the
+    -- click's own question, the hard vetoes and the player's keep settings included, so the two answer
+    -- alike. An item already in the carousel is always offered the way round, or a mark could not come
+    -- off whatever its price did.
     local o = tt.GetOwner and tt:GetOwner()
-    local info = o and o.wpeBagID and C_Container.GetContainerItemInfo(o.wpeBagID, o:GetID())
+    local bag = o and o.wpeBagID
+    local info = bag and C_Container.GetContainerItemInfo(bag, o:GetID())
     if info and info.itemID ~= id then info = nil end
-    if locked or (V and V.CanLock and V:CanLock(info, id)) then
+    local link = info and info.hyperlink
+    if not link and tt.GetItem then local _, l = tt:GetItem(); link = l end
+    local state = (V and V.SellState) and V:SellState(id, link) or nil
+    if state or (V and V.Markable and V:Markable(bag, bag and o:GetID(), id, link, info)) then
       local r, g, b = 0.5, 0.5, 0.5
-      if locked and V and V.IsOpen and V:IsOpen() then r, g, b = 1, 0.4, 0.4 end
+      local msg
+      if state == "lock" then
+        msg = "Locked from sale. ALT-click to clear it"
+        if V.IsOpen and V:IsOpen() then r, g, b = 1, 0.4, 0.4 end
+      elseif state == "mark" then
+        msg = "Marked for sale. ALT-click to lock it from sale"
+        r, g, b = 1, 0.82, 0
+      else
+        msg = "ALT-click to mark it for sale"
+      end
       if not drew then tt:AddLine(" ") end
-      tt:AddLine(TT(locked and "Locked from the vendor. ALT-click to unlock"
-                            or "ALT-click to lock it from the vendor"), r, g, b)
+      tt:AddLine(TT(msg), r, g, b)
       drew = true
     end
   end

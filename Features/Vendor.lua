@@ -93,6 +93,17 @@ local PROF = {
   [46006] = true, [18258] = true,
 }
 
+-- Every Mythic+ keystone is this one id, the level riding in the link, and no merchant buys one. It is
+-- here rather than on the price because a pin has no container record to ask and the client never caches
+-- a keystone's price at all, so the price fallback answers "unknown" and stays open to the mark forever.
+local KEYSTONE = { [180653] = true }
+
+-- The pieces no sale may touch, whatever the rules or a mark say. One predicate, asked by the pump's
+-- sweep and by the carousel both, so a piece cannot be swept by one and refused by the other.
+local function banned(id)
+  return id and (STONE[id] or FUN[id] or OLDCONSUM[id] or PROF[id] or RUNE[id] or KEYSTONE[id]) or false
+end
+
 local function cosmeticArmor(classID, subID)
   local E = Enum.ItemArmorSubclass
   if not (E and E.Cosmetic) then return false end
@@ -138,22 +149,7 @@ local function questItem(bag, slot)
   return (qi and (qi.isQuestItem or qi.questID)) and true or false
 end
 
-function Vendor:Blocked(id)
-  local t = WarpeeDB and WarpeeDB.vendorBlack
-  return (id and t and t[id]) and true or false
-end
-
-function Vendor:Block(id, name)
-  if not id then return end
-  WarpeeDB.vendorBlack = WarpeeDB.vendorBlack or {}
-  WarpeeDB.vendorBlack[id] = name or tostring(id)
-end
-
-function Vendor:Unblock(id)
-  if id and WarpeeDB.vendorBlack then WarpeeDB.vendorBlack[id] = nil end
-end
-
-local function blackRepaint()
+local function sellRepaint()
   ns.ClearItemPaint()
   local B = ns.Bags
   if B and B.frame and B.frame:IsShown() then B:Layout() end
@@ -163,17 +159,196 @@ local function blackRepaint()
   if O and O.ReflowPages and O.frame and O.frame:IsShown() then O:ReflowPages() end
 end
 
-function Vendor:Toggle(id, name)
-  if not id then return end
-  if self:Blocked(id) then self:Unblock(id) else self:Block(id, name) end
-  blackRepaint()
+-- The sale marks: the items the player chose to sell, and the items turned away from it. The key is
+-- the one the favorites row names a pin by (ns.ItemKey over ns.PinFor), so gear is kept as its own
+-- item string, enchant and bonus ids included, and everything else as its bare id: one entry answers
+-- for one item and for nothing else.
+local FOLDED
+
+-- The store used to be a flat id -> name map. Fold it in once, as locks: an id that is not gear is the
+-- copy, so its key carries over; a gear id has no exact key yet and is left to ResolveMarks.
+function Vendor:FoldLocks()
+  if FOLDED or not WarpeeDB then return end
+  FOLDED = true
+  local old = WarpeeDB.vendorBlack
+  WarpeeDB.sellMark = WarpeeDB.sellMark or {}
+  WarpeeDB.vendorBlack = nil
+  if not (old and next(old)) then return end
+  local t = WarpeeDB.sellMark
+  for id, name in pairs(old) do
+    local k = tostring(id)
+    if not t[k] then t[k] = { n = name, l = true, id = id } end
+  end
 end
 
--- Whether a merchant would buy the item at all. A padlock on an item no vendor buys stops nothing, so
+-- The key one item is named by. Gear with no item string in hand cannot be named, and a bare id would
+-- make one entry answer for every copy of it, so the press is refused instead of mistranslated.
+local function sellKey(id, link)
+  if not id then return nil end
+  local pin = ns.PinFor(id, link)
+  if type(pin) == "number" and ns.GearID(id) then return nil end
+  return ns.ItemKey(pin)
+end
+
+-- The entry behind an item: one key, the same one the write uses. An empty store short-circuits before
+-- any key work, since painting asks this once per cell and most stores are empty.
+function Vendor:SellEntry(id, link)
+  if not FOLDED then self:FoldLocks() end
+  local t = id and WarpeeDB and WarpeeDB.sellMark
+  if not (t and next(t)) then return nil end
+  local k = sellKey(id, link)
+  local e = k and t[k]
+  if e then return e, k end
+  return nil
+end
+
+-- Every copy of one id the player has on them, each handed back as its own key. The worn set is asked
+-- as well: a piece being worn is exactly what a lock deserves.
+local function eachCopy(id, fn)
+  local function at(bag, slot)
+    local info = C_Container.GetContainerItemInfo(bag, slot)
+    if info and info.itemID == id and info.hyperlink then
+      local k = sellKey(id, info.hyperlink)
+      if k then fn(k) end
+    end
+  end
+  for _, bag in ipairs(ns.playerBags or {}) do
+    for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do at(bag, slot) end
+  end
+  if ns.reagentBag then
+    for slot = 1, (C_Container.GetContainerNumSlots(ns.reagentBag) or 0) do at(ns.reagentBag, slot) end
+  end
+  local get, loc = C_Item.GetItemLink, ItemLocation
+  if not (get and loc) then return end
+  for slot = 1, 19 do
+    local l = loc:CreateFromEquipmentSlot(slot)
+    if l and C_Item.DoesItemExist(l) then
+      local link = get(l)
+      if link and ns.ItemStubID(link) == id then
+        local k = sellKey(id, link)
+        if k then fn(k) end
+      end
+    end
+  end
+end
+
+-- A lock folded in from the old store names an id where the carousel wants a copy. It is moved onto
+-- the copies the player actually has, one entry each; one that finds no copy is left for the next
+-- login rather than dropped, because the piece may be in the bank. Nothing is read before the world is
+-- up, and the walk goes through the bags only.
+function Vendor:ResolveMarks()
+  if not FOLDED then self:FoldLocks() end
+  local t = WarpeeDB and WarpeeDB.sellMark
+  if not (t and next(t)) then return end
+  -- A key that is all digits is an id; an exact key always carries its colons.
+  local todo
+  for k, e in pairs(t) do
+    local id = tonumber(k)
+    if id and ns.GearID(id) then
+      todo = todo or {}
+      todo[#todo + 1] = { key = k, e = e, id = id }
+    end
+  end
+  if not todo then return end
+  local changed = false
+  for _, m in ipairs(todo) do
+    local hit = false
+    eachCopy(m.id, function(k)
+      if k ~= m.key then
+        hit = true
+        if not t[k] then t[k] = { n = m.e.n, i = m.e.i, id = m.id, l = m.e.l } end
+      end
+    end)
+    if hit then t[m.key] = nil; changed = true end
+  end
+  if changed then sellRepaint() end
+end
+
+-- An upgrade, a gem or an enchant rewrites the bonus ids and the exact key with them. The game hands
+-- over the link from before and after, so the entry is moved onto the new one instead of being left on
+-- a copy that is no longer there. A key that is a bare id never goes stale, so it is never touched.
+function Vendor:RetargetMarks(prev, new)
+  local t = WarpeeDB and WarpeeDB.sellMark
+  if not (t and next(t)) then return false end
+  local from = ns.ItemKey(prev)
+  local e = from and t[from]
+  if not e then return false end
+  local id = ns.ItemStubID(new)
+  local to = id and sellKey(id, new)
+  if not (to and to ~= from) then return false end
+  t[from] = nil
+  if not t[to] then t[to] = e end
+  return true
+end
+
+-- nil, "mark" or "lock": what the carousel is showing for this item.
+function Vendor:SellState(id, link)
+  local e = self:SellEntry(id, link)
+  if not e then return nil end
+  return e.l and "lock" or "mark"
+end
+
+function Vendor:Locked(id, link)
+  return self:SellState(id, link) == "lock"
+end
+
+-- The carousel itself: nothing -> marked for sale -> locked from sale -> nothing.
+function Vendor:CycleSell(id, link, name, icon)
+  local e, k = self:SellEntry(id, link)
+  k = k or sellKey(id, link)
+  if not k then return end
+  WarpeeDB.sellMark = WarpeeDB.sellMark or {}
+  local t = WarpeeDB.sellMark
+  if not e then
+    t[k] = { n = name, i = icon or ns.PinIcon(id), id = id }
+  elseif e.l then
+    t[k] = nil
+  else
+    e.l = true
+  end
+  sellRepaint()
+end
+
+-- Take marks off by key with one repaint at the end: a batch of sales lands together, and a repaint
+-- per piece would stutter the window the run is working in.
+local function dropMarks(keys)
+  local t = WarpeeDB and WarpeeDB.sellMark
+  if not t then return end
+  local hit = false
+  for _, k in ipairs(keys) do
+    if t[k] then t[k] = nil; hit = true end
+  end
+  if hit then sellRepaint() end
+end
+
+function Vendor:Unmark(key)
+  if key then dropMarks({ key }) end
+end
+
+function Vendor:SellList()
+  local out = {}
+  for k, e in pairs((WarpeeDB and WarpeeDB.sellMark) or {}) do
+    out[#out + 1] = { key = k, name = e.n, icon = e.i, id = e.id, locked = e.l and true or false }
+  end
+  table.sort(out, function(a, b) return tostring(a.name) < tostring(b.name) end)
+  return out
+end
+
+function Vendor:SellCount()
+  local n = 0
+  for _ in pairs((WarpeeDB and WarpeeDB.sellMark) or {}) do n = n + 1 end
+  return n
+end
+
+function Vendor:HasSells()
+  return self:SellCount() > 0
+end
+
+-- Whether a merchant would buy the item at all. A coin on an item no vendor buys stops nothing, so
 -- the alt-click is refused and the tooltip says nothing about it. The container's own flag answers
--- without a cache lookup, which is the whole story for a bag or bank cell; a cell that is not a slot —
--- a pinned one, the pocket, a bank snapshot — falls back to the item's sell price, and stays open to
--- the lock while the client has not cached the item. That is the answer it gave before: refusing on
+-- without a cache lookup, which is the whole story for a bag or bank cell; a cell that is not a slot,
+-- a pinned one, the pocket, a bank snapshot, falls back to the item's sell price, and stays open to
+-- the mark while the client has not cached the item. That is the answer it gave before: refusing on
 -- unknown data would take the hint off a first hover and put it back on the second.
 function Vendor:CanLock(info, item)
   if info then return not info.hasNoValue end
@@ -207,25 +382,15 @@ if type(HandleModifiedItemClick) == "function" then
     if not b then return end
     local id = (C_Item.GetItemInfoInstant(link))
     if not id then return end
-    -- Taking a lock off is never refused, whatever the item is worth: a lock written before the piece
-    -- lost its value has to stay removable, or the player keeps a padlock they cannot take off.
-    if not Vendor:Blocked(id) then
-      local info = C_Container.GetContainerItemInfo(b.wpeBagID, b:GetID())
-      -- A cell that has moved on to another item is not a source of truth about this one.
-      if info and info.itemID ~= id then info = nil end
-      if not Vendor:CanLock(info, link) then return end
-    end
-    Vendor:Toggle(id, link:match("%[(.-)%]") or (C_Item.GetItemInfo(link)))
+    local info = C_Container.GetContainerItemInfo(b.wpeBagID, b:GetID())
+    -- A cell that has moved on to another item is not a source of truth about this one.
+    if info and info.itemID ~= id then info = nil end
+    -- A piece already in the carousel always turns, so a mark comes off whatever happened to it in the
+    -- meantime; a fresh one only turns where the pump could really sell it.
+    if not Vendor:Markable(b.wpeBagID, b:GetID(), id, link) then return end
+    Vendor:CycleSell(id, link, link:match("%[(.-)%]") or (C_Item.GetItemInfo(link)),
+                     info and info.iconFileID)
   end)
-end
-
-function Vendor:BlackList()
-  local out = {}
-  for id, name in pairs(WarpeeDB.vendorBlack or {}) do
-    out[#out + 1] = { id = id, name = name }
-  end
-  table.sort(out, function(a, b) return tostring(a.name) < tostring(b.name) end)
-  return out
 end
 
 local function hasUse(link)
@@ -276,6 +441,56 @@ function Vendor:Ilvl()
   return tonumber(WarpeeDB and WarpeeDB.vendorIlvl) or 0
 end
 
+-- Whether the player's own keep settings are what spares this piece, asked as the settings mean it: all
+-- three are about gear, so junk (which the grey rule takes before they are ever read) and anything above
+-- rare are none of their business. A cell with no container record cannot answer the bound half, so
+-- nothing is claimed for it.
+local function keptBy(info, link)
+  if not (info and link) then return false end
+  local q = info.quality or 9
+  if q < 1 or q > 4 then return false end
+  local _, _, _, _, _, classID = C_Item.GetItemInfoInstant(link)
+  if classID ~= Enum.ItemClass.Armor and classID ~= Enum.ItemClass.Weapon then return false end
+  local keepBoE = not (WarpeeDB and WarpeeDB.vendorKeepBoE == false)
+  local keepWb = not (WarpeeDB and WarpeeDB.vendorKeepWarbound == false)
+  local keepGems = not (WarpeeDB and WarpeeDB.vendorKeepGems == false)
+  local wb = ((keepBoE and not info.isBound) or keepWb) and ns.IsLinkWarbound(link) or false
+  if keepBoE and not info.isBound and not wb then return true end
+  if keepWb and wb then return true end
+  if keepGems and hasGems(link) then return true end
+  return false
+end
+
+-- Whether the pump could ever sell this piece: the hard vetoes Scan keeps never bend to a mark, so the
+-- carousel refuses the first press on such a piece instead of promising a sale the run would skip. A
+-- cell that is not a container slot (a pin, a snapshot) has no purchase record to read, so the two
+-- questions that need the slot are not asked of it.
+function Vendor:Sellable(bag, slot, id, link)
+  local info = bag and C_Container.GetContainerItemInfo(bag, slot)
+  if info and info.itemID ~= id then info = nil end
+  if not self:CanLock(info, link) then return false end
+  if bag and slot and (questItem(bag, slot) or refundable(bag, slot)) then return false end
+  local _, _, _, _, _, classID = C_Item.GetItemInfoInstant(link)
+  if classID == Enum.ItemClass.Battlepet then return false end
+  if banned(id) then return false end
+  return true
+end
+
+-- Whether an alt-click would turn the carousel here: a piece already in it always turns, a fresh one only
+-- where the pump could really sell it and the player's own keep settings do not spare it. The cell, the
+-- pins and the tooltip line all ask this one question, so the promise and the act cannot come apart: the
+-- keep settings refuse the click itself, not only the line that advertised it.
+function Vendor:Markable(bag, slot, id, link, info)
+  if self:SellState(id, link) ~= nil then return true end
+  if not self:Sellable(bag, slot, id, link) then return false end
+  -- The tooltip hands in the record it already read; a click has none, so it reads the cell's own.
+  if not info then
+    info = bag and C_Container.GetContainerItemInfo(bag, slot)
+    if info and info.itemID ~= id then info = nil end
+  end
+  return not keptBy(info, link)
+end
+
 function Vendor:Scan(junkOnly)
   local out, total, kept, locked = {}, 0, 0, 0
   local cap = self:Ilvl()
@@ -298,7 +513,7 @@ function Vendor:Scan(junkOnly)
       if link and not info.isLocked and not info.hasNoValue then
         local q = info.quality or 9
         local _, _, _, equipLoc, _, classID, subID = C_Item.GetItemInfoInstant(link)
-        local take, lvl = false, nil
+        local take, lvl, veto = false, nil, nil
         if grey and q == 0 then
           take = true
         elseif consum and q <= 4 and oldConsumable(link, classID, subID) then
@@ -321,14 +536,21 @@ function Vendor:Scan(junkOnly)
           if take and keepWb and wb then take = false; kept = kept + 1 end
           if take and keepGems and hasGems(link) then take = false; kept = kept + 1 end
         end
-        if take and refundable(bag, slot) then take = false end
-        if take and questItem(bag, slot) then take = false end
-        if STONE[info.itemID] or FUN[info.itemID] or OLDCONSUM[info.itemID] or PROF[info.itemID] or RUNE[info.itemID] then take = false end
-        if classID == Enum.ItemClass.Battlepet then take = false end
-        if take and self:Blocked(info.itemID) then take = false; locked = locked + 1 end
+        if take and refundable(bag, slot) then take = false; veto = true end
+        if take and questItem(bag, slot) then take = false; veto = true end
+        if banned(info.itemID) then take = false; veto = true end
+        if classID == Enum.ItemClass.Battlepet then take = false; veto = true end
+        -- The carousel: a lock means never, whatever the rules above said, and a mark means yes,
+        -- whatever they said -- but the vetoes still hold, so a mark never sells a quest piece, a
+        -- refundable purchase or a stone. A marked piece carries its own store key out with it, so the
+        -- pump can hand that key back once the sale has really gone through.
+        local entry, mkey = self:SellEntry(info.itemID, link)
+        local state = entry and (entry.l and "lock" or "mark") or nil
+        if state == "lock" then take = false; locked = locked + 1; veto = true end
+        if state == "mark" and not veto then take = true end
         if take then
           local value = sellPrice(link) * (info.stackCount or 1)
-          out[#out + 1] = { bag = bag, slot = slot, id = info.itemID, ilvl = lvl,
+          out[#out + 1] = { bag = bag, slot = slot, id = info.itemID, ilvl = lvl, mark = mkey,
                             value = value, name = info.itemName or link:match("%[(.-)%]") }
           total = total + value
         end
@@ -363,6 +585,10 @@ local pump = CreateFrame("Frame")
 pump:Hide()
 local open, run, gen = false, nil, 0
 local MAX_TRIES = 6
+-- The marks a run has handed to the merchant and not accounted for yet, keyed by the slot they went
+-- out of. The mark is an order, not a rule: it comes off when the piece has really left that slot, and
+-- a merchant who refuses it leaves the mark standing for the next pass.
+local pending = {}
 
 function Vendor:IsOpen() return open end
 function Vendor:Busy() return run ~= nil end
@@ -384,11 +610,32 @@ local function finish()
   for _ in pairs(run.dead or {}) do stuck = stuck + 1 end
   run = nil
   pump:Hide()
-  ev:UnregisterEvent("BAG_UPDATE_DELAYED")
+  -- A mark still waiting on a piece that has not landed keeps the watch: the bag update that lands it
+  -- is what takes the mark off, and it can arrive after the run itself is over.
+  if not next(pending) then ev:UnregisterEvent("BAG_UPDATE_DELAYED") end
   if stuck > 0 then
     print("|cffd9a85fWarpee|r |cffffffff" .. ns.LN("%d items could not be sold and stayed in the bags", stuck) .. "|r")
   end
   if open then Vendor:Repair() end
+end
+
+-- Hand back the marks whose piece has really gone. The slot is the witness: one still holding the same
+-- item was refused or has not landed yet, so its mark stands and the next pass tries it again. Tied to
+-- the bag update rather than to a pass, because the landing is what fires it and the run may already
+-- be over by then.
+local function settleMarks()
+  if not next(pending) then return end
+  local gone
+  for k, e in pairs(pending) do
+    local now = C_Container.GetContainerItemInfo(e.bag, e.slot)
+    if not (now and now.itemID == e.id) then
+      gone = gone or {}
+      gone[#gone + 1] = e.mark
+      pending[k] = nil
+    end
+  end
+  if gone then dropMarks(gone) end
+  if not (run or next(pending)) then ev:UnregisterEvent("BAG_UPDATE_DELAYED") end
 end
 
 local function sendOne(it)
@@ -417,6 +664,10 @@ local function sendOne(it)
   if not (now and not now.isLocked and now.itemID == it.id) then return false end
   run.tries[key] = n + 1
   C_Container.UseContainerItem(it.bag, it.slot)
+  if it.mark then
+    pending[key] = { bag = it.bag, slot = it.slot, id = it.id, mark = it.mark }
+    ev:RegisterEvent("BAG_UPDATE_DELAYED")
+  end
   return true
 end
 
@@ -451,6 +702,7 @@ function Vendor:Pass()
   gen = gen + 1
   local mark = gen
   if not open then finish(); return end
+  settleMarks()
   -- Nothing is queued while the call would be refused. A pull that starts mid-sale, an item
   -- held on the cursor or a spell waiting for its target is not this run failing, so the pass
   -- is not counted against the sixty it is allowed and the timer simply comes back. Counting
@@ -515,6 +767,7 @@ end
 ev:RegisterEvent("MERCHANT_SHOW")
 ev:RegisterEvent("MERCHANT_CLOSED")
 pcall(ev.RegisterEvent, ev, "MERCHANT_CONFIRM_TRADE_TIMER_REMOVAL")
+pcall(ev.RegisterEvent, ev, "PLAYER_ENTERING_WORLD")
 ev:SetScript("OnEvent", function(_, event)
   if event == "MERCHANT_SHOW" then
     open = true
@@ -525,16 +778,26 @@ ev:SetScript("OnEvent", function(_, event)
       Vendor:Repair()
       if WarpeeDB and WarpeeDB.vendorAuto then
         Vendor:Sell()
-      elseif WarpeeDB and WarpeeDB.vendorGrey ~= false then
+      elseif (WarpeeDB and WarpeeDB.vendorGrey ~= false) or Vendor:HasSells() then
+        -- The marked pieces are an explicit order, so they start a run even with the gray rule off.
+        -- Asked for alone, a junk run takes just them: the rules are off in that mode, and a mark
+        -- overrides the junk-only filters anyway. A repair-only stall never gets here, since Sell
+        -- itself refuses unless CanBuy.
         Vendor:Sell(true)
       end
     end)
   elseif event == "MERCHANT_CLOSED" then
     open = false
     Vendor.repaired = nil
+    settleMarks()
     finish()
     if ns.Bags then ns.Bags:VendorState() end
+  elseif event == "PLAYER_ENTERING_WORLD" then
+    -- The world is up and the bags read true: the moment the folded-in gear locks can be moved onto
+    -- the copies the player is carrying.
+    Vendor:ResolveMarks()
   elseif event == "BAG_UPDATE_DELAYED" then
+    settleMarks()
     if run and not run.queue then Vendor:Pass() end
   elseif event == "MERCHANT_CONFIRM_TRADE_TIMER_REMOVAL" then
     if run then

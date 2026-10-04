@@ -86,6 +86,10 @@ TABLES.enUS = {
     "%d item could not be sold and stayed in the bags",
     "%d items could not be sold and stayed in the bags",
   },
+  ["%d bound pieces stay in the bags"] = {
+    "%d bound piece stays in the bags",
+    "%d bound pieces stay in the bags",
+  },
 }
 
 ALIAS.enGB = "enUS"

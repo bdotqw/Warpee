@@ -280,10 +280,22 @@ function Fav:RefreshLock(bag, slot)
 end
 
 function Fav:Lock(index)
-  local id = ns.ItemStubID(self:List()[index])
+  local pin = self:List()[index]
+  local id = ns.ItemStubID(pin)
   local V = ns.Vendor
-  if not (id and V and V.Toggle) then return end
-  V:Toggle(id, (C_Item.GetItemInfo(id)) or tostring(id))
+  if not (id and V and V.CycleSell) then return end
+  -- The copy's own link, so a piece of gear is named by its exact string and not by its id: the live
+  -- cell first, then the pin itself when it was kept as one.
+  local b = self.slots[index]
+  local live = b and b.favBag and b.holder:IsShown()
+  local link
+  if live then
+    link = C_Container.GetContainerItemLink(b.favBag, b.favSlot)
+  end
+  if not link and type(pin) == "string" then link = pin end
+  -- The same gate the cell's own alt-click obeys, so this row cannot mark what the bags refuse.
+  if not V:Markable(live and b.favBag, live and b.favSlot, id, link) then return end
+  V:CycleSell(id, link, (link and link:match("%[(.-)%]")) or (C_Item.GetItemInfo(id)) or tostring(id))
   local c = self.catchers[index]
   if c and c:IsShown() and c:IsMouseOver() then tipFor(c, index) end
 end

@@ -383,8 +383,11 @@ local function sectionOpen(key)
   local t = WarpeeDB and WarpeeDB.optSections
   local v = t and t[key]
   if v == nil then
-    if key == "locked" then
-      for _ in pairs(WarpeeDB and WarpeeDB.vendorBlack or {}) do return true end
+    -- Sections that the profile predates: both start closed, since a section nobody has opened yet only
+    -- takes room away. The marked-for-sale one opens itself once there is something in it to show.
+    if key == "badgeorder" then return false end
+    if key == "sellmarks" then
+      for _ in pairs(WarpeeDB and WarpeeDB.sellMark or {}) do return true end
       return false
     end
     -- DEFAULTS.optSections carries every section key and the login path writes them all, so
@@ -1517,13 +1520,13 @@ function factories.chars(parent, spec)
   return row
 end
 
-local BL_ROW_H = 22
+local SL_ROW_H = 22
 
-local function blackRow(row, i)
+local function sellRow(row, i)
   local c = row.items[i]
   if c then return c end
   c = CreateFrame("Frame", nil, row)
-  c:SetHeight(BL_ROW_H)
+  c:SetHeight(SL_ROW_H)
   local ic = c:CreateTexture(nil, "ARTWORK")
   ic:SetSize(16, 16)
   ic:SetPoint("LEFT", 1, 0)
@@ -1531,7 +1534,7 @@ local function blackRow(row, i)
   local x = ns.CreateGlyphButton(c, "×", 18)
   x:SetPoint("RIGHT", -1, 0)
   x:SetScript("OnClick", function()
-    if c.id and ns.Vendor and ns.Vendor:Blocked(c.id) then ns.Vendor:Toggle(c.id) end
+    if c.key and ns.Vendor then ns.Vendor:Unmark(c.key) end
   end)
   c.del = x
   local fs = track(Theme:Label(c, BASE_FONT - 2, "text"), -2)
@@ -1544,7 +1547,7 @@ local function blackRow(row, i)
   return c
 end
 
-function factories.blacklist(parent, spec)
+function factories.selllist(parent, spec)
   local row = CreateFrame("Frame", nil, parent)
   row.items = {}
   row.dynamic = true
@@ -1553,35 +1556,41 @@ function factories.blacklist(parent, spec)
   empty:SetPoint("TOPLEFT")
   empty:SetWidth(CONTENT_W)
   empty:SetJustifyH("LEFT")
-  empty:SetText(L["Alt-click an item in your bags while this tab is open."])
-  ns.LocalText(empty, "Alt-click an item in your bags while this tab is open.")
+  empty:SetText(L["Alt-click an item in your bags to mark it for sale."])
+  ns.LocalText(empty, "Alt-click an item in your bags to mark it for sale.")
   row.empty = empty
   row.Rebuild = function()
-    local list = ns.Vendor and ns.Vendor:BlackList() or {}
+    local list = ns.Vendor and ns.Vendor:SellList() or {}
     local y = 0
     row.empty:SetShown(#list == 0)
     if #list == 0 then
       y = math.ceil(row.empty:GetStringHeight()) + 4
     else
       for i, e in ipairs(list) do
-        local c = blackRow(row, i)
-        c.id = e.id
+        local c = sellRow(row, i)
+        c.key = e.key
         c.Text:SetText(e.name or tostring(e.id))
-        local tex = (select(10, C_Item.GetItemInfo(e.id)))
-        c.icon:SetTexture(tex or "Interface\\Icons\\INV_Misc_QuestionMark")
+        c.icon:SetTexture(e.icon or ns.PinIcon(e.id))
+        -- A locked entry is the one the carousel will not sell; the row says so in red, since the
+        -- lock is the state a sale would silently skip.
+        if e.locked then
+          c.Text:SetTextColor(1, 0.4, 0.4)
+        else
+          c.Text:SetTextColor(Theme:C("text"))
+        end
         c:ClearAllPoints()
         c:SetPoint("TOPLEFT", 0, -y)
         c:SetPoint("TOPRIGHT", 0, -y)
         c:Show()
-        y = y + BL_ROW_H + 2
+        y = y + SL_ROW_H + 2
       end
     end
     for i = #list + 1, #row.items do row.items[i]:Hide() end
-    row:SetHeight(math.max(BL_ROW_H, y))
+    row:SetHeight(math.max(SL_ROW_H, y))
   end
   row.Refresh = row.Rebuild
   row.Rebuild()
-  Options.blackRow = row
+  Options.sellRow = row
   return row
 end
 
@@ -1597,7 +1606,9 @@ function factories.badges(parent, spec)
 
   local mark = CreateFrame("Frame", nil, cell, "BackdropTemplate")
   ns.PixelBackdrop(mark)
-  mark:SetFrameLevel(cell:GetFrameLevel() + 1)
+  -- Above every badge frame in the preview, including the lifted one being edited: the ring has to be
+  -- seen around it.
+  mark:SetFrameLevel(cell:GetFrameLevel() + 20)
   mark:Hide()
 
   local readout = track(Theme:Label(row, BASE_FONT - 1, "accentInk"), -1)
@@ -1606,14 +1617,17 @@ function factories.badges(parent, spec)
   local hint = track(Theme:Label(row, BASE_FONT - 3, "dim"), -3)
   hint:SetJustifyH("LEFT")
 
+  -- The preview keeps its badges in the same per-badge frames the cells use, so the order the list sets
+  -- is what the player sees here too.
   local art, chips = {}, {}
   for _, d in ipairs(ns.BADGES) do
+    local holder = ns.BadgeFrame(cell, d.key)
     if d.tex then
-      local t = cell:CreateTexture(nil, "OVERLAY")
+      local t = holder:CreateTexture(nil, "OVERLAY")
       ns.BadgeArt(t, d.key)
       art[d.key] = t
     else
-      art[d.key] = Theme:Label(cell, BASE_FONT, "overlay")
+      art[d.key] = Theme:Label(holder, BASE_FONT, "overlay")
     end
   end
 
@@ -1690,7 +1704,12 @@ function factories.badges(parent, spec)
         o:SetText(ns.BadgeSample(d.key) or d.key)
         o:SetTextColor(cr, cg, cb, dim)
       end
-      o:SetDrawLayer("OVERLAY", sel and 7 or 5)
+      -- Through the per-badge frame the cells also use, so the order from the list is the order the
+      -- preview shows. The one being edited is lifted over the rest: a badge you cannot see is a badge
+      -- you cannot drag. The stack count keeps the lowest place it has on a cell.
+      local at, n = ns.BadgeOrderAt(d.key)
+      local holder = ns.BadgeFrame(cell, d.key)
+      holder:SetFrameLevel(ns.BadgeLevel(cell, d.key, at, n, sel))
       o:ClearAllPoints()
       o:SetPoint(ns.BadgePoint(g), cell, g.c, (g.x or 0) * f, (g.y or 0) * f)
       o:SetShown(vis)
@@ -1738,8 +1757,9 @@ function factories.badges(parent, spec)
     c:SetScript("OnLeave", paintChip)
     c:SetScript("OnClick", function(s, button)
       local g = ns.Badge(s.wpeKey)
+      -- fixed: the right click that hides the other badges does nothing on the one that cannot go.
       if button == "RightButton" then
-        if g.on then g.on = false; bg.bump() end
+        if g.on and not d.fixed then g.on = false; bg.bump() end
       else
         if not g.on then g.on = true; bg.bump() end
         bg.sel = s.wpeKey
@@ -1797,7 +1817,11 @@ function factories.badges(parent, spec)
 
   local function hit(px, py)
     local first
-    for _, d in ipairs(ns.BADGES) do
+    -- Walked backwards, so of several badges under the cursor the click takes the one drawn over the
+    -- others -- among the unselected ones that is the last one built. The current selection still wins
+    -- outright, so a click on the badge already chosen never moves the choice.
+    for i = #ns.BADGES, 1, -1 do
+      local d = ns.BADGES[i]
       local o = art[d.key]
       if ns.Badge(d.key).on and o:IsShown() then
         local l = (o:GetLeft() or 0) - (cell:GetLeft() or 0)
@@ -1865,6 +1889,208 @@ function factories.badges(parent, spec)
   bg.repaint = paint
   row.Refresh()
   tip(cell, spec.desc)
+  return row
+end
+
+-- The badge order: one line per badge, the top line drawn over the ones below it, moved the same way the
+-- category list moves a row — grab the dots and drag, one accent line marking the slot the drop lands in.
+-- The stack count gets a line of its own at the bottom with no grip: it is the game's own number on the
+-- button, under every frame of ours, so nothing here can lift it over the others.
+function factories.badgeorder(parent, spec)
+  local row = CreateFrame("Frame", nil, parent)
+  row.items = {}
+  row.dynamic = true
+  local LINE_H = 22
+  local dragFrom, grabOff, dragLvl, dropTo
+
+  -- The cursor's height down the list, in the list's own coordinates. nil while the scale is not ready, so
+  -- every caller can bail instead of guessing.
+  local function cursorOff()
+    local scale = row:GetEffectiveScale()
+    if not scale or scale == 0 then return nil end
+    local _, cy = GetCursorPosition()
+    return (row:GetTop() or 0) - (cy / scale)
+  end
+
+  -- The line the held row would be inserted before, read off the float's own middle rather than the bare
+  -- cursor: the float rides at cursor - grabOff, so keying the slot off the cursor aimed half a line away
+  -- from what the eye sees. Past the last movable line the answer is that line plus one, which is the top
+  -- of the fixed count.
+  local function dropSlot()
+    local off = cursorOff()
+    if not off then return nil end
+    local n = #ns.BadgeOrder()
+    local cy = off - (grabOff or 0) + LINE_H / 2
+    for i = 1, n do
+      if cy < (i - 1) * LINE_H + LINE_H / 2 then return i end
+    end
+    return n + 1
+  end
+
+  -- The line marking the slot, on its own thin frame lifted above the lines: they are child frames, so a
+  -- texture on the parent would draw under them and vanish on a line's own edge.
+  local function dropMark()
+    local m = row.dropMark
+    if m then return m end
+    local f = CreateFrame("Frame", nil, row)
+    f:SetHeight(2)
+    f:SetFrameLevel(row:GetFrameLevel() + 30)
+    local line = Theme:Rect(f, "accent", "OVERLAY")
+    line:SetAllPoints(f)
+    f:Hide()
+    row.dropMark = f
+    return f
+  end
+
+  local function onDragUpdate()
+    local off = cursorOff()
+    if not off then return end
+    local fr = dragFrom and row.items[dragFrom]
+    if fr then
+      local fy = off - (grabOff or 0)
+      local maxY = math.max(0, #ns.BadgeOrder() * LINE_H - LINE_H)
+      if fy < 0 then fy = 0 elseif fy > maxY then fy = maxY end
+      fr:ClearAllPoints()
+      fr:SetPoint("TOPLEFT", 0, -fy)
+      fr:SetPoint("TOPRIGHT", 0, -fy)
+    end
+    dropTo = dropSlot()
+    -- A line's own place takes no marker: a drop there moves nothing, and both edges of that place are the
+    -- same non-move, so the line would read as two different targets on a line already where it would land.
+    if dragFrom and (dropTo == dragFrom or dropTo == dragFrom + 1) then dropTo = nil end
+    local m = dropMark()
+    if dropTo then
+      local y = -(dropTo - 1) * LINE_H
+      m:ClearAllPoints()
+      m:SetPoint("TOPLEFT", 0, y)
+      m:SetPoint("TOPRIGHT", 0, y)
+      m:Show()
+    else
+      m:Hide()
+    end
+  end
+
+  local function startDrag(i)
+    dragFrom = i
+    row.dragging = i
+    local off = cursorOff()
+    grabOff = off and (off - (i - 1) * LINE_H) or (LINE_H / 2)
+    -- Lifted so the held line reads as picked up and is not drawn under the lines it passes. Put back on
+    -- drop, since the rebuild does not touch a line's level.
+    local fr = row.items[i]
+    if fr then
+      dragLvl = fr:GetFrameLevel()
+      fr:SetFrameLevel(row:GetFrameLevel() + 20)
+    end
+    row:SetScript("OnUpdate", onDragUpdate)
+  end
+
+  local function stopDrag()
+    row:SetScript("OnUpdate", nil)
+    row.dragging = nil
+    if row.dropMark then row.dropMark:Hide() end
+    local from = dragFrom
+    local fr = from and row.items[from]
+    if fr and dragLvl then fr:SetFrameLevel(dragLvl) end
+    dragFrom, dragLvl, dropTo = nil, nil, nil
+    if not from then return end
+    local slot = dropSlot()
+    -- Back on its own place is not a move: rebuild to put the float back and leave the order alone, rather
+    -- than writing the same list and re-dressing every cell for a drag that changed nothing.
+    if not slot or slot == from or slot == from + 1 then row.Rebuild(); return end
+    -- One move of one line, to the slot the marker showed. The count is not in this list, so it stays.
+    local order = ns.BadgeOrder()
+    local v = table.remove(order, from)
+    if v then table.insert(order, slot > from and slot - 1 or slot, v) end
+    WarpeeDB.badgeOrder = order
+    -- The cells keep their frames; only the level each one draws at moves, so this is the same re-dress a
+    -- font or theme change takes, and the preview beside it follows the new order.
+    ns.BadgeOrderBump()
+    bg.bump()
+    row.Rebuild()
+  end
+
+  -- The grip: six dots in two columns, the glyph the category list uses for this same gesture, which a
+  -- player already reads as "grab and drag this". One gesture for one action: no arrows beside it.
+  local function makeGrip(c)
+    local b = CreateFrame("Button", nil, c)
+    ns.SnapBox(b, 12, LINE_H, true)
+    b.dots = {}
+    for k = 1, 6 do
+      local d = b:CreateTexture(nil, "ARTWORK")
+      d:SetColorTexture(Theme:C("dim"))
+      ns.SnapSize(d, 2, 2)
+      local col = (k - 1) % 2
+      local rowk = math.floor((k - 1) / 2)
+      d:SetPoint("CENTER", b, "CENTER", col == 0 and -2 or 2, (rowk - 1) * 4 + 2)
+      b.dots[k] = d
+    end
+    local function paint(key)
+      for _, d in ipairs(b.dots) do d:SetColorTexture(Theme:C(key)) end
+    end
+    Theme:Track(b, function() paint("dim") end)
+    b:SetScript("OnEnter", function()
+      paint("accent")
+      GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+      GameTooltip:SetText(ns.L["Drag to reorder"], 1, 1, 1)
+      GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() paint("dim"); GameTooltip:Hide() end)
+    b:RegisterForDrag("LeftButton")
+    b:SetScript("OnDragStart", function() startDrag(c.wpeAt) end)
+    b:SetScript("OnDragStop", stopDrag)
+    return b
+  end
+
+  local function line(i, key, fixed)
+    local r = row.items[i]
+    if not r then
+      r = CreateFrame("Frame", nil, row)
+      r:SetHeight(LINE_H)
+      -- The colour key is fixed when the line is built, because the theme tracker owns it from then on:
+      -- a line is either one of the ordered badges or the fixed count, never both.
+      r.name = track(Theme:Label(r, BASE_FONT - 1, fixed and "faint" or "text"), -1)
+      r.name:SetJustifyH("LEFT")
+      r.grip = makeGrip(r)
+      ns.SnapPoint(r.grip, "LEFT", r, "LEFT", 1, 0)
+      ns.SnapPoint(r.name, "LEFT", r.grip, "RIGHT", 8, 0)
+      row.items[i] = r
+    end
+    local d = ns.BADGE[key] or {}
+    r.wpeKey = key
+    -- What the drag reads: nil on the count, which is not in the list at all.
+    r.wpeAt = fixed and nil or i
+    r.name:SetText(T(d.n or key))
+    ns.LocalText(r.name, d.n or key)
+    r.grip:SetShown(not fixed)
+    return r
+  end
+
+  row.Rebuild = function()
+    local order = ns.BadgeOrder()
+    local n = #order
+    for i = 1, n do
+      local r = line(i, order[i], false)
+      -- The held line is placed by the drag pass while it is in the air; the next rebuild puts it back.
+      if row.dragging ~= i then
+        r:ClearAllPoints()
+        r:SetPoint("TOPLEFT", 0, -((i - 1) * LINE_H))
+        r:SetPoint("TOPRIGHT", 0, -((i - 1) * LINE_H))
+      end
+      r:Show()
+    end
+    -- The count is the one badge nobody orders: the game's own string on the button, under every frame of
+    -- ours, so its line stands last and carries no grip.
+    local c = line(n + 1, "count", true)
+    c:ClearAllPoints()
+    c:SetPoint("TOPLEFT", 0, -(n * LINE_H))
+    c:SetPoint("TOPRIGHT", 0, -(n * LINE_H))
+    c:Show()
+    for i = n + 2, #row.items do row.items[i]:Hide() end
+    row:SetHeight((n + 1) * LINE_H)
+  end
+  row.Refresh = row.Rebuild
+  row.Rebuild()
   return row
 end
 
@@ -3298,6 +3524,9 @@ function factories.catlist(parent, spec)
   local function onDragUpdate()
     dragScroll()
     dropTo = dropSlot()
+    -- The held row's own place takes no line: a drop there moves nothing, and both of its edges are that
+    -- one non-move, so the marker would read as two targets on a row already where it would land.
+    if dragFrom and (dropTo == dragFrom or dropTo == dragFrom + 1) then dropTo = nil end
     local m = dropMark()
     local my = markY(dropTo)
     if my then
@@ -3356,7 +3585,9 @@ function factories.catlist(parent, spec)
     -- the line showed, a category that passes another takes its priority, and a marker that passes
     -- anything only reshapes which run of categories is a band. Nothing needs re-sorting afterwards.
     local slot = dropSlot()
-    if slot then
+    -- Own place again: reflow to put the float back and leave the list alone, instead of taking the same
+    -- act to write an order that did not change.
+    if slot and slot ~= from and slot ~= from + 1 then
       act(function() Cats:Reorder(from, slot) end)
     else
       Options:ReflowPages()
@@ -5118,15 +5349,10 @@ local ITEMS_PAGE = {
   { type = "range", name = "Letters", min = 2, max = 8, step = 1, section = "badges",
     get = bg.kGet, set = bg.kSet, hidden = bg.notFit,
     desc = "How many letters of the set name to show." },
-  { type = "header", name = "Locked items", key = "locked",
-    state = function()
-      local n = 0
-      for _ in pairs(WarpeeDB.vendorBlack or {}) do n = n + 1 end
-      return ns.LN("%d items", n)
-    end },
-  { type = "description", section = "locked",
-    name = "Alt-click an item to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Works in the bags, the bank, the favorites row and the pocket. Alt-click again, or the cross here, to unlock." },
-  { type = "blacklist", section = "locked" },
+  { type = "header", name = "Badge order", key = "badgeorder" },
+  { type = "description", section = "badgeorder",
+    name = "The badge at the top of the list draws over the ones below it. The stack count always stays at the bottom." },
+  { type = "badgeorder", section = "badgeorder" },
 }
 
 local GRID_PAGE = {
@@ -5400,6 +5626,11 @@ local VENDOR_PAGE = {
     desc = "Skip warbound gear, since an alt can still use it." },
   { type = "toggle", name = "Keep socketed or enchanted", col = 1, get = V.gemGet, set = V.gemSet,
     desc = "Skip any piece with a gem socketed or an enchant applied." },
+  { type = "header", name = "Marked for sale", key = "sellmarks",
+    state = function() return ns.LN("%d items", (ns.Vendor and ns.Vendor:SellCount()) or 0) end },
+  { type = "description", section = "sellmarks",
+    name = "ALT-click an item to mark it for sale: a coin appears, and it is sold at the next merchant who buys wares. A second click locks it from sale, a third clears it. Works in the bags, the bank, the favorites row and the pocket." },
+  { type = "selllist", section = "sellmarks" },
 }
 
 do

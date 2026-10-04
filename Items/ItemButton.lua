@@ -155,6 +155,32 @@ function ringWidth(b)
   b.iT:SetHeight(px); b.iB:SetHeight(px)
   b.iL:SetWidth(px);  b.iR:SetWidth(px)
 end
+-- Every badge the player can put in an order gets a frame of its own to live in. The region inside keeps
+-- its size, point and layer untouched; only the frame's level moves, because the level is the one
+-- ordering that holds between a word and a picture and no setting can get it wrong. The stack count has
+-- no frame: it is the game's own string on the button, under every frame of ours already. The badge panel
+-- keeps its preview in the same frames, so the cell and the preview cannot disagree.
+function ns.BadgeFrame(b, key)
+  b.wpeBadgeFrame = b.wpeBadgeFrame or {}
+  local f = b.wpeBadgeFrame[key]
+  if not f then
+    f = CreateFrame("Frame", nil, b)
+    b.wpeBadgeFrame[key] = f
+  end
+  return f
+end
+
+-- Where a badge's frame sits inside its owner: the count lowest of all, the ordered five above it, and
+-- the one the panel is editing on top of every other, since a badge you cannot see is a badge you cannot
+-- drag. `n` is the length of the order, `at` the badge's place in it (1 = top of the list). On a cell the
+-- whole run stays under the border frame twenty levels up, where the quest mark and the cooldown digits
+-- live, so nothing there has to move for this.
+function ns.BadgeLevel(owner, key, at, n, lifted)
+  if lifted then return owner:GetFrameLevel() + 10 end
+  if not at then return owner:GetFrameLevel() + 1 end
+  return owner:GetFrameLevel() + 2 + ((n or at) - at)
+end
+
 local function attachBorder(b)
   local bf = CreateFrame("Frame", nil, b)
   bf:SetAllPoints(b)
@@ -168,17 +194,17 @@ local function attachBorder(b)
   b.bB = borderLine(rf, 2, "ARTWORK"); b.bB:SetPoint("BOTTOMLEFT"); b.bB:SetPoint("BOTTOMRIGHT"); ns.PixelLine(b.bB, 1)
   b.bL = borderLine(rf, 2, "ARTWORK"); b.bL:SetPoint("TOPLEFT");    b.bL:SetPoint("BOTTOMLEFT");  ns.PixelLine(b.bL, 1, "w")
   b.bR = borderLine(rf, 2, "ARTWORK"); b.bR:SetPoint("TOPRIGHT");   b.bR:SetPoint("BOTTOMRIGHT"); ns.PixelLine(b.bR, 1, "w")
-  b.ilvl = bf:CreateFontString(nil, "OVERLAY")
+  b.ilvl = ns.BadgeFrame(b, "ilvl"):CreateFontString(nil, "OVERLAY")
   b.ilvl:SetDrawLayer("OVERLAY", 6)
   b.ilvl:SetFontObject(ns.Fonts:Object(12, ns.OutlineFlags()))
   b.ilvl:SetPoint("TOPLEFT", 3, -3)
   b.ilvl:SetTextColor(Theme:C("overlay"))
-  b.bind = bf:CreateFontString(nil, "OVERLAY")
+  b.bind = ns.BadgeFrame(b, "bind"):CreateFontString(nil, "OVERLAY")
   b.bind:SetDrawLayer("OVERLAY", 6)
   b.bind:SetFontObject(ns.Fonts:Object(12, ns.OutlineFlags()))
   b.bind:SetPoint("TOPLEFT", 2, -2)
   b.bind:SetTextColor(Theme:C("azure"))
-  b.outfit = bf:CreateFontString(nil, "OVERLAY")
+  b.outfit = ns.BadgeFrame(b, "outfit"):CreateFontString(nil, "OVERLAY")
   b.outfit:SetDrawLayer("OVERLAY", 6)
   b.outfit:SetFontObject(ns.Fonts:Object(11, ns.OutlineFlags()))
   b.outfit:SetPoint("BOTTOMLEFT", 2, 2)
@@ -368,8 +394,11 @@ local function clearOverlays(b)
   if b.bind then b.bind:SetText("") end
   if b.outfit then b.outfit:SetText("") end
   if b.junk then b.junk:Hide() end
-  if b.blocked then b.blocked:Hide() end
+  if b.sell then b.sell:Hide() end
+  if b.sellBg then b.sellBg:Hide() end
   b.wpeLocked = nil
+  b.wpeSell = nil
+  b.wpeSellArt = nil
 end
 local muted = setmetatable({}, { __mode = "k" })
 
@@ -489,8 +518,11 @@ function ns.SetSlotHighlight(b, on)
     return
   end
   if not b.hl then
-    if not b.borderFrame then return end
-    b.hl = b.borderFrame:CreateTexture(nil, "ARTWORK")
+    if not b.ringFrame then return end
+    -- On the ring frame, above the border lines and the rarity ring it has always covered, and under
+    -- every badge frame: the badges live on frames of their own now, and a highlight twenty levels up
+    -- would wash them instead of the cell.
+    b.hl = b.ringFrame:CreateTexture(nil, "ARTWORK", nil, 6)
     b.hl:SetAllPoints(b)
   end
   local a = Theme.colors.accent
@@ -678,18 +710,20 @@ local BADGES = {
   { key = "count",  n = "Stack count", p = "1000", c = "BOTTOMRIGHT", x = 0,  y = 0,  s = 13,
     a = "right", m = 8, ref = DEFAULT_CELL,
     t = "How many items the stack holds." },
-  { key = "bind",   n = "Binding",     p = "BoE",  c = "TOPLEFT",     x = 17, y = -2, s = 12,
+  { key = "bind",   n = "Binding",     p = "BoE",  c = "TOPLEFT",     x = 14, y = -2, s = 10,
     a = "center", m = 8, ref = DEFAULT_CELL,
     t = "BoE while unbound, WuE for warbound until equipped, BoA for account bound." },
   { key = "outfit", n = "Gear set",    p = "Myth", c = "TOPLEFT",     x = 2,  y = -2, s = 10,
     k = 4, a = "left", m = 8, ref = DEFAULT_CELL,
     t = "The equipment set the item belongs to, cut to a few letters." },
   { key = "junk",    n = "Junk coin",   tex = true,
-    c = "TOPLEFT",  x =  1, y = -1, s = 0.42, m = 8,
+    c = "TOPRIGHT", x = -1, y = -1, s = 0.4, m = 8,
     t = "A coin on gray junk items." },
-  { key = "blocked", n = "Vendor lock", tex = true,
-    c = "TOPRIGHT", x = -1, y = -1, s = 0.60, m = 12,
-    t = "A padlock on the items you locked." },
+  -- The coin and the padlock are two states of one carousel and never share a cell, so they share one
+  -- badge row. fixed: the badge is the only sign an alt-click landed, so the panel cannot hide it.
+  { key = "sell",    n = "Sale mark", tex = true, fixed = true,
+    c = "TOPRIGHT", x = -1, y = -1, s = 0.4, m = 10,
+    t = "A coin on the items you marked for sale." },
 }
 local BADGE = {}
 for _, d in ipairs(BADGES) do BADGE[d.key] = d end
@@ -702,6 +736,41 @@ local ALIGN_POINT = {
   TOP    = { left = "TOPLEFT",    center = "TOP",    right = "TOPRIGHT" },
   BOTTOM = { left = "BOTTOMLEFT", center = "BOTTOM", right = "BOTTOMRIGHT" },
 }
+
+-- The order the badges the player can edit draw in, the first being over the rest. The stack count is
+-- not in it: it is the game's own string on the button, under every frame of ours, and putting it in the
+-- order would mean drawing a number of our own.
+ns.BADGE_ORDER = { "sell", "junk", "outfit", "bind", "ilvl" }
+local ORDER_SET = {}
+for _, k in ipairs(ns.BADGE_ORDER) do ORDER_SET[k] = true end
+
+-- The player's order, normalized: keys that are no longer badges dropped, anything missing appended in the
+-- shipped order, so a profile written before a badge existed still answers for every one of them. Always a
+-- fresh list, since the caller that reorders writes into it and the shipped order is not the player's.
+function ns.BadgeOrder()
+  local t = WarpeeDB and WarpeeDB.badgeOrder
+  local out, seen = {}, {}
+  if type(t) == "table" then
+    for _, k in ipairs(t) do
+      if ORDER_SET[k] and not seen[k] then seen[k] = true; out[#out + 1] = k end
+    end
+  end
+  for _, k in ipairs(ns.BADGE_ORDER) do if not seen[k] then out[#out + 1] = k end end
+  return out
+end
+
+-- Read once and kept, because the paint path asks it per badge per cell and the walk allocates. Bumped
+-- wherever the order is written or the profile changes.
+local ORDER, ORDER_AT
+function ns.BadgeOrderBump() ORDER, ORDER_AT = nil, nil end
+function ns.BadgeOrderAt(key)
+  if not ORDER then
+    ORDER = ns.BadgeOrder()
+    ORDER_AT = {}
+    for i, k in ipairs(ORDER) do ORDER_AT[k] = i end
+  end
+  return ORDER_AT[key], #ORDER
+end
 
 function ns.BadgePoint(g)
   local c = g.c or "TOPLEFT"
@@ -763,8 +832,12 @@ function ns.BadgeMigrate(db, t)
 end
 
 function ns.Badge(key)
+  local d = BADGE[key]
   local t = ns.Bags and ns.Bags.badge
-  return (t and t[key]) or BADGE[key]
+  local g = (t and t[key]) or d
+  -- fixed: a profile still carrying "off" for the sale badge is overruled on every read.
+  if d and d.fixed and not g.on then g.on = true end
+  return g
 end
 
 -- The cell a badge's numbers were written for. Asked twice in a row it answers the same
@@ -848,10 +921,31 @@ function ns.ApplyBadge(b, key)
     k = ns.BadgeScale(cell, key, g)
     ns.SetOutlined(o, ns.BadgeSize(key, cell, g))
   end
+  local px = math.floor((g.x or 0) * k + 0.5)
+  local py = math.floor((g.y or 0) * k + 0.5)
   o:ClearAllPoints()
-  o:SetPoint(ns.BadgePoint(g), b, g.c,
-             math.floor((g.x or 0) * k + 0.5), math.floor((g.y or 0) * k + 0.5))
+  o:SetPoint(ns.BadgePoint(g), b, g.c, px, py)
   o:SetAlpha(g.on and ns.SearchBadgeAlpha(b) or 0)
+  -- The sale badge's outline: a black copy of its own art a pixel proud of it on every side, so the
+  -- coin and the padlock both hold an edge over a bright icon. A texture cannot be a parent, so the
+  -- copy is placed off the badge's centre instead, and its pad is capped by the badge's own offset:
+  -- the outline is never drawn past the cell the badge sits in.
+  local bg = (key == "sell") and b.sellBg
+  if bg then
+    local w, h = o:GetWidth(), o:GetHeight()
+    local pad = math.min(math.max(1, math.floor(w * 0.06 + 0.5)), math.abs(px), math.abs(py))
+    bg:SetSize(w + pad * 2, h + pad * 2)
+    bg:ClearAllPoints()
+    bg:SetPoint("CENTER", o, "CENTER", 0, 0)
+    bg:SetAlpha(o:GetAlpha())
+  end
+  -- The player's order, carried as a frame level: 20 frames up is the border frame, where the quest mark
+  -- and the cooldown digits live, so the whole order stays under them and nothing there has to move.
+  local holder = b.wpeBadgeFrame and b.wpeBadgeFrame[key]
+  if holder then
+    local at, n = ns.BadgeOrderAt(key)
+    holder:SetFrameLevel(ns.BadgeLevel(b, key, at, n))
+  end
 end
 
 -- A window that lands on a new cell size has to ask for a re-dress, because the badges are
@@ -1117,13 +1211,17 @@ function ns.BadgeArt(t, key)
     else
       t:SetTexture("Interface\\MoneyFrame\\UI-GoldIcon")
     end
-  elseif key == "blocked" then
+  elseif key == "lock" then
     if C_Texture and C_Texture.GetAtlasInfo then
       for _, a in ipairs(LOCK_ATLAS) do
         if C_Texture.GetAtlasInfo(a) then t:SetAtlas(a); return end
       end
     end
     t:SetTexture("Interface\\PetBattles\\PetBattle-LockIcon")
+  elseif key == "sell" then
+    -- The same coin the sell button in the bags header wears, so one look says both "this is about
+    -- selling" and "this is the same trade".
+    t:SetTexture("Interface\\MoneyFrame\\UI-GoldIcon")
   end
 end
 
@@ -1285,7 +1383,7 @@ function ns.MarkJunk(b, quality)
   end
   if not b.junk then
     if not b.borderFrame then return end
-    b.junk = b.borderFrame:CreateTexture(nil, "OVERLAY", nil, 5)
+    b.junk = ns.BadgeFrame(b, "junk"):CreateTexture(nil, "OVERLAY", nil, 5)
     ns.BadgeArt(b.junk, "junk")
   end
   ns.ApplyBadge(b, "junk")
@@ -1311,21 +1409,38 @@ function ns.LockClicks(b)
   if b then lockClicks(b, b.wpeLocked) end
 end
 
-function ns.MarkBlocked(b, itemID)
-  local on = (itemID and ns.Vendor and ns.Vendor:Blocked(itemID)) and true or false
-  b.wpeLocked = on or nil
-  lockClicks(b, on)
-  if not (on and ns.Badge("blocked").on) then
-    if b.blocked then b.blocked:Hide() end
+-- The sale carousel on the cell: alt-click marks, alt-click again locks, a third clears it
+-- (Features/Vendor.lua keeps the store). The lock state also stops the cell's clicks at a merchant.
+function ns.MarkSell(b, itemID, link)
+  local V = ns.Vendor
+  local state = (itemID and V and V.SellState) and V:SellState(itemID, link) or nil
+  b.wpeSell = state or nil
+  b.wpeLocked = (state == "lock") or nil
+  ns.LockClicks(b)
+  if not (state and ns.Badge("sell").on) then
+    if b.sell then b.sell:Hide() end
+    if b.sellBg then b.sellBg:Hide() end
     return
   end
-  if not b.blocked then
+  if not b.sell then
     if not b.borderFrame then return end
-    b.blocked = b.borderFrame:CreateTexture(nil, "OVERLAY", nil, 6)
-    ns.BadgeArt(b.blocked, "blocked")
+    -- Both textures ride one frame, so the outline and the coin share the badge's place in the order.
+    local f = ns.BadgeFrame(b, "sell")
+    -- The outline under the coin: the same art, painted black, one sublayer down and a pixel larger.
+    b.sellBg = f:CreateTexture(nil, "OVERLAY", nil, 4)
+    b.sellBg:SetVertexColor(0, 0, 0, 1)
+    b.sell = f:CreateTexture(nil, "OVERLAY", nil, 6)
   end
-  ns.ApplyBadge(b, "blocked")
-  b.blocked:Show()
+  -- Handed over only when it changes: a repaint must not re-set a texture the cell already wears.
+  local art = (state == "lock") and "lock" or "sell"
+  if b.wpeSellArt ~= art then
+    b.wpeSellArt = art
+    ns.BadgeArt(b.sell, art)
+    ns.BadgeArt(b.sellBg, art)
+  end
+  ns.ApplyBadge(b, "sell")
+  b.sell:Show()
+  b.sellBg:Show()
 end
 
 local function slotLoc(b, bag, slot)
@@ -1514,7 +1629,7 @@ function ns.UpdateItemButton(b)
   ns.MarkQuestItem(b, qi and qi.questID, qi and qi.isActive)
   ns.MarkNewItem(b, bagID, slot, info and info.quality)
   ns.MarkJunk(b, info and info.quality)
-  ns.MarkBlocked(b, info and info.itemID)
+  ns.MarkSell(b, info and info.itemID, hl)
   -- The game locks a slot the instant a move is issued and unlocks it when it lands; a locked cell greys,
   -- the same read Blizzard's own bags show. Stashed on the cell (wpeItemLocked) because ApplySearchToButton
   -- runs right after every layout and sets desaturation from the search miss alone: without the piece here
@@ -1644,7 +1759,7 @@ function ns.PaintVaultButton(b, d, bagID, forceCount)
     ns.FitOverlays(b)
     ns.MarkQuestItem(b)
     ns.MarkJunk(b, q)
-    ns.MarkBlocked(b, (C_Item.GetItemInfoInstant(link)))
+    ns.MarkSell(b, (C_Item.GetItemInfoInstant(link)), link)
     -- A record written before the flag existed carries no w, and reading that as "not
     -- warbound until equipped" is what turns such a piece into a green BoE badge. The strict
     -- question is asked instead: warbound on the link and not plain account binding. Only the
@@ -1756,7 +1871,8 @@ function ns.ApplySearchToButton(b, filters, blocked)
   paintBadgeAlpha(b, b.bind, "bind")
   paintBadgeAlpha(b, b.outfit, "outfit")
   paintBadgeAlpha(b, b.junk, "junk")
-  paintBadgeAlpha(b, b.blocked, "blocked")
+  paintBadgeAlpha(b, b.sell, "sell")
+  paintBadgeAlpha(b, b.sellBg, "sell")
   paintBadgeAlpha(b, questTex(b))
   paintBadgeAlpha(b, b.wpeTier)
   paintBadgeAlpha(b, b.NewItemTexture)

@@ -135,6 +135,45 @@ function ns.DepositBlocked(b)
   return ok and allowed == false
 end
 
+-- Can the bank that is open take this slot? The character bank takes anything; the account bank
+-- refuses what is bound to this character, and that refusal is the one thing that ever leaves a
+-- matched piece behind. Asked through the item's own location, the same question bankDepositMove asks
+-- before it sends, so a count and a run never disagree. True whenever the client cannot answer: a
+-- piece is only left out of a transfer when the refusal is certain.
+function ns.BankTakes(bag, slot)
+  local bt = ns.Bank.depositType
+  local acct = Enum and Enum.BankType and Enum.BankType.Account
+  if not (bt and acct and bt == acct) then return true end
+  if not (ItemLocation and C_Bank and C_Bank.IsItemAllowedInBankType) then return true end
+  local loc = ItemLocation:CreateFromBagAndSlot(bag, slot)
+  if not (loc and loc:IsValid()) then return true end
+  local ok, allowed = pcall(C_Bank.IsItemAllowedInBankType, bt, loc)
+  if not ok then return true end
+  return allowed ~= false
+end
+
+-- How many pieces the open bank can still take: free slots that are not mid-rewrite. A target with a
+-- move in flight reads locked, and sending into it is what drops moves, so it is not offered. nil while
+-- no banker is open, which reads as "nothing to say about room" rather than "no room".
+function ns.BankRoom()
+  local bt = ns.Bank.depositType
+  if not bt then return nil end
+  local acct = Enum and Enum.BankType and Enum.BankType.Account
+  local bags = tabBags((bt == acct) and "warband" or "bank")
+  if not bags then return nil end
+  local n = 0
+  for _, tab in ipairs(bags) do
+    local num = C_Container.GetContainerNumSlots(tab) or 0
+    for s = 1, num do
+      local info = C_Container.GetContainerItemInfo(tab, s)
+      if not (info and (info.hyperlink or info.itemID)) and not (info and info.isLocked) then
+        n = n + 1
+      end
+    end
+  end
+  return n
+end
+
 -- Deposit one bag slot into the active bank as a plain slot move, not a right-click "use". `alloc` is the
 -- caller's per-transfer set of bank slots already claimed by moves still in flight (keyed bag*1000+slot),
 -- so a burst of moves does not all target the same empty slot before any has landed. Returns the target
@@ -386,11 +425,8 @@ function View:Build()
     self.query = (text or ""):lower()
     self.filters = ns.ParseSearch(self.query)
     self:ApplySearch()
-    -- In grouped mode a query decides which sections fold, and that is a re-Plan, not just a per-button
-    -- dim. Debounced like the bags (Bags:ScheduleCatFold): a full re-Plan per keystroke re-buckets the
-    -- whole bank and jumps the layout as prefixes match then drop, so it waits out a short quiet after
-    -- the last key. The per-button dim above stays instant.
-    if self:CatMode() then self:ScheduleCatFold() end
+    -- Grouped mode is not narrowed by the query either: the sections stay where the player put them and
+    -- only the misses dim, so the per-button dim above is the whole of what a keystroke does.
     ns.MirrorSearch("bank", text)
   end)
   search:SetPoint("LEFT", wbTab, "RIGHT", 12, 0)
@@ -398,6 +434,17 @@ function View:Build()
   search:SetPoint("TOP", f, "TOP", 0, -5)
   search:SetHeight(22)
   self.search = search
+
+  -- Transfer: the query is the filter, so one click sends every hit back into the bags. The same pump
+  -- the category right click runs; from this side the account bank is the source, so its runs get the
+  -- slower per-move pace (Cats:MoveSlots reads the warband flag it is handed). It stands while the
+  -- banker is open, naming the destination until the search has something to move.
+  local tx = ns.CreateButton(f, nil, 96, 22)
+  tx:Hide()
+  tx:SetScript("OnClick", function() self:TransferNow() end)
+  ns.AddTip(tx, function() return self:TransferHead() end, "top",
+    function() return self:TransferHint() end)
+  self.txBtn = tx
 
   self:BuildCharPicker()
   self:AnchorSearch()
@@ -589,21 +636,33 @@ function View:AnchorHeader()
   Theme:HeaderBand(self.frame, HBAND)
   self:UpdateTabs()
   self:AnchorSearch()
+  -- Every layout arms the transfer chip, so the button follows a banker opened before this window was
+  -- ever laid out, a tab switch, and a snapshot swap, without waiting for a keystroke.
+  self:ArmTransfer()
 end
 
 function View:AnchorSearch()
   if not self.search then return end
-  local b = self.charBtn
+  local tx, b = self.txBtn, self.charBtn
   local row = 34 + Theme:TopInset()
-  self.search:ClearAllPoints()
-  self.search:SetPoint("TOPLEFT", self.frame, "TOPLEFT", PAD, -row)
+  -- Right to left: the character picker takes the edge while it stands, then the transfer chip, then
+  -- the search box, each one claiming its place only while it is shown.
+  local prev
   if b and b:IsShown() then
     b:ClearAllPoints()
     b:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row)
-    self.search:SetPoint("TOPRIGHT", b, "TOPLEFT", -6, 0)
-  else
-    self.search:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row)
+    prev = b
   end
+  if tx and tx:IsShown() then
+    tx:ClearAllPoints()
+    if prev then tx:SetPoint("TOPRIGHT", prev, "TOPLEFT", -6, 0)
+    else tx:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row) end
+    prev = tx
+  end
+  self.search:ClearAllPoints()
+  self.search:SetPoint("TOPLEFT", self.frame, "TOPLEFT", PAD, -row)
+  if prev then self.search:SetPoint("TOPRIGHT", prev, "TOPLEFT", -6, 0)
+  else self.search:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row) end
 end
 
 function View:UpdateCharBtn()
@@ -1292,16 +1351,17 @@ end
 -- stack down the window. It reuses the plan array and the pooled labels exactly like the tab layout,
 -- so Run/Resize downstream are unchanged; only the geometry and the captions differ. Cells carry the
 -- real bag and slot, so paint, search and the secure click are untouched. Returns the same tuple Plan
--- does. Only a group band folds, and a search draws its hits alone.
+-- does. Only a group band folds, and a search moves nothing: it dims the cells it did not match.
 function View:PlanCats(st, size, cols, gap)
   local step = stepFor(size, gap)
   local plan = st.plan
   -- While the banker is open and live, hand the bucketer last pass's slot memory so a deposit (into the
   -- bank) or a withdrawal (out of it) holds the emptied cell as an inert hole instead of reflowing the
-  -- grouped view under the cursor, and a returning piece drops back into its own hole. A search compacts,
-  -- and a snapshot has no live container, so neither holds. Recaptured from this pass's buckets below.
-  local hold = (not self.snap) and self.bankerOpen and (self.query or "") == "" and ns.SplitWindowOpen()
-  local buckets, used, total = ns.Categories:BankBuckets(st.mode, self.snap, self.filters,
+  -- grouped view under the cursor, and a returning piece drops back into its own hole. A query holds too,
+  -- since it dims and moves nothing; only a snapshot compacts, having no live container. Recaptured from
+  -- this pass's buckets below.
+  local hold = (not self.snap) and self.bankerOpen and ns.SplitWindowOpen()
+  local buckets, used, total = ns.Categories:BankBuckets(st.mode, self.snap,
     self:CatBags(st.mode), hold and (st.catMemory or ns.Categories.EMPTY_MEMORY) or nil)
   if hold then
     -- The holes this pass drew are kept in the memory, or the piece coming back would have nothing to
@@ -1310,7 +1370,6 @@ function View:PlanCats(st, size, cols, gap)
   else
     st.catMemory = nil
   end
-  local searching = (self.query or "") ~= ""
   local gridW = gridWidth(size, cols, gap)
   local capH = DIV
   -- The group caption sits at labelX with its caret to the left. A section caption sits at capX,
@@ -1351,17 +1410,10 @@ function View:PlanCats(st, size, cols, gap)
     end
     band.to = bi
   end
-  -- Whether a band shows its sections. A live search answers instead of the fold: the query is the
-  -- filter, so a band with a hit draws open and one with nothing to show keeps only its heading. With no
-  -- search the fold saved on the band's own marker decides, and the run before the first marker is always
-  -- open — it has no heading to click.
+  -- Whether a band shows its sections: the fold saved on the band's own marker decides, and the run
+  -- before the first marker is always open, since it has no heading to click. A search never answers
+  -- here: it dims what it did not match and leaves every section where the player put it.
   local function bandOpen(band)
-    if searching then
-      for bi = band.from, band.to do
-        if (buckets[bi].hits or 0) > 0 then return true end
-      end
-      return false
-    end
     return not (band.key and ns.Categories:Folded(band.key))
   end
   local gi = 0
@@ -1433,7 +1485,6 @@ function View:PlanCats(st, size, cols, gap)
     local isEmpty = b.empty
     local count = isEmpty and 1 or #b.slots
     if count > 0 then
-      local folded = searching and (isEmpty or (b.hits or 0) == 0)
       li = li + 1
       local label = self:Label(st, li, "accent")
       label:SetJustifyH("LEFT")
@@ -1477,9 +1528,9 @@ function View:PlanCats(st, size, cols, gap)
         ns.SnapPoint(count2, "LEFT", label, "RIGHT", 6, 0)
         count2:Show()
       end
-      -- The caption's right-click transfer handle: a drawn section (not Empty, not a search-folded one)
-      -- carries its own slots so a right click withdraws the lot to the bags. Sized to the caption row.
-      if not isEmpty and not folded then
+      -- The caption's right-click transfer handle: a drawn section (not Empty) carries its own slots so
+      -- a right click withdraws the lot to the bags. Sized to the caption row.
+      if not isEmpty then
         local hit = self:CatHit(st, li)
         hit.wpeSlots = b.slots
         hit:ClearAllPoints()
@@ -1490,9 +1541,7 @@ function View:PlanCats(st, size, cols, gap)
         st.catHits[li]:Hide()
       end
       local secH
-      if folded then
-        secH = capH
-      elseif isEmpty then
+      if isEmpty then
         -- One sample free-slot tile under the caption, bound to nothing (no bag/slot), so it carries no
         -- taint and just shows the number. Pooled on st like the slot cells.
         local tile = self:EmptyTile(st, 1)
@@ -1537,11 +1586,10 @@ function View:PlanCats(st, size, cols, gap)
       -- between sections left out). Positioned every pass but kept hidden; the cursor watcher shows it
       -- while a piece rides the cursor. A release sets the piece down the way the bank body does, and with
       -- drag-to-pin armed also pins it to this section, so the box carries the section id and its name.
-      -- Empty owns no items, so it is not a pin target (wpeId nil) and a drop there is a plain stow; a
-      -- section the search folded away keeps no target either.
+      -- Empty owns no items, so it is not a pin target (wpeId nil) and a drop there is a plain stow.
       local zone = self:CatZone(st, li)
-      zone.wpeActive = not folded
-      zone.wpeId = (not folded) and (not isEmpty) and b.id or nil
+      zone.wpeActive = true
+      zone.wpeId = (not isEmpty) and b.id or nil
       if zone.hint then zone.hint:SetText(ns.Upper(b.name or "")) end
       zone:ClearAllPoints()
       ns.SnapPoint(zone, "TOPLEFT", st.content, "TOPLEFT", sx, -sy)
@@ -1948,7 +1996,89 @@ function View:TransferSection(slots)
     return true
   end, function()
     return self.bankerOpen and self.frame and self.frame:IsShown()
-  end, self.mode == "warband")
+  end, self.mode == "warband", ns.ArmTransferChips)
+end
+
+-- The containers a transfer out of the bank walks: exactly what the window shows, so a selected tab
+-- moves its own slots only and the everything view moves them all.
+function View:TransferBags()
+  return self:CatBags(self.mode)
+end
+
+-- Set the chip's text, width and duty from the live query. Runs on every fill, on every keystroke and
+-- after each batch of a run, so the count falls as the pieces land. The chip stands the whole time a
+-- banker is open, wearing one steady label until the search has something to move; it is dim while the
+-- bags have no room, since a withdraw cannot land there and the pump would only retry it to the cap.
+function View:ArmTransfer()
+  local tx = self.txBtn
+  if not (tx and self.frame) then return end
+  local live = (not self.snap) and self.bankerOpen and true or false
+  local busy = ns.Categories:Busy()
+  local typed = (self.query or ""):find("%S") and true or false
+  local n = (live and typed) and ns.Categories:Count(self.query, self:TransferBags()) or 0
+  local show = live or busy
+  if show ~= tx:IsShown() then
+    tx:SetShown(show)
+    self:AnchorSearch()
+  end
+  if not show then return end
+  -- The count while the search finds something, the plain label while it does not, and the last
+  -- count kept through the closing batch, which reads 0 before it has landed.
+  if n > 0 then
+    tx.Text:SetText(ns.LN("%d items", n))
+  elseif not busy then
+    tx.Text:SetText(ns.L["Transfer"])
+  end
+  tx:SetWidth(math.max(58, math.ceil(tx.Text:GetStringWidth()) + 20))
+  ns.SetButtonEnabled(tx, busy or (n > 0 and ns.Categories:Free() and bagsHaveRoom()))
+end
+
+-- The chip's tooltip: the count on the head, the action and the reason it is dim below it.
+function View:TransferHead()
+  if not ((self.query or ""):find("%S")) then return ns.L["Transfer"] end
+  return ns.LN("%d items", ns.Categories:Count(self.query, self:TransferBags()))
+end
+
+function View:TransferHint()
+  if ns.Categories:Busy() then
+    return { { text = ns.L["Moving now, click again to stop"], color = "dim" } }
+  end
+  if not ns.Categories:Free() then
+    return { { text = ns.L["Wait for combat to end and empty the cursor"], color = "dim" } }
+  end
+  if not ((self.query or ""):find("%S")) then
+    return { { text = ns.L["Type a search, then click to move what it finds back into your bags"], color = "dim" } }
+  end
+  if ns.Categories:Count(self.query, self:TransferBags()) == 0 then
+    return { { text = ns.L["Nothing matches the search"], color = "dim" } }
+  end
+  if not bagsHaveRoom() then
+    return { { text = ns.L["Make room in your bags first"], color = "dim" } }
+  end
+  return { { text = ns.L["Move what the search found back into your bags"], color = "dim" } }
+end
+
+-- One click on the chip: withdraw the slots the query claims to the bags, or stop the run in flight.
+-- The guards mirror the category right click; the pace comes from the pump, and the account bank
+-- answers a server round trip per move, which is why its runs go three at a time.
+function View:TransferNow()
+  if ns.Categories:Busy() then ns.Categories:StopMove(); ns.ArmTransferChips(); return end
+  if self.snap or not self.bankerOpen then return end
+  if not ns.Categories:Free() then return end
+  local slots = ns.Categories:Matched(self.query, self:TransferBags())
+  if #slots == 0 then return end
+  ns.Categories:MoveSlots(slots, function(bag, slot)
+    -- No free bag slot: stop rather than fire a withdraw that cannot land and then retry it to the cap.
+    if not bagsHaveRoom() then return false end
+    C_Container.UseContainerItem(bag, slot)
+    -- No target slot to hand back: the game chooses the bag slot. The pump reads the source (this bank
+    -- slot) to know it landed, which for the account bank is the round-trip signal.
+    return true
+  end, function()
+    local ok = (self.bankerOpen and self.frame and self.frame:IsShown()) and true or false
+    ns.ArmTransferChips()
+    return ok
+  end, self.mode == "warband", ns.ArmTransferChips)
 end
 
 -- A display-only free-slot tile for the Empty section: a faint plate with a count, bound to nothing so
@@ -1986,7 +2116,6 @@ function View:CatGHead(st, i)
     b:RegisterForClicks("LeftButtonUp")
     b:SetScript("OnClick", function(s)
       if not s.wpeEntry then return end
-      if (self.query or "") ~= "" then return end
       if IsShiftKeyDown() then
         ns.Categories:SetAllFolded(not ns.Categories:Folded(s.wpeEntry))
       else
@@ -2201,6 +2330,7 @@ function View:Run(st, repaint, tag)
     if st.filling == token then st.filling = nil end
     -- A layout asked for while this pass was filling waited for it; it runs now, on the finished plan.
     if st.relayout then st.relayout = nil; self:Layout() end
+    self:ArmTransfer()
   end, token)
 end
 
@@ -2234,6 +2364,11 @@ function View:Fonts()
     put(self.charBtn.Text, -1)
     self.charBtn.Text:SetFont(path, math.max(7, base - 1), ns.OutlineFlags())
     self.charBtn:SetHeight(sh)
+  end
+  if self.txBtn then
+    put(self.txBtn.Text, -1)
+    self.txBtn.Text:SetFont(path, math.max(7, base - 1), ns.OutlineFlags())
+    self.txBtn:SetHeight(sh)
   end
   if self.depositBtn then put(self.depositBtn.Text, -1); fit(self.depositBtn, 70, 18) end
   if self.withdrawBtn then put(self.withdrawBtn.Text, -1); fit(self.withdrawBtn, 76, 18) end
@@ -2290,18 +2425,6 @@ function View:LayoutMode(st, tag)
     end
   end
   self:Run(st, repaint, tag)
-end
-
--- A search in grouped mode re-folds sections by hit, but a fold per keystroke re-buckets the whole
--- bank and jumps the layout as prefixes match then drop. So the relayout waits out a short quiet after
--- the last key: each keystroke re-arms the token and only the final one fires. Mirrors Bags:ScheduleCatFold.
-function View:ScheduleCatFold()
-  self.catFoldToken = (self.catFoldToken or 0) + 1
-  local mine = self.catFoldToken
-  C_Timer.After(0.25, function()
-    if self.catFoldToken ~= mine then return end
-    if self.frame and self.frame:IsShown() and self:CatMode() then self:Layout() end
-  end)
 end
 
 function View:Layout()
@@ -2518,6 +2641,7 @@ function View:ApplySearch()
   if not st then return end
   local pool = self.snap and st.vpool or st.pool
   for j = 1, (st.shown or 0) do ns.ApplySearchToButton(pool[j], self.filters) end
+  self:ArmTransfer()
 end
 
 function View:CountSlots(mode)
@@ -2693,6 +2817,7 @@ function View:OnBankOpened()
   if not self:AccountOnly() then ns.Vault:SetTabs("bank", self:LiveTabMeta("bank")) end
   if ns.WarbandActive() then ns.Vault:SetTabs("warband", self:LiveTabMeta("warband")) end
   ns.RefreshBagDim()
+  self:ArmTransfer()
 end
 
 function View:OpenSnapshot(mode)
@@ -2716,6 +2841,7 @@ function View:OnBankClosed()
   -- looking at someone else's bank keeps the window and only drops the live parts.
   self.depositType = nil
   self.acctBanker = nil
+  self:ArmTransfer()
   if self.snap then
     self:UpdateFooter()
     ns.RefreshBagDim()
