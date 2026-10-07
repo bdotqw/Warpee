@@ -318,6 +318,31 @@ local function packSlot(bag, slot, info)
   return d
 end
 
+-- The client's own name for the bag holding these slots, asked once at capture: a snapshot has no
+-- live containers to ask later, and the viewer's own bags would name another character's blocks wrong.
+-- An empty slot answers with nothing, and the caption falls back to numbering that block as before.
+local function bagLabel(bag)
+  local C = C_Container
+  if C and C.GetBagName then
+    local ok, name = pcall(C.GetBagName, bag)
+    if ok and type(name) == "string" and name ~= "" then return name end
+  end
+  return nil
+end
+
+-- The bag's own item id next to its name: GetItemInfo reads it back in the viewer's language, so a
+-- snapshot survives a language switch. A slot with no item answers with nothing, and entries written
+-- before ids were recorded simply carry none.
+local function bagID(bag)
+  local C = C_Container
+  if C and C.GetContainerItemID then
+    local ok, id = pcall(C.GetContainerItemID, bag)
+    id = ok and tonumber(id) or nil
+    if id and id > 0 then return id end
+  end
+  return nil
+end
+
 local function scanBag(bag)
   local num = C_Container.GetContainerNumSlots(bag) or 0
   if num <= 0 then return nil end
@@ -329,7 +354,7 @@ local function scanBag(bag)
       used = used + 1
     end
   end
-  return { n = num, used = used, slots = slots }
+  return { n = num, used = used, slots = slots, name = bagLabel(bag), id = bagID(bag) }
 end
 
 function Vault:Sections(mode)

@@ -2,7 +2,7 @@
 ## Title: Warpee
 ## Notes: Bags for farmers and alt collectors
 ## Author: Naavo
-## Version: 11.5
+## Version: 11.6
 ## SavedVariables: WarpeeDB
 ## X-Category: Inventory
 ## IconTexture: Interface\AddOns\Warpee\Media\Icons\logo.tga
@@ -44,6 +44,7 @@ Windows\CharPicker.lua
 Windows\Bank.lua
 Windows\GuildBank.lua
 Features\Options.lua
+Features\OptionsPages.lua
 Features\Welcome.lua
 Core\Profiles.lua
 Core\Core.lua

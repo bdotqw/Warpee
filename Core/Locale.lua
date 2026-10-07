@@ -117,6 +117,11 @@ function ns.AddLocale(code, label, def)
   order = nil
 end
 
+-- Raw strings of one language, for readers that look across languages.
+function ns.LocaleStrings(code)
+  return TABLES[code]
+end
+
 local watched, globals = {}, {}
 
 local function paint(w)

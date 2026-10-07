@@ -20,6 +20,11 @@ local WARBAND   = idList({ "AccountBankTab_1", "AccountBankTab_2", "AccountBankT
                            "AccountBankTab_4", "AccountBankTab_5" })
 
 local PAD, DIV = 10, 22
+-- Air a captioned block needs over its own cells. The split gap widens to meet it, so a tab you named
+-- tighter than the caption cannot leave the name sitting on the row above. Read off the bags' own export
+-- rather than written a second time: the gap sliders' floor comes from that number, and a copy here that
+-- drifted would let the panel promise room the bank's grid does not keep.
+local CAP_ROOM = ns.CapRoom or 22
 local HBTN = 26
 local FONT = 15
 local HBAND = 32
@@ -290,8 +295,11 @@ end
 -- literals are only there for the moment before Core.lua has loaded, and for a save that
 -- somehow lost a key. They used to disagree with DEFAULTS, so the panel said 40 where the
 -- grid read 36.
-function View:CellSize()
-  return (WarpeeDB and WarpeeDB.bankIconSize) or (ns.DEFAULTS and ns.DEFAULTS.bankIconSize) or 36
+-- The icon size of one bank type. Each of the two tab sets keeps its own, so a caller laying out a
+-- particular state passes that state's mode, and one drawing the window as it stands takes the shown mode.
+function View:CellSize(mode)
+  local key = ((mode or self.mode) == "warband") and "warbandIconSize" or "bankIconSize"
+  return (WarpeeDB and WarpeeDB[key]) or (ns.DEFAULTS and ns.DEFAULTS[key]) or 36
 end
 
 function View:Cols(mode)
@@ -309,6 +317,47 @@ function View:Sections(mode)
   -- that had no bank tabs, and no client that can load this addon is that one.
   if mode == "warband" then return { { ids = WARBAND } } end
   return { { ids = BANK_MAIN } }
+end
+
+-- Whether one mode's grid draws a block per container. The two bank types answer separately: the
+-- character bank and the Warband bank are one window behind a mode pick, and either may be split alone.
+function View:SplitBlocks(mode)
+  if (mode or self.mode) == "warband" then return Bags.splitWb and true or false end
+  return Bags.splitBank and true or false
+end
+
+-- Whether those blocks carry the name of the tab they show. The bags answer for their own grid.
+function View:NameBlocks(mode)
+  if (mode or self.mode) == "warband" then return Bags.nameWb and true or false end
+  return Bags.nameBank and true or false
+end
+
+-- The sections the plain grid draws. Without the split that is the single sheet the mode and tab pickers
+-- already work over, unchanged. With it, every container becomes its own block, captioned with the tab's
+-- own name when the client gives one; a snapshot has no live tabs to ask, so it falls back to the block's
+-- place in the row. Only the plain grid reads this, so it is kept apart from Sections, which five other
+-- callers walk as a flat list of ids. Built on full passes alone: Plan keeps the list for the light pass.
+function View:GridSections(mode)
+  if not self:SplitBlocks(mode) then return self:Sections(mode) end
+  local named = self:NameBlocks(mode)
+  local meta = named and self:LiveTabMeta(mode) or nil
+  local out, ord = {}, 0
+  for _, sec in ipairs(self:Sections(mode)) do
+    for _, bag in ipairs(sec.ids) do
+      ord = ord + 1
+      local title
+      if named then
+        -- The name comes from the live read when the bank is open, and from the copy the addon saved the
+        -- last time it could read them otherwise: a snapshot has no live tabs to ask, and a plain number is
+        -- the last resort rather than the answer.
+        local m = (meta and meta[bag]) or (ns.Vault and ns.Vault:TabMeta(mode, bag)) or nil
+        title = m and m.name
+        if not (title and title ~= "") then title = (ns.L["Tab %d"]):format(ord) end
+      end
+      out[#out + 1] = { ids = { bag }, title = title, color = "accent" }
+    end
+  end
+  return out
 end
 
 function View:Build()
@@ -752,12 +801,29 @@ function View:LiveTabMeta(mode)
   local ok, data = pcall(C_Bank.FetchPurchasedBankTabData, bt)
   if not (ok and type(data) == "table") then return nil end
   local bags = tabBags(mode)
+  -- Which container an entry describes. The tab's own ID is the first answer, and it is taken only when it
+  -- lands on a container this mode actually has, so a read that carries IDs in some other space cannot
+  -- scatter them over keys no caller asks for. The entry's place in the list stays what it has always been:
+  -- the stand-in for a read that carries no ID at all.
+  local function containerFor(i, td)
+    if td.ID ~= nil then
+      for k = 1, #bags do
+        if bags[k] == td.ID then return td.ID end
+      end
+    end
+    if type(i) == "number" then return bags[i] end
+    return nil
+  end
+  -- Walked with pairs rather than ipairs: a read keyed by its own tab IDs has no 1..n run for ipairs to
+  -- follow, and every tab would come back nameless while the data was sitting right there under its own id.
   local out = nil
-  for i, td in ipairs(data) do
-    local bag = bags[i]
-    if bag ~= nil and type(td) == "table" and (td.name or td.icon) then
-      out = out or {}
-      out[bag] = { name = td.name, icon = td.icon, depositFlags = td.depositFlags }
+  for i, td in pairs(data) do
+    if type(td) == "table" and (td.name or td.icon) then
+      local bag = containerFor(i, td)
+      if bag ~= nil then
+        out = out or {}
+        out[bag] = { name = td.name, icon = td.icon, depositFlags = td.depositFlags }
+      end
     end
   end
   return out
@@ -1166,8 +1232,10 @@ function View:TabData(tabID)
   if bt and C_Bank and C_Bank.FetchPurchasedBankTabData then
     local ok, data = pcall(C_Bank.FetchPurchasedBankTabData, bt)
     if ok and type(data) == "table" then
-      for _, td in ipairs(data) do
-        if td.ID == tabID then return td end
+      -- Same walk as LiveTabMeta takes, and for the same reason: a read keyed by its own tab IDs is skipped
+      -- whole by ipairs, and the panel below then has to answer for a tab the live read had all along.
+      for _, td in pairs(data) do
+        if type(td) == "table" and td.ID == tabID then return td end
       end
     end
   end
@@ -1352,16 +1420,22 @@ end
 -- so Run/Resize downstream are unchanged; only the geometry and the captions differ. Cells carry the
 -- real bag and slot, so paint, search and the secure click are untouched. Returns the same tuple Plan
 -- does. Only a group band folds, and a search moves nothing: it dims the cells it did not match.
-function View:PlanCats(st, size, cols, gap)
+function View:PlanCats(st, size, cols, gap, light)
   local step = stepFor(size, gap)
   local plan = st.plan
+  local buckets, used, total
+  local cached = light and st.planCache or nil
+  if cached then
+    -- A geometry drag reuses the last full pass's buckets: membership and order cannot move under it.
+    buckets, used, total = cached.b, cached.used, cached.total
+  else
   -- While the banker is open and live, hand the bucketer last pass's slot memory so a deposit (into the
   -- bank) or a withdrawal (out of it) holds the emptied cell as an inert hole instead of reflowing the
   -- grouped view under the cursor, and a returning piece drops back into its own hole. A query holds too,
   -- since it dims and moves nothing; only a snapshot compacts, having no live container. Recaptured from
   -- this pass's buckets below.
   local hold = (not self.snap) and self.bankerOpen and ns.SplitWindowOpen()
-  local buckets, used, total = ns.Categories:BankBuckets(st.mode, self.snap,
+  buckets, used, total = ns.Categories:BankBuckets(st.mode, self.snap,
     self:CatBags(st.mode), hold and (st.catMemory or ns.Categories.EMPTY_MEMORY) or nil)
   if hold then
     -- The holes this pass drew are kept in the memory, or the piece coming back would have nothing to
@@ -1369,6 +1443,8 @@ function View:PlanCats(st, size, cols, gap)
     st.catMemory = ns.Categories:CaptureMemory(buckets, true)
   else
     st.catMemory = nil
+  end
+  st.planCache = { b = buckets, used = used, total = total }
   end
   local gridW = gridWidth(size, cols, gap)
   local capH = DIV
@@ -2153,14 +2229,32 @@ function View:PlanLocked(st, size, cols, step)
   return cols * rows, (rows - 1) * step + size, 0, 0
 end
 
-function View:Plan(st, size, cols, gap)
-  if self:CatMode() then return self:PlanCats(st, size, cols, gap) end
+function View:Plan(st, size, cols, gap, light)
+  if self:CatMode() then return self:PlanCats(st, size, cols, gap, light) end
   local step = stepFor(size, gap)
   local plan = st.plan
   local n, used, total, bottom, li = 0, 0, 0, 0, 0
   local only = self:TabSel(st.mode)
+  -- The gap one block stands off the one above it. Without the split it is the standing section break;
+  -- with it, the slider's own number, so the bags and the bank move together on one control.
+  -- Each tab set keeps its own gap: the character bank holds more tabs than the Warband bank, so one
+  -- slider would pile a different amount of air into each window.
+  local gapKey = (st.mode == "warband") and Bags.splitGapWb or Bags.splitGapBank
+  local gapSplit = self:SplitBlocks(st.mode)
+    and math.max(0, math.floor(tonumber(gapKey) or 12)) or DIV
 
-  for _, sec in ipairs(self:Sections(st.mode)) do
+  -- Which containers the grid draws as blocks. It answers to the split and name flags, not to the
+  -- geometry, so the light pass reuses the last full pass's list: rebuilding it per frame of a drag
+  -- costs a live tab read and a fresh table per block, and neither can move while the thumb does.
+  -- Every flag it reads is written through the options' own setters, which ask for a full pass, so a
+  -- change to one of them is a change of this list by the time anything reads it.
+  local secs = light and st.sectionsCache or nil
+  if not secs then
+    secs = self:GridSections(st.mode)
+    st.sectionsCache = secs
+  end
+
+  for _, sec in ipairs(secs) do
     local first, count = n, 0
     for _, bag in ipairs(sec.ids) do
       if not only or bag == only then
@@ -2189,17 +2283,29 @@ function View:Plan(st, size, cols, gap)
       end
     end
     if count > 0 then
+      -- A block that carries a caption widens its own gap to hold it, the standing section break does
+      -- the same either way, and a block with neither opens straight on the one above it.
+      local cap = (sec.title or sec.label) and not only
+      local blockGap = cap and math.max(gapSplit, CAP_ROOM) or gapSplit
       local secTop = bottom
-      if sec.label and not only then
-        secTop = bottom + DIV
+      if cap then
         li = li + 1
         local lbl = self:Label(st, li, sec.color)
         lbl:ClearAllPoints()
-        lbl:SetText(ns.L[sec.label])
-        lbl:SetPoint("TOPLEFT", st.content, "TOPLEFT", 2, -(bottom + 6))
+        lbl:SetText(sec.title or ns.L[sec.label])
+        if bottom == 0 then
+          -- The first block opens the content and takes only its own caption's room over its cells, never
+          -- the inter-block gap, or the gap slider would pile empty air over the topmost tab.
+          local h = math.ceil(lbl:GetStringHeight() or 0)
+          if h <= 0 then h = 14 end
+          secTop = h + 8
+        else
+          secTop = bottom + blockGap
+        end
+        lbl:SetPoint("BOTTOMLEFT", st.content, "TOPLEFT", 2, -(secTop - 6))
         lbl:Show()
       elseif bottom > 0 then
-        secTop = bottom + DIV
+        secTop = bottom + blockGap
       end
       local rows = math.ceil(count / cols)
       for k = 1, count do
@@ -2386,18 +2492,20 @@ function View:Fonts()
   end
 end
 
-function View:LayoutMode(st, tag)
+function View:LayoutMode(st, tag, light)
   local cols = self:Cols(st.mode)
-  local size, gap = ns.GridMetrics(self.frame, self:CellSize(), Bags.gap or 4)
+  local size, gap = ns.GridMetrics(self.frame, self:CellSize(st.mode), Bags.gap or 4)
   st.iconSize = size
   st.pxGap = gap
   local key = self:PaintKey(size)
   local repaint = (st.paintKey ~= key)
-  st.paintKey = key
+  -- The key is spent by the pass that repaints: a light pass moves holders only, so it leaves the key
+  -- alone and the trailing full pass still sees the change and repaints once.
+  if not light then st.paintKey = key end
   wipe(st.byKey)
   wipe(st.dirty)
   st.needLayout = nil
-  local n, contentH, used, total = self:Plan(st, size, cols, gap)
+  local n, contentH, used, total = self:Plan(st, size, cols, gap, light)
   st.shown, st.used, st.total = n, used, total
   st.contentH = math.max(size, contentH)
   -- The section drop targets follow the pass that placed them: shown while a piece rides the cursor in
@@ -2407,6 +2515,26 @@ function View:LayoutMode(st, tag)
   for j = n + 1, #pool do
     local h = pool[j].holder
     if h:IsShown() then h:Hide() end
+  end
+  if light then
+    -- Movers only: the plan already carries every cell's geometry, so holders travel without paint and
+    -- without restarting the drip.
+    for i = 1, n do
+      local c = st.plan[i]
+      local b = pool[i]
+      if b then
+        local h = b.holder
+        if b.wpeSize ~= size then ns.SnapSize(h, size, size); b.wpeSize = size end
+        if b.wpeX ~= c.x or b.wpeY ~= c.y then
+          h:ClearAllPoints()
+          ns.SnapPoint(h, "TOPLEFT", st.content, "TOPLEFT", c.x, c.y)
+          b.wpeX, b.wpeY = c.x, c.y
+        end
+        st.byKey[c.bag * 1000 + c.slot] = b
+      end
+    end
+    if st == self.cur then self:Resize(st) end
+    return
   end
   if st == self.cur then
     self:Resize(st)
@@ -2427,7 +2555,7 @@ function View:LayoutMode(st, tag)
   self:Run(st, repaint, tag)
 end
 
-function View:Layout()
+function View:Layout(light)
   if not (self.frame and self.cur) then return end
   -- A pass is painted a slice at a time, and a pass that starts while one is still filling drops it
   -- mid-way: a fresh pass begins at the first cell, so a run of changes faster than a pass leaves the far
@@ -2442,6 +2570,11 @@ function View:Layout()
   end
   st.relayout = nil
   applyDensity(self:CellSize())
+  if light then
+    -- Positions only, same contract as the bags' light pass: no paint, no drip, no footer.
+    self:LayoutMode(self.cur, "lite", true)
+    return
+  end
   -- A font, theme or slot-style change bumps Bags.styleGen. The bags nil every cell's link on that
   -- (Bags:Refont) so the next paint redraws its text at the new face; the bank pools live here and were
   -- never cleared, so a badge like the bind tag kept the old font. The paint is drip-sliced with a

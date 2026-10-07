@@ -15,6 +15,13 @@ function ns.IsPlayerBag(id)
 end
 
 local SIZE_DEFAULT, PAD = 37, 10
+-- Air a captioned block needs over its own cells: the reagent bag is the one block in the bags grid that
+-- carries a caption, and a split gap tighter than the caption would press the two together. Matches the
+-- density's own section break, so a caption never reads tighter than the standing layout puts it.
+local CAP_ROOM = 22
+-- The options window holds its sliders to the room a caption takes, so the row can tell the truth about
+-- the gap instead of reporting a number no block can stand at.
+ns.CapRoom = CAP_ROOM
 local COLS_DEFAULT, GAP_DEFAULT = 14, 4
 local HEADER, FOOTER = 66, 28
 local DIV = 22
@@ -63,6 +70,8 @@ local Bags = { pool = {}, vpool = {}, cols = COLS_DEFAULT, gap = GAP_DEFAULT, ic
                badge = ns.BadgeDefaults(),
                qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, reagentTint = true, unusableBorder = true,
                revFill = false, fillUp = false, newOnTop = false, reagentTop = false, hideReagents = false,
+               splitBags = false, splitGapBags = 12, splitGapBank = 12, splitGapWb = 12,
+               nameBags = true,
                bagView = "grid",
                styleGen = 1 }
 ns.Bags = Bags
@@ -282,8 +291,13 @@ function Bags:TopOffset()
   -- with, and the two together would leave a hole between the caption and the cells above it.
   -- Only that case drops the gap: merged reagents carry no caption, and hidden ones leave
   -- nothing behind at all. Category view drops it too: its first band already opens with a group
-  -- caption that separates it from the rows above, so the extra 18 only doubled the gap.
-  local sep = (rows > 0 and not self:ReagentsUp() and not self:CatMode()) and 18 or 0
+  -- caption that separates it from the rows above, so the extra 18 only doubled the gap. The
+  -- split grid does the same once its names are on: the first block opens on the bag's own name.
+  local hide = self.hideReagents and true or false
+  local merge = (not hide) and self.mergeReagents and true or false
+  local showNames = (not merge) and self.splitBags and self.nameBags and true or false
+  local sep = (rows > 0 and not self:ReagentsUp() and not self:CatMode()
+               and not showNames) and 18 or 0
   return self:BaseTop() + rows + sep
 end
 
@@ -430,7 +444,7 @@ function Bags:Build()
     ns.autoOpened = nil
     -- The anti-jump memory says what is on screen, and the screen is going away. Kept, a piece that left
     -- while the window was shut (sold at a vendor it was not open for) would reopen as a hole.
-    Bags.catMemory, Bags.catHold = nil, nil
+    Bags.catMemory, Bags.catHold, Bags.catCache = nil, nil, nil
     ns.ClearSearch(Bags.search)
     if ns.CharPicker then ns.CharPicker:Close() end
     if Bags.bagWindow then Bags.bagWindow:Hide() end
@@ -849,19 +863,82 @@ function Bags:Taken(bag)
   return num - (select(1, C_Container.GetContainerNumFreeSlots(bag)) or 0)
 end
 
+-- The name the client keeps for a bag: the item equipped in that slot, the client's own word for the
+-- backpack, the reagent bag's item for the reagent slot. GetBagName moved under C_Container in 10.0 and
+-- the bare global is gone, so the namespaced call is the one that answers, and the old global is only
+-- asked after it for a client that still has one. An empty slot answers with nothing.
+local function bagName(bag)
+  local C = C_Container
+  if C and C.GetBagName then
+    local ok, name = pcall(C.GetBagName, bag)
+    if ok and type(name) == "string" and name ~= "" then return name end
+  end
+  if GetBagName then
+    local ok, name = pcall(GetBagName, bag)
+    if ok and type(name) == "string" and name ~= "" then return name end
+  end
+  return nil
+end
+
+-- What a bag block is captioned with once the split draws the bags apart: the client's own name for the
+-- bag, and the addon's own words only where the client has none to give. A live bag is the only one asked
+-- directly: a snapshot holds another character's bags, and naming those with the item sitting in your
+-- own slot would be a lie the grid has no reason to tell, so it reads the name the snapshot remembered
+-- instead. The reagent bag is the one block the client never names on its own: the window has always
+-- captioned it with its own word, split or not.
+local function snapBagName(bag)
+  -- The backpack is a word, not an item: it always reads in the viewer's language below.
+  if bag == 0 then return nil end
+  -- The box the Vault hands back is already the viewed character's, so no key travels with the lookup.
+  -- Snapshots taken before names were recorded answer with nothing, and those blocks keep their numbers.
+  local entry = ns.Vault and ns.Vault:Bag("bags", bag) or nil
+  -- The same bag in the viewer's language, read off the client's own data: a snapshot taken under another
+  -- language still captions right after a switch. Unknown to this client, the remembered name stands in.
+  local id = entry and entry.id or nil
+  if id then
+    local C = C_Item
+    if C and C.GetItemInfo then
+      local ok, name = pcall(C.GetItemInfo, id)
+      if ok and type(name) == "string" and name ~= "" then return name end
+    end
+  end
+  local name = entry and entry.name or nil
+  return (type(name) == "string" and name ~= "") and name or nil
+end
+local function bagCaption(bag, live)
+  local name = live and bagName(bag) or snapBagName(bag)
+  if name then return name end
+  if bag == ns.reagentBag then return ns.L["REAGENTS"] end
+  if bag == 0 then return _G.BACKPACK or "Backpack" end
+  return (ns.L["Bag %d"]):format(bag)
+end
+
+-- The block's place in the run, for the right end of its caption line. Two bags of the same make caption
+-- the same, and the number is the only thing that tells them apart, so it rides beside the name rather
+-- than replacing it. Only where there is a name to ride beside: the backpack goes without one, the reagent
+-- bag has its own word, and a snapshot without a remembered name is captioned with its place already.
+local function bagOrdinal(bag, live)
+  if bag == 0 or bag == ns.reagentBag then return nil end
+  local named = live and bagName(bag) or snapBagName(bag)
+  if not named then return nil end
+  return (ns.L["Bag %d"]):format(bag)
+end
+
 function Bags:Restyle()
   self.styleGen = (self.styleGen or 0) + 1
   if self.frame and self.frame:IsShown() then self:Layout() end
 end
 
-function Bags:Layout(capture)
+function Bags:Layout(capture, light)
   applyDensity(self.iconSize)
   ns.ReportEntry()
   self:Build()
   if not (self.frame and self.content and self.gaugeBg and self.gaugeFill
           and self.gridBg and self.money and self.reagentLabel) then return end
   local cols = self.cols
-  self:AnchorHeader()
+  -- The header stands still under a geometry change; the transfer chip it arms is repainted by the
+  -- trailing full pass.
+  if not light then self:AnchorHeader() end
   -- New-on-top keeps new pieces physically at the far end of their bag, so the plain grid draws them there
   -- with no display remap. The move pump is kicked here too, so opening the window tidies any arrivals that
   -- landed while it was shut. In the grouped view the sections own the order, so it does not run there.
@@ -871,6 +948,8 @@ function Bags:Layout(capture)
   local i, used, total = 0, 0, 0
   self.byKey = {}
   self.bagSlots = self.bagSlots or {}
+  -- Faces stand still under a geometry change; the trailing full pass re-dresses them.
+  if not light then
   self.fontPath = ns.Fonts:Current()
   if self.title then self.title:SetFont(self.fontPath, FONT, ns.OutlineFlags()) end
   if self.money then
@@ -878,6 +957,9 @@ function Bags:Layout(capture)
     Theme:Money(self.money)
   end
   if self.reagentLabel then self.reagentLabel:SetFont(self.fontPath, FONT - 4, ns.OutlineFlags()) end
+  if self.bagLabels then
+    for i = 1, #self.bagLabels do self.bagLabels[i]:SetFont(self.fontPath, FONT - 4, ns.OutlineFlags()) end
+  end
   if self.slotText then self.slotText:SetFont(self.fontPath, FONT - 3, ns.OutlineFlags()) end
   if self.search then
     self.search:SetFont(self.fontPath, FONT - 2, ns.OutlineFlags())
@@ -888,6 +970,7 @@ function Bags:Layout(capture)
   if self.frame and self.frame.wpeBar then
     self.frame.wpeBar:Fonts(self.fontPath, FONT - 4)
     self.frame.wpeBar:Size(ns.Density(self.iconSize).moveH)
+  end
   end
 
   -- Recent and Favorites are this character's own live lists, not part of a snapshot: showing them
@@ -928,6 +1011,12 @@ function Bags:Layout(capture)
       ns.SnapPoint(h, "TOPLEFT", self.content, "TOPLEFT", x, y)
       b.wpeX, b.wpeY = x, y
     end
+    -- Light pass: positions only. Links, counts and paint are untouched, so what the cells show survives
+    -- the drag and the trailing full pass repaints it.
+    if light then
+      self.byKey[bag * 1000 + slot] = b
+      return
+    end
     b.link = nil
     -- Combine-stacks: the cell binds one real bag slot (so the secure click is untouched) but draws the
     -- summed count of every folded slot. wpeForce overrides only the number UpdateItemButton shows; nil
@@ -949,7 +1038,8 @@ function Bags:Layout(capture)
   local contentH
   if self:CatMode() then
     self.reagentLabel:Hide()
-    contentH, used, total = self:LayoutCats(place, size, gap, step, cols)
+    self:HideBagLabels(0)
+    contentH, used, total = self:LayoutCats(place, size, gap, step, cols, light)
   else
     -- Every section widget, not just the captions: the headers, drop zones and the Empty section's
     -- sample tiles are all pooled and only hidden from the tail inside LayoutCats, which the grid
@@ -966,69 +1056,148 @@ function Bags:Layout(capture)
     -- into groups does not reconcile against a stale order from before the grid was shown.
     self.catMemory, self.catHold = nil, nil
     if self.catFree then self.catFree:Hide() end
-    local n = 0
     local hide = self.hideReagents and true or false
     local merge = (not hide) and self.mergeReagents and true or false
     local rnum = self:Slots(ns.reagentBag)
     self.bagSlots[ns.reagentBag] = rnum
-    local split = (not hide) and (not merge) and rnum > 0
-    local mainCount = merge and rnum or 0
-    for _, bag in ipairs(ns.playerBags) do mainCount = mainCount + self:Slots(bag) end
-    local mainRows = math.max(1, math.ceil(mainCount / cols))
-    local rRows = split and math.max(1, math.ceil(rnum / cols)) or 0
-    local rBlock = split and ((rRows - 1) * step + size) or 0
-    local onTop = split and self.reagentTop and true or false
-    local mainTop = onTop and (rBlock + DIV * 2) or 0
-    local mainBottom = mainTop + (mainRows - 1) * step + size
-    local rTop = onTop and DIV or (mainBottom + DIV)
+    -- The reagent bag keeps the block it always had: either folded into the main sheet (merge) or drawn
+    -- apart under its caption. The per-bag split is that same block idea turned on every bag, and it has no
+    -- use for a merged reagent bag, so the two are refused together: the panel greys the merge row out
+    -- while the split stands, and the split's own setter releases the merge.
+    local splitReag = (not hide) and (not merge) and rnum > 0
+    local splitEach = (not merge) and (self.splitBags and true or false)
+    -- Names belong to the split blocks: with the split off there is one sheet and one standing section
+    -- label for the reagent bag, which is not a container name and is not what this toggle is about.
+    local showNames = splitEach and (self.nameBags and true or false)
+    -- The gap the block loop opens between two blocks. The split is what brings the slider in; without it
+    -- every gap stays the standing section break it has always been, so the reagent bag above or below the
+    -- sheet is untouched by a control the player turned to nothing.
+    local gapSlider = math.max(0, math.floor(tonumber(self.splitGapBags) or 12))
+    local gapBlocks = splitEach and gapSlider or DIV
+    local onTop = splitReag and self.reagentTop and true or false
 
-    local function cellXY(k, count, rows, top)
-      local j = self.revFill and (count - k + 1) or k
-      local col, row = (j - 1) % cols, math.floor((j - 1) / cols)
-      if self.fillUp then row = rows - 1 - row end
-      return col * step, -(top + row * step)
-    end
-
-    -- The main grid's cell flow: every slot in physical order, so the items pack from the origin corner and
-    -- free slots trail behind. New-on-top needs no special path here — the pump has already moved the new
-    -- pieces to the far end of their bag, so drawing the slots in order shows them there honestly.
-    local mainSlots, reagSlots = {}, {}
+    -- Cells are drawn block by block: one block per bag when the split is on, otherwise every bag's slots
+    -- run on as the one sheet they have always been, with the merged reagent slots at its end. The reagent
+    -- block is the only one carrying a caption, and it takes the room that caption needs whichever way it
+    -- stands, so a split gap tighter than the caption cannot press the two together.
+    local mainList, reagList, blocks = {}, {}, {}
     for _, bag in ipairs(ns.playerBags) do
       local num = self:Slots(bag)
       self.bagSlots[bag] = num
-      for slot = 1, num do mainSlots[#mainSlots + 1] = { bag, slot } end
       total = total + num
       used = used + self:Taken(bag)
+      local list = splitEach and {} or mainList
+      for slot = 1, num do list[#list + 1] = { bag, slot } end
+      if splitEach and #list > 0 then blocks[#blocks + 1] = { list = list, bag = bag } end
     end
     if rnum > 0 then
       total = total + rnum
       used = used + self:Taken(ns.reagentBag)
       -- Listed whenever the reagent slots are drawn: merged into the main grid or as a block of their own.
       -- A hidden reagent bag draws no cell, so it takes part in neither.
-      if merge or split then
-        for slot = 1, rnum do reagSlots[#reagSlots + 1] = { ns.reagentBag, slot } end
+      if merge or splitReag then
+        for slot = 1, rnum do reagList[#reagList + 1] = { ns.reagentBag, slot } end
       end
     end
-    for _, e in ipairs(mainSlots) do
-      n = n + 1
-      place(e[1], e[2], cellXY(n, mainCount, mainRows, mainTop))
-    end
+    local reagBlock = splitReag and { list = reagList, reagent = true, bag = ns.reagentBag } or nil
     if merge then
-      for _, e in ipairs(reagSlots) do
-        n = n + 1
-        place(e[1], e[2], cellXY(n, mainCount, mainRows, mainTop))
-      end
+      for i = 1, #reagList do mainList[#mainList + 1] = reagList[i] end
+    end
+    -- The order the blocks stand in: the reagent block takes the head when it is set to sit on top and the
+    -- tail otherwise. With the split on the run is already one block per bag, so on top means the front of
+    -- that list, and put() only appends, so the reagent block goes in there on its own. Without a split the
+    -- sheet is the one unbroken block it has always been and the two are put down in order.
+    local sheet = (not splitEach) and #mainList > 0 and { list = mainList } or nil
+    local function put(a, b)
+      if a then blocks[#blocks + 1] = a end
+      if b then blocks[#blocks + 1] = b end
+    end
+    if onTop and splitEach then
+      table.insert(blocks, 1, reagBlock)
+    elseif onTop then
+      put(reagBlock, sheet)
+    else
+      put(sheet, reagBlock)
     end
 
-    contentH = mainBottom
-    if split then
-      self.reagentLabel:ClearAllPoints()
-      self.reagentLabel:SetPoint("TOPLEFT", self.content, "TOPLEFT", 2, -(rTop - DIV + 6))
-      self.reagentLabel:Show()
-      for slot = 1, rnum do
-        place(ns.reagentBag, slot, cellXY(slot, rnum, rRows, rTop))
+    -- The cell flow of one block: every slot in physical order, so the items pack from the origin corner
+    -- and free slots trail behind. New-on-top needs no special path here: the pump has already moved the
+    -- new pieces to the far end of their bag, so drawing the slots in order shows them there honestly.
+    -- Reverse and fill-up act inside a block, so with the split on each bag turns over on its own instead
+    -- of the whole sheet, and the bags keep the order they are stored in.
+    local y, rTop, capN = 0, nil, 0
+    for bi = 1, #blocks do
+      local blk = blocks[bi]
+      local list = blk.list
+      local count = #list
+      local rows = math.max(1, math.ceil(count / cols))
+      -- What the block is captioned with: the client's own name for its bag, asked once the split draws
+      -- the blocks apart. With the split off there is nothing here to name, and the reagent block keeps
+      -- the label it has always had. A captioned block widens its own gap to hold the caption.
+      local capText = (showNames and blk.bag ~= nil) and bagCaption(blk.bag, not self.snap) or nil
+      -- The room a caption needs is only owed where one is actually drawn: with the names off the blocks
+      -- stand exactly the slider's gap apart, and the reagent caption of the unsplit grid keeps the
+      -- standing section break it has always had.
+      local reagName = blk.reagent and not splitEach
+      -- The caption is built before its block is placed so its height is known: the first block opens the
+      -- content and takes only its own caption's room over its cells, never the inter-block gap, or the gap
+      -- slider would pile empty air over the topmost bag.
+      local lbl, capH = nil, 0
+      if capText then
+        capN = capN + 1
+        lbl = self:BagLabel(capN)
+        lbl:ClearAllPoints()
+        lbl:SetText(capText)
+        lbl:SetTextColor(Theme:C(blk.reagent and "reagent" or "accent"))
+        capH = math.ceil(lbl:GetStringHeight() or 0)
+        if capH <= 0 then capH = FONT end
+      elseif reagName and bi == 1 then
+        capH = math.ceil(self.reagentLabel:GetStringHeight() or 0)
+        if capH <= 0 then capH = FONT end
       end
-      if not onTop then contentH = rTop + rBlock end
+      local blockGap = (capText or reagName) and math.max(gapBlocks, CAP_ROOM) or gapBlocks
+      local above = blockGap
+      if bi == 1 then above = (capText or reagName) and (capH + 8) or 0 end
+      y = y + above
+      local top = y
+      for k = 1, count do
+        local j = self.revFill and (count - k + 1) or k
+        local col, row = (j - 1) % cols, math.floor((j - 1) / cols)
+        if self.fillUp then row = rows - 1 - row end
+        place(list[k][1], list[k][2], col * step, -(top + row * step))
+      end
+      -- A block caption wears the accent the category captions wear, since it names a run of cells the same
+      -- way they do; the reagent block keeps the green its own standing label has always been drawn in.
+      -- The caption rides its own block, not the gap over it: bottom-anchored a few pixels over the
+      -- block's first row, so a wider split gap opens over the name instead of carrying the name up to the
+      -- block before it. The gap floor (CAP_ROOM) always leaves room for this.
+      if lbl then
+        lbl:SetPoint("BOTTOMLEFT", self.content, "TOPLEFT", 2, -(top - 6))
+        lbl:Show()
+      end
+      -- The block's place in the run, on the right end of its own caption line.
+      local ord = capText and bagOrdinal(blk.bag, not self.snap) or nil
+      if ord then
+        local fs = self:BagOrdLabel(capN)
+        fs:ClearAllPoints()
+        fs:SetText(ord)
+        fs:SetPoint("BOTTOMRIGHT", self.content, "TOPRIGHT", -2, -(top - 6))
+        fs:Show()
+      end
+      -- Over the gap the block actually stands on, so the first block's own caption room counts here too.
+      if blk.reagent then rTop = top - above + 6 end
+      y = top + (rows - 1) * step + size
+    end
+    self:HideBagLabels(capN)
+    -- A grid with no block at all takes the height of one row: a snapshot of a character with no slots is
+    -- the only way there, and a content frame sized to nothing would take the window down with it.
+    contentH = #blocks > 0 and y or size
+    -- With the split on, the reagent block is captioned out of the same pool as every other block, so the
+    -- label it used to carry stands down rather than double it up.
+    if rTop and not splitEach then
+      self.reagentLabel:ClearAllPoints()
+      self.reagentLabel:SetPoint("TOPLEFT", self.content, "TOPLEFT", 2, -rTop)
+      self.reagentLabel:Show()
     else
       self.reagentLabel:Hide()
     end
@@ -1037,6 +1206,13 @@ function Bags:Layout(capture)
   local active, idle = self:Pool(), (self.snap and self.pool or self.vpool)
   for j = i + 1, #active do active[j].holder:Hide() end
   for _, b in ipairs(idle) do if b.holder:IsShown() then b.holder:Hide() end end
+  if light then
+    -- Positions only: the window size follows the drag, everything the cells show is left alone for the
+    -- trailing full pass.
+    self.shown, self.used, self.total = i, used, total
+    self:Resize(contentH)
+    return
+  end
   -- The clean-up button acts on the live grid slots (sort + stack merge) whatever view is shown. In the
   -- category view the grouped picture does not visibly change, but the underlying grid is tidied for the
   -- next switch back. Only a snapshot has no live container to act on, so it alone hides the button.
@@ -1084,6 +1260,46 @@ function Bags:HideCatLabels(from)
   if not self.catLabels then return end
   for i = (from or 0) + 1, #self.catLabels do
     if self.catLabels[i] then self.catLabels[i]:Hide() end
+  end
+end
+
+-- One pooled caption per bag block of the split grid, kept on the content frame so it travels with the
+-- cells it names. The reagent bag has its own label standing from before this pool existed, so that one
+-- keeps its look; these are what the bags drawn around it are called.
+function Bags:BagLabel(i)
+  self.bagLabels = self.bagLabels or {}
+  local fs = self.bagLabels[i]
+  if not fs then
+    fs = Theme:Label(self.content, FONT - 4, "dim")
+    fs:SetJustifyH("LEFT")
+    self.bagLabels[i] = fs
+  end
+  fs:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, ns.OutlineFlags())
+  return fs
+end
+
+-- The place number that rides the right end of a block's caption, pooled by block like the caption itself
+-- and right justified so it lands on the grid's own edge.
+function Bags:BagOrdLabel(i)
+  self.ordLabels = self.ordLabels or {}
+  local fs = self.ordLabels[i]
+  if not fs then
+    fs = Theme:Label(self.content, FONT - 4, "dim")
+    fs:SetJustifyH("RIGHT")
+    self.ordLabels[i] = fs
+  end
+  fs:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, ns.OutlineFlags())
+  return fs
+end
+
+function Bags:HideBagLabels(from)
+  local pools = { self.bagLabels, self.ordLabels }
+  for _, pool in ipairs(pools) do
+    if pool then
+      for i = (from or 0) + 1, #pool do
+        if pool[i] then pool[i]:Hide() end
+      end
+    end
   end
 end
 
@@ -1752,12 +1968,10 @@ end)
 -- each further one; when it runs out the view compacts, the way it does the moment a window closes.
 local CATHOLD = 8
 
-function Bags:LayoutCats(place, size, gap, step, cols)
-  -- The bucketer is handed last pass's slot memory on every grouped pass, so a piece leaving keeps its
-  -- cell as an inert hole and a returning piece drops back into its own. Holding is what decides whether
-  -- those holes are drawn: while a window that takes items is open (bank, vendor, scrapper...) and for a
-  -- short while after a removal that had no such window. A query holds too, since it dims the cells it
-  -- did not match and moves nothing; only a snapshot compacts, having no live container.
+-- Full bucketing pass for the grouped view: classify, slot-memory reconcile and hole compaction. Only full
+-- passes come through here; a light (geometry-only) pass reuses what the last full one left in catCache,
+-- since membership and order cannot move under a geometry drag.
+function Bags:BucketCats()
   local Cats = ns.Categories
   local open = ns.SplitWindowOpen and ns.SplitWindowOpen()
   local live = not self.snap
@@ -1788,6 +2002,19 @@ function Bags:LayoutCats(place, size, gap, step, cols)
     self.catMemory, self.catHold, hold = nil, nil, false
   end
   if not hold then Cats:Compact(buckets) end
+  return buckets, used, total
+end
+
+function Bags:LayoutCats(place, size, gap, step, cols, light)
+  local Cats = ns.Categories
+  local buckets, used, total
+  local cached = light and self.catCache or nil
+  if cached then
+    buckets, used, total = cached.b, cached.used, cached.total
+  else
+    buckets, used, total = self:BucketCats()
+    self.catCache = { b = buckets, used = used, total = total }
+  end
   local d = ns.Density(size)
   local capH = d.labelH + d.labelGap
   local gridW = gridWidth(size, cols, gap)
@@ -2319,6 +2546,9 @@ function Bags:VendorState()
     b.icon:SetDesaturated(not on)
     b.icon:SetAlpha(on and 1 or 0.45)
   end
+  -- The merchant edge changes what VendorBlocked answers, so re-dim the open bags here: the grey
+  -- appears the moment a buying merchant is up and clears when he closes or turns out repair-only.
+  if ns.RefreshBagDim then ns.RefreshBagDim() end
   self:FitHeader()
 end
 
@@ -2476,6 +2706,21 @@ function ns.MailBlocked(b)
     end
   end
   return true
+end
+
+-- While a merchant that buys is open, an item with no sale value reads as unavailable, the same
+-- grey the search gives a miss: a quest item or anything else the merchant will not take can never
+-- turn into coin, so dimming it points the eye straight at what can. The gate follows CanBuy, not
+-- IsOpen: a repair-only stall opens a merchant that takes nothing, and dimming the whole window
+-- there would say nothing. hasNoValue is the game's own no-sale flag, off the container info, so
+-- it costs a layout no tooltip scan, in keeping with the addon's no-scan-per-slot rule. Soulbound
+-- stays lit: a bound piece sells like any other.
+function ns.VendorBlocked(b)
+  if not (ns.Vendor and ns.Vendor.CanBuy and ns.Vendor:CanBuy()) then return false end
+  if not (b and b.wpeBagID and b.GetID) then return false end
+  local info = C_Container.GetContainerItemInfo(b.wpeBagID, b:GetID())
+  if not info then return false end
+  return info.hasNoValue and true or false
 end
 
 function Bags:FitHeader()
@@ -3747,6 +3992,7 @@ function Bags:ApplyToButton(b)
     or (ns.ContextBlocked and ns.ContextBlocked(b))
     or (ns.GuildDepositBlocked and ns.GuildDepositBlocked(b))
     or (ns.MailBlocked and ns.MailBlocked(b))
+    or (ns.VendorBlocked and ns.VendorBlocked(b))
   ns.ApplySearchToButton(b, self.filters, blocked)
 end
 

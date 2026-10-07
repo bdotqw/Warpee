@@ -24,6 +24,11 @@ local DEFAULTS = {
   favShow = true, recentBags = true, recentPocket = true,
   qualityColorIlvl = true, qualityBorder = true, mergeReagents = false,
   reagentTop = false, hideReagents = false,
+  -- One block per container in the plain grid, per window, off by default.
+  splitBags = false, splitBank = false, splitWb = false, splitGapBags = 12, splitGapBank = 12,
+  splitGapWb = 12,
+  -- Whether a block carries its bag's or tab's name over its cells.
+  nameBags = true, nameBank = true, nameWb = true,
   pocketShow = true, pocketWithBags = false, pocketRows = 4, pocketCols = 6,
   pocketSnap = true,
   pocketIconSize = NONE,
@@ -57,13 +62,13 @@ local DEFAULTS = {
   hideMinimapIcon = false, tipCounts = true, tipBank = true, tipWarband = true, tipGold = true,
   keepBags = true, keepBank = true, keepWarband = true,
   searchClear = true, searchLink = true, minimapAngle = 2.2,
-  bankCols = 28, warbandCols = 26, bankIconSize = 36,
+  bankCols = 28, warbandCols = 26, bankIconSize = 36, warbandIconSize = 36,
   hideMoveFields = false, badgeSolo = false, lockWindows = false,
   -- Straight out of the badge table in ItemButton.lua, which draws them and feeds the
   -- panel preview from the same numbers. A second copy here is how the two drifted.
   badge = ns.BadgeDefaults(),
-  optSections = { interface = false, bankgrid = false, badges = true, autoopen = false,
-                  tokenexp = false, arrange = true, pocketsize = true, categories = true,
+  -- Only the keys the pages still fold with; retired ones are cleared at login.
+  optSections = { badges = true, tokenexp = false, pocketsize = true, categories = true,
                   badgeorder = false },
   autoOpen = { auction = true, bank = true, mail = true, trade = true,
                vendor = true, guildbank = true, professions = false,
@@ -161,6 +166,15 @@ function ns.PushConfig()
   Bags.mergeReagents    = WarpeeDB.mergeReagents
   Bags.reagentTop       = WarpeeDB.reagentTop
   Bags.hideReagents     = WarpeeDB.hideReagents
+  Bags.splitBags        = WarpeeDB.splitBags
+  Bags.splitBank        = WarpeeDB.splitBank
+  Bags.splitWb          = WarpeeDB.splitWb
+  Bags.splitGapBags     = WarpeeDB.splitGapBags
+  Bags.splitGapBank     = WarpeeDB.splitGapBank
+  Bags.splitGapWb       = WarpeeDB.splitGapWb
+  Bags.nameBags         = WarpeeDB.nameBags
+  Bags.nameBank         = WarpeeDB.nameBank
+  Bags.nameWb           = WarpeeDB.nameWb
   Bags.revFill          = WarpeeDB.revFill
   Bags.fillUp           = WarpeeDB.fillUp
   Bags.newOnTop         = WarpeeDB.newOnTop
@@ -570,6 +584,11 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
       WarpeeDB.catGap = nil
     end
 
+    -- Before fillDefaults: a saved number must not be seeded over by the default.
+    if WarpeeDB.warbandIconSize == nil then WarpeeDB.warbandIconSize = WarpeeDB.bankIconSize end
+    -- Before fillDefaults, or the saved number is thrown away for the default.
+    if WarpeeDB.splitGapBags == nil then WarpeeDB.splitGapBags = WarpeeDB.splitGap or 12 end
+    if WarpeeDB.splitGapBank == nil then WarpeeDB.splitGapBank = WarpeeDB.splitGap or 12 end
     fillDefaults(WarpeeDB)
     -- autoOpen is a table default, so fillDefaults only seeds it whole on a fresh profile; a profile
     -- that predates these two keys keeps its table and would read them as nil (off). Seed the pair so
@@ -636,11 +655,17 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     WarpeeDB.vendorKeepMog, WarpeeDB.vendorKeepFresh = nil, nil
     WarpeeDB.bankSlotStyle = nil
     WarpeeDB.bankFontSize, WarpeeDB.bankCustomSize, WarpeeDB.hideBlizzBank = nil, nil, nil
-    WarpeeDB.warbandCustomSize, WarpeeDB.warbandIconSize = nil, nil
+    -- Warband icon size is live again: not wiped here, or it is re-seeded every login.
+    WarpeeDB.warbandCustomSize = nil
     WarpeeDB.bankPool = nil
     -- Empty was briefly deletable and used this flag to remember a delete; it is not deletable now
     -- and EnsureEmpty always restores the row, so the flag is dead. Cleared so no save keeps it.
     WarpeeDB.emptySeeded = nil
+    -- Four fold keys no page carries; cleared with the other retired keys.
+    if WarpeeDB.optSections then
+      WarpeeDB.optSections.interface, WarpeeDB.optSections.bankgrid = nil, nil
+      WarpeeDB.optSections.autoopen, WarpeeDB.optSections.arrange = nil, nil
+    end
     if WarpeeDB.locale == "auto" then WarpeeDB.locale = nil end
 
     sanitizeConfig(WarpeeDB)

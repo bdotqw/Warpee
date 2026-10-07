@@ -14,8 +14,14 @@ local WIN_W, WIN_H = 780, 700
 local PAD = 18
 local HEADER_H = 42
 local TAB_H = 30
+local SUB_H = 22
+local SUB_GAP = 14
+-- The list breathes under the strip what the strip breathes under the tabs.
+local SUB_DROP = 14
 local BASE_FONT = 15
 local ROW_GAP = 10
+-- Off-duty row fade: ink alone left the box and the slider track bright.
+local OFF_ALPHA = 0.55
 local SCROLL_W = 8
 local CONTENT_W = WIN_W - PAD * 2 - SCROLL_W - 6
 
@@ -32,9 +38,72 @@ local function relayout()
   end)
 end
 
+-- Paced: first change draws, the rest fold into one trailing pass.
+local function throttled(fn)
+  local busy, last = false, 0
+  return function()
+    local now = GetTime()
+    if not busy and (now - last) > 0.2 then
+      last = now
+      fn()
+      return
+    end
+    if busy then return end
+    busy = true
+    C_Timer.After(0.2, function()
+      busy = false
+      last = GetTime()
+      fn()
+    end)
+  end
+end
+-- Two-tier live layout: light passes move positions, a trailing full pass repaints.
+-- Scopes live in a set, so neither window's trailing pass is cancelled.
+local liteTimer, liteDirty = nil, {}
+local function trailBags()
+  if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
+  if ns.Pocket then ns.Pocket:Refresh() end
+end
+local function trailBank()
+  if ns.Bank then ns.Bank:Refresh() end
+end
+function ns.LayoutLite(scope)
+  if scope ~= "bank" then
+    if Bags.frame and Bags.frame:IsShown() then
+      liteDirty.bags = true
+      Bags:Layout(nil, true)
+    end
+  end
+  if scope ~= "bags" then
+    local B = ns.Bank
+    if B and B.frame and B.frame:IsShown() then
+      liteDirty.bank = true
+      B:Layout(true)
+    end
+  end
+  if liteTimer then liteTimer:Cancel() end
+  liteTimer = C_Timer.NewTimer(0.25, function()
+    liteTimer = nil
+    local bags, bank = liteDirty.bags, liteDirty.bank
+    liteDirty.bags, liteDirty.bank = nil, nil
+    if bank then trailBank() end
+    if bags then trailBags() end
+  end)
+end
+
+-- The live layout every slider row goes through; discrete clicks feel nothing.
+local relayoutLive = throttled(relayout)
+
 local function field(name)
   local get = function() return Bags[name] end
-  local set = function(v) Bags[name] = v; WarpeeDB[name] = v; relayout() end
+  local set = function(v) Bags[name] = v; WarpeeDB[name] = v; relayoutLive() end
+  return get, set
+end
+
+-- Store-only rows: the lite path lays out, so the setter fires no full pass.
+local function liteField(name, scope)
+  local get = function() return Bags[name] end
+  local set = function(v) Bags[name] = v; WarpeeDB[name] = v; ns.LayoutLite(scope) end
   return get, set
 end
 
@@ -43,7 +112,7 @@ local function styleField(name)
   local set = function(v)
     Bags[name] = v; WarpeeDB[name] = v
     Bags.styleGen = (Bags.styleGen or 0) + 1
-    relayout()
+    relayoutLive()
   end
   return get, set
 end
@@ -55,9 +124,10 @@ local function dbField(name, default)
   local get = function()
     return WarpeeDB[name] or (ns.DEFAULTS and ns.DEFAULTS[name]) or default
   end
+  -- Bank-only rows (widths, icon sizes), paced and scoped to the bank.
   local set = function(v)
     WarpeeDB[name] = v
-    if ns.Bank then ns.Bank:Refresh() end
+    ns.LayoutLite("bank")
   end
   return get, set
 end
@@ -80,6 +150,8 @@ end
 local function localeGet() return ns.LocalePick() end
 local function localeSet(v)
   WarpeeDB.locale = v
+  -- A language move drops the search index; the next query rebuilds it.
+  Options.searchIdx = nil
   ns.Fonts:Settle()
   ns.Fonts:Refresh()
   if Options.ReflowPages then Options:ReflowPages() end
@@ -167,6 +239,11 @@ local function tip(frame, text)
   ns.AddTip(frame, function() return (type(text) == "function") and text() or T(text) end, "top")
 end
 
+-- Off-duty rows fade here, so every factory fades by one amount.
+local function offDuty(row, off)
+  row:SetAlpha(off and OFF_ALPHA or 1)
+end
+
 local function pinHint(bound, unbound)
   return function()
     local name = ns.PinKeyName()
@@ -217,7 +294,8 @@ bg.bump = function()
   Bags.styleGen = (Bags.styleGen or 0) + 1
   if bg.repaint then bg.repaint() end
   if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
-  relayout()
+  -- Paced: the badge size and offset sliders drive this per pixel.
+  relayoutLive()
 end
 bg.soloGet = function() return WarpeeDB.badgeSolo and true or false end
 bg.soloSet = function(v)
@@ -439,6 +517,12 @@ local function makeMenuRow(parent, index, rowH)
   dot:Hide()
   r.dot = dot
 
+  -- A multi row is a set, so it reads as a tick box.
+  local box = ns.CreateCheckBox(r, 12)
+  box:SetPoint("LEFT", 3, 0)
+  box:Hide()
+  r.box = box
+
   local fs = track(Theme:Label(r, BASE_FONT - 1, "text"), -1)
   fs:SetFont(dropdownFont(), BASE_FONT - 1, ns.OutlineFlags())
   fs:SetPoint("LEFT", 10, 0)
@@ -563,10 +647,9 @@ local function ensureDropdown()
   return m
 end
 
-local function openDropdown(anchor, spec, onPick)
+-- Opening and painting only; the second-press toggle lives in openDropdown.
+local function showDropdown(anchor, spec, onPick)
   local m = ensureDropdown()
-  if m:IsShown() and m.owner == anchor then closeDropdown(); return end
-
   local keys = spec.keys()
   local rowH = BASE_FONT + 11
   -- Not `spec.multi and nil or spec.get()`: with the middle nil the `or` falls through and calls get()
@@ -584,12 +667,23 @@ local function openDropdown(anchor, spec, onPick)
     -- A "#" key is a section header: no dot, drawn faint. It still takes a click, because the token
     -- menu uses one as a way into that section, and the tip carries the hint that it opens.
     local head = type(key) == "string" and key:sub(1, 1) == "#"
-    -- multi: each row is an independent on/off (Show-in windows), dot shows per-key, a click toggles and
-    -- the menu stays open. Single: the dot marks the one current pick and a click closes.
+    -- multi ticks per key and stays open; single marks one and closes.
     local on
     if spec.multi then on = (not head and spec.isOn and spec.isOn(key))
     else on = (not head and key == cur) end
-    r.dot:SetShown(on)
+    if spec.multi then
+      -- The tick is the whole state here: one box per entry.
+      local tick = on and not head
+      r.dot:Hide()
+      r.box:SetKeys("slot", tick and "bg" or "stroke", "accent")
+      r.box.mark:SetShown(tick and true or false)
+      r.box:Show()
+    else
+      if r.box then r.box:Hide() end
+      r.dot:SetShown(on)
+    end
+    -- A tick box is wider, so a set's text steps past the gutter.
+    r.Text:SetPoint("LEFT", spec.multi and 20 or 10, 0)
     local tkey = head and "faint" or (on and "accentInk" or "text")
     r.Text:SetTextColor(Theme:C(tkey))
     r.bg:Hide()
@@ -599,7 +693,7 @@ local function openDropdown(anchor, spec, onPick)
       r:SetScript("OnClick", function()
         spec.toggle(key)
         if onPick then onPick() end
-        openDropdown(anchor, spec, onPick) -- repaint dots + summary, menu stays open
+        showDropdown(anchor, spec, onPick) -- repaint the ticks + summary, menu stays open
       end)
     else
       r:SetScript("OnClick", function()
@@ -654,6 +748,12 @@ local function openDropdown(anchor, spec, onPick)
   if m.PaintBar then m:PaintBar() end
 end
 
+-- The ordinary way in: a second press on the control closes it.
+local function openDropdown(anchor, spec, onPick)
+  if dropdown and dropdown:IsShown() and dropdown.owner == anchor then closeDropdown(); return end
+  showDropdown(anchor, spec, onPick)
+end
+
 ns.OpenDropdown = openDropdown
 
 local function caretGroup(parent, dir)
@@ -706,6 +806,19 @@ function factories.header(parent, spec)
   return row
 end
 
+-- A bare hairline between groups; no name, so the search walks past it.
+function factories.divider(parent, spec)
+  local row = CreateFrame("Frame", nil, parent)
+  row:SetHeight(18)
+  local line = Theme:Rect(row, "strokeSoft", "ARTWORK")
+  ns.PixelLine(line, 1)
+  line:SetPoint("BOTTOMLEFT", 0, 0)
+  line:SetPoint("BOTTOMRIGHT", 0, 0)
+  -- VisibleRows calls Refresh blindly; a missing one is a nil call on page switch.
+  row.Refresh = function() end
+  return row
+end
+
 function factories.description(parent, spec)
   local row = CreateFrame("Frame", nil, parent)
   local fs = track(Theme:Label(row, BASE_FONT - 2, "dim"), -2)
@@ -753,6 +866,7 @@ function factories.toggle(parent, spec)
     fs:SetTextColor(Theme:C(off and "faint" or (on and "text" or "dim")))
     row:SetEnabled(not off)
     row.off, row.on = off, on
+    offDuty(row, off)
     paintBox(not off and row:IsMouseOver())
   end
   row:SetScript("OnClick", function()
@@ -876,6 +990,8 @@ function factories.keybind(parent, spec)
 
   local function paint()
     local on = not (spec.disabled and spec.disabled())
+    row.off = not on
+    offDuty(row, not on)
     if capturing then
       cur:SetText(T("Press a key..."))
       cur:SetTextColor(Theme:C("accent"))
@@ -923,7 +1039,7 @@ function factories.keybind(parent, spec)
   end
 
   btn:SetScript("OnEnter", function(s)
-    if capturing then return end
+    if capturing or row.off then return end
     ns.SetBg(s, Theme:C("panelHi"))
     ns.SetEdge(s, Theme:C("accent"))
   end)
@@ -988,6 +1104,7 @@ function factories.input(parent, spec)
   row.Refresh = function()
     local on = not (spec.disabled and spec.disabled())
     box:EnableMouse(on)
+    offDuty(row, not on)
     fs:SetText(T(spec.name))
     fs:SetTextColor(Theme:C(on and "text" or "faint"))
     box:SetTextColor(Theme:C(on and "text" or "faint"))
@@ -1033,7 +1150,6 @@ function factories.range(parent, spec)
   s:SetHeight(18)
   s:SetPoint("BOTTOMLEFT", 1, 2)
   s:SetPoint("BOTTOMRIGHT", -1, 2)
-  s:SetMinMaxValues(spec.min, spec.max)
   s:SetValueStep(spec.step or 1)
   s:SetObeyStepOnDrag(true)
 
@@ -1052,11 +1168,26 @@ function factories.range(parent, spec)
   thumb:SetSize(9, 18)
   s:SetThumbTexture(thumb)
 
+  -- The floor moves: gaps start at caption room while names are on.
+  local function minOf()
+    local m = spec.min
+    if type(m) == "function" then m = m() end
+    return m or 0
+  end
+  -- Read back through the floor, so the thumb and the label never disagree.
+  local function atLeastFloor()
+    local v = tonumber(spec.get()) or 0
+    local floor = minOf()
+    return v < floor and floor or v
+  end
+  s:SetMinMaxValues(minOf(), spec.max)
+
   local function snap(v)
     local step = spec.step or 1
-    local n = math.floor((v - spec.min) / step + 0.5)
-    local out = spec.min + n * step
-    if out > spec.max then out = spec.max elseif out < spec.min then out = spec.min end
+    local mn = minOf()
+    local n = math.floor((v - mn) / step + 0.5)
+    local out = mn + n * step
+    if out > spec.max then out = spec.max elseif out < mn then out = mn end
     return out
   end
 
@@ -1068,9 +1199,10 @@ function factories.range(parent, spec)
 
   local function paint(v)
     val:SetText(label(v))
-    local span = spec.max - spec.min
+    local mn = minOf()
+    local span = spec.max - mn
     local w = s:GetWidth() or 0
-    fill:SetWidth(span > 0 and math.max(0.001, w * (v - spec.min) / span) or 0.001)
+    fill:SetWidth(span > 0 and math.max(0.001, w * (v - mn) / span) or 0.001)
   end
 
   s:SetScript("OnValueChanged", function(sl, v)
@@ -1105,6 +1237,7 @@ function factories.range(parent, spec)
   row.Refresh = function()
     local on = not (spec.disabled and spec.disabled())
     s.offDuty = not on
+    offDuty(row, not on)
     s:EnableMouse(on)
     fs:SetText(T(spec.name))
     fs:SetTextColor(Theme:C(on and "text" or "faint"))
@@ -1113,9 +1246,10 @@ function factories.range(parent, spec)
     else thumb:SetVertexColor(Theme:C("faint")) end
     fill:SetVertexColor(Theme:C(on and "accent" or "strokeSoft"))
     s.quiet = true
-    s:SetValue(spec.get())
+    s:SetMinMaxValues(minOf(), spec.max)
+    s:SetValue(atLeastFloor())
     s.quiet = nil
-    paint(spec.get())
+    paint(atLeastFloor())
   end
   row.Refresh()
   tip(row, spec.desc)
@@ -1131,6 +1265,20 @@ local function cycle(spec, dir)
   if idx < 1 then idx = #keys elseif idx > #keys then idx = 1 end
   spec.set(keys[idx])
   if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
+end
+
+-- The set a multi row holds, read back into the control's width.
+local function fitList(fs, text, maxW)
+  fs:SetText(text)
+  if maxW <= 0 or fs:GetStringWidth() <= maxW then return end
+  local stops = ns.CharStops(text)
+  local lo, hi, best = 1, #stops - 1, 0
+  while lo <= hi do
+    local mid = math.floor((lo + hi) / 2)
+    fs:SetText(text:sub(1, stops[mid + 1]) .. "…")
+    if fs:GetStringWidth() <= maxW then best = mid; lo = mid + 1 else hi = mid - 1 end
+  end
+  fs:SetText(best == 0 and "…" or (text:sub(1, stops[best + 1]) .. "…"))
 end
 
 function factories.select(parent, spec)
@@ -1165,8 +1313,15 @@ function factories.select(parent, spec)
   row.Refresh = function()
     local off = (spec.disabled and spec.disabled()) and true or false
     row.off = off
+    offDuty(row, off)
     if nameFS then nameFS:SetText(T(spec.name)) end
-    cur:SetText(T(spec.label(spec.get())) or "")
+    -- A set has no single value, so it reads its set back, trimmed.
+    if spec.summary then
+      local w = (btn:GetWidth() > 0 and btn:GetWidth() or CONTENT_W) - 25
+      fitList(cur, spec.summary(), w)
+    else
+      cur:SetText(T(spec.label(spec.get())) or "")
+    end
     cur:SetTextColor(Theme:C(off and "faint" or "text"))
     ns.SetBg(btn, Theme:C("panel"))
     ns.SetEdge(btn, Theme:C(off and "strokeSoft" or "stroke"))
@@ -1194,7 +1349,9 @@ function factories.select(parent, spec)
   btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   btn:SetScript("OnClick", function(s, button)
     if row.off then return end
+    -- A set has no next value, so right click stays with single picks.
     if button == "RightButton" then
+      if spec.summary then return end
       cycle(spec, -1)
       row.Refresh()
       return
@@ -1287,9 +1444,7 @@ StaticPopupDialogs["WARPEE_WIPE_GOLD"] = {
   whileDead = true,
   hideOnEscape = true,
   showAlert = true,
-  OnShow = function(self)
-    self.text:SetText(L["Forget the remembered gold of every character?"])
-  end,
+  -- The popup carries Text, not text, so the old self.text write threw on open.
   OnAccept = function() wipeGold() end,
 }
 
@@ -1349,6 +1504,7 @@ local function charCell(row, i)
   c:SetScript("OnClick", function(s)
     if s.gold then
       if not row.delMode then return end
+      StaticPopupDialogs["WARPEE_WIPE_GOLD"].text = L["Forget the remembered gold of every character?"]
       StaticPopup_Show("WARPEE_WIPE_GOLD")
       return
     end
@@ -1882,7 +2038,10 @@ function factories.badges(parent, spec)
       local x, y = bg.fit("x", g.x, d.key), bg.fit("y", g.y, d.key)
       if x ~= g.x or y ~= g.y then g.x, g.y = x, y; moved = true end
     end
-    if moved then bg.bump() end
+    if moved then
+      -- Paced like every slider: a size drag re-fits badges every frame.
+      relayoutLive()
+    end
     row:SetHeight(h + PREV + 18 + hh)
   end
   row.Rebuild = row.Refresh
@@ -2245,13 +2404,13 @@ local function makeScrollArea(parent, list)
   return sf
 end
 
-local colsGet, colsSet       = field("cols")
-local sizeGet, bagSizeSet    = field("iconSize")
+local colsGet, colsSet       = liteField("cols", "bags")
+local sizeGet, bagSizeSet    = liteField("iconSize", "bags")
 -- A window's cell is what its badges are sized against, so a window that lands on a new one
 -- has to reach them and not just its own grid. The bump comes first: the restyle that follows
 -- is the pass that dresses them, and it reads the counter on its way through.
 local function sizeSet(v) ns.BumpCellSize(); bagSizeSet(v) end
-local gapGet, gapSet         = field("gap")
+local gapGet, gapSet         = liteField("gap", "both")
 local styleGet, styleSet     = styleField("slotStyle")
 local fontGet, fontSet       = styleField("font")
 local zoomGet, zoomSet       = styleField("iconZoom")
@@ -2261,11 +2420,60 @@ local flow = {}
 flow.topGet, flow.topSet = field("reagentTop")
 flow.hideGet, flow.hideSet = field("hideReagents")
 flow.offGet = function() return mergeGet() or flow.hideGet() end
+-- One flag for the bags, one for both bank sets behind their mode pick.
+-- Split releases a merged reagent bag, so the merge row greys out.
+flow.splitGet = function() return Bags.splitBags end
+flow.splitSet = function(v)
+  Bags.splitBags = v and true or false
+  WarpeeDB.splitBags = Bags.splitBags
+  if Bags.splitBags and Bags.mergeReagents then mergeSet(false) end
+  relayout()
+end
+flow.noMerge = function() return flow.hideGet() or flow.splitGet() end
+flow.splitBankGet, flow.splitBankSet = field("splitBank")
+flow.splitWbGet, flow.splitWbSet     = field("splitWb")
+-- A named block needs caption room, so the setter holds the value to it.
+local function splitRoom(named) return named() and (ns.CapRoom or 0) or 0 end
+local function splitNamedBags() return Bags.splitBags and Bags.nameBags end
+local function splitNamedBank() return Bags.splitBank and Bags.nameBank end
+local function splitNamedWb() return Bags.splitWb and Bags.nameWb end
+local function gapFloor(v, named)
+  local room = splitRoom(named)
+  v = tonumber(v) or 12
+  return v < room and room or v
+end
+-- Through field(), so the number lands on the table the layouts read.
+local function gapBagsSet(v)
+  v = gapFloor(v, splitNamedBags)
+  Bags.splitGapBags, WarpeeDB.splitGapBags = v, v
+  ns.LayoutLite("bags")
+end
+local function gapBankSet(v)
+  v = gapFloor(v, splitNamedBank)
+  Bags.splitGapBank, WarpeeDB.splitGapBank = v, v
+  ns.LayoutLite("bank")
+end
+local function gapWbSet(v)
+  v = gapFloor(v, splitNamedWb)
+  Bags.splitGapWb, WarpeeDB.splitGapWb = v, v
+  ns.LayoutLite("bank")
+end
+flow.splitGapBagsGet = function() return Bags.splitGapBags end
+flow.splitGapBagsSet = gapBagsSet
+flow.splitGapBankGet = function() return Bags.splitGapBank end
+flow.splitGapBankSet = gapBankSet
+flow.splitGapWbGet = function() return Bags.splitGapWb end
+flow.splitGapWbSet = gapWbSet
+-- The slider's floor; the range factory reads min as a function.
+flow.splitGapBagsMin = function() return splitRoom(splitNamedBags) end
+flow.splitGapBankMin = function() return splitRoom(splitNamedBank) end
+flow.splitGapWbMin = function() return splitRoom(splitNamedWb) end
+flow.nameBagsGet, flow.nameBagsSet   = field("nameBags")
+flow.nameBankGet, flow.nameBankSet   = field("nameBank")
+flow.nameWbGet, flow.nameWbSet       = field("nameWb")
 flow.revGet, flow.revSet = field("revFill")
 flow.upGet, flow.upSet   = field("fillUp")
--- New-on-top is bags-only (the bank has no passive loot flow) and, unlike reverse/fill-up which the
--- bank grid also reads, it is meaningless in the grouped view where sections own the order. So it hides
--- whenever the bags are grouped, not on the both-grouped test the other two use.
+-- New-on-top is bags-only and means nothing in the grouped view, so it greys there.
 flow.newTopGet = function() return Bags.newOnTop end
 flow.newTopSet = function(v)
   Bags.newOnTop = v
@@ -2277,35 +2485,28 @@ flow.newTopSet = function(v)
 end
 -- The view is a string on disk, the row a toggle, so the pair maps bool to "grid"/"cat".
 flow.catGet = function() return Bags.bagView == "cat" end
--- The inverse gate: rows that only make sense in the grouped view hide themselves in the grid with
--- hidden = flow.gridGet, the mirror of the reagent rows that hide in cat-view with hidden = catGet.
+-- The inverse gate, the mirror of the reagent rows' catGet: true while the bags are still a plain grid.
 flow.gridGet = function() return Bags.bagView ~= "cat" end
 -- The bank's own grouped-view flag, independent of the bags: a player may want sections in one and
 -- the plain grid in the other. Stored on WarpeeDB.bankView and read by the bank when it lays out.
 flow.bankCatGet = function() return WarpeeDB and WarpeeDB.bankView == "cat" end
--- Fill-upwards and reverse-order are grid settings the bank grid reads too (Bank.lua reads Bags.fillUp
--- and Bags.revFill), so they must stay reachable while any window is still a grid. Hidden only when
--- both the bags and the bank are grouped, i.e. no grid is left anywhere to arrange. The reagent rows
--- above hide on catGet alone because the reagent bag is a bags-only thing the bank never draws.
+-- Both grids read these, so they grey only when neither is a grid.
 flow.gridGone = function() return flow.catGet() and flow.bankCatGet() end
--- Category spacing (WarpeeDB.catGapX / catGapY) drives the grouped view of both surfaces, so it is
--- reachable whenever either the bags or the bank is grouped, and hidden only when neither is.
+-- Category spacing drives the grouped view of both, live while either is grouped.
 flow.noCat = function() return not (flow.catGet() or flow.bankCatGet()) end
 flow.bankCatSet = function(v)
   WarpeeDB.bankView = v and "cat" or "grid"
   if ns.Bank and ns.Bank.Refresh then ns.Bank:Refresh() end
-  -- Category spacing and the grid-order rows are gated on the bank view as well as the bags', so the
-  -- page has to reflow at this switch too, the same as the bags toggle does. Without it the spacing
-  -- slider stays hidden when the bank alone turns grouped, and lingers when the bank alone leaves.
-  if Options.ReflowPages then Options:ReflowPages() end
+  -- A row pass, not a reflow: a reflow would rebuild the page under the open menu.
+  if Options.RefreshSoon then Options:RefreshSoon() end
 end
 flow.catSet = function(v)
   local mode = v and "cat" or "grid"
   Bags.bagView = mode
   WarpeeDB.bagView = mode
   relayout()
-  -- The reagent rows are gated on the view, so reflow the page to add or drop them at the switch.
-  if Options.ReflowPages then Options:ReflowPages() end
+  -- The reagent rows answer to the view; one row pass updates their state.
+  if Options.RefreshSoon then Options:RefreshSoon() end
 end
 
 -- One editable row per category: a checkbox, the reorder carets, a name and a search field, the
@@ -4700,6 +4901,7 @@ function factories.catlist(parent, spec)
   tip(sortRow, SORT_SPEC.desc)
 
   row.Rebuild = function()
+    row.builtAt = GetTime()
     local list = Cats:List()
     -- `other` is the unmatched total the Other catch-all shows; the per-row counts live in each open panel.
     local _, other = Cats:Counts()
@@ -5030,7 +5232,12 @@ function factories.catlist(parent, spec)
     codeBox:Show()
     row:SetHeight(shareY + 28 + 22)
   end
-  row.Refresh = row.Rebuild
+  -- Refresh arrives every frame of a drag; the full rebuild is capped.
+  row.Refresh = function()
+    local now = GetTime()
+    if row.builtAt and (now - row.builtAt) < 0.5 then return end
+    row.Rebuild()
+  end
   row.Rebuild()
   -- The editor's reset hook, called by the confirm dialog's accept: the same wrapper every other action
   -- uses, so a confirmed reset blurs the fields, rebuilds the list and lands the view on its first row.
@@ -5066,618 +5273,64 @@ function factories.catlist(parent, spec)
   end
   return row
 end
-local questGet, questSet     = styleField("questMarks")
-local newGet, newSet         = styleField("newItemGlow")
-local unusableGet, unusableSet = styleField("unusableBorder")
-local function gridAlphaGet() return tonumber(WarpeeDB and WarpeeDB.gridAlpha) or 0 end
-local function gridAlphaSet(v) WarpeeDB.gridAlpha = v; Theme:ApplyGridAlpha() end
-local gaugeGet, gaugeSet     = field("showGauge")
-local fav = {}
-fav.showGet = function() return ns.Fav:Enabled() end
-fav.showSet = function(v)
-  WarpeeDB.favShow = v and true or false
-  relayout()
-end
-fav.recentBagsGet = function() return ns.Recent and ns.Recent:BagsOn() end
-fav.recentBagsSet = function(v)
-  WarpeeDB.recentBags = v and true or false
-  relayout()
-end
-fav.recentPocketGet = function() return ns.Recent and ns.Recent:PocketOn() end
-fav.recentPocketSet = function(v)
-  WarpeeDB.recentPocket = v and true or false
-  relayout()
-end
-fav.pkGet = function() return ns.Pocket and ns.Pocket:Enabled() end
-fav.pkSet = function(v)
-  WarpeeDB.pocketShow = v and true or false
-  if ns.Pocket then
-    if v and WarpeeDB.pocketOpen then ns.Pocket:Open()
-    else ns.Pocket:Apply() end
-  end
-  relayout()
-end
-fav.pkWithGet = function() return WarpeeDB.pocketWithBags ~= false end
-fav.snapGet = function() return WarpeeDB.pocketSnap ~= false end
-fav.snapSet = function(v) WarpeeDB.pocketSnap = v and true or false end
-fav.pkWithSet = function(v)
-  WarpeeDB.pocketWithBags = v and true or false
-  if v and ns.Pocket and ns.Bags and ns.Bags.frame and ns.Bags.frame:IsShown()
-     and not (ns.Pocket.frame and ns.Pocket.frame:IsShown()) then
-    ns.Pocket:Open()
-  end
-  relayout()
-end
-fav.pkLockGet = function() return ns.Pocket and ns.Pocket:Locked() end
-fav.pkLockSet = function(v)
-  WarpeeDB.pocketLock = v and true or false
-  if ns.Pocket then ns.Pocket:Apply() end
-end
-fav.pkRowsGet = function() return ns.Pocket and ns.Pocket:Rows() or 5 end
-fav.pkRowsSet = function(v)
-  WarpeeDB.pocketRows = tonumber(v) or 5
-  if ns.Pocket then ns.Pocket:Refresh() end
-end
-fav.pkColsGet = function() return ns.Pocket and ns.Pocket:Cols() or 6 end
-fav.pkColsSet = function(v)
-  WarpeeDB.pocketCols = tonumber(v) or 6
-  if ns.Pocket then ns.Pocket:Refresh() end
-end
-fav.pkSizeGet = function()
-  return tonumber(WarpeeDB.pocketIconSize) or (Bags.iconSize or 40)
-end
-fav.pkSizeSet = function(v)
-  WarpeeDB.pocketIconSize = tonumber(v) or 40
-  ns.BumpCellSize()
-  if ns.Pocket then ns.Pocket:Refresh() end
-end
-local lettersGet, lettersSet = field("goldLetters")
-local onlyGet, onlySet       = field("goldOnly")
 
-local GOLD_FORMATS = { "commas", "dots", "spaces", "short" }
-local GOLD_FORMAT_LABELS = {
-  commas = "Commas (5,000,000)",
-  dots   = "Dots (5.000.000)",
-  spaces = "Spaces (5 000 000)",
-  short  = "Short (5M, 284.4K)",
-}
-local function goldFmtGet() return WarpeeDB.goldFormat or "commas" end
-local function goldFmtSet(v) WarpeeDB.goldFormat = v; relayout() end
--- Drag-to-pin mode for the grouped view: whether dropping a piece on a section pins it there. Off keeps
--- the editor the only way to pin; Alt (the default) pins only while Alt is held, so a plain drag never
--- leaves a surprise pin; Always pins on every section drop.
-local PIN_DRAG_MODES = { "off", "alt", "on" }
-local PIN_DRAG_LABELS = {
-  off = "Off",
-  alt = "Hold Alt",
-  on  = "Always",
-}
-local function pinDragGet() return WarpeeDB.catPinDrag or "alt" end
-local function pinDragSet(v) WarpeeDB.catPinDrag = v end
-local qColorGet, qColorSet   = styleField("qualityColorIlvl")
-local qBorderGet, qBorderSet = styleField("qualityBorder")
-local bankColsGet, bankColsSet = dbField("bankCols")
-local wbColsGet, wbColsSet     = dbField("warbandCols")
-local bankSizeGet, bankIconSizeSet = dbField("bankIconSize")
-local function bankSizeSet(v) ns.BumpCellSize(); bankIconSizeSet(v) end
-
-local function anchorKeys() return ANCHORS end
-local function anchorLabel(k) return ANCHOR_LABELS[k] or k end
-
-local aucGet, aucSet   = autoField("auction")
-local bankGet, bankSet = autoField("bank")
-local gbGet, gbSet     = autoField("guildbank")
-local mailGet, mailSet = autoField("mail")
-local profGet, profSet = autoField("professions")
-local tradeGet, tradeSet = autoField("trade")
-local vendGet, vendSet = autoField("vendor")
-local upgGet, upgSet   = autoField("itemupgrade")
-local cataGet, cataSet = autoField("catalyst")
-
-local GENERAL_PAGE = {
-  { type = "header", name = "Look" },
-  { type = "select", name = "Theme", get = themeGet, set = themeSet,
-    keys = function() return THEME_KEYS end, label = themeLabel,
-    desc = "Color scheme for the whole addon." },
-  { type = "select", name = "Slot background",
-    get = styleGet, set = styleSet,
-    keys = function() return STYLES end, label = function(k) return STYLE_LABELS[k] or k end,
-    desc = "What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off." },
-  { type = "range", name = "Plate opacity", min = 0, max = 1, step = 0.01,
-    get = gridAlphaGet, set = gridAlphaSet,
-    desc = "The plate the items stand on, an extra surface over the window's own background. At 0 it is invisible and the window keeps its own background; raised, it covers the window from top to bottom, except the header a skin draws for itself." },
-  { type = "select", name = "Font", get = fontGet,
-    set = function(v) fontSet(v); Options:ApplyFont() end,
-    keys = fontKeys, label = function(k) return k end,
-    desc = "Used for every label Warpee draws. Other addons can add to this list." },
-  { type = "header", name = "Money" },
-  { type = "select", name = "Gold format", get = goldFmtGet, set = goldFmtSet,
-    keys = function() return GOLD_FORMATS end, label = function(k) return GOLD_FORMAT_LABELS[k] or k end,
-    desc = "Grouping for printed amounts. Short abbreviates to K and M." },
-  { type = "toggle", name = "Gold only", col = 1, get = onlyGet, set = onlySet,
-    desc = "Show gold only, hide silver and copper." },
-  { type = "toggle", name = "Coin letters", col = 2, get = lettersGet, set = lettersSet,
-    desc = "On = g/s/c letters. Off = coin icons." },
-  { type = "header", name = "Interface", key = "interface" },
-  { type = "select", name = "Language", section = "interface", get = localeGet, set = localeSet,
-    keys = localeKeys, label = localeLabel,
-    desc = "Language for the addon's own text. Item names always come from the game." },
-  { type = "toggle", name = "Lock bags and bank", col = 1, section = "interface", get = lockGet, set = lockSet,
-    desc = "Freeze the bags and the bank in place. Unlocked, they show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)." },
-  { type = "toggle", name = "Hide X/Y fields", col = 2, section = "interface", get = hideFieldsGet, set = hideFieldsSet,
-    disabled = function() return lockGet() end,
-    desc = "The windows stay movable by dragging, but the X/Y fields are not drawn." },
-  { type = "select", name = "Bags growth corner", col = 1, of = 2, section = "interface",
-    get = function() return angleGet("pos") end,
-    set = function(v) angleSet("pos", v) end,
-    keys = anchorKeys, label = anchorLabel,
-    desc = "The corner of the screen the bag window hangs from. It grows away from that corner as your bags fill." },
-  { type = "select", name = "Bank growth corner", col = 2, of = 2, section = "interface",
-    get = function() return angleGet("bankPos") end,
-    set = function(v) angleSet("bankPos", v) end,
-    keys = anchorKeys, label = anchorLabel,
-    desc = "The corner of the screen the bank window hangs from, used the same way." },
-  { type = "toggle", name = "Capacity bar", col = 1, section = "interface", get = gaugeGet, set = gaugeSet,
-    desc = "Fill bar in the bags header showing how full they are." },
-  { type = "toggle", name = "Hide minimap icon", col = 2, section = "interface", get = mmHideGet, set = mmHideSet,
-    desc = "Takes the Warpee button off the minimap." },
-  { type = "toggle", name = "Clear search on close", col = 1, section = "interface", get = sClearGet, set = sClearSet,
-    desc = "Empty the search box when the window closes, so it opens unfiltered next time." },
-  { type = "toggle", name = "Search bags and bank together", col = 2, section = "interface", get = sLinkGet, set = sLinkSet,
-    desc = "While both windows are open, typing in either box searches both at once." },
-  { type = "header", name = "Open bags with", key = "autoopen",
-    state = function()
-      return onOf({ aucGet, bankGet, gbGet, mailGet, profGet, tradeGet, vendGet, upgGet, cataGet })
-    end },
-  { type = "description", section = "autoopen",
-    name = "The bags open together with these windows and close with them again." },
-  -- Paired by kind down each row: the two banks, then mail and the auction house, then the two
-  -- face-to-face windows, then the two item stations. Professions trails alone.
-  { type = "toggle", name = "Bank", col = 1, section = "autoopen", get = bankGet, set = bankSet },
-  { type = "toggle", name = "Guild bank", col = 2, section = "autoopen", get = gbGet, set = gbSet },
-  { type = "toggle", name = "Mail", col = 1, section = "autoopen", get = mailGet, set = mailSet },
-  { type = "toggle", name = "Auction house", col = 2, section = "autoopen",
-    get = aucGet, set = aucSet },
-  { type = "toggle", name = "Vendor", col = 1, section = "autoopen", get = vendGet, set = vendSet },
-  { type = "toggle", name = "Trade", col = 2, section = "autoopen",
-    get = tradeGet, set = tradeSet },
-  -- Item Upgrade reads the client's own window name; the Revival Catalyst window has no stable global
-  -- string, so "Catalyst" is a Warpee key.
-  { type = "toggle", name = function() return _G.ITEM_UPGRADE or "Item Upgrade" end, col = 1,
-    section = "autoopen", get = upgGet, set = upgSet },
-  { type = "toggle", name = "Catalyst", col = 2, section = "autoopen", get = cataGet, set = cataSet },
-  { type = "toggle", name = "Professions", col = 1, section = "autoopen",
-    get = profGet, set = profSet },
-}
-
-local POCKET_PAGE = {
-  { type = "header", name = "Pocket" },
-  { type = "toggle", name = "Pocket window", col = 1, get = fav.pkGet, set = fav.pkSet,
-    desc = pinHint(
-      "A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and hovering a cell and pressing %s empties it.",
-      "A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and a cell under the pointer can be emptied with a key of its own." ) },
-  { type = "toggle", name = "Open with bags", col = 2, get = fav.pkWithGet, set = fav.pkWithSet,
-    disabled = function() return not fav.pkGet() end,
-    desc = "The pocket opens together with the bags. A window that opens the bags on its own, the auction house or the mail, pushes the pocket aside until you open it yourself." },
-  { type = "toggle", name = "Recent in the pocket", col = 1,
-    get = fav.recentPocketGet, set = fav.recentPocketSet,
-    disabled = function() return not fav.pkGet() end,
-    desc = "A row above the pocket cells holding what came into your bags this session, apart from gray items. It is the same list the bag window shows, so clearing it in one window clears it in the other." },
-  { type = "toggle", name = "Lock the pocket", col = 2,
-    get = fav.pkLockGet, set = fav.pkLockSet,
-    disabled = function() return not fav.pkGet() end,
-    desc = "Keep the pocket where it is. Unlocked, the arrows along its bottom edge nudge it around." },
-  { type = "toggle", name = "Snap to windows", col = 1,
-    get = fav.snapGet, set = fav.snapSet,
-    disabled = function() return not fav.pkGet() end,
-    desc = "Dropped close to the bags or the bank, the pocket lines up against it and holds that seam when the other window changes size. Dragging the bags never carries the pocket along." },
-  { type = "select", name = "Pocket growth corner", col = 2,
-    get = function() return angleGet("pocketPos") end,
-    set = function(v) angleSet("pocketPos", v) end,
-    keys = function() return ANGLE_KEYS end, label = anchorLabel,
-    disabled = function() return not fav.pkGet() end,
-    desc = "The corner the pocket hangs from. Snapping it against another window sets this by itself." },
-  { type = "header", name = "Pocket size", key = "pocketsize" },
-  { type = "range", name = "Pocket rows", min = 1, max = 6, step = 1, half = "left",
-    section = "pocketsize",
-    get = fav.pkRowsGet, set = fav.pkRowsSet,
-    disabled = function() return not fav.pkGet() end,
-    desc = "How many rows of cells the pocket window holds." },
-  { type = "range", name = "Pocket slots per row", min = 4, max = 8, step = 1, half = "right",
-    section = "pocketsize",
-    get = fav.pkColsGet, set = fav.pkColsSet,
-    disabled = function() return not fav.pkGet() end,
-    desc = "How wide the pocket window grows." },
-  { type = "range", name = "Pocket slot size", min = 24, max = 56, step = 1, half = "left",
-    section = "pocketsize",
-    get = fav.pkSizeGet, set = fav.pkSizeSet,
-    disabled = function() return not fav.pkGet() end,
-    desc = "Size of one cell in the pocket. It follows the bag slot size until you move this." },
-  { type = "keybind", name = "Pocket key", binding = "WARPEE_POCKET", half = "right",
-    disabled = function() return not fav.pkGet() end,
-    desc = "The key that opens and closes the pocket. Click, then press a key, a mouse button or the wheel, with Shift, Ctrl or Alt if you like; a right click clears it, Escape cancels." },
-}
-
-local ITEMS_PAGE = {
-  { type = "header", name = "Markers" },
-  { type = "toggle", name = "Reagent border", col = 1,
-    get = function() return Bags.reagentTint end,
-    set = function(v)
-      Bags.reagentTint = v
-      WarpeeDB.reagentTint = v
-      Bags.styleGen = (Bags.styleGen or 0) + 1
-      relayout()
-    end,
-    desc = "Tint the slots of the reagent bag and the reagent bank." },
-  { type = "toggle", name = "Quality border", col = 2, get = qBorderGet, set = qBorderSet,
-    desc = "A border around each item in its quality color. Items tied to a quest take the quest yellow instead, the color of the exclamation mark. The reagent and unwearable borders come first." },
-  { type = "toggle", name = "Quest marker", col = 1, get = questGet, set = questSet,
-    desc = "The exclamation mark on items for quests you have not picked up yet. Not shown in the warband bank." },
-  { type = "toggle", name = "New item glow", col = 2, get = newGet, set = newSet,
-    desc = "Quality-colored glow on items the game still counts as new." },
-  { type = "toggle", name = "Item level by quality", col = 1, get = qColorGet, set = qColorSet,
-    disabled = function() return not ns.Badge("ilvl").on end,
-    desc = "Tint the item level number with the item's quality color." },
-  { type = "toggle", name = "Unwearable border", col = 2, get = unusableGet, set = unusableSet,
-    desc = "Red border around gear your character cannot wear." },
-  { type = "range", name = "Border thickness", min = 1, max = 6, step = 1,
-    get = edgeGet, set = edgeSet,
-    desc = "Thickness of the slot border." },
-  { type = "header", name = "Badges", key = "badges",
-    state = function()
-      return ("%s, %d/%d"):format(T(bg.label(bg.sel)), bg.shown(), #ns.BADGES)
-    end },
-  { type = "badges", section = "badges",
-    desc = "Drag a badge, or click where you want it. Left-click a name to show that badge, right-click the name to hide it." },
-  { type = "toggle", name = "Show only the selected badge", col = 1, section = "badges",
-    get = bg.soloGet, set = bg.soloSet,
-    desc = "In the cell above, hide every badge except the selected one." },
-  { type = "select", col = 2, section = "badges", get = bg.aGet, set = bg.aSet,
-    keys = bg.alignKeys, label = bg.alignLabel, hidden = bg.isTex,
-    desc = "Growth direction: which way the badge grows when the value gets longer." },
-  { type = "select", name = "Corner", get = bg.cGet, set = bg.cSet, section = "badges",
-    keys = anchorKeys, label = anchorLabel,
-    desc = "Which corner of the slot the badge is pinned to." },
-  { type = "range", name = "X offset", min = -56, max = 56, step = 1, section = "badges",
-    get = bg.xGet, set = bg.xSet, half = "left" },
-  { type = "range", name = "Y offset", min = -56, max = 56, step = 1, section = "badges",
-    get = bg.yGet, set = bg.ySet, half = "right" },
-  { type = "range", name = "Text size", min = 6, max = 24, step = 1, section = "badges",
-    get = bg.sGet, set = bg.sSet, hidden = bg.isTex },
-  { type = "range", name = "Badge scale", min = 0.2, max = 1, step = 0.02, section = "badges",
-    get = bg.sGet, set = bg.sSet, hidden = bg.isText },
-  { type = "range", name = "Letters", min = 2, max = 8, step = 1, section = "badges",
-    get = bg.kGet, set = bg.kSet, hidden = bg.notFit,
-    desc = "How many letters of the set name to show." },
-  { type = "header", name = "Badge order", key = "badgeorder" },
-  { type = "description", section = "badgeorder",
-    name = "The badge at the top of the list draws over the ones below it. The stack count always stays at the bottom." },
-  { type = "badgeorder", section = "badgeorder" },
-}
-
-local GRID_PAGE = {
-  { type = "header", name = "Bags grid" },
-  { type = "range", name = "Slot size", min = 24, max = 56, step = 1, get = sizeGet, set = sizeSet,
-    half = "left", desc = "Size of one slot in the bags." },
-  { type = "range", name = "Slots per row", min = 6, max = 24, step = 1, get = colsGet, set = colsSet,
-    half = "right", desc = "How wide the bag window grows." },
-  { type = "range", name = "Spacing", min = 0, max = 16, step = 1, get = gapGet, set = gapSet,
-    half = "left", desc = "Gap between slots, in every grid." },
-  { type = "range", name = "Icon zoom", min = 0.8, max = 1.2, step = 0.01,
-    get = zoomGet, set = zoomSet, half = "right",
-    desc = "1.00 fills the slot. Less shrinks the icon, more crops it." },
-  { type = "header", name = "Bag arrangement", key = "arrange" },
-  { type = "toggle", name = "Bags by category", col = 1, of = 2, section = "arrange",
-    get = flow.catGet, set = flow.catSet,
-    desc = "Lay the bag items out in labelled sections instead of one grid: equipment, consumables, reagents and the rest, with anything left over under Other. The favorites and recent rows stay." },
-  { type = "toggle", name = "Bank by category", col = 2, of = 2, section = "arrange",
-    get = flow.bankCatGet, set = flow.bankCatSet,
-    desc = "Lay the bank and warband bank out in the same labelled sections as the bags." },
-  -- Grouped view only (hidden = noCat). The two behaviour options for the grouped view come first, right
-  -- under the mode toggles they belong with — how items group (Combine stacks) and how they are filed
-  -- (Drag to pin) — before the cosmetic spacing sliders, so the primary controls lead and the fine-tuning
-  -- follows. Combine stacks folds several slots of one stackable item into a single cell showing the
-  -- summed count; gear, caged pets and keystones are never merged. Purely visual: the items stay in their
-  -- own bag slots; the Clean up button is what actually joins them.
-  { type = "toggle", name = "Combine stacks", section = "arrange",
-    get = function() return WarpeeDB and WarpeeDB.catCombine end,
-    set = function(v)
-      WarpeeDB.catCombine = v
-      if ns.Bank and ns.Bank.Refresh then ns.Bank:Refresh() end
-      relayout()
-    end,
-    hidden = flow.noCat,
-    desc = "Show several stacks of one item as a single cell with the total. This only changes how they look; the items stay in their own bag slots. Gear, pets and keystones stay one cell each." },
-  -- Whether dragging a piece onto a section pins it to that category.
-  { type = "select", name = "Drag to pin", section = "arrange",
-    get = pinDragGet, set = pinDragSet,
-    keys = function() return PIN_DRAG_MODES end, label = function(k) return PIN_DRAG_LABELS[k] or k end,
-    hidden = flow.noCat,
-    desc = "Drag an item onto a category in the grouped view to pin it there. Hold Alt pins only while Alt is held, so an ordinary drag never leaves a surprise pin. Off leaves pinning to the editor. A drop on the category the rules already choose unpins instead." },
-  -- Cosmetic spacing for the grouped view, after the behaviour options above. Each reads the density gap
-  -- while unset so the slider opens on the value already in use, and writes a flat pixel gap once moved.
-  -- X is the space between sections across a shelf, Y the drop between rows.
-  { type = "range", name = "Category spacing X", min = 0, max = 40, step = 1, section = "arrange",
-    get = function() return Bags.catGapX or ns.Density(Bags.iconSize).div end,
-    set = function(v) Bags.catGapX = v; WarpeeDB.catGapX = v; relayout() end,
-    hidden = flow.noCat, half = "left",
-    desc = "Horizontal gap between categories on a shelf, in the grouped view." },
-  { type = "range", name = "Category spacing Y", min = 0, max = 40, step = 1, section = "arrange",
-    get = function() return Bags.catGapY or ns.Density(Bags.iconSize).div end,
-    set = function(v) Bags.catGapY = v; WarpeeDB.catGapY = v; relayout() end,
-    hidden = flow.noCat, half = "right",
-    desc = "Vertical gap between category rows, in the grouped view." },
-  -- Grid-only layout, split under two faint subheadings so the long arrangement list reads as groups
-  -- rather than one pile: where the reagent bag sits, then how the whole grid is ordered. Both subheads
-  -- carry section = "arrange" so they fold with it, and each hides on the same test as the rows under it
-  -- (reagent rows on catGet, the order rows while any grid is left), so a heading never stands alone.
-  { type = "header", name = "Reagents", section = "arrange", hidden = flow.catGet },
-  { type = "toggle", name = "Hide reagents", col = 1, of = 2, section = "arrange",
-    get = flow.hideGet, set = flow.hideSet, hidden = flow.catGet,
-    desc = "Leave the reagent bag out of the window. Its slots still count in the header, and reagents still go into it." },
-  { type = "toggle", name = "Merge reagents", col = 2, of = 2, get = mergeGet, set = mergeSet,
-    section = "arrange", disabled = flow.hideGet, hidden = flow.catGet,
-    desc = "Lay the reagent bag out with the main bags, without its caption." },
-  { type = "toggle", name = "Reagents on top", section = "arrange",
-    get = flow.topGet, set = flow.topSet, disabled = flow.offGet, hidden = flow.catGet,
-    desc = "Draw the reagent bag above the main bags instead of below them." },
-  { type = "header", name = "Grid order", section = "arrange", hidden = flow.gridGone },
-  { type = "toggle", name = "Fill grid upwards", col = 1, of = 2, section = "arrange",
-    get = flow.upGet, set = flow.upSet, hidden = flow.gridGone,
-    desc = "The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top." },
-  { type = "toggle", name = "Reverse slot order", col = 2, of = 2, section = "arrange",
-    get = flow.revGet, set = flow.revSet, hidden = flow.gridGone,
-    desc = "The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in." },
-  { type = "toggle", name = "Keep new items apart", section = "arrange",
-    get = flow.newTopGet, set = flow.newTopSet, hidden = flow.catGet,
-    desc = "Items that just arrived are kept apart from the rest of your bags, so you can see what is new at a glance. Using an item or pressing sort returns everything to the ordinary order. Only the drawing order changes, nothing moves inside your bags." },
-  { type = "header", name = "Quick access" },
-  { type = "toggle", name = "Recent in bags", col = 1,
-    get = fav.recentBagsGet, set = fav.recentBagsSet,
-    desc = "A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload." },
-  { type = "toggle", name = "Favorite slots", col = 2, get = fav.showGet, set = fav.showSet,
-    desc = pinHint(
-      "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; hovering a slot and pressing %s clears it.",
-      "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; a slot under the pointer can be cleared with a key of its own." ) },
-  { type = "keybind", name = "Clear the cell", binding = "WARPEE_UNPIN",
-    desc = "The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels." },
-  { type = "header", name = "Bank and Warband grid", key = "bankgrid",
-    state = function() return (L["%d and %d wide"]):format(bankColsGet(), wbColsGet()) end },
-  { type = "description", section = "bankgrid",
-    name = "The bank keeps its own width and icon size, apart from the bags." },
-  { type = "range", name = "Bank slot size", min = 24, max = 56, step = 1, section = "bankgrid",
-    get = bankSizeGet, set = bankSizeSet,
-    desc = "One icon size for both bank tabs." },
-  { type = "range", name = "Bank slots per row", min = 8, max = 40, step = 1, section = "bankgrid",
-    get = bankColsGet, set = bankColsSet, half = "left" },
-  { type = "range", name = "Warband slots per row", min = 8, max = 40, step = 1,
-    section = "bankgrid", get = wbColsGet, set = wbColsSet, half = "right" },
-}
-
-local function tipOnGet() return WarpeeDB.tipCounts ~= false end
-local function tipOnSet(v) WarpeeDB.tipCounts = v and true or false end
-local function tipBankGet() return WarpeeDB.tipBank ~= false end
-local function tipBankSet(v) WarpeeDB.tipBank = v and true or false end
-local function tipWbGet() return WarpeeDB.tipWarband ~= false end
-local function tipWbSet(v) WarpeeDB.tipWarband = v and true or false end
-local function tipGoldGet() return WarpeeDB.tipGold ~= false end
-local function tipGoldSet(v) WarpeeDB.tipGold = v and true or false end
-local function tipOff() return not tipOnGet() end
-
-local snap = {}
-snap.bagsGet = function() return WarpeeDB.keepBags ~= false end
-snap.bagsSet = function(v) WarpeeDB.keepBags = v and true or false; relayout() end
-snap.bankGet = function() return WarpeeDB.keepBank ~= false end
-snap.bankSet = function(v) WarpeeDB.keepBank = v and true or false; relayout() end
-snap.wbGet = function() return WarpeeDB.keepWarband ~= false end
-snap.wbSet = function(v) WarpeeDB.keepWarband = v and true or false; relayout() end
-
-local CHARS_PAGE = {
-  { type = "header", name = "Tooltips",
-    state = function() return onOf({ tipOnGet, tipBankGet, tipWbGet, tipGoldGet }) end },
-  { type = "toggle", name = "Count across characters", col = 1, get = tipOnGet, set = tipOnSet,
-    desc = "Adds an Inventory block to item tooltips: how many each character carries." },
-  { type = "toggle", name = "Include bank", col = 2, get = tipBankGet, set = tipBankSet,
-    disabled = tipOff,
-    desc = "Count each character's bank too. Off = bags only." },
-  { type = "toggle", name = "Include Warband", col = 1, get = tipWbGet, set = tipWbSet,
-    disabled = tipOff,
-    desc = "Count the shared Warband bank on its own line." },
-  { type = "toggle", name = "Gold tooltip", col = 2, get = tipGoldGet, set = tipGoldSet,
-    desc = "Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price." },
-  { type = "header", name = "Snapshots",
-    state = function() return onOf({ snap.bagsGet, snap.bankGet, snap.wbGet }) end },
-  { type = "description",
-    name = "Copies of what you carry, so another character's bags and bank open from your own window." },
-  { type = "toggle", name = "Remember bags", col = 1, get = snap.bagsGet, set = snap.bagsSet,
-    desc = "Save this character's bags and gold whenever the bag window opens. Off = the saved copy stops updating, and stays visible until you delete the character below." },
-  { type = "toggle", name = "Remember bank", col = 2, get = snap.bankGet, set = snap.bankSet,
-    desc = "Save the character bank while you stand at a banker." },
-  { type = "toggle", name = "Remember Warband bank", col = 1, get = snap.wbGet, set = snap.wbSet,
-    desc = "Save the shared Warband bank while you stand at a banker." },
-  { type = "header", name = "Characters" },
-  { type = "description",
-    name = "Unchecked characters stay saved but are hidden from the character list." },
-  { type = "chars" },
-}
-
-local function vIlvlGet() return tonumber(WarpeeDB.vendorIlvl) or 0 end
-local function vIlvlSet(v)
-  WarpeeDB.vendorIlvl = tonumber(v) or 0
-  if Bags and Bags.VendorState then Bags:VendorState() end
-end
-local V = {}
-function V.boeGet() return WarpeeDB.vendorKeepBoE ~= false end
-function V.boeSet(v) WarpeeDB.vendorKeepBoE = v and true or false end
-function V.wbGet() return WarpeeDB.vendorKeepWarbound ~= false end
-function V.wbSet(v) WarpeeDB.vendorKeepWarbound = v and true or false end
-function V.gemGet() return WarpeeDB.vendorKeepGems ~= false end
-function V.gemSet(v) WarpeeDB.vendorKeepGems = v and true or false end
-function V.greyGet() return WarpeeDB.vendorGrey ~= false end
-function V.greySet(v) WarpeeDB.vendorGrey = v and true or false end
-function V.repGet() return WarpeeDB.vendorRepair and true or false end
-function V.repSet(v) WarpeeDB.vendorRepair = v and true or false end
-V.REPAIR_BY = { "player", "guild", "both" }
-V.REPAIR_LABELS = { player = "Your gold", guild = "Guild bank",
-                    both = "Guild / Yours" }
-function V.repByGet() return WarpeeDB.vendorRepairBy or "player" end
-function V.repBySet(v) WarpeeDB.vendorRepairBy = v or "player" end
-function V.relicGet() return WarpeeDB.vendorRelics ~= false end
-function V.relicSet(v) WarpeeDB.vendorRelics = v and true or false end
-
-function V.minGet() return tonumber(WarpeeDB.vendorIlvlMin) or 0 end
-function V.minSet(v) WarpeeDB.vendorIlvlMin = tonumber(v) or 0 end
-function V.consumGet() return WarpeeDB.vendorConsum and true or false end
-function V.consumSet(v) WarpeeDB.vendorConsum = v and true or false end
-function V.autoGet() return WarpeeDB.vendorAuto and true or false end
-function V.autoSet(v) WarpeeDB.vendorAuto = v and true or false end
-function V.tokenGet() return WarpeeDB.vendorTokens and true or false end
-function V.tokenSet(v) WarpeeDB.vendorTokens = v and true or false end
-function V.tokensOff() return not (WarpeeDB.vendorTokens and true or false) end
-function V.expGet(i)
-  local t = WarpeeDB.vendorTokenExp
-  return (t and t[i]) and true or false
-end
-function V.expSet(i, v)
-  WarpeeDB.vendorTokenExp = WarpeeDB.vendorTokenExp or {}
-  WarpeeDB.vendorTokenExp[i] = v and true or false
-end
-function V.expName(i)
-  local n = _G["EXPANSION_NAME" .. i]
-  if type(n) == "string" and n ~= "" then return n end
-  return "Expansion " .. i
-end
-
-local VENDOR_PAGE = {
-  { type = "header", name = "Runs on its own" },
-  { type = "description",
-    name = "These start when a merchant window opens, with no click from you." },
-  { type = "toggle", name = "Sell junk", col = 1, of = 3, get = V.greyGet, set = V.greySet,
-    desc = "Sell every gray item, whatever its item level." },
-  { type = "toggle", name = "Repair", col = 2, of = 3, get = V.repGet, set = V.repSet,
-    desc = "Repair at merchants who offer it. Others are left alone, with no message." },
-  { type = "select", name = "Pay with", col = 3, of = 3, get = V.repByGet, set = V.repBySet,
-    keys = function() return V.REPAIR_BY end,
-    label = function(k) return T(V.REPAIR_LABELS[k] or k) end,
-    disabled = function() return not V.repGet() end,
-    desc = "Where the repair money comes from. The guild bank is used only if your withdraw limit covers the whole bill." },
-  { type = "header", name = "The coin button",
-    state = function()
-      local min, max = V.minGet(), vIlvlGet()
-      if max > 0 and min >= max then return L["Invalid range"] end
-      if not V.autoGet() then return nil end
-      local parts = {}
-      -- Through L, like the line below, or the range reads in English inside a translated
-      -- header and the three keys have nowhere to be translated to.
-      if min > 0 and max > 0 then parts[#parts + 1] = (L["ilvl %d-%d"]):format(min, max)
-      elseif min > 0 then parts[#parts + 1] = (L["ilvl %d+"]):format(min)
-      elseif max > 0 then parts[#parts + 1] = (L["ilvl <%d"]):format(max) end
-      if V.greyGet() then parts[#parts + 1] = T("Sell junk") end
-      if V.relicGet() then parts[#parts + 1] = T("Legion relics") end
-      if V.consumGet() then parts[#parts + 1] = T("Old consumables") end
-      if V.tokenGet() then parts[#parts + 1] = T("Tier tokens") end
-      if #parts == 0 then return nil end
-      if #parts > 4 then
-        local short = { parts[1], parts[2], parts[3], "..." }
-        return table.concat(short, ", ")
-      end
-      return table.concat(parts, ", ")
-    end },
-  { type = "description",
-    name = "Everything below is sold by the coin in the bags header, unless you switch on automatic selling." },
-  { type = "input", name = "Item level from", col = 1, min = 0, max = 9999,
-    get = V.minGet, set = V.minSet,
-    desc = "Gear at or above this item level is sold." },
-  { type = "input", name = "Item level under", col = 2, min = 0, max = 9999,
-    get = vIlvlGet, set = vIlvlSet,
-    desc = "Gear under this item level is sold. Zero keeps every piece." },
-  { type = "toggle", name = "Legion relics", col = 1, get = V.relicGet, set = V.relicSet,
-    desc = "Sell Legion artifact relics. Item level ignored." },
-  { type = "toggle", name = "Old consumables", col = 2, get = V.consumGet, set = V.consumSet,
-    desc = "Sell potions, flasks, food and bandages older than the previous expansion." },
-  { type = "toggle", name = "Tier tokens", col = 1, get = V.tokenGet, set = V.tokenSet,
-    desc = "Sell raid armor tokens, item level ignored. Only from the expansions ticked below." },
-  { type = "toggle", name = "Sell all of this automatically",
-    get = V.autoGet, set = V.autoSet,
-    desc = "Sell the list above at every merchant, without pressing the coin." },
-  { type = "header", name = "Token expansions", key = "tokenexp",
-    state = function()
-      if V.tokensOff() then return L["Off"] end
-      local t = WarpeeDB.vendorTokenExp or {}
-      local none = ns.TOKEN_EXP_NONE or {}
-      local cur = LE_EXPANSION_LEVEL_CURRENT
-                  or (GetExpansionLevel and GetExpansionLevel()) or 0
-      local n, all = 0, 0
-      for i = 0, cur do
-        if not none[i] then
-          all = all + 1
-          if t[i] then n = n + 1 end
-        end
-      end
-      return (L["%d of %d"]):format(n, all)
-    end },
-  { type = "description", section = "tokenexp",
-    name = "Which expansions tokens may be sold from. The four newest are kept by default. Expansions that never had tokens are not listed." },
-  { type = "header", name = "Never sell",
-    state = function() return onOf({ V.boeGet, V.wbGet, V.gemGet }) end },
-  { type = "toggle", name = "Keep BoE", col = 1, get = V.boeGet, set = V.boeSet,
-    desc = "Skip gear that is not bound yet, so it can go to the auction house." },
-  { type = "toggle", name = "Keep warbound", col = 2, get = V.wbGet, set = V.wbSet,
-    desc = "Skip warbound gear, since an alt can still use it." },
-  { type = "toggle", name = "Keep socketed or enchanted", col = 1, get = V.gemGet, set = V.gemSet,
-    desc = "Skip any piece with a gem socketed or an enchant applied." },
-  { type = "header", name = "Marked for sale", key = "sellmarks",
-    state = function() return ns.LN("%d items", (ns.Vendor and ns.Vendor:SellCount()) or 0) end },
-  { type = "description", section = "sellmarks",
-    name = "ALT-click an item to mark it for sale: a coin appears, and it is sold at the next merchant who buys wares. A second click locks it from sale, a third clears it. Works in the bags, the bank, the favorites row and the pocket." },
-  { type = "selllist", section = "sellmarks" },
-}
-
-do
-  local cur = LE_EXPANSION_LEVEL_CURRENT
-              or (GetExpansionLevel and GetExpansionLevel()) or 0
-  local at
-  for i, row in ipairs(VENDOR_PAGE) do
-    if row.type == "description" and row.section == "tokenexp" then at = i + 1; break end
-  end
-  local rows = {}
-  local none = ns.TOKEN_EXP_NONE or {}
-  local slot = 0
-  for i = 0, cur do
-    if not none[i] then
-      rows[#rows + 1] = {
-        type = "toggle", name = V.expName(i), col = (slot % 2 == 0) and 1 or 2,
-        section = "tokenexp",
-        get = function() return V.expGet(i) end,
-        set = function(v) V.expSet(i, v) end,
-        disabled = V.tokensOff,
-        desc = "Sell tier tokens from this expansion.",
-      }
-      slot = slot + 1
-    end
-  end
-  if at then
-    for k = #rows, 1, -1 do table.insert(VENDOR_PAGE, at, rows[k]) end
-  end
-end
-
-local CATS_PAGE = {
-  { type = "header", name = "Categories", key = "categories" },
-  { type = "description", section = "categories",
-    name = "Each row is either a category — a search read top to bottom, where an item joins the first it matches — or a marker: a group header naming the band under it, or a divider seaming one off. Drag a row by its grip to move it, the box on the left turns a category off, and the X takes a row out; a removed group header leaves its categories where they are. The strip above adds a ready-made category, and the buttons under the list add a new row at its bottom — the view scrolls to it and it flashes." },
-  -- The order of items inside a section is set on the list's own header line, inside the catlist row
-  -- below, rather than as a select here: see factories.catlist.
-  { type = "catlist", section = "categories" },
-}
-
-local PAGES = {
-  { name = "General", list = GENERAL_PAGE },
-  { name = "Grid", list = GRID_PAGE },
-  { name = "Categories", list = CATS_PAGE },
-  { name = "Items", list = ITEMS_PAGE },
-  { name = "Pocket", list = POCKET_PAGE },
-  { name = "Vendor", list = VENDOR_PAGE },
-  { name = "Characters", list = CHARS_PAGE },
+-- The page tables live in OptionsPages.lua and borrow the helpers above.
+Options.helpers = {
+  ANCHORS = ANCHORS,
+  ANCHOR_LABELS = ANCHOR_LABELS,
+  ANGLE_KEYS = ANGLE_KEYS,
+  Bags = Bags,
+  L = L,
+  STYLES = STYLES,
+  STYLE_LABELS = STYLE_LABELS,
+  T = T,
+  THEME_KEYS = THEME_KEYS,
+  Theme = Theme,
+  angleGet = angleGet,
+  angleSet = angleSet,
+  autoField = autoField,
+  bg = bg,
+  colsGet = colsGet,
+  colsSet = colsSet,
+  dbField = dbField,
+  edgeGet = edgeGet,
+  edgeSet = edgeSet,
+  field = field,
+  flow = flow,
+  fontGet = fontGet,
+  fontKeys = fontKeys,
+  fontSet = fontSet,
+  gapGet = gapGet,
+  gapSet = gapSet,
+  hideFieldsGet = hideFieldsGet,
+  hideFieldsSet = hideFieldsSet,
+  localeGet = localeGet,
+  localeKeys = localeKeys,
+  localeLabel = localeLabel,
+  localeSet = localeSet,
+  lockGet = lockGet,
+  lockSet = lockSet,
+  mergeGet = mergeGet,
+  mergeSet = mergeSet,
+  mmHideGet = mmHideGet,
+  mmHideSet = mmHideSet,
+  onOf = onOf,
+  pinHint = pinHint,
+  relayout = relayout,
+  sClearGet = sClearGet,
+  sClearSet = sClearSet,
+  sLinkGet = sLinkGet,
+  sLinkSet = sLinkSet,
+  sizeGet = sizeGet,
+  sizeSet = sizeSet,
+  styleField = styleField,
+  styleGet = styleGet,
+  styleSet = styleSet,
+  themeGet = themeGet,
+  themeLabel = themeLabel,
+  themeSet = themeSet,
+  zoomGet = zoomGet,
+  zoomSet = zoomSet,
 }
 
 local function paintTab(b)
@@ -5693,19 +5346,64 @@ local function paintTab(b)
   end
 end
 
+-- The strip's paint, held per button, since its own repaint drops the accent.
+local function paintSub(b)
+  ns.SetBg(b, Theme:C(b.sel and "panelHi" or "panel"))
+  ns.SetEdge(b, Theme:C(b.sel and "accent" or "stroke"))
+  b.Text:SetTextColor(Theme:C(b.sel and "accent" or "dim"))
+end
+
+local function paintSubs(entry)
+  for _, b in ipairs(entry.btns) do paintSub(b) end
+end
+
+-- Measure and chain one page's strip buttons, from reflow and build alike.
+local function layoutStrip(entry, defs)
+  local prev
+  for k, b in ipairs(entry.btns) do
+    if defs and defs[k] then b.Text:SetText(T(defs[k].name)) end
+    b:SetWidth(math.max(56, b.Text:GetStringWidth() + 18))
+    b:ClearAllPoints()
+    if prev then b:SetPoint("LEFT", prev, "RIGHT", 4, 0)
+    else b:SetPoint("LEFT", entry.strip, "LEFT", 0, 0) end
+    prev = b
+  end
+  paintSubs(entry)
+end
+
 function Options:Select(index)
   closeDropdown()
   self.current = index
+  -- The tab builds its lists on first visit, one page at a time.
+  self:BuildPage(index)
   for i, tab in ipairs(self.tabs) do
     tab.sel = (i == index)
     paintTab(tab)
-    self.areas[i]:SetShown(i == index)
-    self.areas[i].bar:SetShown(i == index)
   end
-  local area = self.areas[index]
+  for i = 1, #Options.pages do
+    local entry = self.subs[i]
+    if entry then
+      local at = self.subAt[i] or 1
+      for k, area in ipairs(entry.areas) do
+        local on = (i == index and k == at)
+        area:SetShown(on)
+        area.bar:SetShown(on)
+      end
+      if entry.strip then entry.strip:SetShown(i == index) end
+      for k, b in ipairs(entry.btns) do b.sel = (i == index and k == at) end
+      paintSubs(entry)
+    end
+  end
+  local area = self.subs[index].areas[self.subAt[index] or 1]
   area:ScrollTo(0)
   area:PaintBar()
   self:Refresh()
+end
+
+-- The sub buttons switch lists; the pick is remembered per page.
+function Options:SubSelect(k)
+  self.subAt[self.current] = k
+  self:Select(self.current)
 end
 
 function Options:ApplyFont()
@@ -5724,6 +5422,11 @@ function Options:ApplyFont()
     if self.profilesBtn then
       self.profilesBtn:SetWidth(math.max(64, self.profilesBtn.Text:GetStringWidth() + 20))
     end
+    if self.searchBox and self.searchPh then
+      -- The box fits its placeholder, so a long translation stays inside it.
+      local tw = math.ceil(self.searchPh:GetStringWidth() or 0)
+      self.searchBox:SetWidth(math.max(180, math.min(340, tw + 42)))
+    end
     for i, area in ipairs(self.areas) do
       area.page.Relayout()
       area:PaintBar()
@@ -5738,7 +5441,7 @@ function Options:ReflowPages()
   if self.tabs then
     local prev
     for i, tab in ipairs(self.tabs) do
-      tab.Text:SetText(T(PAGES[i].name))
+      tab.Text:SetText(T(Options.pages[i].name))
       tab:SetWidth(math.max(70, tab.Text:GetStringWidth() + 22))
       tab:ClearAllPoints()
       if prev then
@@ -5752,6 +5455,11 @@ function Options:ReflowPages()
       paintTab(tab)
     end
   end
+  -- The strip's buttons measure like the tabs, chained left to right.
+  for i = 1, #Options.pages do
+    local entry = self.subs[i]
+    if entry then layoutStrip(entry, Options.pages[i].subs) end
+  end
   self:AnchorHeader()
   for _, row in ipairs(rows) do row.Refresh() end
   for _, area in ipairs(self.areas) do
@@ -5761,9 +5469,36 @@ function Options:ReflowPages()
   end
 end
 
+-- The rows on screen; Select fills it, so hidden lists wait their turn.
+function Options:VisibleRows()
+  local entry = self.subs and self.subs[self.current]
+  if not entry then return rows end
+  local area = entry.areas[self.subAt[self.current] or 1]
+  local page = area and area.page
+  if not (page and page.rows) then return rows end
+  -- Hidden rows are left out: a folded section is not on screen.
+  local out = {}
+  for i = 1, #page.rows do
+    local row = page.rows[i].row
+    if row:IsShown() then out[#out + 1] = row end
+  end
+  return out
+end
+
 function Options:Refresh()
-  for _, row in ipairs(rows) do row.Refresh() end
-  if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
+  local live = self:VisibleRows()
+  for i = 1, #live do live[i].Refresh() end
+  self:SyncProfilesSoon()
+end
+
+-- The capture trails the row passes; closing the window writes it at once.
+function Options:SyncProfilesSoon()
+  if self.syncQ then return end
+  self.syncQ = true
+  C_Timer.After(0.3, function()
+    self.syncQ = nil
+    if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
+  end)
 end
 
 -- One row pass per frame at most, however many settings moved in it. The flag lives on the
@@ -5785,7 +5520,421 @@ end
 function Options:RefreshOpen()
   if not (self.frame and self.frame:IsShown()) then return end
   self:Refresh()
-  self:ReflowPages()
+  -- Only the list on screen is measured; the pages behind wait their turn.
+  local entry = self.subs and self.subs[self.current]
+  local area = entry and entry.areas[self.subAt[self.current] or 1]
+  if area and area.page and area.page.Relayout then
+    area.page.Relayout()
+    area:PaintBar()
+  end
+end
+
+-- Crude inflection stripper: Russian cases and plurals, Latin plurals, German -en.
+local RU_TAIL2 = { "ая","яя","ое","ее","ые","ие","ой","ей","ый","ий","ом","ем","ах","ях","ов","ев" }
+local RU_TAIL1 = { "а","я","ы","и","у","ю","о","е","ё","й","ь" }
+local function stemWord(w)
+  local last = w:sub(-1)
+  if (last >= "a" and last <= "z") or (last >= "A" and last <= "Z") then
+    local tail2 = w:sub(-2)
+    if #w > 4 and (tail2 == "en" or tail2 == "es") then return w:sub(1, -3) end
+    if #w > 3 and (last == "s" or last == "x" or last == "n") then return w:sub(1, -2) end
+    return w
+  end
+  if last < "\128" then return w end
+  for i = 1, #RU_TAIL2 do
+    local t = RU_TAIL2[i]
+    if #w > #t + 2 and w:sub(-#t) == t then return w:sub(1, -#t - 1) end
+  end
+  for i = 1, #RU_TAIL1 do
+    local t = RU_TAIL1[i]
+    if #w > #t + 2 and w:sub(-#t) == t then return w:sub(1, -#t - 1) end
+  end
+  return w
+end
+local function stemBlob(s)
+  if type(s) ~= "string" then return "" end
+  local words = {}
+  for w in s:gmatch("[%w\128-\255]+") do words[#words + 1] = stemWord(w) end
+  return table.concat(words, " ")
+end
+
+-- Plain-language synonyms the labels never spell: slang and translits a player types instead of the
+-- written word. Per locale, each maps the typed word to the words the labels and tooltips carry, in the
+-- player's spelling first and in English second, so "голда" answers the way "золото" and "gold" do.
+-- Compared folded, like the query itself; a query that is already a written word never reaches this table.
+local SEARCH_SYN = {
+  enUS = {
+    ["ah"] = { "auction" },
+    ["ilvl"] = { "item level" },
+  },
+  deDE = {
+    ["rucksack"] = { "taschen", "bags" },
+    ["skin"] = { "design", "theme" },
+  },
+  frFR = {
+    ["hv"] = { "hôtel des ventes" },
+    ["stuff"] = { "objets", "items" },
+  },
+  itIT = {
+    ["asta"] = { "casa d'aste" },
+  },
+  ptBR = {
+    ["leilão"] = { "casa de leilões" },
+    ["leilao"] = { "casa de leilões" },
+    ["grana"] = { "ouro" },
+  },
+  koKR = {
+    ["인벤"] = { "가방" },
+    ["렙"] = { "레벨" },
+  },
+  zhCN = {
+    ["g"] = { "金币" },
+  },
+  zhTW = {
+    ["g"] = { "金幣" },
+  },
+  ruRU = {
+    ["голда"] = { "золото", "gold" },
+    ["бабки"] = { "золото", "gold" },
+    ["бабло"] = { "золото", "gold" },
+    ["голд"] = { "золото", "gold" },
+    ["прозрачность"] = { "opacity" },
+    ["илвл"] = { "item level" },
+    ["зазор"] = { "промежуток", "gap" },
+    ["вендор"] = { "торговец", "vendor" },
+    ["мейл"] = { "почта", "mail" },
+    ["трейд"] = { "обмен", "trade" },
+    ["варбанд"] = { "отряд", "warband" },
+    ["шмот"] = { "item" },
+    ["крафт"] = { "профессии", "professions" },
+    ["лут"] = { "sell", "продавать" },
+    ["починка"] = { "ремонт", "repair" },
+    ["квест"] = { "quest", "задание" },
+    ["ах"] = { "аукцион", "auction" },
+    ["скин"] = { "тема", "theme" },
+    ["табы"] = { "вкладка", "tab" },
+  },
+}
+
+-- The search index: one entry per row of every page, its name and its tooltip, built once and dropped when
+-- the language moves, since a player types the label they read. It walks the page tables rather than the
+-- built rows, so a setting on a page nobody has opened this session is found all the same, and no page has to
+-- be built to be searched. Every page and every list of it is an entry as well: a place, with no row to walk
+-- to, so a query that names a tab answers with the tab: without that a query like "grid" found nothing at
+-- all here, which is the one answer a player looking in the wrong tab must never get.
+-- The label's spellings in every loaded language, folded: the search answers a word typed in a language
+-- the window is not reading, the way the bag search reads every language's words whatever the interface is
+-- set to. Only static labels travel: a function name is already the spelling on screen.
+local function crossLabels(key)
+  if type(key) ~= "string" or key == "" then return nil end
+  local codes = ns.LOCALES
+  if type(codes) ~= "table" then return nil end
+  local out
+  for i = 1, #codes do
+    local t = ns.LocaleStrings and ns.LocaleStrings(codes[i]) or nil
+    local s = (type(t) == "table" and t[key]) or nil
+    if type(s) == "string" and s ~= "" then
+      local f = ns.SearchFold(s)
+      if f ~= "" then out = out or {}; out[#out + 1] = f end
+    end
+  end
+  return out
+end
+
+function Options:SearchIndex()
+  if self.searchIdx then return self.searchIdx end
+  local out = {}
+  local function place(i, label, sub, parent)
+    if type(label) ~= "string" or label == "" then return end
+    local loc = T(label)
+    local plab = parent and T(parent) or ""
+    -- The breadcrumb is searchable as one more word for the place: a query that names a page lists the lists
+    -- under it, so "grid" answers with Grid and with the three lists of it in the same breath. Both spellings
+    -- go in, since a player types whichever one is on their screen.
+    local fold = ns.SearchFold(label)
+    local foldLoc = ns.SearchFold(loc)
+    local e = {
+      page = i, sub = sub, place = true, loc = loc, where = plab,
+      l = fold, ll = foldLoc,
+      hay = parent and ns.SearchFold(parent .. " " .. label .. " " .. plab .. " " .. loc) or nil,
+      n = (fold:gsub(" ", "")), nl = (foldLoc:gsub(" ", "")),
+      lx = crossLabels(label),
+    }
+    e.st = stemBlob(e.l .. " " .. e.ll .. " " .. (e.hay or "") .. " " .. table.concat(e.lx or {}, " "))
+    out[#out + 1] = e
+  end
+  for i = 1, #Options.pages do
+    local page = Options.pages[i]
+    local lists = page.subs or { { list = page.list } }
+    -- The page first, then each list of it: the page answers to its own name, a list to its name with the
+    -- page it belongs to as its breadcrumb.
+    place(i, page.name, 1)
+    for k = 1, #lists do
+      local sub = lists[k]
+      place(i, sub.name, k, page.name)
+      local where = T(page.name) .. (sub.name and (" / " .. T(sub.name)) or "")
+      local list = sub.list or {}
+      for j = 1, #list do
+        local spec = list[j]
+        local label = spec.name
+        if type(label) == "function" then label = label() end
+        -- A description row is a paragraph, not a setting: its words are not a name to look for.
+        if type(label) == "string" and label ~= "" and spec.type ~= "description" then
+          local loc = T(label)
+          local tip = type(spec.desc) == "string" and spec.desc or ""
+          -- SearchFold and not :lower(): the client folds ASCII alone, so a Russian label only answered a
+          -- query that copied its capital letters. The bag search has folded this way all along.
+          local fold, foldLoc = ns.SearchFold(label), ns.SearchFold(loc)
+          local e = {
+            page = i, sub = k, spec = spec, loc = loc, where = where,
+            hd = spec.type == "header" and true or nil,
+            l = fold, ll = foldLoc, ld = ns.SearchFold(tip .. " " .. (T(tip) or "")),
+            n = (fold:gsub(" ", "")), nl = (foldLoc:gsub(" ", "")),
+            lx = crossLabels(type(spec.name) == "string" and spec.name or nil),
+          }
+          e.st = stemBlob(e.l .. " " .. e.ll .. " " .. (e.ld or "") .. " " .. table.concat(e.lx or {}, " "))
+          out[#out + 1] = e
+        end
+      end
+    end
+  end
+  self.searchIdx = out
+  return out
+end
+
+-- One query against the index: the name exactly, then a prefix, then anywhere in the name, then the name with
+-- its spaces dropped (so "plateopacity" finds "Plate opacity"), then the breadcrumb a place carries, then
+-- anywhere in the tooltip, and last the stemmed words, so an inflection answers its dictionary form. The first
+-- three tiers read every language's spelling of the name, so a word typed in a language the window is not
+-- reading still answers. A synonym of the query answers with the same tiers through the words it stands for. The name is read in both spellings at every one of those tiers, since the written
+-- label and the one on screen are two names for one row and a player may type either. The first tier that
+-- answers wins, and the list comes back in tier then alphabetical order, which puts the row the player means at
+-- the top without any scoring arithmetic, and never lets a place reached by its page outrank a row that wears
+-- the query in its own name. A place and a row are the two kinds here: a row holds a setting, a place is a page
+-- or one list of it, so it carries no row of its own to walk to and its name is the whole of what it is.
+-- One spelling among the entry's other-language labels answering exactly, by prefix or by part.
+local function lxHit(e, qq, mode)
+  local lx = e.lx
+  if not lx then return false end
+  if mode == 1 then
+    for i = 1, #lx do if lx[i] == qq then return true end end
+  elseif mode == 2 then
+    for i = 1, #lx do if lx[i]:sub(1, #qq) == qq then return true end end
+  else
+    for i = 1, #lx do if lx[i]:find(qq, 1, true) then return true end end
+  end
+  return false
+end
+
+function Options:SearchMatches(query)
+  local q = ns.SearchFold(query or ""):match("^%s*(.-)%s*$")
+  if q == "" then return {} end
+  local tight = q:gsub(" ", "")
+  -- The query plus what its synonyms stand for: every spelling answers with the same tiers, and the entry
+  -- keeps the best tier any of them reaches. A single latin letter is never a word, only an abbreviation, so it
+  -- answers exactly and through its synonyms: without this "g" prefix-matched every English label starting
+  -- with g and buried the gold rows it stood for.
+  local tiny = (#q == 1 and q:find("%a")) and true or nil
+  local queries = { { q = q, tight = tight, sq = stemBlob(q), bare = tiny } }
+  local loc = localeGet and localeGet() or nil
+  local syn = (loc and SEARCH_SYN[loc]) or nil
+  -- esMX carries no strings of its own, only overrides over esES (see the FALLBACK in Core/Locale.lua),
+  -- so it reads the Spanish synonyms too.
+  if not syn and loc == "esMX" then syn = SEARCH_SYN.esES end
+  -- English abbreviations travel: "ilvl" and "ah" are typed whatever the window reads. So does slang:
+  -- the tables hold no word twice with two meanings, and every canonical answers in both spellings, so a
+  -- Russian "голда" typed into an English window still lands on the gold rows.
+  local alt = (syn and syn[q]) or (SEARCH_SYN.enUS and SEARCH_SYN.enUS[q]) or nil
+  if not alt then
+    for _, t in pairs(SEARCH_SYN) do
+      local v = t[q]
+      if v then alt = v; break end
+    end
+  end
+  if alt then
+    for i = 1, #alt do
+      local fq = ns.SearchFold(alt[i]):match("^%s*(.-)%s*$")
+      if fq ~= "" and fq ~= q then queries[#queries + 1] = { q = fq, tight = fq:gsub(" ", ""), sq = stemBlob(fq) } end
+    end
+  end
+  local idx = self:SearchIndex()
+  local out = {}
+  for i = 1, #idx do
+    local e = idx[i]
+    local tier
+    for k = 1, #queries do
+      local qq, tt, ss = queries[k].q, queries[k].tight, queries[k].sq
+      local t
+      if e.l == qq or e.ll == qq or lxHit(e, qq, 1) then t = 1
+      elseif e.l:sub(1, #qq) == qq or e.ll:sub(1, #qq) == qq or lxHit(e, qq, 2) then t = 2
+      elseif e.l:find(qq, 1, true) or e.ll:find(qq, 1, true) or lxHit(e, qq, 3) then t = 3
+      elseif e.n:find(tt, 1, true) or e.nl:find(tt, 1, true) then t = 4
+      elseif e.hay and e.hay:find(qq, 1, true) then t = 5
+      elseif e.ld and e.ld:find(qq, 1, true) then t = 6
+      elseif e.st and ss ~= "" and #ss >= 3 and e.st:find(ss, 1, true) then t = 7
+      end
+      if t and (not tier or t < tier) then tier = t end
+      local sp = queries[k]
+      if sp.bare and tier and tier > 1 then tier = nil end
+    end
+    if tier then out[#out + 1] = { e = e, t = tier } end
+  end
+  table.sort(out, function(a, b)
+    if a.t ~= b.t then return a.t < b.t end
+    -- Inside one tier the places come first: a query that names a page or one of its lists reads as "take me
+    -- there", and the row that happens to spell the same word stays a line under it.
+    if a.e.place ~= b.e.place then return a.e.place end
+    -- A heading names a block, it does not set anything: where a row and the heading over it share a name,
+    -- the row is the one a player means.
+    if (a.e.hd or false) ~= (b.e.hd or false) then return not a.e.hd end
+    if a.e.l ~= b.e.l then return a.e.l < b.e.l end
+    return (a.e.where or "") < (b.e.where or "")
+  end)
+  return out
+end
+
+-- One keystroke: the count beside the box, and the matches under it. Nothing is built for a query that finds
+-- nothing, and the list is the window's own menu, so it brings its scrollbar, its click catcher and its cap of
+-- nine visible rows for free. showDropdown and not openDropdown: the ordinary way in closes the menu when the
+-- control that opened it is pressed again, which is exactly wrong while the player is still typing.
+function Options:SearchRefresh(query)
+  if not self.searchBox then return end
+  local hits = self:SearchMatches(query)
+  self.searchTop = hits[1] and hits[1].e or nil
+  if #hits == 0 then
+    -- A query that finds nothing says so beside the box; an empty box just says nothing.
+    local idle = (query == nil or query == "")
+    self.searchCount:SetText(idle and "" or T("Nothing found"))
+    closeDropdown()
+    return
+  end
+  self.searchCount:SetText(("%d"):format(#hits))
+  local keys = {}
+  for i = 1, math.min(#hits, 40) do keys[i] = hits[i].e end
+  -- A row reads "its name   the page it lives on", which is the whole answer to "where is this one": the player
+  -- came to the box because the page they would have looked on was the wrong one, so the breadcrumb is what
+  -- teaches them. A place wears the accent instead and carries no name of its own, so the two never read as
+  -- the same kind of hit.
+  local ar, ag, ab = Theme:C("accent")
+  local accent = ("|cff%02x%02x%02x"):format(math.floor(ar * 255 + 0.5), math.floor(ag * 255 + 0.5), math.floor(ab * 255 + 0.5))
+  -- The breadcrumb in dim, so the eye stops at the name: one ink for both made "Gold format General /
+  -- Interface" read as a single sentence with the page lost somewhere in the middle of it.
+  local dr, dg, db = Theme:C("dim")
+  local dim = ("|cff%02x%02x%02x"):format(math.floor(dr * 255 + 0.5), math.floor(dg * 255 + 0.5), math.floor(db * 255 + 0.5))
+  showDropdown(self.searchBox, {
+    keys = function() return keys end,
+    get = function() end,
+    label = function(k)
+      if k.place then return accent .. (k.where ~= "" and (k.where .. "  /  " .. k.loc) or k.loc) .. "|r" end
+      return k.loc .. "   " .. dim .. k.where .. "|r"
+    end,
+    set = function(k) self:GoToRow(k) end,
+  })
+end
+
+-- Walk the window to what the search found: its page, its sub-list, its section if the row is folded away,
+-- then the list scrolls it into sight and the wash says which one it was. Select does the page, the sub and
+-- the row pass; everything after it is the walk itself, and the top of the query is what Enter walks to. A
+-- place stops after the page and the sub, since there is no row of its own to reach.
+function Options:GoToRow(entry)
+  local e = entry
+  if not (e and e.page) then return end
+  self.subAt[e.page] = e.sub or 1
+  self:Select(e.page)
+  -- A place is the page and its list, and there is no row after that: the strip button the query named takes
+  -- the wash, so a jump onto a list the window was already sitting on still says where it went.
+  if not e.spec then
+    local entryAt = self.subs[e.page]
+    local btn = entryAt and entryAt.btns and entryAt.btns[e.sub or 1]
+    if btn then self:WashRow(btn) end
+    return
+  end
+  if e.spec.section and not sectionOpen(e.spec.section) then
+    sectionToggle(e.spec.section)
+    self:ReflowPages()
+  end
+  local area = self.subs[e.page] and self.subs[e.page].areas[self.subAt[e.page] or 1]
+  local page = area and area.page
+  if not (page and page.rows) then return end
+  local row
+  for i = 1, #page.rows do
+    if page.rows[i].spec == e.spec then row = page.rows[i].row; break end
+  end
+  if not (row and row:IsShown()) then return end
+  local off = (page:GetTop() or 0) - (row:GetTop() or 0)
+  local cur = area:GetVerticalScroll() or 0
+  local view = area:GetHeight() or 0
+  if off < cur or off + row:GetHeight() > cur + view then
+    area:ScrollTo(math.max(0, off - 12))
+  end
+  self:WashRow(row)
+end
+
+-- The wash over a row or a sub button the search walked to: the same accent a freshly added category wears when its own list
+-- scrolls to it, at a low alpha baked into the colour, since a theme change repaints the texture and would
+-- flare a SetAlpha wash back to full. It lives on its own field, away from the wash the category list keeps
+-- on its own rows, so the two timers never cut each other short.
+function Options:WashRow(row)
+  local f = row.wpeWash
+  if not f then
+    f = CreateFrame("Frame", nil, row)
+    f:SetFrameLevel(row:GetFrameLevel() + 40)
+    local wash = f:CreateTexture(nil, "OVERLAY")
+    wash:SetAllPoints(f)
+    local function paintWash(x) local r, g, b = Theme:C("accent"); x:SetColorTexture(r, g, b, 0.22) end
+    paintWash(wash)
+    Theme:Track(wash, paintWash)
+    row.wpeWash = f
+  end
+  f:ClearAllPoints()
+  f:SetAllPoints(row)
+  f:Show()
+  self.washSeq = (self.washSeq or 0) + 1
+  local mine = self.washSeq
+  C_Timer.After(1.1, function()
+    if mine == self.washSeq and row.wpeWash then row.wpeWash:Hide() end
+  end)
+end
+
+-- One page's lists, built once and hidden until selected: whatever Select did not pick stays down,
+-- like every other page it never built. A second call is a no-op returning what the first made.
+function Options:BuildPage(i)
+  if self.subs[i] then return self.subs[i] end
+  local pageDef = Options.pages[i]
+  local f = self.frame
+  if not (pageDef and f) then return nil end
+  local list = pageDef.subs or { { list = pageDef.list } }
+  local entry = { areas = {}, btns = {} }
+  if #list > 1 then
+    local strip = CreateFrame("Frame", nil, f)
+    strip:SetHeight(SUB_H)
+    strip:Hide()
+    entry.strip = strip
+  end
+  for k, sub in ipairs(list) do
+    if entry.strip then
+      local b = ns.CreateButton(entry.strip, T(sub.name), 80, SUB_H)
+      track(b.Text, -2)
+      b:SetScript("OnClick", function() self:SubSelect(k) end)
+      b:HookScript("OnLeave", paintSub)
+      entry.btns[k] = b
+    end
+    local area = makeScrollArea(f, sub.list)
+    area:SetPoint("TOPLEFT", PAD, -(HEADER_H + TAB_H + 14))
+    area:SetPoint("BOTTOMRIGHT", -(PAD + SCROLL_W + 6), PAD)
+    area.bar:SetPoint("TOPLEFT", area, "TOPRIGHT", 6, 0)
+    area.bar:SetPoint("BOTTOMLEFT", area, "BOTTOMRIGHT", 6, 0)
+    area:Hide()
+    area.bar:Hide()
+    entry.areas[k] = area
+    self.areas[#self.areas + 1] = area
+  end
+  self.subs[i] = entry
+  -- Placed here and not at the next reflow: the strip buttons are measured by layoutStrip and the strip
+  -- and lists anchored by AnchorHeader, and neither pass runs on a tab switch.
+  layoutStrip(entry, pageDef.subs)
+  self:AnchorHeader()
+  return entry
 end
 
 function Options:Build()
@@ -5822,6 +5971,12 @@ function Options:Build()
       if row.Rebuild then row.Rebuild() end
     end
     ns.HideTip()
+    -- The query is dropped with the window: the box comes back empty and the list unfiltered, rather than
+    -- showing a word from last time over a page that has nothing to do with it.
+    if Options.searchBox then Options.searchBox:SetText("") end
+    -- The profile capture trails the row passes by a moment, so the window closing is where the last one is
+    -- written: whatever was moved before walking away stands in the active profile when it is read next.
+    if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
   end)
   self.frame = f
 
@@ -5845,14 +6000,79 @@ function Options:Build()
   prof:SetScript("OnClick", function() ns.Profiles:Toggle() end)
   self.profilesBtn = prof
 
+  -- The search field. Seven pages and three sub-lists deep, the player who comes back to change one setting
+  -- looks for it by name rather than by the page it lives on, so every row answers to its own words as well:
+  -- the matches hang under the box like any other menu, and a pick walks the window to that row and washes
+  -- it once. The box rides in the header over no list at all, so it costs the pages none of their room.
+  -- The box sits at the right end of the header, just left of the Profiles button, where a search field is
+  -- looked for: the two are the window's only header controls, so they line up as one group. Snapped and even
+  -- sized like every other control here, so the hairline of its border lands on the pixel grid and stays one
+  -- pixel from edge to edge.
+  local search = CreateFrame("EditBox", nil, f, "BackdropTemplate")
+  ns.SnapBox(search, 214, 22, true)
+  ns.SnapPoint(search, "RIGHT", prof, "LEFT", -8, 0)
+  ns.PixelBackdrop(search)
+  -- The fill the window's own search fields use: a light theme paints the box as a slot, since the panel
+  -- colour there would leave the box and its border the same value and the field would read as a hole.
+  local function searchBg() return Theme:C(Theme:IsLight() and "slot" or "bg") end
+  ns.SetBg(search, searchBg())
+  ns.SetEdge(search, Theme:C("stroke"))
+  Theme:Track(search, function(s)
+    ns.SetBg(s, searchBg())
+    s:SetTextColor(Theme:C("text"))
+    if not s:HasFocus() then ns.SetEdge(s, Theme:C("stroke")) end
+  end)
+  search:SetFont(dropdownFont(), BASE_FONT - 1, ns.OutlineFlags())
+  search:SetTextColor(Theme:C("text"))
+  search:SetJustifyH("LEFT")
+  search:SetTextInsets(8, 8, 0, 0)
+  search:SetAutoFocus(false)
+  search:SetMaxLetters(32)
+  track(search, -1)
+  self.searchBox = search
+
+  local placeholder = track(Theme:Label(search, BASE_FONT - 1, "faint"), -1)
+  placeholder:SetPoint("LEFT", 8, 0)
+  -- Through LocalText, so a language switch repaints it with everything else instead of waiting for a reload.
+  ns.LocalText(placeholder, "Search settings")
+  self.searchPh = placeholder
+
+  -- How many the query found, on the far side of the box: the room to the right of it now belongs to the
+  -- Profiles button, so the count grows leftwards from the field instead of pushing into it.
+  local hits = track(Theme:Label(f, BASE_FONT - 3, "faint"), -3)
+  ns.SnapPoint(hits, "RIGHT", search, "LEFT", -8, 0)
+  self.searchCount = hits
+
+  search:SetScript("OnTextChanged", function(s)
+    local q = s:GetText() or ""
+    placeholder:SetShown(q == "")
+    Options:SearchRefresh(q)
+  end)
+  search:SetScript("OnEscapePressed", function(s)
+    s:SetText("")
+    s:ClearFocus()
+  end)
+  search:SetScript("OnEnterPressed", function(s)
+    local top = Options.searchTop
+    if top then s:ClearFocus(); Options:GoToRow(top) end
+  end)
+  search:SetScript("OnEditFocusGained", function(s) ns.SetEdge(s, Theme:C("accent")) end)
+  search:SetScript("OnEditFocusLost", function(s) ns.SetEdge(s, Theme:C("stroke")) end)
+
   local line = Theme:Rect(f, "strokeSoft", "ARTWORK")
   ns.PixelLine(line, 1)
   line:SetPoint("TOPLEFT", PAD, -HEADER_H)
   line:SetPoint("TOPRIGHT", -PAD, -HEADER_H)
   self.headLine = line
 
+  -- A page holds one list, or a set of them behind a strip of its own buttons: the long pages reach a
+  -- screenful each that way, and a page that already fits keeps the single list it has always had. areas
+  -- is every list of every sub, flat, for the font pass that walks them all.
+  -- Only the built pages are in either: tabs rise with the window, but a page's lists are built on the
+  -- first visit (BuildPage), so the first open pays for one page instead of all seven.
   self.tabs, self.areas = {}, {}
-  for i, pageDef in ipairs(PAGES) do
+  self.subs, self.subAt = {}, {}
+  for i, pageDef in ipairs(Options.pages) do
     local tab = ns.CreateButton(f, T(pageDef.name), 90, TAB_H)
     track(tab.Text, -1)
     tab:SetWidth(math.max(70, tab.Text:GetStringWidth() + 22))
@@ -5860,14 +6080,9 @@ function Options:Build()
     tab:HookScript("OnLeave", paintTab)
     tab:SetScript("OnClick", function() self:Select(i) end)
     self.tabs[i] = tab
-
-    local area = makeScrollArea(f, pageDef.list)
-    area:SetPoint("TOPLEFT", PAD, -(HEADER_H + TAB_H + 14))
-    area:SetPoint("BOTTOMRIGHT", -(PAD + SCROLL_W + 6), PAD)
-    area.bar:SetPoint("TOPLEFT", area, "TOPRIGHT", 6, 0)
-    area.bar:SetPoint("BOTTOMLEFT", area, "BOTTOMRIGHT", 6, 0)
-    self.areas[i] = area
+    self.subAt[i] = 1
   end
+  self:BuildPage(1)
 
   self:ApplyFont()
   self:ReflowPages()
@@ -5888,6 +6103,18 @@ function Options:AnchorHeader()
     self.closeBtn:ClearAllPoints()
     ns.SnapPoint(self.closeBtn, "TOPRIGHT", f, "TOPRIGHT", -PAD, -(8 + top))
   end
+  -- The search field rides on the same band as the rest of the header: its left side hugs the Profiles
+  -- button, an 8 pixel gap between them, and the count glows on the box's left, so the number grows toward
+  -- the tabs. Both snapped to keywords so the Endless pixel grid keeps the pair sharp, and the skin's own
+  -- TopInset only moves the band, because the pair only rides it once at build.
+  if self.searchBox then
+    self.searchBox:ClearAllPoints()
+    ns.SnapPoint(self.searchBox, "RIGHT", self.profilesBtn, "LEFT", -8, 0)
+    if self.searchCount then
+      self.searchCount:ClearAllPoints()
+      ns.SnapPoint(self.searchCount, "RIGHT", self.searchBox, "LEFT", -8, 0)
+    end
+  end
   if self.headLine then
     self.headLine:ClearAllPoints()
     self.headLine:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(HEADER_H + top))
@@ -5898,10 +6125,33 @@ function Options:AnchorHeader()
     first:ClearAllPoints()
     ns.SnapPoint(first, "TOPLEFT", f, "TOPLEFT", PAD, -(HEADER_H + 7 + top))
   end
-  for _, area in ipairs(self.areas or {}) do
-    area:ClearAllPoints()
-    area:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(HEADER_H + TAB_H + 14 + top))
-    area:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(PAD + SCROLL_W + 6), PAD)
+  -- A page with a strip gives it room: the strip sits a gap under the tab row, and the page's list
+  -- starts a gap under the strip. A page without one keeps the single list it has always had. Every
+  -- offset is measured off the row the tabs sit in, so a translation or a font change never moves
+  -- the window's frame.
+  local tabsBottom = HEADER_H + 7 + TAB_H + top
+  for i = 1, #Options.pages do
+    local entry = self.subs[i]
+    if entry then
+    local areaTop = tabsBottom + 14
+    if entry.strip then
+      -- Both edges, not just the corner: a strip left at zero width is a degenerate rect, and the
+      -- points of anything anchored to it do not resolve. The sub buttons chain off this frame's
+      -- LEFT, so without a width they were built, shown and sized and still never drew. The level
+      -- puts the row above the scroll areas of every page.
+      local stripTop = tabsBottom + SUB_GAP
+      entry.strip:ClearAllPoints()
+      entry.strip:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -stripTop)
+      entry.strip:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -stripTop)
+      entry.strip:SetFrameLevel(f:GetFrameLevel() + 4)
+      areaTop = stripTop + SUB_H + SUB_DROP
+    end
+    for _, area in ipairs(entry.areas) do
+      area:ClearAllPoints()
+      area:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -areaTop)
+      area:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(PAD + SCROLL_W + 6), PAD)
+    end
+    end
   end
   local band = Theme:HeaderBand(f, HEADER_H + top)
   if self.headLine then self.headLine:SetShown(not band) end

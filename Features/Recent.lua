@@ -8,7 +8,7 @@ Rec.slots, Rec.ghosts = {}, {}
 local MAX_SLOTS = 24
 local SETTLE = 5
 
-local cells, seq, known, got = {}, {}, {}, {}
+local cells, seq, known, got, base = {}, {}, {}, {}, {}
 local missed, guidMiss, cellMiss = {}, {}, {}
 local locBag, locSlot = {}, {}
 local poor = {}
@@ -147,17 +147,23 @@ local function used()
   return false
 end
 
-local function mark(id, delta)
-  got[id] = (got[id] or 0) + delta
+-- Seat a newly listed id. base is what the id held before this pass's increase, so the number the cell
+-- wears is "how much it has grown since it appeared", read straight off the live total every pass. Nothing
+-- is accumulated and nothing is clamped down, which is the whole point: an accumulated counter was clipped
+-- by any pass that read short and could only be restored by an increase it did not swallow, so one bad
+-- read left the row a piece behind the bags for the rest of the session.
+local function mark(id, delta, total)
+  base[id] = (total or 0) - (delta or 0)
+  got[id] = delta
 end
 
-local function add(key, n, delta)
+local function add(key, n, delta, total)
   if seq[key] then return end
   counter = counter + 1
   for i = 1, n do
     if not cells[i] then
       cells[i], seq[key] = key, counter
-      if delta then mark(key, delta) end
+      if delta then mark(key, delta, total) end
       return
     end
   end
@@ -168,9 +174,9 @@ local function add(key, n, delta)
   end
   if not worn then return end
   local out = cells[worn]
-  seq[out], got[out] = nil, nil
+  seq[out], got[out], base[out] = nil, nil, nil
   cells[worn], seq[key] = key, counter
-  if delta then mark(key, delta) end
+  if delta then mark(key, delta, total) end
 end
 local function compact(n)
   local ids, over = {}, false
@@ -187,7 +193,7 @@ local function compact(n)
   local cut = math.max(0, #ids - n)
   for k = 1, #ids do
     local id = ids[k]
-    if k <= cut then seq[id], got[id] = nil, nil else cells[k - cut] = id end
+    if k <= cut then seq[id], got[id], base[id] = nil, nil, nil else cells[k - cut] = id end
   end
 end
 
@@ -195,7 +201,7 @@ local function remove(id)
   for i = 1, MAX_SLOTS do
     if cells[i] == id then cells[i] = nil end
   end
-  seq[id], got[id] = nil, nil
+  seq[id], got[id], base[id] = nil, nil, nil
 end
 
 local function prune(counts)
@@ -213,7 +219,7 @@ local function prune(counts)
       -- the row is showing.
       local m = (cellMiss[key] or 0) + 1
       if m >= 3 or poor[key] then
-        seq[key], got[key] = nil, nil
+        seq[key], got[key], base[key] = nil, nil, nil
         cellMiss[key] = nil
         cells[i] = nil
       else
@@ -309,17 +315,20 @@ local function detect()
     if c > was then
       local d = pardon(id, c - was)
       -- An increase in an id the cursor is carrying (or just put down) is a split or a move landing, not
-      -- loot: swallow it so the player's own stack surgery never lists as recent. The baseline still moves
-      -- to the new count below, so the piece is accounted for, just not announced.
+      -- loot: swallow it so the player's own stack surgery never lists as recent. known still moves to the
+      -- new count below, so the piece is accounted for, just not announced.
       if d > 0 and not hold and not poor[id] and not fromCursor(id) then
-        if seq[id] then mark(id, d) else add(id, n, d) end
+        -- An id already in the row needs nothing here: the number below is derived from the base it
+        -- entered with, so a second arrival is counted by the same read that reports the bags.
+        if not seq[id] then add(id, n, d, c) end
       end
-    elseif c < was and got[id] then
-      got[id] = got[id] - (was - c)
     end
-    if got[id] then
-      if got[id] > c then got[id] = c end
-      if got[id] <= 0 then remove(id) end
+    -- The row's number, read off the live total rather than carried: what the id holds now against what it
+    -- held when it appeared. A pass that reads short for a frame (a stack on the cursor, a slot the read
+    -- missed) costs that frame and no more, because nothing is subtracted here and nothing is clipped.
+    if base[id] then
+      local live = c - base[id]
+      if live > 0 then got[id] = live else remove(id) end
     end
     known[id] = c
   end
@@ -414,7 +423,7 @@ end
 function Rec:Wipe()
   for i = 1, MAX_SLOTS do
     local id = cells[i]
-    if id then seq[id], got[id] = nil, nil; cells[i] = nil end
+    if id then seq[id], got[id], base[id] = nil, nil, nil; cells[i] = nil end
   end
   self:Refresh()
 end
