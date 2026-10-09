@@ -20,6 +20,10 @@ local WARBAND   = idList({ "AccountBankTab_1", "AccountBankTab_2", "AccountBankT
                            "AccountBankTab_4", "AccountBankTab_5" })
 
 local PAD, DIV = 10, 22
+-- How often the in-place repaint between the wide-spaced passes of a run may run, at most. The passes
+-- themselves are the window-sized cost a run is spaced out of (Cats.RUN_GAP); this is the cheap look
+-- between them, and 0.25 s is the cadence the passes themselves used to run at.
+local TOUCH_GAP = 0.25
 -- Air a captioned block needs over its own cells. The split gap widens to meet it, so a tab you named
 -- tighter than the caption cannot leave the name sitting on the row above. Read off the bags' own export
 -- rather than written a second time: the gap sliders' floor comes from that number, and a copy here that
@@ -56,7 +60,7 @@ end
 local ROW1_Y = 4
 local SEARCH_MIN = 80
 local function headerH(base) return math.max(34, base + 16) end
-local function footerH(base) return math.max(28, base + 10) end
+local function footerH(base) return math.max(34, base + 16) end
 
 function ns.WarbandActive()
   return C_Bank ~= nil and C_Bank.FetchPurchasedBankTabData ~= nil and #WARBAND > 0
@@ -180,18 +184,70 @@ function ns.BankRoom()
 end
 
 -- Deposit one bag slot into the active bank as a plain slot move, not a right-click "use". `alloc` is the
--- caller's per-transfer set of bank slots already claimed by moves still in flight (keyed bag*1000+slot),
--- so a burst of moves does not all target the same empty slot before any has landed. Returns the target
--- {tab, slot} when a move was issued (so the pump can watch that slot fill), false when it was skipped
--- (bank full, or the account bank refuses the piece). A full bank returning false ends the run rather than
--- looping: the pump marks a declined slot done and stops when nothing is left, so a category that does not
--- fit stops trying instead of hammering the same slots.
+-- caller's per-transfer set of bank slots already claimed by moves still in flight (keyed tab*1000+slot),
+-- so a burst of moves does not all target the same empty slot before any has landed; it also carries the
+-- run's free-slot list (see bankTarget). Returns the target {tab, slot} when a move was issued (so the pump
+-- can watch that slot fill), false when it was skipped (bank full, or the account bank refuses the piece). A
+-- full bank returning false ends the run rather than looping: the pump marks a declined slot done and stops
+-- when nothing is left, so a category that does not fit stops trying instead of hammering the same slots.
 --
 -- Why not UseContainerItem(bag, slot, nil, bt, false): that hands an equippable item to the "use" verb,
 -- which EQUIPS it rather than banking it (and swaps the worn piece back into the bag), so a BoE piece was
 -- worn instead of deposited and the grouped view saw the section change and drew no hole. A source-then-
 -- empty-target PickupContainerItem is a pure relocation: it cannot equip, and it frees the source slot
 -- cleanly so the hole is drawn.
+-- Every empty slot of the open bank tabs, in walk order, as tab/slot pairs (two entries per slot, so the
+-- list is twice as long as the number of free slots). Emptiness is read from the container; a locked empty
+-- slot stays in the list (it is free again a moment later), because the hand-out confirms each candidate
+-- before it aims at it.
+local function bankFreeSlots(bags, out)
+  local n = 0
+  for _, tab in ipairs(bags) do
+    local num = C_Container.GetContainerNumSlots(tab) or 0
+    for s = 1, num do
+      local info = C_Container.GetContainerItemInfo(tab, s)
+      if not (info and (info.hyperlink or info.itemID)) then
+        out[n + 1], out[n + 2] = tab, s
+        n = n + 2
+      end
+    end
+  end
+  return n
+end
+
+-- The next bank slot this run can aim a piece at, or nil when the bank is full. The list is walked once and
+-- each candidate is confirmed with a single read, because the walk is what a move used to pay: to find the
+-- next empty slot it reads every occupied slot of every open tab, and as the deposit fills the front the
+-- empties -- and so the walk -- sit further along (4.7 ms a move, 141 ms of a 30-piece transfer). The list
+-- lives in the transfer's `alloc` and is carried across its moves; a candidate filled or locked since the
+-- walk is skipped rather than aimed at. When the list runs out it is walked once more, so a slot freed
+-- mid-run (the user's own click, the game's auto-deposit) is still found.
+local function bankTarget(st, bags, alloc)
+  local again = false
+  while true do
+    while st.i <= st.n do
+      local tab, s = st.free[st.i], st.free[st.i + 1]
+      st.i = st.i + 2
+      local key = tab * 1000 + s
+      if not (alloc and alloc[key]) then
+        -- The slot still has to exist: the list was walked a while ago, and the tab's own count is the one
+        -- thing that can have moved under it (a stored pair read back as "empty" would be aimed at blindly).
+        local live = s <= (C_Container.GetContainerNumSlots(tab) or 0)
+        local info = live and C_Container.GetContainerItemInfo(tab, s) or nil
+        -- Free and not mid-rewrite: an empty slot that is locked has a move already in flight into it (the
+        -- server has not confirmed), and firing a second move at it locks it harder and drops one. Skip it
+        -- and take the next free slot, the way the reference addon skips a locked target.
+        if live and not (info and (info.hyperlink or info.itemID)) and not (info and info.isLocked) then
+          return tab, s, key
+        end
+      end
+    end
+    if again then return nil end
+    again = true
+    st.n, st.i = bankFreeSlots(bags, st.free), 1
+  end
+end
+
 local function bankDepositMove(bag, slot, alloc)
   local bt = ns.Bank.depositType
   if not bt then return false end
@@ -207,26 +263,25 @@ local function bankDepositMove(bag, slot, alloc)
   end
   local bags = tabBags((bt == acct) and "warband" or "bank")
   if not bags then return false end
-  for _, tab in ipairs(bags) do
-    local num = C_Container.GetContainerNumSlots(tab) or 0
-    for s = 1, num do
-      local key = tab * 1000 + s
-      if not (alloc and alloc[key]) then
-        local info = C_Container.GetContainerItemInfo(tab, s)
-        -- Free and not mid-rewrite: an empty slot that is locked has a move already in flight into it (the
-        -- server has not confirmed), and firing a second move at it locks it harder and drops one. Skip it
-        -- and take the next free slot, the way the reference addon skips a locked target.
-        if not (info and (info.hyperlink or info.itemID)) and not (info and info.isLocked) then
-          C_Container.PickupContainerItem(bag, slot)
-          C_Container.PickupContainerItem(tab, s)
-          if CursorHasItem() then ClearCursor() end
-          if alloc then alloc[key] = true end
-          -- The target slot the piece is bound for, so the account-bank pacing waits for it to fill
-          -- (the round-trip) instead of reading the source bag, which empties the instant it is lifted.
-          return { tab, s }
-        end
-      end
-    end
+  -- The free-slot list is per run, so it hangs on the transfer's `alloc` (which the caller makes once and
+  -- hands to every move); the bank type is part of it, since bank and warband are different tab sets. No
+  -- alloc (a bare call) means no list to reuse and a fresh walk per move, as before.
+  local st = alloc and alloc.bank
+  if st and st.bt ~= bt then st = nil end
+  if not st then
+    st = { bt = bt, free = {}, n = 0, i = 1 }
+    if alloc then alloc.bank = st end
+  end
+  -- The two pickups below are the game's own calls.
+  local tab, s, key = bankTarget(st, bags, alloc)
+  if tab then
+    C_Container.PickupContainerItem(bag, slot)
+    C_Container.PickupContainerItem(tab, s)
+    if CursorHasItem() then ClearCursor() end
+    if alloc then alloc[key] = true end
+    -- The target slot the piece is bound for, so the account-bank pacing waits for it to fill
+    -- (the round-trip) instead of reading the source bag, which empties the instant it is lifted.
+    return { tab, s }
   end
   -- No free bank slot: leave the piece in the bag rather than firing a move that cannot land.
   return false
@@ -234,6 +289,12 @@ end
 ns.BankDepositMove = bankDepositMove
 
 function ns.RefreshBagDim()
+  -- Every interaction edge in the addon comes through here (the house, the guild vault, mail, the merchant,
+  -- the item context callback the client fires on any window opening, closing or switching, and the bank's
+  -- own open, close and type switch), and a context edge is the only thing that can change what the cells
+  -- read as blocked between two passes. So the stamp the blocked answer is kept under is moved here, before
+  -- the early return below, and the redraw that follows recomputes it once per cell.
+  if ns.BumpBlocked then ns.BumpBlocked() end
   if not (Bags.frame and Bags.frame:IsShown()) then return end
   if Bags.ApplySearch then Bags:ApplySearch() end
   if Bags.BrowseState then Bags:BrowseState() end
@@ -258,7 +319,8 @@ ns.Bank = setmetatable({ state = {}, mode = "bank", query = "" }, View)
 function View:State(mode)
   local st = self.state[mode]
   if not st then
-    st = { mode = mode, pool = {}, vpool = {}, plan = {}, byKey = {}, dirty = {}, labels = {},
+    st = { mode = mode, pool = {}, vpool = {}, plan = {}, byKey = {}, planned = {}, dirty = {}, labels = {},
+           live = {}, claim = {}, free = 1,
            planCount = 0, shown = 0, used = 0, total = 0, contentH = 0 }
     self.state[mode] = st
   end
@@ -411,6 +473,7 @@ function View:Build()
     end
   end)
   self.frame = f
+  if ns.Theme and ns.Theme.ApplyWindowAlpha then ns.Theme:ApplyWindowAlpha() end
   ns.CreateMoveBar(f, "bankPos")
   self.tabSel = {}
   if WarpeeDB and WarpeeDB.bankTabSel then
@@ -423,10 +486,23 @@ function View:Build()
   close:SetScript("OnClick", function() f:Hide() end)
   self.closeBtn = close
 
-  local gear = ns.CreateGlyphButton(f, "|TInterface\\Buttons\\UI-OptionsButton:13:13:0:0|t", HBTN, "icon")
+  -- The gear as art on the icon path rather than a texture escape inside the label, the way the bags
+  -- carry theirs: only a real texture can be given the ground the drawn marks wear.
+  local gear = ns.CreateGlyphButton(f, "", HBTN, "icon")
   gear:SetPoint("TOPRIGHT", close, "TOPLEFT", -4, 0)
   gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
   addTip(gear, "Settings", nil, "top")
+  local gearIcon = gear:CreateTexture(nil, "ARTWORK")
+  gearIcon:SetTexture([[Interface\Buttons\UI-OptionsButton]])
+  gearIcon:SetSize(15, 15)
+  gearIcon:SetPoint("CENTER")
+  gearIcon:SetVertexColor(Theme:IconTint())
+  Theme:Track(gearIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
+  gear.icon = gearIcon
+  gear.wpeIconPaint = function(s)
+    if s.icon then s.icon:SetVertexColor(Theme:IconTint()) end
+  end
+  ns.IconSilhouette(gear, gearIcon)
   self.gearBtn = gear
 
   local sort = ns.CreateGlyphButton(f, "", HBTN, "icon")
@@ -442,15 +518,16 @@ function View:Build()
   end, nil, "top")
   local sortIcon = sort:CreateTexture(nil, "ARTWORK")
   sortIcon:SetAtlas("auctionhouse-ui-sortarrow")
-  sortIcon:SetSize(13, 15)
+  sortIcon:SetSize(15, 17)
   sortIcon:SetPoint("CENTER")
   sortIcon:SetVertexColor(Theme:C("overlay"))
   Theme:Track(sortIcon, function(x) x:SetVertexColor(Theme:C("overlay")) end)
   sort.icon = sortIcon
-  sort.iconPct, sort.iconPctY = 50, 58
+  sort.iconPct, sort.iconPctY = 58, 66
   sort.wpeIconPaint = function(s)
     if s.icon then s.icon:SetVertexColor(Theme:C("overlay")) end
   end
+  ns.IconSilhouette(sort, sortIcon)
   self.sortBtn = sort
 
   local bankTab = ns.CreateButton(f, ns.L["Bank"], 52, HBTN)
@@ -500,7 +577,7 @@ function View:Build()
 
   local money = Theme:Label(f, 16, "text")
   Theme:Money(money)
-  money:SetPoint("BOTTOMRIGHT", -PAD, 6)
+  money:SetPoint("BOTTOMRIGHT", -PAD, 7)
   self.money = money
   ns.AttachGoldTooltip(money, f, function() return self:CellSize() end)
 
@@ -516,7 +593,7 @@ function View:Build()
 
   local dep = ns.CreateButton(f, ns.L["Deposit"], 70, 20)
   ns.LocalText(dep, "Deposit")
-  dep:SetPoint("BOTTOMLEFT", PAD, 5)
+  dep:SetPoint("BOTTOMLEFT", PAD, 7)
   dep:SetScript("OnClick", function() moneyPopup("BANK_MONEY_DEPOSIT", "BANK_MONEY_WITHDRAW") end)
   addTip(dep, "Put your gold into the Warband bank", nil, "top")
   self.depositBtn = dep
@@ -573,7 +650,7 @@ function View:Build()
   gridBg:SetAlpha(Theme:GridAlpha())
 
   local hint = Theme:Label(f, 13, "dim")
-  hint:SetPoint("BOTTOMLEFT", PAD, 8)
+  hint:SetPoint("BOTTOMLEFT", PAD, 10)
   ns.LocalText(hint, "Visit a banker to record this bank")
   hint:Hide()
   self.hint = hint
@@ -1111,11 +1188,14 @@ function View:PlaceBuyCell(x)
   ns.SnapBox(buy, TAB_SIZE, TAB_SIZE)
   buy:ClearAllPoints()
   ns.SnapPoint(buy, "BOTTOMLEFT", self.frame, "TOPLEFT", x, 6)
-  if buy.Text then
-    buy.Text:SetFont(ns.Fonts:Current(), math.max(16, math.floor(TAB_SIZE * 0.74)), ns.OutlineFlags())
-    buy.Text:SetText("+")
-    if buy.Repaint then buy:Repaint() end
+  if buy.Text then buy.Text:SetText("") end
+  if not (buy.wpeMarkX or buy.wpeMarkPlus) then
+    ns.MarkPlus(buy)
+    buy.wpeIconPaint = function(s)
+      ns.TintMarkX(s, (s.wpeHot and not s.offDuty) and "accent" or "text")
+    end
   end
+  if buy.Repaint then buy:Repaint() end
   local cost = (self.bankerOpen and not self.snap) and purchasableCost(bankTypeFor(self.mode)) or nil
   buy:SetShown(cost ~= nil)
 end
@@ -1304,24 +1384,84 @@ function View:Activate(mode)
   self:PinBlizzTabs()
 end
 
-function View:Acquire(st, i)
-  if self.snap then
-    local b = st.vpool[i]
-    if not b then
-      b = ns.CreateVaultButton(st.content)
-      b.view = st
-      st.vpool[i] = b
+-- Start a pass: the claim set, the position list and the pool cursor start empty.
+--
+-- The slot->cell map is deliberately NOT per pass. It is the index of what each cell is bound to, and it
+-- outlives the pass, because a pass can be cut short: a touch sweep takes the drip token over and the fill
+-- stops where it is (bank.touch fires constantly during a transfer). A map rebuilt per pass would then be
+-- missing every entry the interrupted pass never reached, so the next pass would hand those slots cells from
+-- the pool, rebind them and repaint them: measured on a deposit, 1165 rebounds against 1193 paints -- the
+-- whole repaint storm that the keyed hand-out was meant to remove. Bindings are moved where a cell is really
+-- rebound (see Run), and a cell hidden for a pass keeps its binding, so a piece that comes back is shown
+-- again with nothing to paint.
+function View:BeginPass(st)
+  wipe(st.claim)
+  wipe(st.live)
+  -- The slots this pass draws, rebuilt by the Plan below: a miss takes only a cell bound to none
+  -- of these, so one arrival cannot steal a later entry's cell and cascade down the plan.
+  wipe(st.planned)
+  st.free = 1
+end
+
+-- The cell for a plan entry: the one already showing this slot, or the next free cell of the pool. What a
+-- pass pays per cell is decided here: a cell handed the slot it already shows keeps its picture (the paint
+-- guard in ns.UpdateItemButton finds nothing changed and returns), a cell handed another slot repaints. So
+-- cells are keyed by the slot they show, not by the place they stand in -- the reference addon does the same
+-- with its item keys. The plan is a compacted list of pieces, not of places: a held hole is drawn by the pass
+-- as its own crosshair and takes no plan entry, and an arriving piece takes one, so a single arrival or
+-- departure moves every entry behind it one index along while the slots those entries name have not moved.
+-- Handing cells out by that index repainted every one of those cells with its neighbour's item -- 2057 paints
+-- against 2191 bank and 794 bag cells placed in one measured withdrawal, which from the per-cell cost is about
+-- three quarters of the bank window repainted per pass. Keyed, those cells are only moved, and the paint is
+-- left to the pieces that really changed (an arrival, a count, a lock, a quest mark).
+function View:Acquire(st, c)
+  local pool = self.snap and st.vpool or st.pool
+  local key = c.bag * 1000 + c.slot
+  local own = st.byKey and st.byKey[key]
+  if own and not st.claim[own] then
+    st.claim[own] = true
+    return own
+  end
+  -- A miss takes a cell bound to no slot of this pass (a departure, a never-bound cell) -- never
+  -- just the first unclaimed cell, which is usually a later entry's own cell still waiting its
+  -- turn: stealing it orphaned that entry, which missed and stole the next, so a single arrival
+  -- repainted the whole tail of the plan. Nothing free means the plan outgrew the pool (genuine
+  -- arrivals), and the pool grows below instead of stealing.
+  local planned = st.planned
+  local i, n = st.free or 1, #pool
+  while i <= n do
+    local b = pool[i]
+    if not st.claim[b] then
+      local bk = b.wpeBag and (b.wpeBag * 1000 + (b.wpeSlot or 0)) or nil
+      if not bk or not (planned and planned[bk]) then
+        st.free = i + 1
+        st.claim[b] = true
+        return b
+      end
     end
-    return b
+    i = i + 1
   end
-  local b = st.pool[i]
-  if not b then
-    if InCombatLockdown() then self.cold = true; return nil end
-    b = ns.CreateItemButton(st.content, 0, 1)
-    b.view = st
-    st.pool[i] = b
+  if InCombatLockdown() then self.cold = true; return nil end
+  local made = self.snap and ns.CreateVaultButton(st.content) or ns.CreateItemButton(st.content, 0, 1)
+  made.view = st
+  n = n + 1
+  pool[n] = made
+  st.free = n + 1
+  st.claim[made] = true
+  return made
+end
+
+-- Hide every cell the pass did not hand out: the piece it shows is not in this pass's plan (it left, or the
+-- view switched), and its place is drawn as something else now -- a held hole's crosshair, a caption,
+-- nothing. Hidden, not wiped: the binding and the picture stay on the cell, so a piece that comes back is
+-- shown again with nothing to paint. Runs after the fill, because until the pass reaches an entry the cell
+-- it will not claim is still the picture of a slot that has just moved or gone.
+function View:HideUnclaimed(st)
+  local pool = self.snap and st.vpool or st.pool
+  for _, b in ipairs(pool) do
+    local h = b.holder
+    if not st.claim[b] and h and h:IsShown() then h:Hide() end
   end
-  return b
 end
 
 function View:HideSlots()
@@ -1334,6 +1474,8 @@ function View:HideSlots()
     end
     st.shown, st.paintKey = 0, nil
     wipe(st.byKey)
+    if st.claim then wipe(st.claim) end
+    if st.live then wipe(st.live) end
   end
 end
 
@@ -1649,6 +1791,7 @@ function View:PlanCats(st, size, cols, gap, light)
             n = n + 1
             local c = plan[n] or {}
             c.bag, c.slot = s.bag, s.slot
+            st.planned[s.bag * 1000 + s.slot] = true
             -- Combine-stacks: the cell binds its own slot but draws the folded sum. nil for a single.
             c.force = (s.count and s.count > 1) and s.count or nil
             c.x, c.y = cx, cy
@@ -1817,7 +1960,7 @@ function View:CellUnderCursor()
   if not cx then return nil end
   for i = 1, (st.planCount or 0) do
     local c = st.plan[i]
-    local b = st.pool[i]
+    local b = st.live[i]
     local h = b and b.holder
     if c and c.bag and h and h:IsShown() then
       local s = h:GetEffectiveScale()
@@ -2041,6 +2184,51 @@ function View:HideCatHoles(st, from)
   end
 end
 
+-- The crosshair a run shows the moment a piece leaves, before any pass has drawn the section's own holes.
+-- Same art as CatHole, a pool of its own: a pass places its holes by index, and holes drawn between passes
+-- must not shift that indexing or a section would hold somebody else's place. The pass that follows takes
+-- the picture over -- it hides the lot at the top and places the real holes (which stand where these did,
+-- a hole holding the slot its piece left) -- so these are shown only until that pass's own plan arrives.
+function View:TouchHole(st, i)
+  st.tHoles = st.tHoles or {}
+  local t = st.tHoles[i]
+  if not t then
+    t = ns.CatHole(st.content)
+    st.tHoles[i] = t
+  end
+  return t
+end
+
+function View:HideTouchHoles(st)
+  if not (st and st.tHoles) then return end
+  for i = 1, #st.tHoles do
+    local t = st.tHoles[i]
+    if t and t:IsShown() then t:Hide() end
+  end
+  st.tHoleN = 0
+end
+
+-- A cell whose piece has just left, in the grouped view, is a hole the next pass has not drawn yet: the
+-- cell is parked hidden (the same way the plan parks it) and a crosshair takes its place, at the cell's
+-- own last position, so the space reads as emptied rather than as a free slot the grouped view never means
+-- to show. The plan that follows rebinds or parks the cell as it should; nothing here is remembered.
+function View:ParkAsHole(st, b)
+  -- A cell the last sweep already parked is the same hole met again (the sweeps between passes run more
+  -- than once between two plans): a crosshair stacked on a crosshair is art nothing asked for.
+  if not b.holder:IsShown() then return end
+  local i = (st.tHoleN or 0) + 1
+  st.tHoleN = i
+  local t = self:TouchHole(st, i)
+  local size = b.wpeSize or st.iconSize or 0
+  ns.SnapSize(t, size, size)
+  t:ClearAllPoints()
+  ns.SnapPoint(t, "TOPLEFT", st.content, "TOPLEFT", b.wpeX or 0, b.wpeY or 0)
+  t:Show()
+  b.link = nil
+  b.holder:Hide()
+  b:Hide()
+end
+
 -- Right click on a bank category caption withdraws the whole section to the player's bags: each piece
 -- through the game's own UseContainerItem on a bank slot (no bank-type argument), the same withdraw the
 -- game's bank button runs, paced by Cats:MoveSlots while the account bank is the one open, since only it
@@ -2066,6 +2254,7 @@ function View:TransferSection(slots)
     -- A reagent going only to the reagent bag is not distinguished here; the game routes it, and a false
     -- from a full ordinary bags set with a free reagent slot is the rare miss the per-slot cap still covers.
     if not bagsHaveRoom() then return false end
+    -- The game's own withdraw call: whatever this costs is the client's container work, not this addon's.
     C_Container.UseContainerItem(bag, slot)
     -- No target slot to hand back: the game chooses the bag slot. The pump reads the source (this bank
     -- slot) to know it landed, which for the account bank is the round-trip signal.
@@ -2151,9 +2340,11 @@ function View:TransferNow()
     -- slot) to know it landed, which for the account bank is the round-trip signal.
     return true
   end, function()
-    local ok = (self.bankerOpen and self.frame and self.frame:IsShown()) and true or false
-    ns.ArmTransferChips()
-    return ok
+    -- Alive is asked once per pump poll -- ten times a second -- so nothing is armed here: the chips are
+    -- armed by the pump after each batch and once when the run ends (ns.ArmTransferChips), plus by the
+    -- windows' own dirty and layout paths as they repaint. Arming here redrew a button whose number only
+    -- moves when a piece lands, and with a query typed it re-counted the whole bank every poll.
+    return self.bankerOpen and self.frame and self.frame:IsShown()
   end, self.mode == "warband", ns.ArmTransferChips)
 end
 
@@ -2272,6 +2463,7 @@ function View:Plan(st, size, cols, gap, light)
         count = count + 1
         local c = plan[first + count] or {}
         c.bag, c.slot = bag, slot
+        st.planned[bag * 1000 + slot] = true
         -- The plan is shared with the grouped view and its entries are reused index by index, so a
         -- count override left on one by a folded cell is read back by whatever the grid puts at that
         -- index: the merged total of a category then stays drawn on a slot that holds one stack of its
@@ -2341,6 +2533,7 @@ function View:Plan(st, size, cols, gap, light)
     for k = 1, cols * rows do
       local c = plan[k] or {}
       c.bag, c.slot, c.force = 0, k, nil
+      st.planned[k] = true
       local col, row = (k - 1) % cols, math.floor((k - 1) / cols)
       c.x, c.y = col * step, -(row * step)
       plan[k] = c
@@ -2399,10 +2592,14 @@ function View:Run(st, repaint, tag)
   local token = (st.dripToken or 0) + 1
   st.filling, st.fillAt = token, GetTime()
   self:Drip(st, tag or "fill", st.plan, st.planCount, function(c, i)
-    local b = self:Acquire(st, i)
+    local b = self:Acquire(st, c)
     if not b then return end
     local h = b.holder
     if b.wpeBag ~= c.bag or b.wpeSlot ~= c.slot then
+      -- A folded cell (combine stacks) is counted apart: its plan entry stands for a group and names the
+      -- slot that represents it, so a rebind here can mean the group's representative moved rather than a
+      -- piece arriving -- a different cause with a different fix.
+      if b.wpeBag then st.byKey[b.wpeBag * 1000 + b.wpeSlot] = nil end
       if not snap then
         h:SetID(c.bag); b:SetID(c.slot); b.wpeBagID = c.bag
       end
@@ -2418,7 +2615,9 @@ function View:Run(st, repaint, tag)
     -- else to tell it the recipe changed, and the guarded repaint below would leave the ring of the view
     -- it was drawn in, so the link is dropped when the flag itself flips and not only on a full repaint.
     local cat = self:CatMode()
-    if repaint or b.wpeCat ~= cat then b.link = nil end
+    if repaint or b.wpeCat ~= cat then
+      b.link = nil
+    end
     if not h:IsShown() then h:Show() end
     if not b:IsShown() then b:Show() end
     -- Combine-stacks sum for a folded cell (grouped view only; nil everywhere else), overriding just the
@@ -2431,8 +2630,10 @@ function View:Run(st, repaint, tag)
       ns.UpdateItemButton(b)
     end
     ns.ApplySearchToButton(b, self.filters)
+    st.live[i] = b
     st.byKey[c.bag * 1000 + c.slot] = b
   end, function()
+    self:HideUnclaimed(st)
     if st.filling == token then st.filling = nil end
     -- A layout asked for while this pass was filling waited for it; it runs now, on the finished plan.
     if st.relayout then st.relayout = nil; self:Layout() end
@@ -2493,6 +2694,10 @@ function View:Fonts()
 end
 
 function View:LayoutMode(st, tag, light)
+  -- The crosshairs the between-passes repaint drew belong to the picture this pass is about to replace: the
+  -- plan below places the real holes in the same places, so the hand-drawn ones are cleared first rather
+  -- than left to double the mark.
+  self:HideTouchHoles(st)
   local cols = self:Cols(st.mode)
   local size, gap = ns.GridMetrics(self.frame, self:CellSize(st.mode), Bags.gap or 4)
   st.iconSize = size
@@ -2502,7 +2707,7 @@ function View:LayoutMode(st, tag, light)
   -- The key is spent by the pass that repaints: a light pass moves holders only, so it leaves the key
   -- alone and the trailing full pass still sees the change and repaints once.
   if not light then st.paintKey = key end
-  wipe(st.byKey)
+  self:BeginPass(st)
   wipe(st.dirty)
   st.needLayout = nil
   local n, contentH, used, total = self:Plan(st, size, cols, gap, light)
@@ -2511,18 +2716,18 @@ function View:LayoutMode(st, tag, light)
   -- The section drop targets follow the pass that placed them: shown while a piece rides the cursor in
   -- the grouped view, hidden the rest of the time and always in the grid.
   self:SyncCatZones()
-  local pool = self.snap and st.vpool or st.pool
-  for j = n + 1, #pool do
-    local h = pool[j].holder
-    if h:IsShown() then h:Hide() end
-  end
   if light then
     -- Movers only: the plan already carries every cell's geometry, so holders travel without paint and
-    -- without restarting the drip.
+    -- without restarting the drip. A slot the plan draws that has no cell of its own yet (a piece that
+    -- arrived since the last full pass) is left to that pass: a light pass moves cells, and a cell handed a
+    -- slot it was not showing would have nothing on it but its neighbour's picture. The light pass leaves
+    -- the paint key alone anyway, so the full pass behind it draws those cells.
     for i = 1, n do
       local c = st.plan[i]
-      local b = pool[i]
-      if b then
+      local slotKey = c.bag * 1000 + c.slot
+      local b = st.byKey and st.byKey[slotKey]
+      if b and not st.claim[b] then
+        st.claim[b] = true
         local h = b.holder
         if b.wpeSize ~= size then ns.SnapSize(h, size, size); b.wpeSize = size end
         if b.wpeX ~= c.x or b.wpeY ~= c.y then
@@ -2530,9 +2735,11 @@ function View:LayoutMode(st, tag, light)
           ns.SnapPoint(h, "TOPLEFT", st.content, "TOPLEFT", c.x, c.y)
           b.wpeX, b.wpeY = c.x, c.y
         end
-        st.byKey[c.bag * 1000 + c.slot] = b
+        st.live[i] = b
+        st.byKey[slotKey] = b
       end
     end
+    self:HideUnclaimed(st)
     if st == self.cur then self:Resize(st) end
     return
   end
@@ -2772,8 +2979,11 @@ end
 function View:ApplySearch()
   local st = self.cur
   if not st then return end
-  local pool = self.snap and st.vpool or st.pool
-  for j = 1, (st.shown or 0) do ns.ApplySearchToButton(pool[j], self.filters) end
+  local live = st.live or {}
+  for j = 1, #live do
+    local b = live[j]
+    if b then ns.ApplySearchToButton(b, self.filters) end
+  end
   self:ArmTransfer()
 end
 
@@ -2838,7 +3048,58 @@ function View:UpdateDirty()
   self:Drip(st, "fill", q, n, function(b)
     ns.UpdateItemButton(b)
     ns.ApplySearchToButton(b, self.filters)
-  end)
+  end, nil, st.dripToken)
+end
+
+-- Repaint the cells of the tabs that just changed, where they stand: no plan, no move, no paint of the
+-- whole window. A piece that left shows its slot empty until the next pass reflows the section it stood in;
+-- a piece that arrived into a slot that already had a cell shows at once (the grid draws every slot); one
+-- that arrived into a slot the grouped view does not draw yet waits for the pass that draws it. This is
+-- what keeps a transfer's picture alive between the wide-spaced passes a run is laid out on -- the same
+-- in-place path the bags take between their passes.
+function View:TouchDirty()
+  local st = self.cur
+  if self.snap or not (st and self.frame and self.frame:IsShown()) then return end
+  if not next(st.dirty) then return end
+  -- The events that ask for this arrive in bursts: a slot-changed event names no tab, so every move stirs
+  -- several of them and each sweep walks the whole open bank. One sweep per quarter second is what keeps
+  -- the picture alive (it is the cadence the passes used before this), and the cap is what stops a burst
+  -- from multiplying the cost. Dirt left behind is picked up by the next sweep or by the next pass.
+  local now = GetTime()
+  if (now - (self.touchT or 0)) < TOUCH_GAP then return end
+  self.touchT = now
+  local q, n = self.touchQueue or {}, 0
+  self.touchQueue = q
+  for bag in pairs(st.dirty) do
+    local num = C_Container.GetContainerNumSlots(bag) or 0
+    for slot = 1, num do
+      local b = st.byKey[bag * 1000 + slot]
+      if b then n = n + 1; q[n] = b end
+    end
+  end
+  wipe(st.dirty)
+  -- Drip-sliced like every other run of paints, so a bank of a thousand cells cannot blow the frame on the
+  -- event that asked for it. The sweep joins the running epoch instead of minting its own token: a fresh
+  -- token would drop a fill still painting its plan, whose tail (and finish callback) would then never run.
+  -- A pass that starts while this is still filling takes the drip token over and this one stops where it
+  -- is: the pass repaints everything it would have reached anyway.
+  local cat = self:CatMode()
+  self:Drip(st, "touch", q, n, function(b)
+    -- The search pass is spent only on a cell that repainted. UpdateItemButton's own guard is a comparison
+    -- of everything the search reads off a cell -- its meta, its counts, its lock -- so a cell the guard
+    -- skipped is a cell whose answer to the same filters is the one already painted on it. The second
+    -- return is that guard's verdict: true only where the cell was really drawn.
+    local _, painted = ns.UpdateItemButton(b)
+    if not painted then return end
+    local info = C_Container.GetContainerItemInfo(b.wpeBagID, b:GetID())
+    if cat and not (info and (info.hyperlink or info.itemID)) then
+      -- Emptied in the grouped view: the place is a hole from now on, so it is crossed out on this very
+      -- repaint instead of standing empty until the next pass reflows the section.
+      self:ParkAsHole(st, b)
+    else
+      ns.ApplySearchToButton(b, self.filters)
+    end
+  end, nil, st.dripToken)
 end
 
 function View:QueueRefresh(bagID)
@@ -2850,6 +3111,24 @@ function View:QueueRefresh(bagID)
   else
     self.cur.needLayout = true
   end
+  -- A paced run is moving: the dirt is recorded above, but the capture, the tabs and the layout are spaced
+  -- by the run's own gap (Cats.RUN_GAP, then the run's final pass) instead of one per moved piece. What a
+  -- spaced pass costs is the plan walk plus the cells that actually moved: the paint below keeps each link
+  -- and lets UpdateItemButton's own guard skip the cells the run never touched.
+  if ns.Categories and ns.Categories.MoveQuiet and ns.Categories:MoveQuiet() then
+    local now = GetTime()
+    if (now - (self.viewT or 0)) < (ns.Categories.PassGap and ns.Categories:PassGap() or 1) then
+      -- Between the spaced passes the window is kept alive where the pieces stand. A slot-changed event
+      -- names no tab, so every tab of this bank is the suspect here and they all join the sweep; the
+      -- layout itself waits, since re-bucketing the window per piece is what the wide gap is avoiding.
+      if not bagID then
+        for _, tab in ipairs(self:CatBags(self.cur.mode)) do self.cur.dirty[tab] = true end
+      end
+      self:TouchDirty()
+      return
+    end
+    self.viewT = now
+  end
   -- One refresh covers everything that lands while it waits, and a refresh already waiting is not pushed
   -- back. Re-arming the timer on every event instead made this a trailing debounce: a run of changes
   -- faster than the wait (a whole category moving into the bank) held the view still until the run
@@ -2860,7 +3139,18 @@ function View:QueueRefresh(bagID)
     self.refreshPending = nil
     local st = self.cur
     if self.bankerOpen and not self.snap and st then
-      ns.Vault:Capture(st.mode, (not st.needLayout) and next(st.dirty) and st.dirty or nil)
+      -- The capture is held off while a run is moving, and it is the one run-sized thing in this body. A
+      -- slot-changed event names no bag, so the capture it asks for is the whole bank: every tab rescanned
+      -- and an item level read for every piece of gear in them -- several times a second, for a snapshot
+      -- nothing on screen reads (the live cells read the containers themselves, and a deposit's own target
+      -- slots are read by the pump). That is what made a transfer's passes cost many times their layout,
+      -- with every arrived piece asking for it again. The run's final pass captures everything once, after
+      -- the pieces have landed: settleViews drops the quiet flag and then asks for this refresh. SetTabs
+      -- stays -- a handful of reads for the tab strip, which is on screen.
+      local moving = ns.Categories and ns.Categories.MoveQuiet and ns.Categories:MoveQuiet()
+      if not moving then
+        ns.Vault:Capture(st.mode, (not st.needLayout) and next(st.dirty) and st.dirty or nil)
+      end
       ns.Vault:SetTabs(st.mode, self:LiveTabMeta(st.mode))
     end
     if not (st and self.frame and self.frame:IsShown()) then return end
@@ -2878,8 +3168,9 @@ end
 function View:RefreshNewItems()
   local st = self.cur
   if self.snap or not (st and self.frame and self.frame:IsShown()) then return end
-  for i = 1, (st.shown or 0) do
-    local b = st.pool[i]
+  local live = st.live or {}
+  for i = 1, #live do
+    local b = live[i]
     if b then ns.SyncNewItem(b) end
   end
 end
@@ -2887,8 +3178,9 @@ end
 function View:RefreshQuests()
   local st = self.cur
   if self.snap or not (st and self.frame and self.frame:IsShown()) then return end
-  for i = 1, (st.shown or 0) do
-    local b = st.pool[i]
+  local live = st.live or {}
+  for i = 1, #live do
+    local b = live[i]
     if b and ns.SyncQuestMark(b) then
       b.link = nil
       ns.UpdateItemButton(b)
@@ -2901,8 +3193,9 @@ function View:Cooldowns()
   if self.snap then return end
   local st = self.cur
   if not (st and self.frame and self.frame:IsShown()) then return end
-  for i = 1, (st.shown or 0) do
-    local b = st.pool[i]
+  local live = st.live or {}
+  for i = 1, #live do
+    local b = live[i]
     if b and b.link and b.holder:IsVisible() then ns.UpdateCooldown(b) end
   end
 end

@@ -312,6 +312,8 @@ local STRINGS = {
   ["Slot background"] = "Fond des emplacements",
   ["Pay with"] = "Payer avec",
   ["Plate opacity"] = "Opacité du fond",
+  ["Transparency"] = "Transparence",
+  ["See-through windows. Settings stay solid."] = "Fenêtres translucides. Les réglages restent opaques.",
   ["Bank slots per row"] = "Emplacements par ligne (banque)",
   ["Warband slots per row"] = "Emplacements par ligne (bataillon)",
   ["Guild bank slots per row"] = "Cases par ligne (banque de guilde)",
@@ -581,6 +583,10 @@ local STRINGS = {
   ["FANNY PACK"] = "SAC BANANE",
   ["Pocket"] = "Poche",
   ["Pocket window"] = "Fenêtre de poche",
+  ["LMB: Pocket"] = "CG : Poche",
+  ["RMB: grid/cat"] = "CD : grille/cat",
+  ["LMB: grid/cat."] = "CG : grille/cat.",
+  ["Click: grid/cat"] = "Clic : grille/cat",
   ["Pocket rows"] = "Lignes de la poche",
   ["Pocket size"] = "Taille de la poche",
   ["Pocket slot size"] = "Taille des cases de la poche",
@@ -595,8 +601,8 @@ local STRINGS = {
     "Le nombre de rangées de cases de la fenêtre de poche.",
   ["How wide the pocket window grows."] =
     "Détermine la largeur de la fenêtre de poche.",
-  ["Size of one cell in the pocket. It follows the bag slot size until you move this."] =
-    "Taille d'une case de la poche. Tant que le curseur n'est pas touché, elle suit la taille des cases des sacs.",
+  ["Size of one cell in the pocket. It is a setting of its own: a pocket that has none takes the bag slot size once."] =
+    "Taille d'une case de la poche. Un réglage à part : une poche qui n'en a pas prend une fois la taille des cases des sacs.",
   ["The key that opens and closes the pocket. Click, then press a key, a mouse button or the wheel, with Shift, Ctrl or Alt if you like; a right click clears it, Escape cancels."] =
     "La touche qui ouvre et ferme la poche. Cliquez, puis appuyez sur une touche, un bouton de souris ou la molette, avec Maj, Ctrl ou Alt si vous voulez ; le clic droit l'efface, Échap annule.",
   ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] =

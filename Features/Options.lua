@@ -370,8 +370,9 @@ local function bankCell(mode)
   return ns.DEFAULT_CELL
 end
 local function pocketCell()
-  return (WarpeeDB and tonumber(WarpeeDB.pocketIconSize))
-         or (Bags and Bags.iconSize) or ns.DEFAULT_CELL
+  -- The pocket's own size, through the one call that reads it: it used to fall back to the bags'
+  -- here as well, so the badges of that window scaled with a size the pocket was not drawn at.
+  return (ns.PocketIconSize and ns.PocketIconSize()) or ns.DEFAULT_CELL
 end
 
 -- The windows a badge has to read the same way in. The guild bank reads its cell off its own
@@ -405,8 +406,11 @@ bg.normalize = function()
       local ref = ns.BadgeRef(d, g)
       if ref ~= B then
         local k = B / ref
-        g.x = math.floor((g.x or 0) * k + 0.5)
-        g.y = math.floor((g.y or 0) * k + 0.5)
+        -- Through the same call the drawing uses, so the promise above holds: an offset re-based
+        -- here and an offset scaled there have to round alike, or a badge the panel normalized
+        -- while the cell was small would have lost the inset for good and jumped into its corner.
+        g.x = ns.BadgeOffset(g.x, k)
+        g.y = ns.BadgeOffset(g.y, k)
         g.s = math.floor((tonumber(g.s) or d.s) * k + 0.5)
         g.ref = B
       end
@@ -1867,7 +1871,10 @@ function factories.badges(parent, spec)
       local holder = ns.BadgeFrame(cell, d.key)
       holder:SetFrameLevel(ns.BadgeLevel(cell, d.key, at, n, sel))
       o:ClearAllPoints()
-      o:SetPoint(ns.BadgePoint(g), cell, g.c, (g.x or 0) * f, (g.y or 0) * f)
+      -- The offsets go through the same call the grid places with, so the preview cannot show a
+      -- placement the cell would not make -- the panel is magnified, and the rule holds at any
+      -- magnification: an inset never rounds away to nothing.
+      o:SetPoint(ns.BadgePoint(g), cell, g.c, ns.BadgeOffset(g.x, f), ns.BadgeOffset(g.y, f))
       o:SetShown(vis)
       if sel then
         local cl, ct = cell:GetLeft(), cell:GetTop()
@@ -2726,9 +2733,12 @@ function factories.catlist(parent, spec)
     ns.SnapSize(ic, ICON, ICON)
     ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     b.ic = ic
-    local x = Theme:Label(b, BASE_FONT, "accent")
+    local x = CreateFrame("Frame", nil, b)
     x:SetPoint("CENTER")
-    x:SetText("\195\151") -- ×
+    x:SetSize(ICON * 0.6, ICON * 0.6)
+    ns.MarkX(x)
+    ns.TintMarkX(x, "accent")
+    Theme:Track(x, function() ns.TintMarkX(x, "accent") end)
     x:Hide()
     b.x = x
     b:SetScript("OnEnter", function(s)
@@ -2819,7 +2829,7 @@ function factories.catlist(parent, spec)
     ns.SetBg(s, Theme:C(on and "panelHi" or "bg"))
     local er, eg, eb = Theme:C(on and "accent" or "emptyLine")
     ns.SetEdge(s, er, eg, eb, on and 1 or 0.55)
-    s.Text:SetTextColor(Theme:C(on and "accent" or "faint"))
+    ns.TintMarkX(s, on and "accent" or "faint")
   end
 
   local function makePlusSlot(parent, w, h)
@@ -2827,10 +2837,8 @@ function factories.catlist(parent, spec)
     ns.SnapBox(b, w, h)
     ns.PixelBackdrop(b)
     b:RegisterForClicks("LeftButtonUp")
-    local fs = Theme:Label(b, BASE_FONT, "faint")
-    fs:SetPoint("CENTER")
-    fs:SetText("+")
-    b.Text = fs
+    ns.MarkPlus(b)
+    ns.TintMarkX(b, "faint")
     b.Repaint = paintPlus
     paintPlus(b)
     Theme:Track(b, paintPlus)
@@ -4008,10 +4016,8 @@ function factories.catlist(parent, spec)
     ns.PixelBackdrop(addLvl)
     ns.SnapPoint(addLvl, "LEFT", numBox, "RIGHT", 4, 0)
     addLvl:RegisterForClicks("LeftButtonUp")
-    local alfs = Theme:Label(addLvl, BASE_FONT, "faint")
-    alfs:SetPoint("CENTER")
-    alfs:SetText("+")
-    addLvl.Text = alfs
+    ns.MarkPlus(addLvl)
+    ns.TintMarkX(addLvl, "faint")
     addLvl.Repaint = paintPlus
     paintPlus(addLvl)
     Theme:Track(addLvl, paintPlus)

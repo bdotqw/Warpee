@@ -370,6 +370,8 @@ local STRINGS = {
   ["Slot background"] = "Фон ячейки",
   ["Pay with"] = "Источник оплаты",
   ["Plate opacity"] = "Плотность подложки",
+  ["Transparency"] = "Прозрачность",
+  ["See-through windows. Settings stay solid."] = "Прозрачные окна. Настройки остаются непрозрачными.",
   ["Bank slots per row"] = "Ячеек в ряду (банк)",
   ["Warband slots per row"] = "Ячеек в ряду (банк отряда)",
   ["Guild bank slots per row"] = "Ячеек в ряду (банк гильдии)",
@@ -638,6 +640,10 @@ local STRINGS = {
   ["FANNY PACK"] = "БАРСЕТКА",
   ["Pocket"] = "Карман",
   ["Pocket window"] = "Окно кармана",
+  ["LMB: Pocket"] = "ЛКМ: карман",
+  ["RMB: grid/cat"] = "ПКМ: сетка/кат",
+  ["LMB: grid/cat."] = "ЛКМ: сетка/кат.",
+  ["Click: grid/cat"] = "Клик: сетка/кат",
   ["Pocket rows"] = "Рядов в кармане",
   ["Pocket size"] = "Размер кармана",
   ["Pocket slot size"] = "Размер ячейки кармана",
@@ -652,8 +658,8 @@ local STRINGS = {
     "Сколько рядов ячеек в окне кармана.",
   ["How wide the pocket window grows."] =
     "От этого зависит ширина окна кармана.",
-  ["Size of one cell in the pocket. It follows the bag slot size until you move this."] =
-    "Размер одной ячейки кармана. Пока ползунок не тронут, следует за размером ячейки сумок.",
+  ["Size of one cell in the pocket. It is a setting of its own: a pocket that has none takes the bag slot size once."] =
+    "Размер одной ячейки кармана. У кармана свой размер: если своего ещё нет, он один раз берёт размер ячейки сумок.",
   ["The key that opens and closes the pocket. Click, then press a key, a mouse button or the wheel, with Shift, Ctrl or Alt if you like; a right click clears it, Escape cancels."] =
     "Клавиша, открывающая и закрывающая карман. Клик, затем клавиша, кнопка мыши или колесо, при желании с Shift, Ctrl или Alt; ПКМ снимает бинд, Esc отменяет.",
   ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] =

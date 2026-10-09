@@ -314,6 +314,8 @@ local STRINGS = {
   ["Slot background"] = "Platzhintergrund",
   ["Pay with"] = "Zahlungsquelle",
   ["Plate opacity"] = "Deckkraft der Unterlage",
+  ["Transparency"] = "Transparenz",
+  ["See-through windows. Settings stay solid."] = "Durchsichtige Fenster. Die Einstellungen bleiben deckend.",
   ["Bank slots per row"] = "Bankplätze pro Reihe",
   ["Warband slots per row"] = "Kriegsmeutenplätze pro Reihe",
   ["Guild bank slots per row"] = "Gildenbank-Plätze pro Reihe",
@@ -581,6 +583,10 @@ local STRINGS = {
   ["FANNY PACK"] = "BAUCHTASCHE",
   ["Pocket"] = "Ablage",
   ["Pocket window"] = "Ablagefenster",
+  ["LMB: Pocket"] = "LM: Ablage",
+  ["RMB: grid/cat"] = "RM: Raster/Kat",
+  ["LMB: grid/cat."] = "LM: Raster/Kat.",
+  ["Click: grid/cat"] = "Klick: Raster/Kat",
   ["Pocket rows"] = "Zeilen der Ablage",
   ["Pocket size"] = "Größe der Ablage",
   ["Pocket slot size"] = "Feldgröße der Ablage",
@@ -595,8 +601,8 @@ local STRINGS = {
     "Wie viele Zellzeilen das Ablagefenster hat.",
   ["How wide the pocket window grows."] =
     "Davon hängt die Breite des Ablagefensters ab.",
-  ["Size of one cell in the pocket. It follows the bag slot size until you move this."] =
-    "Größe eines Feldes in der Ablage. Bis der Regler bewegt wird, folgt sie der Platzgröße der Taschen.",
+  ["Size of one cell in the pocket. It is a setting of its own: a pocket that has none takes the bag slot size once."] =
+    "Größe eines Feldes in der Ablage. Eine eigene Einstellung: eine Ablage ohne eigene Größe übernimmt einmal die Platzgröße der Taschen.",
   ["The key that opens and closes the pocket. Click, then press a key, a mouse button or the wheel, with Shift, Ctrl or Alt if you like; a right click clears it, Escape cancels."] =
     "Die Taste, die die Ablage öffnet und schließt. Klicken, dann eine Taste, eine Maustaste oder das Rad, gern mit Shift, Strg oder Alt; Rechtsklick löscht, Escape bricht ab.",
   ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] =

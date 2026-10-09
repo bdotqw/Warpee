@@ -26,6 +26,8 @@ local newGet, newSet         = styleField("newItemGlow")
 local unusableGet, unusableSet = styleField("unusableBorder")
 local function gridAlphaGet() return tonumber(WarpeeDB and WarpeeDB.gridAlpha) or 0 end
 local function gridAlphaSet(v) WarpeeDB.gridAlpha = v; Theme:ApplyGridAlpha() end
+local function winAlphaGet() return tonumber(WarpeeDB and WarpeeDB.transparency) or 0 end
+local function winAlphaSet(v) WarpeeDB.transparency = v; Theme:ApplyWindowAlpha() end
 local gaugeGet, gaugeSet     = field("showGauge")
 local fav = {}
 fav.showGet = function() return ns.Fav:Enabled() end
@@ -79,10 +81,10 @@ fav.pkColsSet = function(v)
   if ns.Pocket then ns.Pocket:Refresh() end
 end
 fav.pkSizeGet = function()
-  return tonumber(WarpeeDB.pocketIconSize) or (Bags.iconSize or 40)
+  return ns.PocketIconSize()
 end
 fav.pkSizeSet = function(v)
-  WarpeeDB.pocketIconSize = tonumber(v) or 40
+  WarpeeDB.pocketIconSize = tonumber(v) or ns.PocketIconSize()
   ns.BumpCellSize()
   if ns.Pocket then ns.Pocket:Refresh() end
 end
@@ -146,6 +148,9 @@ local GENERAL_PAGE = {
       { type = "range", name = "Plate opacity", min = 0, max = 1, step = 0.01,
         get = gridAlphaGet, set = gridAlphaSet,
         desc = "The plate the items stand on, an extra surface over the window's own background. At 0 it is invisible and the window keeps its own background; raised, it covers the window from top to bottom, except the header a skin draws for itself." },
+      { type = "range", name = "Transparency", min = 0, max = 1, step = 0.01,
+        get = winAlphaGet, set = winAlphaSet,
+        desc = "See-through windows. Settings stay solid." },
       { type = "select", name = "Language", get = localeGet, set = localeSet,
         keys = localeKeys, label = localeLabel,
         desc = "Language for the addon's own text. Item names always come from the game." },
@@ -215,7 +220,7 @@ local POCKET_PAGE = {
     section = "pocketsize",
     get = fav.pkSizeGet, set = fav.pkSizeSet,
     disabled = function() return not fav.pkGet() end,
-    desc = "Size of one cell in the pocket. It follows the bag slot size until you move this." },
+    desc = "Size of one cell in the pocket. It is a setting of its own: a pocket that has none takes the bag slot size once." },
 }
 
 local ITEMS_PAGE = {

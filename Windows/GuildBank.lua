@@ -169,6 +169,11 @@ local function paintToggle(b)
   if fs then
     fs:SetTextColor(Theme:C(lit and "accent" or (off and "faint" or (b.wpeTextKey or "text"))))
   end
+  local mark = b.wpeMarkX or b.wpeMarkPlus
+  if mark then
+    local r, g, bl = Theme:C(lit and "accent" or (off and "faint" or (b.wpeTextKey or "text")))
+    for _, d in ipairs(mark) do d:SetVertexColor(r, g, bl) end
+  end
 end
 
 local function hotOn(s) s.wpeHot = true; paintToggle(s) end
@@ -270,24 +275,18 @@ local function putPlus(b)
   if b.wpePlus then return end
   -- The cell that buys the next tab wears the same plus the bank's own strip wears. The game
   -- draws that one cell with its NewTab art, which is a texture: it cannot follow the theme or
-  -- the addon font, so the icon is faded out and a glyph is drawn in its place, in the same way
+  -- the addon font, so the icon is faded out and a plus is drawn in its place, in the same way
   -- and with the same size as the buy cell of the bank window.
   --
-  -- Everything the glyph needs goes on it before anything else, and the cell is told it owns a
-  -- glyph the moment there is one. The record that keeps it in step with a font change is the
-  -- last thing here and the only thing allowed to fail, because a plus that cannot follow a
-  -- font change is still a plus, and one that was never announced is no plus at all.
-  local plus = b:CreateFontString(nil, "OVERLAY")
-  b.wpePlus = plus
+  -- A drawn mark needs no font record: the paint pass below re-tints it on every theme change
+  -- and state flip, and the size hook inside the mark keeps it fitted.
+  b.wpePlus = true
   b.wpeBuy = nil
-  plus:SetFont(ns.Fonts:Current(), 18, "")
-  plus:SetText("+")
-  plus:SetTextColor(Theme:C("dim"))
-  plus:SetPoint("CENTER")
-  plus:Hide()
-  b.Text = plus
+  ns.MarkPlus(b)
+  ns.TintMarkX(b, "dim")
+  ns.ShowMark(b, false)
+  b.Text = nil
   b.wpeTextKey = "dim"
-  try(label, plus, 18, "dim")
 end
 
 local function hookTab(b)
@@ -488,11 +487,9 @@ local function skinClose(close, host)
   if hl then hl:SetAlpha(0) end
   ns.SnapBox(close, 22, 22)
   if not box(close, "panel", "stroke") then return end
-  close.wpeTextKey = "dim"
-  local glyph = Theme:Label(close, 16, "dim")
-  glyph:SetPoint("CENTER")
-  glyph:SetText("×")
-  close.Text = glyph
+  close.wpeTextKey = "text"
+  close.Text = nil
+  ns.MarkX(close)
   Theme:Track(close, function(s) paintToggle(s); placeClose(s) end)
   close:HookScript("OnEnter", hotOn)
   close:HookScript("OnLeave", hotOff)
@@ -791,6 +788,7 @@ function Skin:Apply()
   frame.wpeGuest = true
   try(Theme.Panel, Theme, frame, "bg", "stroke")
   try(dressFrame, frame)
+  if ns.Theme and ns.Theme.ApplyWindowAlpha then ns.Theme:ApplyWindowAlpha() end
   if frame.SetToplevel then try(frame.SetToplevel, frame, true) end
   try(frame.HookScript, frame, "OnMouseDown", function(s) Theme:Raise(s) end)
 
@@ -1069,6 +1067,11 @@ end
 function Skin:PaintSlots()
   local frame = _G.GuildBankFrame
   if not frame then return end
+  -- A pass of its own opens a budget of its own, the way the bags' pass and the bank's pass do.
+  -- Without it the clock was whatever the last pass left behind, so the verdict about a ring read
+  -- as "out of time" from the first slot on and every link of the tab waited for the queued scan
+  -- -- and the single repaint that scan ends with never reached this window.
+  ns.ReportEntry()
   local tab = (GetCurrentGuildBankTab and GetCurrentGuildBankTab()) or 0
   for i = 1, COLUMNS do
     local col = colAt(frame, i)
@@ -1125,7 +1128,7 @@ local function markBuy(b, numTabs)
   -- that should wear the plus: every other tab carries an icon of its own, and a tab that has
   -- just been bought has to get its icon back. Whether the cell is up is the game's business
   -- and not ours: a hidden cell hides its glyph along with itself.
-  if b.wpePlus then b.wpePlus:SetShown(buy and true or false) end
+  if b.wpePlus then ns.ShowMark(b, buy) end
   if b.wpeIcon then b.wpeIcon:SetAlpha(buy and 0 or 1) end
 end
 

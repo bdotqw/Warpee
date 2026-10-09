@@ -20,7 +20,7 @@ local NONE = {}
 local DEFAULTS = {
   cols = 16, gap = 4, iconSize = 37, slotStyle = "plate", theme = "blizzard",
   font = "Rubik Bold",
-  iconZoom = 1, borderWidth = 1, gridAlpha = 0, showGauge = false,
+  iconZoom = 1, borderWidth = 1, gridAlpha = 0, transparency = 0, showGauge = false,
   favShow = true, recentBags = true, recentPocket = true,
   qualityColorIlvl = true, qualityBorder = true, mergeReagents = false,
   reagentTop = false, hideReagents = false,
@@ -31,7 +31,13 @@ local DEFAULTS = {
   nameBags = true, nameBank = true, nameWb = true,
   pocketShow = true, pocketWithBags = false, pocketRows = 4, pocketCols = 6,
   pocketSnap = true,
-  pocketIconSize = NONE,
+  -- A size of the pocket's own. It used to be NONE -- "no number of its own, read the bags' size on
+  -- every pass" -- which is how a save that predated the setting kept working. Left that way it
+  -- never stopped: resizing the bags dragged the pocket along, a settings reset cleared the key and
+  -- put it back to following, and a profile never carried the size at all, since only keys with a
+  -- default are copied into one. A save with no number takes the bags' size once, at login or where
+  -- the key is first read (ns.PocketIconSize), and from then on it is a setting like any other.
+  pocketIconSize = 37,
   -- NONE, not false: nil here means the pocket has never been given a lock of its own, and
   -- the login block seeds it from the lock that used to cover it. Filling it with a default
   -- would settle that question before the migration ever gets to ask it.
@@ -62,7 +68,7 @@ local DEFAULTS = {
   hideMinimapIcon = false, tipCounts = true, tipBank = true, tipWarband = true, tipGold = true,
   keepBags = true, keepBank = true, keepWarband = true,
   searchClear = true, searchLink = true, minimapAngle = 2.2,
-  bankCols = 28, warbandCols = 26, bankIconSize = 36, warbandIconSize = 36,
+  bankCols = 28, warbandCols = 26, bankIconSize = 37, warbandIconSize = 37,
   hideMoveFields = false, badgeSolo = false, lockWindows = false,
   -- Straight out of the badge table in ItemButton.lua, which draws them and feeds the
   -- panel preview from the same numbers. A second copy here is how the two drifted.
@@ -86,7 +92,7 @@ local function copyDeep(v)
   return out
 end
 
-local NUMERIC = { "iconZoom", "borderWidth", "gridAlpha", "pocketRows", "pocketCols",
+local NUMERIC = { "iconZoom", "borderWidth", "gridAlpha", "transparency", "pocketRows", "pocketCols",
                   "vendorIlvl", "vendorIlvlMin", "minimapAngle" }
 
 local function fillDefaults(db)
@@ -241,6 +247,11 @@ local function repaintItems()
   ns.ClearItemPaint()
   if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
   if ns.Bank then ns.Bank:Repaint() end
+  -- The guild bank paints the same rings off the same verdicts, and it is the one window the two
+  -- passes above cannot reach: an item whose scan had to wait got its border only the next time
+  -- the slots happened to be painted, which in practice meant once it was moved.
+  local gb, f = ns.GuildBankSkin, _G.GuildBankFrame
+  if gb and gb.PaintSlots and f and f:IsShown() then pcall(gb.PaintSlots, gb) end
 end
 
 local repaintQ
@@ -405,6 +416,13 @@ local function HookBagToggles()
       autoCloseBags(key)
       return
     end
+    -- The Escape press reaches here through Blizzard's own window pass before that pass walks
+    -- UISpecialFrames: hiding here would leave that walk nothing to find, and the client would
+    -- open the game menu over the bags it just closed. Seen from the stack the call comes from
+    -- CloseAllWindows/ToggleGameMenu, so it is left to that walk, which hides the frame itself
+    -- and counts the press. Every other caller hides at once, as before.
+    local st = debugstack and debugstack()
+    if st and (st:find("CloseAllWindows", 1, true) or st:find("ToggleGameMenu", 1, true)) then return end
     ns.Toggle(false)
   end)
   hookList(BAG_FN.sync, function() ns.Toggle(blizzBagsOpen()) end)
@@ -448,6 +466,7 @@ end
 -- Deferred one frame: the interaction-manager state is only updated after the event, so a layout run inside
 -- the handler would still read the window as open and keep the holes the close was meant to settle.
 function ns.RelayoutForSplit()
+  if ns.Categories and ns.Categories.MoveQuiet and ns.Categories:MoveQuiet() then return end
   C_Timer.After(0, function()
     if Bags.frame and Bags.frame:IsShown() and Bags.CatMode and Bags:CatMode() then Bags:Layout() end
     if ns.Bank and ns.Bank.Refresh then ns.Bank:Refresh() end
@@ -586,6 +605,11 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
 
     -- Before fillDefaults: a saved number must not be seeded over by the default.
     if WarpeeDB.warbandIconSize == nil then WarpeeDB.warbandIconSize = WarpeeDB.bankIconSize end
+    -- The same one-time seed for the pocket's own size, and for the same reason: a save written
+    -- before the pocket had a size keeps the look it had, the moment it is read. After this it is
+    -- a setting of its own and the bags' size is never consulted again -- a save that carries no
+    -- bags size either is left to the default above.
+    if WarpeeDB.pocketIconSize == nil then WarpeeDB.pocketIconSize = WarpeeDB.iconSize end
     -- Before fillDefaults, or the saved number is thrown away for the default.
     if WarpeeDB.splitGapBags == nil then WarpeeDB.splitGapBags = WarpeeDB.splitGap or 12 end
     if WarpeeDB.splitGapBank == nil then WarpeeDB.splitGapBank = WarpeeDB.splitGap or 12 end
@@ -677,6 +701,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     if ns.Recent then ns.Recent:Warm() end
     if ns.Pocket then ns.Pocket:Warm() end
     ns.Theme:ApplyGridAlpha()
+    ns.Theme:ApplyWindowAlpha()
     HookBagToggles()
     WarpeeDB.bankTabSel = WarpeeDB.bankTabSel or {}
     if ns.Bank then ns.Bank:HideBlizzard() end

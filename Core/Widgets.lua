@@ -697,6 +697,199 @@ function ns.SetButtonEnabled(b, on)
   b:Repaint()
 end
 
+-- Drawn X mark: two diagonal strokes, no font involved, so the mark never
+-- depends on the font file picked in the settings. Each stroke wears a 1px
+-- outline all around it, the way the old glyph's outline kept it readable on
+-- any panel, lit or not -- and centred, so no side loses a pixel to a shadow.
+local function addArm(mark, host, angleDeg, shadow)
+  local sh
+  if shadow then
+    sh = host:CreateTexture(nil, "ARTWORK")
+    sh:SetDrawLayer("ARTWORK", -1)
+    sh:SetColorTexture(0, 0, 0, 0.85)
+    mark.shadow[#mark.shadow + 1] = sh
+    sh.wpeAngle = angleDeg
+  end
+  local d = host:CreateTexture(nil, "ARTWORK")
+  d:SetDrawLayer("ARTWORK", 0)
+  d:SetColorTexture(1, 1, 1, 1)
+  mark[#mark + 1] = d
+  d.wpeAngle = angleDeg
+  return d
+end
+-- An arm is a rectangle centred in the host's box, so the grid position of its edges is decided
+-- by the box: a box of even size across an axis puts that centre on a pixel boundary and wants an
+-- even extent there, an odd one puts it between two pixels and wants an odd extent. The question
+-- is asked of an arm's length and of its thickness alike, each on the axis it runs across.
+local function snapParity(host, v, axis)
+  local u = ns.PX(host, 1)
+  local box = (axis == "y") and (host:GetHeight() or 0) or (host:GetWidth() or 0)
+  local bpx = math.floor(box / u + 0.5)
+  local n = math.max(2, math.floor((tonumber(v) or 0) / u + 0.5))
+  if (n % 2 == 1) ~= (bpx % 2 == 1) then n = n + 1 end
+  return n * u
+end
+local function fitArm(host, d, sh, len, px)
+  d:ClearAllPoints()
+  d:SetPoint("CENTER", host, "CENTER", 0, 0)
+  local a = d.wpeAngle
+  if a == 90 then
+    -- Axis-aligned bars are sized straight, never rotated: rotating a bar on
+    -- a discrete grid rounds its centre to one side on every size.
+    d:SetSize(px, len)
+  else
+    d:SetSize(len, px)
+    if a ~= 0 then d:SetRotation(math.rad(a)) end
+  end
+  if not sh then return end
+  local u = ns.PX(host, 1)
+  sh:ClearAllPoints()
+  sh:SetPoint("CENTER", host, "CENTER", 0, 0)
+  -- Proud of its arm on every side, the ends included. A bar the same length as the stroke rimmed
+  -- the two long sides and left both tips bare, so there the stroke met the panel with nothing
+  -- between them. The bar grows by a pixel at each end, which is the outline the mark has promised
+  -- since it was drawn -- and because the growth is even and the stroke itself is snapped, an arm
+  -- that lands on the grid still gets exactly one pixel on either side.
+  sh:SetSize(len + 2 * u, px + 2 * u)
+  sh:SetRotation(math.rad(sh.wpeAngle))
+end
+function ns.MarkX(host)
+  local mark = host.wpeMarkX
+  if not mark then
+    mark = { shadow = {} }
+    addArm(mark, host, 45, true)
+    addArm(mark, host, -45, true)
+    host.wpeMarkX = mark
+    host:HookScript("OnSizeChanged", function(s) ns.FitMarkX(s) end)
+  end
+  ns.FitMarkX(host)
+  return mark
+end
+function ns.FitMarkX(host)
+  local mark = host.wpeMarkX
+  if not (mark and mark[1] and mark[2]) then return end
+  local w = host:GetWidth() or 0
+  if w <= 0 then return end
+  local len = snapParity(host, math.sqrt(2) * w * 0.30)
+  local px = ns.PX(host, host.wpeMarkW or 2)
+  for i, d in ipairs(mark) do fitArm(host, d, mark.shadow[i], len, px) end
+end
+function ns.TintMarkX(host, key)
+  local mark = host.wpeMarkX or host.wpeMarkPlus
+  if not mark then return end
+  local r, g, b = Theme:C(key or "text")
+  for _, d in ipairs(mark) do d:SetVertexColor(r, g, b) end
+end
+-- Drawn plus mark: horizontal and vertical strokes, same reason as MarkX.
+-- No outline: at 2-3px a 1px rim rasterises unevenly and reads as a stray
+-- pixel on one side, so the plus stays a clean bar.
+function ns.MarkPlus(host)
+  local mark = host.wpeMarkPlus
+  if not mark then
+    mark = { shadow = {} }
+    addArm(mark, host, 0)
+    addArm(mark, host, 90)
+    -- The two strokes are never snapped to the pixel grid. The grid rounds every texture on its
+    -- own, so the moment the window sits off the grid -- being dragged, or landed a fraction of a
+    -- pixel away -- one bar rounds its edges out and the other rounds them in, and the arms stop
+    -- being congruent: the plus reads 2px one way round and 4px the other. Left alone, both bars
+    -- carry the same fractional offset and the mark stays square while the window moves, and exact
+    -- the moment it lands, because the fit below already puts every edge on the grid for a box
+    -- that sits on it.
+    for _, d in ipairs(mark) do ns.NoPixelSnap(d) end
+    host.wpeMarkPlus = mark
+    host:HookScript("OnSizeChanged", function(s) ns.FitMarkPlus(s) end)
+  end
+  ns.FitMarkPlus(host)
+  return mark
+end
+function ns.FitMarkPlus(host)
+  local mark = host.wpeMarkPlus
+  if not (mark and mark[1] and mark[2]) then return end
+  local w, h = host:GetWidth() or 0, host:GetHeight() or 0
+  if w <= 0 or h <= 0 then return end
+  local span = w * 0.45
+  local want = ns.PX(host, host.wpeMarkW or 3)
+  -- Each bar is measured on both axes: its length runs along one and its thickness across the
+  -- other, and each of the two wants the parity of the box on the axis it reads (see snapParity).
+  -- The thickness is asked the same question as the length, and that is the half of it the mark
+  -- went without: a bar 2px thick on a box whose centre sits between two pixels has one edge
+  -- rounding out and the other in, which is the 2px/4px the arms used to come out as.
+  local lenX, lenY = snapParity(host, span, "x"), snapParity(host, span, "y")
+  local thX, thY = snapParity(host, want, "x"), snapParity(host, want, "y")
+  for _, d in ipairs(mark) do
+    d:ClearAllPoints()
+    d:SetPoint("CENTER", host, "CENTER", 0, 0)
+    if d.wpeAngle == 90 then d:SetSize(thX, lenY) else d:SetSize(lenX, thY) end
+  end
+end
+function ns.ShowMark(host, on)
+  local mark = host.wpeMarkX or host.wpeMarkPlus
+  if not mark then return end
+  on = on and true or false
+  for _, d in ipairs(mark) do d:SetShown(on) end
+  if mark.shadow then for _, sh in ipairs(mark.shadow) do sh:SetShown(on) end end
+end
+
+-- The dark ground a header mark is read against. Text gets one from the font's own outline
+-- (ns.OutlineFlags) and the drawn marks from their shadow bars, but a texture has neither -- and of
+-- the header's six art marks only the two whose atlas carries a shadow baked into it (bag-main,
+-- bags-icon-reagents) had any ground at all, so the remaining four sat flat on the band beside a
+-- row of outlined marks. This is the same separator the marks wear, drawn under an icon: a black
+-- copy of the icon's own art, one pixel proud on every side.
+-- The copy takes the icon's alpha on every repaint, so a dimmed mark (the sell coin at rest) dims
+-- its ground with it and neither can go see-through on its own; the icon's art is never touched, so
+-- the mark keeps its own colours. It is tied to the icon's centre rather than to a point in the
+-- button, so whatever moves or resizes the art carries the ground along -- and a wrapper around the
+-- paint the host already runs is the whole wiring, which means no call site needs a second hook.
+function ns.IconSilhouette(host, icon)
+  if not (host and icon) then return end
+  local sh = host.wpeIconShadow
+  if not sh then
+    sh = host:CreateTexture(nil, "ARTWORK")
+    sh:SetDrawLayer("ARTWORK", -1)
+    sh:SetColorTexture(0, 0, 0, 0.85)
+    host.wpeIconShadow = sh
+    local atlas = icon.GetAtlas and icon:GetAtlas()
+    if atlas then
+      sh:SetAtlas(atlas, false)
+    else
+      local file = icon:GetTexture()
+      if file then sh:SetTexture(file) else sh:Hide() end
+    end
+    -- The art assignment above replaces the black fill, so the copy is
+    -- blackened back here: without this the "silhouette" is a full-colour
+    -- duplicate peeking out, which reads as a lit rim (the sell coin looked
+    -- active at rest for exactly this reason).
+    sh:SetVertexColor(0, 0, 0)
+    sh:SetAlpha(icon:GetAlpha())
+    sh:SetPoint("CENTER", icon, "CENTER")
+    local paint = host.wpeIconPaint
+    host.wpeIconPaint = function(s)
+      if paint then paint(s) end
+      sh:SetAlpha(icon:GetAlpha())
+      ns.FitIconShadow(s)
+    end
+    host:HookScript("OnSizeChanged", function(s) ns.FitIconShadow(s) end)
+  end
+  ns.FitIconShadow(host)
+  return sh
+end
+
+-- Proud of the art on every side, the ends included, the way the marks' bars grow over their
+-- strokes. The size is put back on the pixel grid after the growth: an odd icon plus two physical
+-- pixels is not a whole number of pixels, and a copy left between two of them is a grey edge the
+-- mark around it does not have.
+function ns.FitIconShadow(host)
+  local sh = host and host.wpeIconShadow
+  local icon = host and host.icon
+  if not (sh and icon) then return end
+  local w, h = icon:GetWidth() or 0, icon:GetHeight() or 0
+  if w <= 0 or h <= 0 then return end
+  local u = ns.PX(host, 1)
+  sh:SetSize(ns.SnapValue(host, w + 2 * u), ns.SnapValue(host, h + 2 * u))
+end
+
 function ns.CreateGlyphButton(parent, glyph, size, dark)
   local b = ns.CreateButton(parent, glyph, size or 22, size or 22, nil, dark)
   -- The face is handed over as a file and never as a font object. A string that rides an
@@ -708,6 +901,15 @@ function ns.CreateGlyphButton(parent, glyph, size, dark)
   -- back, since a face change can take the colour with it.
   b.Text:SetFont(ns.Fonts:Current(), math.max(16, math.floor((size or 22) * 0.74)), ns.OutlineFlags())
   b:Repaint()
+  if glyph == "×" or glyph == "+" then
+    b.Text:SetText("")
+    if glyph == "+" then ns.MarkPlus(b) else ns.MarkX(b) end
+    b.wpeIconPaint = function(s)
+      local hot = s.wpeHot and not s.offDuty
+      ns.TintMarkX(s, hot and "accent" or (s.offDuty and "faint" or ((dark == true or dark == "icon") and "overlay" or "text")))
+    end
+    b.wpeIconPaint(b)
+  end
   return b
 end
 

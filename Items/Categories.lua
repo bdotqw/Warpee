@@ -1569,10 +1569,12 @@ local CT_BATCH, CT_TRIES, CT_WAIT = 6, 4, 0.12
 -- may sit locked before it is given up on, so the run finishes instead of looping. Generous, since a real
 -- warband round-trip can hold a lock for a second or two; at ~0.1s a sweep, this is a few seconds.
 local CT_LOCK_WAITS = 40
--- The account bank's batch, kept small: the warband answers a server round-trip per move, and firing more
--- than a handful before they land is what left pieces server-side locked (a state a reload does not clear,
--- only a relog). Three at a time, well within what the server accepts in one breath.
-Cats.WARBAND_BATCH = 3
+-- The account bank's batch. The warband answers a server round-trip per move, and a batch sent into moves
+-- still in flight is what left pieces server-side locked (a state a reload does not clear, only a relog) —
+-- which is what the landing wait below is for, so the size is free to be as large as that wait can cover.
+-- Five: the batch the reference addon settled on, and it confirms a batch by comparing the bank's own item
+-- counts, where the wait here reads the very slot each piece was aimed at, a tighter answer than that.
+Cats.WARBAND_BATCH = 5
 -- A batch sent to the account bank is given this long to land before the run sweeps again. It is not a
 -- give-up: the sweep re-reads the container, marks the pieces that did land as done, and re-sends any that
 -- did not (the server drops a move now and then), which is how a skipped piece is gone back for rather than
@@ -1685,21 +1687,56 @@ local function ctSweep(slots, send, tries, batch, moved)
   return sent
 end
 
+-- Whether a paced run is moving right now. Views read this to space their full relayouts out and to
+-- repaint dirty cells in place between them, with a forced full pass at the end: a grouped layout per
+-- moved piece is what spiked long runs. The gate stays because a burst of arrivals can land several moves
+-- in the one frame, and a run's own gap is the wide one now (see RUN_GAP below): the passes that remain
+-- repaint only the cells that moved.
+-- Suppressed entirely the holes stopped drawing and locks went stale, so the passes stay, spaced.
+local ctQuiet = nil
+function Cats:MoveQuiet() return ctQuiet and true or false end
+-- A full pass at most this often when no run is moving. What a pass costs is the walk plus a repaint of
+-- the cells whose contents moved, not one of the whole window, so four a second is cheap and the picture
+-- tracks holes, locks and arriving pieces closely instead of stepping at them twice a second.
+Cats.VIEW_GAP = 0.25
+-- ... and the gap a run is laid out on. A pass is a window-sized cost, not a piece-sized one, and what it
+-- really costs is the order: one piece leaving or arriving shifts its whole section and every section
+-- after it by a cell, so each of those cells shows a different piece and repaints. Measured on a 30-piece
+-- transfer, the bank took 23 full passes at ~71 ms each (1.6 s of a 3.5 s table) and repainted ~58% of
+-- its cells on every one of them; the bags took another 23. One pass per moved piece is therefore where a
+-- transfer spends its time, so a run's passes are spaced wide and the pieces are shown where they stand in
+-- between, through the views' own dirty paths. Spacing moves when the reflow happens, never whether it
+-- does: the run's own end pass still settles the sorted picture.
+Cats.RUN_GAP = 1
+-- The gap a view should space its full passes by: wide while a run moves, the ordinary one otherwise.
+function Cats:PassGap()
+  return ctQuiet and Cats.RUN_GAP or Cats.VIEW_GAP
+end
+-- The one full pass a quiet run ends with: the bags redraw through their normal dirty path and
+-- the bank re-captures, re-tabs and lays out once, instead of per moved piece.
+local function settleViews()
+  ctQuiet = nil
+  if ns.Bags and ns.Bags.UpdateDirty then ns.Bags:UpdateDirty(true) end
+  if ns.Bank and ns.Bank.QueueRefresh then ns.Bank:QueueRefresh() end
+end
+
 -- Start a transfer of `slots`. `send(bag,slot,info)` returns true when a move was actually issued;
 -- `alive()` says the window is still open and live (checked every pass); `warband` is true for a run that
--- touches the account bank, either way, and it is what selects the smaller batch and the waiting for each
+-- touches the account bank, either way, and it is what selects that bank's batch and the waiting for each
 -- batch to land. `done()` is called once when the run ends, however it ends: a caller with a live surface
 -- of its own (the transfer chips) repaints it there instead of waiting for the next layout. Re-entrant: a
 -- second call replaces the run, and the run it replaces is not told, since only one moves at a time.
 function Cats:MoveSlots(slots, send, alive, warband, done)
   ctstate = { slots = slots, send = send, alive = alive, done = done, tries = {},
               batch = warband and Cats.WARBAND_BATCH or CT_BATCH, pace = warband or nil }
+  ctQuiet = true
   -- The run is over: the state is dropped and the caller told. The last pieces land after the windows'
   -- own events have redrawn them, so a caller with a live surface (the transfer chip) reads its final
   -- count from this rather than waiting for the next layout.
   local function finish()
     local st = ctstate
     ctstate = nil
+    settleViews()
     if st and st.done then st.done() end
   end
   local function step()
@@ -1745,7 +1782,14 @@ function Cats:MoveSlots(slots, send, alive, warband, done)
     -- hold off until the burst is over: the piece then appears only once everything has landed. Each
     -- batch lays both split views out again, so a piece landing shows as the one before it leaves.
     if sent > 0 and st.pace then st.moved, st.polls = moved, 0 end
-    if sent > 0 and ns.RelayoutForSplit then ns.RelayoutForSplit() end
+    if sent > 0 then
+      -- The transfer chips are armed once per batch, not once per poll. Arming them is a walk of the bags
+      -- and of the whole open bank (the count the chip wears is what the search claims and what the bank
+      -- will take), and a batch is the only thing that moves that number -- a poll that sent nothing has
+      -- nothing new to say. The run's own end arms them once more (finish).
+      if ns.ArmTransferChips then ns.ArmTransferChips() end
+      if ns.RelayoutForSplit then ns.RelayoutForSplit() end
+    end
     local left = false
     for i = 1, #st.slots do
       local s = st.slots[i]
@@ -1777,9 +1821,10 @@ function Cats:Busy()
 end
 
 -- Stop the run in flight. Nothing is left half moved: a slot the sweep has not reached is simply never
--- sent, and one already handed to the server lands on its own.
+-- sent, and one already handed to the server lands on its own. Views still get their final pass.
 function Cats:StopMove()
   ctstate = nil
+  settleViews()
 end
 
 -- Every occupied slot into its section, sections that hold anything returned in list order. The
@@ -1792,6 +1837,25 @@ end
 -- extra container the bags append (nil for the bank). It knows nothing of the search: a query dims
 -- what it did not match on the cells themselves, and never changes what is bucketed or drawn. Returns
 -- the same {out, used, total} the bags always did.
+-- Sticky fold representative, keyed window + category + item. A folded (combine-stacks) cell
+-- binds one of its group's slots, and the first-filed slot churns as pieces arrive and leave: an
+-- arrival in an earlier slot re-points the cell, which rebinds and repaints it (measured: ~770 of
+-- ~1190 repaints on a warbank deposit). So the cell keeps the previous pass's slot while that slot
+-- still holds the item -- one container read, and only when the representative would otherwise
+-- move. The guid goes with the slot it came from: a rewritten rep drops to the itemID fallback
+-- (the same fallback a warbank-fresh piece uses), since instance identity of a summed group is
+-- meaningless anyway. Snapshots skip this: their slots are Vault records, not live containers,
+-- and a static store never churns a rep. Stale entries fail validation and rewrite themselves, so
+-- the cap wipe loses nothing but repinnings.
+local foldRep, foldRepN = {}, 0
+local function rememberRep(key, bag, slot)
+  if not foldRep[key] then
+    foldRepN = foldRepN + 1
+    if foldRepN > 5000 then foldRep, foldRepN = {}, 1 end
+  end
+  foldRep[key] = { bag = bag, slot = slot }
+end
+
 local function bucketsCore(snap, snapMode, bagList, reagentBag, memory)
   ensureFilters()
   -- A memory means this pass reconciles against last pass's slot order, so it must also record the
@@ -1865,7 +1929,7 @@ local function bucketsCore(snap, snapMode, bagList, reagentBag, memory)
     if canMerge then
       dest.byId = dest.byId or {}
       local prev = dest.byId[m.id]
-      if prev then prev.count = prev.count + (m.count or 1); return end
+      if prev then prev.count = prev.count + (m.count or 1); prev.folded = true; return end
     end
     local entry = {
       bag = bag, slot = slot, q = m.q or -1, ilvl = m.ilvl or 0, name = m.name or "",
@@ -1918,6 +1982,28 @@ local function bucketsCore(snap, snapMode, bagList, reagentBag, memory)
   -- The comparator only reads keys file() filled for that mode, so mixing modes across sections in one
   -- pass is free. Sorted before reconcile so the holes insert into the settled order.
   for i = 1, #order do table.sort(order[i].slots, sorter(order[i].mode)) end
+  if not snap then
+    for i = 1, #order do
+      local slots = order[i].slots
+      for k = 1, #slots do
+        local e = slots[k]
+        if e.folded and e.nokey then
+          local key = snapMode .. "\1" .. (order[i].id or "?") .. "\1" .. e.nokey
+          local old = foldRep[key]
+          if old and (old.bag ~= e.bag or old.slot ~= e.slot) then
+            local info = C_Container.GetContainerItemInfo(old.bag, old.slot)
+            if info and info.itemID == e.nokey then
+              e.bag, e.slot, e.guid = old.bag, old.slot, nil
+            else
+              rememberRep(key, e.bag, e.slot)
+            end
+          else
+            rememberRep(key, e.bag, e.slot)
+          end
+        end
+      end
+    end
+  end
   -- Slot-memory reconcile: hold each emptied cell as an inert hole where it was and drop a returning piece
   -- back into its own hole, so the grouped view does not reflow under the cursor mid-transfer. `memory` is
   -- the previous pass's per-category ordered slot keys, handed back by the window on every grouped pass.

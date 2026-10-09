@@ -144,6 +144,21 @@ local function ringTextures(b)
   b.iB = borderLine(bf, 4, "ARTWORK"); b.iB:SetPoint("BOTTOMLEFT",I,I); b.iB:SetPoint("BOTTOMRIGHT",-I,I); b.iB:SetHeight(ns.PX(bf, W))
   b.iL = borderLine(bf, 4, "ARTWORK"); b.iL:SetPoint("TOPLEFT",I,-I);   b.iL:SetPoint("BOTTOMLEFT",I,I);   b.iL:SetWidth(ns.PX(bf, W))
   b.iR = borderLine(bf, 4, "ARTWORK"); b.iR:SetPoint("TOPRIGHT",-I,-I); b.iR:SetPoint("BOTTOMRIGHT",-I,I); b.iR:SetWidth(ns.PX(bf, W))
+  -- The dark line a ring is read against, one pixel just inside it and one sublevel under it.
+  -- The ring sits on the very edge of the cell with the icon a pixel in, so the colour touches the
+  -- icon directly, and on a warm icon the two run together and the ring stops reading: the red of a
+  -- thing this character cannot wear as much as an epic purple, a quest yellow or the reagent tint.
+  -- It is the same separator the sale badge's coin and the close mark wear, and every ring the
+  -- addon draws wears it -- the ring is a line one pixel wide on top of art that can be any colour,
+  -- so a separator is the only thing that keeps it a line rather than a smear.
+  b.kT = borderLine(bf, 3, "ARTWORK")
+  b.kB = borderLine(bf, 3, "ARTWORK")
+  b.kL = borderLine(bf, 3, "ARTWORK")
+  b.kR = borderLine(bf, 3, "ARTWORK")
+  for _, t in ipairs({ b.kT, b.kB, b.kL, b.kR }) do
+    t:SetColorTexture(0, 0, 0, 0.85)
+    t:Hide()
+  end
   b.ringW = W
   ns.PixelJob(b.ringFrame, function() b.ringW = nil; ringWidth(b) end)
 end
@@ -154,7 +169,37 @@ function ringWidth(b)
   local px = ns.PX(b.ringFrame or b, w)
   b.iT:SetHeight(px); b.iB:SetHeight(px)
   b.iL:SetWidth(px);  b.iR:SetWidth(px)
+  -- The keyline follows the ring's thickness, since it starts where the ring ends: the slider that
+  -- thickens the ring has to push the dark line in with it, or the colour lands on the icon again.
+  if b.kT then
+    local k, kp = RING_INSET + px, ns.PX(b.ringFrame or b, 1)
+    b.kT:ClearAllPoints()
+    b.kT:SetPoint("TOPLEFT", k, -k); b.kT:SetPoint("TOPRIGHT", -k, -k); b.kT:SetHeight(kp)
+    b.kB:ClearAllPoints()
+    b.kB:SetPoint("BOTTOMLEFT", k, k); b.kB:SetPoint("BOTTOMRIGHT", -k, k); b.kB:SetHeight(kp)
+    b.kL:ClearAllPoints()
+    b.kL:SetPoint("TOPLEFT", k, -k); b.kL:SetPoint("BOTTOMLEFT", k, k); b.kL:SetWidth(kp)
+    b.kR:ClearAllPoints()
+    b.kR:SetPoint("TOPRIGHT", -k, -k); b.kR:SetPoint("BOTTOMRIGHT", -k, k); b.kR:SetWidth(kp)
+  end
 end
+
+-- One call is the whole state of the keyline: on turns the four lines up, nil puts them away, and
+-- the alpha rides the ring's own, so a cell dimmed by a search dims both together.
+local function setKeyline(b, on, alpha)
+  if not b.kT then return end
+  on = on and true or nil
+  if b.kOn ~= on then
+    b.kOn = on
+    if on then b.kT:Show(); b.kB:Show(); b.kL:Show(); b.kR:Show()
+    else b.kT:Hide(); b.kB:Hide(); b.kL:Hide(); b.kR:Hide() end
+  end
+  if on then
+    b.kT:SetAlpha(alpha); b.kB:SetAlpha(alpha)
+    b.kL:SetAlpha(alpha); b.kR:SetAlpha(alpha)
+  end
+end
+
 -- Every badge the player can put in an order gets a frame of its own to live in. The region inside keeps
 -- its size, point and layer untouched; only the frame's level moves, because the level is the one
 -- ordering that holds between a word and a picture and no setting can get it wrong. The stack count has
@@ -256,7 +301,7 @@ end
 
 local SEARCH_BADGE_DIM = 0.30
 function ns.SearchBadgeAlpha(b)
-  return (b and b.searchMiss) and SEARCH_BADGE_DIM or 1
+  return (b and (b.searchMiss or b.bagMiss)) and SEARCH_BADGE_DIM or 1
 end
 local function paintBadgeAlpha(b, o, key)
   if not (o and o.SetAlpha) then return end
@@ -267,6 +312,10 @@ end
 function ns.MarkNewItem(b, bagID, slot, quality)
   local nt, bp = b.NewItemTexture, b.BattlepayItemTexture
   if not (nt or bp) then return end
+  -- The new-item glow is the one badge that can turn on or off without a paint (SyncNewItem), and the
+  -- search pass reaches for it by name. Dropping the record here makes the next pass dress the cell again
+  -- instead of trusting a picture this glow has just moved under.
+  b.wpeSearchSet = nil
   if b.wpeNoNew then
     if nt then nt:Hide() end
     if bp then bp:Hide() end
@@ -442,20 +491,28 @@ end
 
 function ns.SetRarityRing(b, r, g, bl, a)
   if not r then
-    if b.ringOn == false or not b.iT then b.ringOn = false; return end
+    if b.ringOn == false and not b.kOn then b.ringOn = false; return end
     b.ringOn = false
-    b.iT:Hide(); b.iB:Hide(); b.iL:Hide(); b.iR:Hide()
+    if b.iT then b.iT:Hide(); b.iB:Hide(); b.iL:Hide(); b.iR:Hide() end
+    setKeyline(b, nil)
     return
   end
   a = a or 1
   ringTextures(b)
   ringWidth(b)
+  local ra = (b.searchMiss or b.bagMiss) and SEARCH_BADGE_DIM or a
+  -- Every ring gets the keyline, and there is no argument about which kind of ring it is: the
+  -- quality colours, the quest yellow and the reagent tint need the same separator the red does,
+  -- and a cell is repainted with a different ring colour all the time, so the line belongs to the
+  -- ring rather than to the meaning of one colour.
+  -- Set before the same-colour guard below, which a search dim across a grid walks into on every
+  -- pass: the guard is about the ring's colour and not about what the ring means.
+  setKeyline(b, true, ra)
   if b.ringOn and b.ringR == r and b.ringG == g and b.ringB == bl and b.ringA == a then return end
   b.ringOn, b.ringR, b.ringG, b.ringB, b.ringA = true, r, g, bl, a
   b.iT:SetColorTexture(r, g, bl, a); b.iB:SetColorTexture(r, g, bl, a)
   b.iL:SetColorTexture(r, g, bl, a); b.iR:SetColorTexture(r, g, bl, a)
   b.iT:Show(); b.iB:Show(); b.iL:Show(); b.iR:Show()
-  local ra = b.searchMiss and SEARCH_BADGE_DIM or a
   b.iT:SetAlpha(ra); b.iB:SetAlpha(ra); b.iL:SetAlpha(ra); b.iR:SetAlpha(ra)
 end
 
@@ -512,7 +569,7 @@ function ns.RecMark(b)
   b.wpeRecMark = t
 end
 
-function ns.SetSlotHighlight(b, on)
+function ns.SetSlotHighlight(b, on, alpha)
   if not on then
     if b.hl then b.hl:Hide() end
     return
@@ -526,7 +583,7 @@ function ns.SetSlotHighlight(b, on)
     b.hl:SetAllPoints(b)
   end
   local a = Theme.colors.accent
-  b.hl:SetColorTexture(a[1], a[2], a[3], 0.30); b.hl:Show()
+  b.hl:SetColorTexture(a[1], a[2], a[3], alpha or 0.30); b.hl:Show()
 end
 
 -- The right click that uses an item runs in the game's own secure handler on
@@ -704,11 +761,14 @@ end
 -- cell their s, x and y are written against. Read the pair together: s is pixels at a cell
 -- of ref, and ns.BadgeSize turns that into pixels at the cell the badge actually lands in.
 local BADGES = {
-  { key = "ilvl",   n = "Item level",  p = "447",  c = "BOTTOMRIGHT", x = 0,  y = 0,  s = 13,
-    a = "right", m = 8, ref = DEFAULT_CELL,
+  -- The two numbers ship as they are worn on the default cells: 12px, centred on the bottom-right
+  -- corner of the cell, eighteen pixels in and one pixel up. a = "center" is what makes the number
+  -- grow both ways from that point rather than away from the corner alone.
+  { key = "ilvl",   n = "Item level",  p = "447",  c = "BOTTOMRIGHT", x = -18, y = 1, s = 12,
+    a = "center", m = 8, ref = DEFAULT_CELL,
     t = "Item level on gear, and a keystone's level." },
-  { key = "count",  n = "Stack count", p = "1000", c = "BOTTOMRIGHT", x = 0,  y = 0,  s = 13,
-    a = "right", m = 8, ref = DEFAULT_CELL,
+  { key = "count",  n = "Stack count", p = "1000", c = "BOTTOMRIGHT", x = -18, y = 1, s = 12,
+    a = "center", m = 8, ref = DEFAULT_CELL,
     t = "How many items the stack holds." },
   { key = "bind",   n = "Binding",     p = "BoE",  c = "TOPLEFT",     x = 14, y = -2, s = 10,
     a = "center", m = 8, ref = DEFAULT_CELL,
@@ -870,13 +930,27 @@ end
 -- How far the stored offsets travel with the cell. It is the cell's own ratio and not the one
 -- the finished font size works out to: at a cell small enough to reach the floor the glyphs
 -- stop shrinking while the cell keeps going, and a badge pinned to a corner has to keep going
--- with the cell or it drifts inwards. Textures keep their own offsets, which are the one-pixel
--- nudges they are drawn with.
+-- with the cell or it drifts inwards. What it must not do is vanish, so the offset itself is
+-- brought to the cell by ns.BadgeOffset, which keeps the floor of one pixel.
+-- Textures keep their own offsets, which are the one-pixel nudges they are drawn with.
 function ns.BadgeScale(cell, key, g)
   local d = BADGE[key]
   if not d or d.tex then return 1 end
   if not (cell and cell > 0) then return 1 end
   return cell / ns.BadgeRef(d, g or ns.Badge(key))
+end
+
+-- One stored offset, brought to the cell it is drawn in. It travels with the cell the way the size
+-- does, but it never rounds away to nothing: an inset the player asked for stays an inset, so the
+-- magnitude has a floor of one pixel. Rounding the product like any other number did the opposite --
+-- both insets of a badge collapsed on the same tick, the moment the cell passed half the reference,
+-- and the badge jumped a pixel down and a pixel into its corner, with its outline left on the border.
+function ns.BadgeOffset(v, k)
+  v = tonumber(v) or 0
+  if v == 0 then return 0 end
+  local n = math.floor(math.abs(v) * (tonumber(k) or 1) + 0.5)
+  if n < 1 then n = 1 end
+  return v < 0 and -n or n
 end
 
 local function utf8cut(s, n)
@@ -921,8 +995,7 @@ function ns.ApplyBadge(b, key)
     k = ns.BadgeScale(cell, key, g)
     ns.SetOutlined(o, ns.BadgeSize(key, cell, g))
   end
-  local px = math.floor((g.x or 0) * k + 0.5)
-  local py = math.floor((g.y or 0) * k + 0.5)
+  local px, py = ns.BadgeOffset(g.x, k), ns.BadgeOffset(g.y, k)
   o:ClearAllPoints()
   o:SetPoint(ns.BadgePoint(g), b, g.c, px, py)
   o:SetAlpha(g.on and ns.SearchBadgeAlpha(b) or 0)
@@ -1534,11 +1607,20 @@ function ns.UpdateItemButton(b)
   -- keeps its link and count, so without this the early return would leave the "BoE" bind badge and
   -- m.bound reading unbound after it has actually bound.
   local bound = info and info.isBound and true or false
+  -- The lock rides the guard as well, though it is a fact about the *slot* and not the item: a cell handed
+  -- to another slot (a window's order shifting under a transfer) can land on a locked one with the same item
+  -- in it, and without this the grey the slot has earned would be left with the cell it came from.
+  local locked = (info and info.isLocked) and true or false
   if b.link == link and b.wpeCount == count and b.wpeMark == mark
-     and b.wpeQuestKey == qkey and b.wpeBound == bound then
+     and b.wpeQuestKey == qkey and b.wpeBound == bound and b.wpeItemLocked == locked then
     return b.itemName
   end
   b.link, b.wpeCount, b.wpeMark, b.wpeQuestKey, b.wpeBound = link, count, mark, qkey, bound
+  -- The cell is about to be drawn, so what the search pass applied to it no longer describes it: a paint
+  -- can move or clear any badge its alphas reach for, and its meta is rewritten below. The record is
+  -- dropped here, where the paint is committed, so the next search pass runs in full (see
+  -- ApplySearchToButton, which skips a cell still carrying the exact state it was given).
+  b.wpeSearchSet = nil
   if not info then
     -- An empty slot hands the game no link at all, so the cell keeps no craft-tier identity either.
     b.wpeQualityLink, b.wpeTierShown = nil, nil
@@ -1566,6 +1648,7 @@ function ns.UpdateItemButton(b)
     ns.PaintSlotBg(b)
     b.itemName, b.meta = nil, nil
     b.searchMiss = nil
+    b.bagMiss = nil
     b:SetAlpha(1)
     return nil, true
   end
@@ -1634,7 +1717,8 @@ function ns.UpdateItemButton(b)
   -- the same read Blizzard's own bags show. Stashed on the cell (wpeItemLocked) because ApplySearchToButton
   -- runs right after every layout and sets desaturation from the search miss alone: without the piece here
   -- it would clear the lock grey the moment it was set, which is why a mid-transfer cell never looked
-  -- locked. Both this and ApplySearchToButton now OR the two states, so whichever paints last is right.
+  -- locked. The three (lock, search miss, bag-hover miss) are ORed everywhere that paints, so
+  -- whichever paints last is right.
   b.wpeItemLocked = (info and info.isLocked) and true or false
   SetItemButtonDesaturated(b, b.wpeItemLocked)
   local icon = b.icon or _G[(b:GetName() or "").."IconTexture"]
@@ -1848,22 +1932,40 @@ end
 
 function ns.ApplySearchToButton(b, filters, blocked)
   if not b then return end
+  -- Everything this pass does is a function of the five things below: the filters it was handed, whether
+  -- the caller blocked the cell, the meta the match reads, the slot's own lock and the bag-hover flag. A
+  -- cell still carrying all five has the picture it would be given, so the walk over the badges below is
+  -- skipped for it. That matters because every pass of the layout and every in-place repaint visits every
+  -- cell, and the badges are reached for by name (a string build and a global lookup each). A paint drops
+  -- the record (see UpdateItemButton), since it can move the very badges the alphas reach for.
+  blocked = blocked and true or false
+  if b.wpeSearchSet and b.wpeSearchMeta == b.meta and b.wpeSearchFilters == filters
+     and b.wpeSearchBlocked == blocked and b.wpeSearchLock == b.wpeItemLocked
+     and b.wpeSearchBag == b.bagMiss then
+    return
+  end
+  b.wpeSearchSet = true
+  b.wpeSearchMeta, b.wpeSearchFilters = b.meta, filters
+  b.wpeSearchBlocked, b.wpeSearchLock, b.wpeSearchBag = blocked, b.wpeItemLocked, b.bagMiss
   local miss = (blocked or (filters and not ns.MatchSearch(b.meta, filters))) and true or false
   b.searchMiss = miss
-  b:SetAlpha(miss and 0.20 or 1)
+  -- A bag hover dims the same way: bagMiss rides along without touching the search flag, so a
+  -- search and a hover combine and the leave pass restores whichever is still on.
+  local dim = miss or b.bagMiss
+  b:SetAlpha(dim and 0.20 or 1)
   -- A locked slot (a move in flight) greys the same as a search miss, so the two are ORed: this pass runs
   -- right after every layout, and setting desaturation from the miss alone would wipe the lock grey that
   -- UpdateItemButton/UpdateItemLock just set. The lock does not dim the whole cell (no alpha 0.20), only
   -- greys the art, so a locked-but-matching cell stays readable while it shows it is busy.
-  local grey = miss or (b.wpeItemLocked and true or false)
+  local grey = dim or (b.wpeItemLocked and true or false)
   SetItemButtonDesaturated(b, grey)
   -- Desaturation reaches the icon alone, so the quality ring kept its hue on a dimmed
   -- cell and stayed the one colored thing on it. A color texture greys out under
   -- SetDesaturated the same way, and the flag survives a SetColorTexture repaint.
   if b.iT then
-    b.iT:SetDesaturated(miss); b.iB:SetDesaturated(miss)
-    b.iL:SetDesaturated(miss); b.iR:SetDesaturated(miss)
-    local ra = miss and SEARCH_BADGE_DIM or (b.ringA or 1)
+    b.iT:SetDesaturated(dim); b.iB:SetDesaturated(dim)
+    b.iL:SetDesaturated(dim); b.iR:SetDesaturated(dim)
+    local ra = dim and SEARCH_BADGE_DIM or (b.ringA or 1)
     b.iT:SetAlpha(ra); b.iB:SetAlpha(ra); b.iL:SetAlpha(ra); b.iR:SetAlpha(ra)
   end
   paintBadgeAlpha(b, b.Count or _G[(b:GetName() or "") .. "Count"], "count")
@@ -1888,7 +1990,132 @@ function ns.UpdateItemLock(b)
   if not (b and b.wpeBagID) then return end
   local info = C_Container.GetContainerItemInfo(b.wpeBagID, b:GetID())
   b.wpeItemLocked = (info and info.isLocked) and true or false
-  SetItemButtonDesaturated(b, (b.wpeItemLocked or b.searchMiss) and true or false)
+  SetItemButtonDesaturated(b, (b.wpeItemLocked or b.searchMiss or b.bagMiss) and true or false)
+end
+
+-- The slot flags live on the server: a Set comes back through BAG_SLOT_FLAGS_UPDATED, so a
+-- menu reopened in the same breath still reads the old value. This remembers what was set and
+-- answers that until the server confirms or three seconds pass -- the same optimistic read
+-- Blizzard's own settings manager keeps. The event carries the bag, so only that bag's entries
+-- (plus the backpack's, which rides along as bag 0 traffic) are dropped on it.
+local flagCache = {}
+local FLAG_CACHE_TTL = 3
+do
+  local ev = CreateFrame("Frame")
+  ev:RegisterEvent("BAG_SLOT_FLAGS_UPDATED")
+  ev:SetScript("OnEvent", function(_, _, bagID)
+    for k in pairs(flagCache) do
+      local b = k:match("^(.-):")
+      if b == nil or tonumber(b) == bagID or bagID == 0 then flagCache[k] = nil end
+    end
+  end)
+end
+local function flagGet(key, read)
+  local e = flagCache[key]
+  if e and (GetTime() - e.at) < FLAG_CACHE_TTL then return e.v end
+  flagCache[key] = nil
+  return read()
+end
+local function flagSet(key, write, v)
+  write(v)
+  flagCache[key] = { v = v, at = GetTime() }
+end
+
+-- Blizzard's own bag menu (Assign to Bag / Ignore this bag) on our bar buttons. The builders in
+-- ContainerFrame.lua are file-locals, so this rebuilds the same menu out of the same public
+-- pieces: the same slot flags, the same global strings, closing on click the same way. Nothing
+-- of ours in it, so it reads, translates and behaves exactly like the game's own. The gate is
+-- the game's too: filters only on plain bags, cleanup everywhere.
+function ns.OpenBagFilterMenu(owner, bagID)
+  if not (owner and MenuUtil and MenuUtil.CreateContextMenu) then return end
+  if type(bagID) ~= "number" then return end
+  if type(C_Container.GetBagSlotFlag) ~= "function"
+      or type(C_Container.SetBagSlotFlag) ~= "function" then return end
+  if not (Enum and Enum.BagSlotFlags) then return end
+  local backID = Enum and Enum.BagIndex and Enum.BagIndex.Backpack or 0
+  local isBack = (bagID == backID)
+  local canFilter
+  if type(ContainerFrame_CanContainerUseFilterMenu) == "function" then
+    canFilter = ContainerFrame_CanContainerUseFilterMenu(bagID) and true or false
+  else
+    -- Same rule by hand: no backpack, no reagent bag, no profession bag.
+    canFilter = bagID ~= backID and bagID ~= 5
+    if canFilter and type(IsInventoryItemProfessionBag) == "function"
+        and type(C_Container.ContainerIDToInventoryID) == "function" then
+      local inv = C_Container.ContainerIDToInventoryID(bagID)
+      if inv and IsInventoryItemProfessionBag("player", inv) then canFilter = false end
+    end
+  end
+  local close = MenuResponse and MenuResponse.Close
+  MenuUtil.CreateContextMenu(owner, function(_, root)
+    if canFilter and BAG_FILTER_ASSIGN_TO
+        and type(ContainerFrameUtil_EnumerateBagGearFilters) == "function"
+        and type(BAG_FILTER_LABELS) == "table" then
+      root:CreateTitle(BAG_FILTER_ASSIGN_TO)
+      local function isSet(flag)
+        return flagGet(bagID .. ":" .. tostring(flag),
+          function() return C_Container.GetBagSlotFlag(bagID, flag) end)
+      end
+      local function flip(flag)
+        local v = not isSet(flag)
+        flagSet(bagID .. ":" .. tostring(flag),
+          function(val) C_Container.SetBagSlotFlag(bagID, flag, val) end, v)
+      end
+      for _, flag in ContainerFrameUtil_EnumerateBagGearFilters() do
+        if BAG_FILTER_LABELS[flag] then
+          local box = root:CreateCheckbox(BAG_FILTER_LABELS[flag], isSet, flip, flag)
+          if close and box then box:SetResponse(close) end
+        end
+      end
+    end
+    if BAG_FILTER_IGNORE then
+      root:CreateTitle(BAG_FILTER_IGNORE)
+      -- Cleanup: the backpack keeps its own CVar-style switch, every other bag a slot flag.
+      if BAG_FILTER_CLEANUP then
+        local function cleanRead()
+          if isBack and type(C_Container.GetBackpackAutosortDisabled) == "function" then
+            return C_Container.GetBackpackAutosortDisabled()
+          end
+          return C_Container.GetBagSlotFlag(bagID, Enum.BagSlotFlags.DisableAutoSort)
+        end
+        local function cleanWrite(v)
+          if isBack and type(C_Container.SetBackpackAutosortDisabled) == "function" then
+            C_Container.SetBackpackAutosortDisabled(v)
+          else
+            C_Container.SetBagSlotFlag(bagID, Enum.BagSlotFlags.DisableAutoSort, v)
+          end
+        end
+        local function cleanIs() return flagGet(bagID .. ":clean", cleanRead) end
+        local function cleanFlip()
+          flagSet(bagID .. ":clean", cleanWrite, not cleanIs())
+        end
+        local box = root:CreateCheckbox(BAG_FILTER_CLEANUP, cleanIs, cleanFlip)
+        if close and box then box:SetResponse(close) end
+      end
+      -- Sell Junk: same split, backpack switch versus the ExcludeJunkSell flag.
+      if SELL_ALL_JUNK_ITEMS_EXCLUDE_FLAG then
+        local function junkRead()
+          if isBack and type(C_Container.GetBackpackSellJunkDisabled) == "function" then
+            return C_Container.GetBackpackSellJunkDisabled()
+          end
+          return C_Container.GetBagSlotFlag(bagID, Enum.BagSlotFlags.ExcludeJunkSell)
+        end
+        local function junkWrite(v)
+          if isBack and type(C_Container.SetBackpackSellJunkDisabled) == "function" then
+            C_Container.SetBackpackSellJunkDisabled(v)
+          else
+            C_Container.SetBagSlotFlag(bagID, Enum.BagSlotFlags.ExcludeJunkSell, v)
+          end
+        end
+        local function junkIs() return flagGet(bagID .. ":junk", junkRead) end
+        local function junkFlip()
+          flagSet(bagID .. ":junk", junkWrite, not junkIs())
+        end
+        local box = root:CreateCheckbox(SELL_ALL_JUNK_ITEMS_EXCLUDE_FLAG, junkIs, junkFlip)
+        if close and box then box:SetResponse(close) end
+      end
+    end
+  end)
 end
 
 function ns.CreateBagButton(parent, bagID, size)
@@ -1941,6 +2168,10 @@ function ns.CreateBagButton(parent, bagID, size)
       ns.Bags:PlaceBagFromCursor(s.wpeBagID)
     elseif button == "LeftButton" and IsModifiedClick("PICKUPITEM") and s.wpeBagID ~= 0 then
       PickupBagFromSlot(C_Container.ContainerIDToInventoryID(s.wpeBagID))
+    elseif button == "LeftButton" then
+      -- A bare click is Blizzard's own bag menu (Assign to Bag / Ignore this bag), the same
+      -- one the portrait button opens: the cursor and the pickup modifier keep their jobs.
+      ns.OpenBagFilterMenu(s, s.wpeBagID)
     end
   end)
   return b
@@ -2246,7 +2477,7 @@ function ns.PaintPin(g, pin, t, btn)
   g.icon:SetTexture(ns.PinIcon(id)); g.icon:Show()
   g.icon:SetDesaturated(gear)
   g.icon:SetAlpha(gear and 1 or 0.55)
-  if g.plus then g.plus:Hide() end
+  if g.plus then ns.ShowMark(g, false) end
   ns.SetEdge(g, Theme:C(ns.PinWorn(pin, t) and "worn" or "gone"))
   local art = (not gear) and ns.PinTier(pin) or nil
   if g.tier then
@@ -2304,7 +2535,7 @@ function ns.PaintPin(g, pin, t, btn)
       ns.SetOutlined(g.cnt, ns.BadgeSize("count", cell, cb))
       g.cnt:ClearAllPoints()
       g.cnt:SetPoint(ns.BadgePoint(cb), g, cb.c,
-                     math.floor((cb.x or 0) * k + 0.5), math.floor((cb.y or 0) * k + 0.5))
+                     ns.BadgeOffset(cb.x, k), ns.BadgeOffset(cb.y, k))
       g.cnt:SetText("0")
       g.cnt:Show()
     end

@@ -397,7 +397,7 @@ function Rec:Warm()
     end
     if not self.ghosts[i] then
       local g = ns.SlotGhost(frame)
-      g.plus:Hide()
+      ns.ShowMark(g, false)
       g.icon:Hide()
       ns.RecMark(g)
       g:Hide()

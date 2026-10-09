@@ -15,9 +15,20 @@ local PICK_MAX, PICK_COLS = 64, 8
 local PICK_SIZE, PICK_GAP, PICK_PAD = 36, 8, 12
 local FONT, PICK_MINW = 15, 176
 
-local function pocketSize()
-  return (WarpeeDB and tonumber(WarpeeDB.pocketIconSize)) or (ns.Bags and ns.Bags.iconSize) or 37
+-- The pocket's cell size, and the one place it is read: the layout, the picks list and the
+-- settings page all come through here. A pocket that has no number of its own takes the bags' size
+-- once, where it is first asked -- the one-time move the key was added for -- and keeps it. Reading
+-- the bags' size on every pass instead is what the key shipped as, and it is why resizing the bags
+-- carried the pocket along and why a settings reset put it back to following them.
+function ns.PocketIconSize()
+  local n = WarpeeDB and tonumber(WarpeeDB.pocketIconSize)
+  if n then return n end
+  n = (WarpeeDB and tonumber(WarpeeDB.iconSize)) or 37
+  if WarpeeDB then WarpeeDB.pocketIconSize = n end
+  return n
 end
+-- The short name this file calls it by.
+local pocketSize = ns.PocketIconSize
 
 local function applyDensity()
   local d = ns.Density(pocketSize())
@@ -26,6 +37,21 @@ local function applyDensity()
   BOX_H, BOX_GAP = d.searchH, d.pocketGap
   PICK_SIZE, PICK_GAP, PICK_PAD = d.pickSize, d.pickGap, d.pickPad
   FONT, PICK_MINW = d.font, d.pickMinW
+end
+
+-- Header buttons follow the pocket slot size the same way the bags follow theirs.
+local function sizeGlyph(btn, size)
+  if not btn then return end
+  local fp = ns.Fonts:Current()
+  if btn.wpeBoxW == size and btn.wpeBoxH == size and btn.wpeFont == fp then return end
+  btn.wpeFont = fp
+  ns.SnapBox(btn, size, size)
+  if btn.Text then btn.Text:SetFont(fp, math.max(16, math.floor(size * 0.74)), ns.OutlineFlags()) end
+  if btn.icon and btn.iconPct then
+    local h = btn.iconPctY or btn.iconPct
+    btn.icon:SetSize(math.floor(size * btn.iconPct / 100 + 0.5), math.floor(size * h / 100 + 0.5))
+  end
+  btn:Repaint()
 end
 
 local POCKET_PICKS = {
@@ -500,14 +526,30 @@ function Pocket:Build()
   close:SetScript("OnClick", function() Pocket:Close() end)
   self.closeBtn = close
 
-  local gear = ns.CreateGlyphButton(w, "|TInterface\\Buttons\\UI-OptionsButton:13:13:0:0|t")
+  -- The gear as art on the icon path rather than a texture escape inside the label, the way the bags
+  -- and the bank carry theirs: only a real texture can be given the ground the drawn marks wear, and
+  -- the layout below keeps sizing it at 60% of the header box exactly as the escape was.
+  local gear = ns.CreateGlyphButton(w, "")
   gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
   ns.AddTip(gear, ns.L["Settings"], "top")
+  local gearIcon = gear:CreateTexture(nil, "ARTWORK")
+  gearIcon:SetTexture([[Interface\Buttons\UI-OptionsButton]])
+  gearIcon:SetSize(13, 13)
+  gearIcon:SetPoint("CENTER")
+  gearIcon:SetVertexColor(Theme:IconTint())
+  Theme:Track(gearIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
+  gear.icon = gearIcon
+  gear.wpeIconPaint = function(s)
+    if s.icon then s.icon:SetVertexColor(Theme:IconTint()) end
+  end
+  ns.IconSilhouette(gear, gearIcon)
   self.gearBtn = gear
 
   local plus = ns.CreateGlyphButton(w, "+")
   plus:SetScript("OnClick", function() Pocket:TogglePicks() end)
   ns.AddTip(plus, ns.L["Popular"], "top")
+  plus.wpeMarkW = 2
+  ns.FitMarkPlus(plus)
   self.plusBtn = plus
 
   local lock = ns.CreateGlyphButton(w, "")
@@ -517,6 +559,8 @@ function Pocket:Build()
   lockIcon:SetPoint("CENTER")
   ns.BadgeArt(lockIcon, "lock")
   lock.icon = lockIcon
+  lock.iconPct = 68
+  ns.IconSilhouette(lock, lockIcon)
   ns.AddTip(lock, function() return ns.L["Lock the pocket"] end, "top")
   self.lockBtn = lock
 
@@ -623,6 +667,7 @@ function Pocket:Build()
 
   w:Hide()
   self.frame = w
+  if ns.Theme and ns.Theme.ApplyWindowAlpha then ns.Theme:ApplyWindowAlpha() end
   return w
 end
 
@@ -645,7 +690,7 @@ function Pocket:Warm()
     end
     if not self.ghosts[i] then
       local g = ns.PinGhost(w)
-      g.plus:Hide()
+      ns.ShowMark(g, false)
       g:Hide()
       self.ghosts[i] = g
     end
@@ -669,7 +714,7 @@ function Pocket:Warm()
     end
     if not self.recGhosts[i] then
       local g = ns.SlotGhost(w)
-      g.plus:Hide()
+      ns.ShowMark(g, false)
       g.icon:Hide()
       ns.RecMark(g)
       g:Hide()
@@ -693,9 +738,7 @@ function Pocket:Layout()
   applyDensity()
   if w.wpeNudge then w.wpeNudge:Size(ns.Density(pocketSize()).arrow) end
   local Bags = ns.Bags
-  local size, gap, step = ns.GridMetrics(w,
-    (WarpeeDB and tonumber(WarpeeDB.pocketIconSize)) or (Bags and Bags.iconSize) or 37,
-    Bags and Bags.gap or 4)
+  local size, gap, step = ns.GridMetrics(w, ns.PocketIconSize(), Bags and Bags.gap or 4)
   local cols, rows = self:Cols(), self:Rows()
   local n = cols * rows
   if (self.warmed or 0) < n or (self.recWarmed or 0) < cols then self:Warm() end
@@ -707,6 +750,21 @@ function Pocket:Layout()
   paintTitle()
   self.title:ClearAllPoints()
   ns.SnapPoint(self.title, "LEFT", w, "TOPLEFT", PAD, -mid)
+  local hb = math.min(ns.Density(pocketSize()).pocketBand - 4, 24)
+  sizeGlyph(self.closeBtn, hb)
+  sizeGlyph(self.gearBtn, hb)
+  -- The gear sits on the icon path, so it still has to be measured by hand -- the button's own size
+  -- pass leaves an icon without an iconPct alone, and the art wants 60% of the box rather than a
+  -- percentage of it that would fight the escape it used to be. Its ground is a copy of that same
+  -- art, so it is re-fitted here, right after the resize.
+  local gicon = math.floor(hb * 0.6 + 0.5)
+  if self.gearBtn.wpeIconSize ~= gicon then
+    self.gearBtn.wpeIconSize = gicon
+    self.gearBtn.icon:SetSize(gicon, gicon)
+    ns.FitIconShadow(self.gearBtn)
+  end
+  sizeGlyph(self.lockBtn, hb)
+  sizeGlyph(self.plusBtn, hb)
   self.closeBtn:ClearAllPoints()
   ns.SnapPoint(self.closeBtn, "RIGHT", w, "TOPRIGHT", -6, -mid)
   local rightBtn = self.closeBtn
@@ -891,9 +949,7 @@ function Pocket:PickPaint()
   local n = #POCKET_PICKS
   local path = ns.Fonts:Current()
   local Bags = ns.Bags
-  local size, gap = ns.GridMetrics(self.frame,
-    (WarpeeDB and tonumber(WarpeeDB.pocketIconSize)) or (Bags and Bags.iconSize) or 37,
-    Bags and Bags.gap or 4)
+  local size, gap = ns.GridMetrics(self.frame, ns.PocketIconSize(), Bags and Bags.gap or 4)
   local band = Theme:HeaderBand(p, BAND)
   local head = band and (band + 6) or (30 + Theme:TopInset())
   local mid = (band or head) / 2 + Theme:TitleDrop()
@@ -903,6 +959,7 @@ function Pocket:PickPaint()
     ns.SnapPoint(self.picksTitle, "LEFT", p, "TOPLEFT", PICK_PAD, -mid)
   end
   if self.picksClose then
+    sizeGlyph(self.picksClose, math.min(ns.Density(pocketSize()).pocketBand - 4, 24))
     self.picksClose:ClearAllPoints()
     ns.SnapPoint(self.picksClose, "RIGHT", p, "TOPRIGHT", -6, -mid)
   end

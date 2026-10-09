@@ -299,6 +299,8 @@ local STRINGS = {
   ["Slot background"] = "Fundo dos espaços",
   ["Pay with"] = "Pagar com",
   ["Plate opacity"] = "Opacidade do fundo",
+  ["Transparency"] = "Transparência",
+  ["See-through windows. Settings stay solid."] = "Janelas translúcidas. As configurações permanecem opacas.",
   ["Bank slots per row"] = "Espaços por linha (banco)",
   ["Warband slots per row"] = "Espaços por linha (Bando de Guerra)",
   ["Guild bank slots per row"] = "Espaços por linha (banco da guilda)",
@@ -566,6 +568,10 @@ local STRINGS = {
   ["FANNY PACK"] = "POCHETE",
   ["Pocket"] = "Bolso",
   ["Pocket window"] = "Janela do bolso",
+  ["LMB: Pocket"] = "BE: Bolso",
+  ["RMB: grid/cat"] = "BD: grade/cat",
+  ["LMB: grid/cat."] = "BE: grade/cat.",
+  ["Click: grid/cat"] = "Clique: grade/cat",
   ["Pocket rows"] = "Linhas do bolso",
   ["Pocket size"] = "Tamanho do bolso",
   ["Pocket slot size"] = "Tamanho das células do bolso",
@@ -580,8 +586,8 @@ local STRINGS = {
     "Quantas linhas de células a janela do bolso contém.",
   ["How wide the pocket window grows."] =
     "Determina a largura da janela do bolso.",
-  ["Size of one cell in the pocket. It follows the bag slot size until you move this."] =
-    "Tamanho de uma célula no bolso. Segue o tamanho dos espaços das bolsas até você alterar este valor.",
+  ["Size of one cell in the pocket. It is a setting of its own: a pocket that has none takes the bag slot size once."] =
+    "Tamanho de uma célula no bolso. É um ajuste próprio: um bolso sem tamanho próprio pega uma vez o tamanho dos espaços das bolsas.",
   ["The key that opens and closes the pocket. Click, then press a key, a mouse button or the wheel, with Shift, Ctrl or Alt if you like; a right click clears it, Escape cancels."] =
     "A tecla que abre e fecha o bolso. Clique e pressione uma tecla, um botão do mouse ou a roda, com Shift, Ctrl ou Alt se quiser; o clique direito limpa e Escape cancela.",
   ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] =

@@ -97,9 +97,14 @@ local function makeGhost(parent)
   base:SetAllPoints(g)
   g.bgBase = base
   ns.PaintGhostBg(g)
+  ns.MarkPlus(g)
+  ns.TintMarkX(g, "faint")
+  -- One tracker per frame: Theme:Track keeps a single painter, so background,
+  -- edge and mark tint ride together or the later call eats the earlier one.
   Theme:Track(g, function(s)
     ns.PaintGhostBg(s)
     ns.SetEdge(s, Theme:C("emptyLine"))
+    ns.TintMarkX(s, "faint")
   end)
   local ic = g:CreateTexture(nil, "ARTWORK")
   ic:SetPoint("TOPLEFT", 1, -1)
@@ -107,11 +112,11 @@ local function makeGhost(parent)
   ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
   ic:SetDesaturated(true)
   g.icon = ic
-  local plus = Theme:Label(g, 13, "faint")
-  plus:SetPoint("CENTER")
-  plus:SetText("+")
-  plus:SetShown(ns.GhostPlus())
-  g.plus = plus
+  -- The drawn plus is the mark an empty cell invites a drop with, and it is fitted to the box the
+  -- ghost turns out to have, not to the size it was asked for: the row sizes a cell to whole
+  -- pixels, and the mark reads that size back so its bars land on the grid (see FitMarkPlus).
+  ns.ShowMark(g, ns.GhostPlus())
+  g.plus = true
   return g
 end
 ns.SlotGhost = makeGhost
@@ -437,7 +442,6 @@ function Fav:Apply(bags, x, top, size, gap)
   local list = self:List()
   local last = math.max(self.max or 0, n)
   self.max = last
-  local plusSize = math.max(14, math.floor(size * 0.5))
   local gen = (bags.styleGen or 0) .. ":" .. tostring(bags.fontPath) .. ":" .. size
   local repaint = self.paintKey ~= gen
   self.paintKey = gen
@@ -474,14 +478,16 @@ function Fav:Apply(bags, x, top, size, gap)
       if g then g:Hide() end
     else
       if g then
+        g.wpeMarkW = (size < 30) and 2 or 3
         ns.SnapBox(g, size, size)
         g:ClearAllPoints()
         ns.SnapPoint(g, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
         ns.PaintPin(g, pin, pins)
-        if not pin then
-          g.plus:SetFont(bags.fontPath or ns.Fonts:Current(), plusSize, ns.OutlineFlags())
-          g.plus:SetShown(ns.GhostPlus())
-        end
+        -- An empty cell wears the plus, including one that just lost its pin; PaintPin takes it off
+        -- again on a cell that holds one. The two skinned themes draw the empty slot with the game's
+        -- own slot art, where a mark laid over it reads as a label on that art rather than as an
+        -- invitation, so those go without and GhostPlus is what says so.
+        if not pin then ns.ShowMark(g, ns.GhostPlus()) end
         -- A ghost is never a search hit, so it wears the row's dim while a query runs; set here too so
         -- one freshly placed mid-search starts dimmed instead of flashing full until the next pass.
         g:SetAlpha((bags.filters and not bags.filters.empty) and 0.20 or 1)

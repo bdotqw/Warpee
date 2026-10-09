@@ -355,13 +355,15 @@ end
 function ns.SetBg(f, r, g, b, a)
   if not f then return end
   f.wpeBg = { r, g, b, a }
-  if f.SetBackdropColor then f:SetBackdropColor(r, g, b, a) end
+  local wa = f.wpeWinA or 1
+  if f.SetBackdropColor then f:SetBackdropColor(r, g, b, (a ~= nil and wa ~= 1) and (a * wa) or a) end
 end
 
 function ns.SetEdge(f, r, g, b, a)
   if not f then return end
   f.wpeEdge = { r, g, b, a }
-  if f.SetBackdropBorderColor then f:SetBackdropBorderColor(r, g, b, a) end
+  local wa = f.wpeWinA or 1
+  if f.SetBackdropBorderColor then f:SetBackdropBorderColor(r, g, b, (a ~= nil and wa ~= 1) and (a * wa) or a) end
 end
 
 function ns.PixelBackdrop(frame, painter)
@@ -372,8 +374,14 @@ function ns.PixelBackdrop(frame, painter)
     x:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = ns.PX(x) })
     local bgc = x.wpeBg or { Theme:C("panel") }
     local edc = x.wpeEdge or { Theme:C("stroke") }
-    if x.SetBackdropColor then x:SetBackdropColor(bgc[1], bgc[2], bgc[3], bgc[4]) end
-    if x.SetBackdropBorderColor then x:SetBackdropBorderColor(edc[1], edc[2], edc[3], edc[4]) end
+    if x.SetBackdropColor then
+      local wa = x.wpeWinA or 1
+      x:SetBackdropColor(bgc[1], bgc[2], bgc[3], bgc[4] and (bgc[4] * wa) or nil)
+    end
+    if x.SetBackdropBorderColor then
+      local wa = x.wpeWinA or 1
+      x:SetBackdropBorderColor(edc[1], edc[2], edc[3], (edc[4] ~= nil and wa ~= 1) and (edc[4] * wa) or edc[4])
+    end
   end, "backdrop")
 end
 
@@ -386,7 +394,7 @@ function ns.CatHole(parent)
   local t = CreateFrame("Frame", nil, parent)
   local bg = t:CreateTexture(nil, "BACKGROUND")
   bg:SetAllPoints(t)
-  local function paintBg(x) local r, g, b = Theme:C("faint"); x:SetColorTexture(r, g, b, 0.10) end
+  local function paintBg(x) local r, g, b = Theme:C("faint"); x:SetColorTexture(r, g, b, 0.10 + 0.55 * (1 - Theme:WindowAlpha())) end
   paintBg(bg)
   Theme:Track(bg, paintBg)
   t.bg = bg
@@ -464,6 +472,7 @@ function ns.CatHole(parent)
   end
   t:SetScript("OnSizeChanged", markSize)
   t:SetScript("OnShow", markSize)
+  t.wpePaintBg = paintBg
   return t
 end
 
@@ -663,6 +672,7 @@ function Theme:Restyle(name)
   if P and P.frame and P.frame:IsShown() and P.Paint then P:Paint(true) end
   if ns.Profiles and ns.Profiles.ApplySkin then ns.Profiles:ApplySkin() end
   self:ApplyGridAlpha()
+  self:ApplyWindowAlpha()
   if ns.Options and ns.Options.ReflowPages then ns.Options:ReflowPages() end
   -- The search-words sheet places its own header per skin, so it has to be refilled here: the repaint
   -- above moves its art to the new theme but leaves the numbers the last fill chose, and a sheet left
@@ -674,8 +684,15 @@ function Theme:GridAlpha()
   local def = self:SkinDef()
   if def and def.gridAlpha ~= nil then return def.gridAlpha end
   local a = WarpeeDB and tonumber(WarpeeDB.gridAlpha)
-  if a == nil then return 1 end
+  if a == nil then return 0 end
   return a
+end
+
+-- Whole-window transparency, one value for every window but the settings.
+function Theme:WindowAlpha()
+  local v = WarpeeDB and tonumber(WarpeeDB.transparency) or 0
+  if v < 0 then v = 0 elseif v > 1 then v = 1 end
+  return 1 - v
 end
 
 -- Where the plate stops at the top, and which frame it rides. The plate is the extra surface the
@@ -750,11 +767,11 @@ function Theme:FitPlate(plate, frame)
   plate:ClearAllPoints()
   plate:SetPoint("TOPLEFT", frame, "TOPLEFT", left, -self:PlateTop(frame))
   plate:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -right, bottom)
-  plate:SetAlpha(self:GridAlpha())
+  plate:SetAlpha(self:GridAlpha() * self:WindowAlpha())
 end
 
 function Theme:ApplyGridAlpha()
-  local a = self:GridAlpha()
+  local a = self:GridAlpha() * self:WindowAlpha()
   local B, K, P = ns.Bags, ns.Bank, ns.Pocket
   if B and B.gridBg then B.gridBg:SetAlpha(a) end
   if K and K.gridBg then K.gridBg:SetAlpha(a) end
@@ -769,6 +786,44 @@ function Theme:ApplyGridAlpha()
     if P and P.gridBg and P.frame and P.frame:IsShown() then P:Layout() end
   end
   self.plateSkin = self.skin
+end
+
+function Theme:ApplyWindowAlpha()
+  local a = self:WindowAlpha()
+  local function apply(frame)
+    if not frame then return end
+    frame.wpeWinA = a
+    local art = frame.wpeArt
+    if art and art.SetAlpha then art:SetAlpha(a) end
+    local bg = frame.wpeBg
+    if bg and bg[4] ~= nil and frame.SetBackdropColor then
+      frame:SetBackdropColor(bg[1], bg[2], bg[3], bg[4] * a)
+    end
+    local ed = frame.wpeEdge
+    if ed and frame.SetBackdropBorderColor then
+      frame:SetBackdropBorderColor(ed[1], ed[2], ed[3], (ed[4] ~= nil and a ~= 1) and (ed[4] * a) or ed[4])
+    end
+  end
+  local B, K, P = ns.Bags, ns.Bank, ns.Pocket
+  if B then apply(B.frame); apply(B.bagWindow) end
+  if K then apply(K.frame) end
+  if P then apply(P.frame) end
+  local function repaintHoles(pool)
+    if not pool then return end
+    for i = 1, #pool do
+      local t = pool[i]
+      if t and t.wpePaintBg and t.bg then t.wpePaintBg(t.bg) end
+    end
+  end
+  if B then repaintHoles(B.catHoles); repaintHoles(B.tHoles) end
+  if K and K.state then
+    for _, st in pairs(K.state) do repaintHoles(st.catHoles); repaintHoles(st.tHoles) end
+  end
+  apply(_G.GuildBankFrame)
+  local ga = self:GridAlpha() * a
+  if B and B.gridBg then B.gridBg:SetAlpha(ga) end
+  if K and K.gridBg then K.gridBg:SetAlpha(ga) end
+  if P and P.gridBg then P.gridBg:SetAlpha(ga) end
 end
 
 -- Escape is the game's own key, not ours. A named frame only has to sit in
@@ -1124,6 +1179,7 @@ function Theme:RefreshArt(frame)
       art:Show()
     end
     frame.wpeArt = art
+    if art and frame.wpeWinA then art:SetAlpha(frame.wpeWinA) end
     if not frame.wpeGuest and (frame.wpeBandH or def.band) then self:HeaderBand(frame) end
     return art
   end

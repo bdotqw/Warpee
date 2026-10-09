@@ -501,21 +501,38 @@ function Bags:Build()
   addTip(sort, function() return ns.L["Clean Up Bags"] end)
   local sortIcon = sort:CreateTexture(nil, "ARTWORK")
   sortIcon:SetAtlas("auctionhouse-ui-sortarrow")
-  sortIcon:SetSize(13, 15)
+  sortIcon:SetSize(15, 17)
   sortIcon:SetPoint("CENTER")
   sortIcon:SetVertexColor(Theme:C("overlay"))
   Theme:Track(sortIcon, function(x) x:SetVertexColor(Theme:C("overlay")) end)
   sort.icon = sortIcon
-  sort.iconPct, sort.iconPctY = 50, 58
+  sort.iconPct, sort.iconPctY = 58, 66
   sort.wpeIconPaint = function(s)
     if s.icon then s.icon:SetVertexColor(Theme:C("overlay")) end
   end
+  ns.IconSilhouette(sort, sortIcon)
   self.sortBtn = sort
 
-  local gear = ns.CreateGlyphButton(f, "|TInterface\\Buttons\\UI-OptionsButton:13:13:0:0|t", HB, "icon")
+  -- The gear was the one header mark riding in the button's text as a texture escape (|T...|t), and
+  -- a texture inside a string has no shadow to be given: the art sat flat on the band while every
+  -- mark around it carried its own. As a texture on the icon path it takes the same ground as the
+  -- rest of the row, and keeps the 15px it already had -- the escapes were fixed-size too, so the
+  -- gear is the one art mark here that does not follow the density, and it is not made to now.
+  local gear = ns.CreateGlyphButton(f, "", HB, "icon")
   gear:SetPoint("TOPRIGHT", close, "TOPLEFT", -4, 0)
   gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
   addTip(gear, "Settings")
+  local gearIcon = gear:CreateTexture(nil, "ARTWORK")
+  gearIcon:SetTexture([[Interface\Buttons\UI-OptionsButton]])
+  gearIcon:SetSize(15, 15)
+  gearIcon:SetPoint("CENTER")
+  gearIcon:SetVertexColor(Theme:IconTint())
+  Theme:Track(gearIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
+  gear.icon = gearIcon
+  gear.wpeIconPaint = function(s)
+    if s.icon then s.icon:SetVertexColor(Theme:IconTint()) end
+  end
+  ns.IconSilhouette(gear, gearIcon)
   self.gearBtn = gear
 
   local bagsToggle = ns.CreateGlyphButton(f, "", HB, "icon")
@@ -584,8 +601,15 @@ function Bags:Build()
   bank.icon = bankIcon
   bank.iconPct = 77
   bank.wpeIconPaint = function(s)
-    if s.icon then s.icon:SetVertexColor(Theme:IconTint()) end
+    if not s.icon then return end
+    local on = ((ns.Bank and ns.Bank.bankerOpen) or ns.Vault:Saved("bank")
+                or ns.Vault:Saved("warband")) and true or false
+    s.icon:SetVertexColor(Theme:IconTint())
+    s.icon:SetDesaturated(not on)
+    s.icon:SetAlpha(on and 1 or 0.45)
   end
+  -- No silhouette: the tracking icon wears its own baked border, so a black
+  -- copy under it would only double the edge.
   self.bankBtn = bank
 
   sort:SetPoint("TOPRIGHT", bank, "TOPLEFT", -4, 0)
@@ -606,16 +630,44 @@ function Bags:Build()
   Theme:Track(sellIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
   sell.icon = sellIcon
   sell.iconPct = 61
+  -- The coin's dress is asked of the vendor inside the paint, not written from VendorState: the
+  -- ground the silhouette draws under it copies the icon's alpha in the same pass, and the copy runs
+  -- after this -- so a state written outside would leave the two apart on any repaint that happened
+  -- in the other order. A disabled button still repaints on every hover leave, and there the coin
+  -- now re-dresses itself from CanBuy instead of keeping whatever the last caller left on it.
   sell.wpeIconPaint = function(s)
-    if s.icon then s.icon:SetVertexColor(Theme:IconTint()) end
+    if not s.icon then return end
+    local on = (ns.Vendor and ns.Vendor:CanBuy()) and true or false
+    s.icon:SetVertexColor(Theme:IconTint())
+    s.icon:SetDesaturated(not on)
+    s.icon:SetAlpha(on and 1 or 0.45)
   end
+  ns.IconSilhouette(sell, sellIcon)
   ns.SetButtonEnabled(sell, false)
   self.sellBtn = sell
 
   local pocket = ns.CreateGlyphButton(f, "", HB, "icon")
   pocket:SetPoint("TOPRIGHT", sell, "TOPLEFT", -4, 0)
-  pocket:SetScript("OnClick", function() if ns.Pocket then ns.Pocket:Toggle() end end)
-  addTip(pocket, "Pocket")
+  pocket:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  pocket:SetScript("OnClick", function(s, button)
+    -- Quick-switch the bags between the plain grid and the category view, the same toggle
+    -- as the Category view row in Grid > Layout. Through ns.Options: Options itself is local
+    -- to its own file, so a bare read here is nil and silently does nothing.
+    local function switchView()
+      local h = ns.Options and ns.Options.helpers
+      local fl = h and h.flow
+      if fl and fl.catSet and fl.catGet then fl.catSet(not fl.catGet()) end
+    end
+    if button == "RightButton" then switchView(); return end
+    -- No pocket window, no pocket to open: the button is the view switch then.
+    if ns.Pocket and ns.Pocket:Enabled() then ns.Pocket:Toggle() else switchView() end
+  end)
+  ns.AddTip(pocket, function()
+    if ns.Pocket and ns.Pocket:Enabled() then return "LMB: Pocket" end
+    return "Click: grid/cat"
+  end, "top", function(s)
+    if ns.Pocket and ns.Pocket:Enabled() then return { { text = "RMB: grid/cat", color = "dim" } } end
+  end)
   local dots = {}
   for k = 1, 6 do dots[k] = Theme:Rect(pocket, "overlay", "ARTWORK") end
   ns.PixelJob(pocket, function(s)
@@ -727,6 +779,7 @@ function Bags:BuildBagWindow()
   end
   w:Hide()
   self.bagWindow = w
+  if ns.Theme and ns.Theme.ApplyWindowAlpha then ns.Theme:ApplyWindowAlpha() end
   self:LayoutBagWindow()
   return w
 end
@@ -935,6 +988,18 @@ function Bags:Layout(capture, light)
   self:Build()
   if not (self.frame and self.content and self.gaugeBg and self.gaugeFill
           and self.gridBg and self.money and self.reagentLabel) then return end
+  -- A theme, font, badge or marker change bumps styleGen, and the paint guards read it (ns.ApplyItemFont,
+  -- the badge layout) rather than any per-cell key. A pass that repaints only the cells whose contents moved
+  -- would then never ask an untouched cell to dress for the new style, so every link is dropped once when
+  -- the generation moves and the pass below redraws the lot. The bank's own layout does exactly this with
+  -- its styleGenSeen; the bags cleared every link on every pass before, which is what a quiet transfer's
+  -- passes paid for.
+  if self.styleGenSeen ~= self.styleGen then
+    self.styleGenSeen = self.styleGen
+    if self.pool then
+      for _, b in ipairs(self.pool) do b.link = nil end
+    end
+  end
   local cols = self.cols
   -- The header stands still under a geometry change; the transfer chip it arms is repainted by the
   -- trailing full pass.
@@ -989,6 +1054,9 @@ function Bags:Layout(capture, light)
   self.content:ClearAllPoints()
   ns.SnapPoint(self.content, "TOPLEFT", self.frame, "TOPLEFT", PAD, -self:TopOffset())
 
+  -- Read once for the pass: every cell is dressed for this one view, so the flag is compared against the
+  -- cell's own below rather than asked per cell.
+  local cat = self:CatMode()
   local function place(bag, slot, x, y, forceCount)
     i = i + 1
     local b = self:Acquire(i)
@@ -997,11 +1065,17 @@ function Bags:Layout(capture, light)
     -- Same memo the bank window keeps: the anchor parent is made once and never
     -- recreated, so a cell that has not moved does not need its id, its size or its
     -- point written again. Only the content is repainted either way.
-    if b.wpeBag ~= bag or b.wpeSlot ~= slot then
+    local rebound = (b.wpeBag ~= bag or b.wpeSlot ~= slot)
+    if rebound then
       if not self.snap then
         h:SetID(bag)
         b:SetID(slot)
         b.wpeBagID = bag
+        -- The new-item glow belongs to the slot, not the item, and the paint below is the only other place
+        -- that reads it. A geometry-only pass hands cells to other slots without painting them, so without
+        -- this a cell that changed hands there would keep the glow of the slot it came from until something
+        -- else repainted it. One flag read, and only when a cell actually changes hands.
+        if ns.SyncNewItem then ns.SyncNewItem(b) end
       end
       b.wpeBag, b.wpeSlot = bag, slot
     end
@@ -1017,7 +1091,17 @@ function Bags:Layout(capture, light)
       self.byKey[bag * 1000 + slot] = b
       return
     end
-    b.link = nil
+    -- The link is what makes UpdateItemButton paint at all: it repaints only when its key misses, so a cell
+    -- that keeps its slot and its recipe is compared and left alone. That is the whole cost of a pass over
+    -- a window that is not changing, and it is what lets a transfer re-lay the view out as it goes instead
+    -- of hiding the passes behind a timer. Dropped only when something the key cannot see has moved: another
+    -- slot bound to this cell, the view the cell is drawn in (the reagent ring reads it), or the folded
+    -- count standing in for the slot's own. A style change (theme, font, badges, markers) bumps styleGen,
+    -- and Layout drops every link once for it. A snapshot cell repaints off its own key, so it keeps the
+    -- drop: its record carries more than the live cell's key spells out.
+    if rebound or self.snap or b.wpeCat ~= cat or b.wpeForce ~= forceCount then
+      b.link = nil
+    end
     -- Combine-stacks: the cell binds one real bag slot (so the secure click is untouched) but draws the
     -- summed count of every folded slot. wpeForce overrides only the number UpdateItemButton shows; nil
     -- clears it, so a cell reused from a merged layout in the plain grid shows its own slot count again.
@@ -1025,7 +1109,7 @@ function Bags:Layout(capture, light)
     -- Grouped view rings reagents by item class, not by which bag holds them, so the Reagents section
     -- reads alike; the paint reads this off the cell. Cleared to false so a cell reused in the grid
     -- goes back to the reagent-bag rule.
-    b.wpeCat = self:CatMode()
+    b.wpeCat = cat
     h:Show(); b:Show()
     if self.snap then
       ns.PaintVaultButton(b, ns.Vault:Slot("bags", bag, slot), bag, forceCount)
@@ -1034,12 +1118,25 @@ function Bags:Layout(capture, light)
     end
     self.byKey[bag * 1000 + slot] = b
   end
+  -- A held hole has to take its turn in the cell pool as well, or every cell behind it is handed a
+  -- different widget than last pass and repaints (see LayoutCats). Nothing is drawn for that turn: a cell
+  -- is parked hidden. The pool and its counter belong to this pass, so the turn is taken from here and
+  -- handed to the grouped layout as a second placer rather than as a counter of its own.
+  local function park()
+    i = i + 1
+    local b = self:Acquire(i)
+    if b then
+      b.link = nil
+      b.holder:Hide()
+      b:Hide()
+    end
+  end
 
   local contentH
   if self:CatMode() then
     self.reagentLabel:Hide()
     self:HideBagLabels(0)
-    contentH, used, total = self:LayoutCats(place, size, gap, step, cols, light)
+    contentH, used, total = self:LayoutCats(place, park, size, gap, step, cols, light)
   else
     -- Every section widget, not just the captions: the headers, drop zones and the Empty section's
     -- sample tiles are all pooled and only hidden from the tail inside LayoutCats, which the grid
@@ -1049,6 +1146,9 @@ function Bags:Layout(capture, light)
     self:HideCatCounts(0)
     self:HideCatHeaders(0)
     self:HideCatHoles(0)
+    -- The crosshairs a run drew between passes belong to the grouped view; the grid draws every slot,
+    -- empty ones included, so a mark left over from the grouped arm would stand over a live cell.
+    self:HideTouchHoles()
     self:HideCatZones(0)
     self:HideCatGroups(0)
     self:HideEmptyTiles(0)
@@ -1218,9 +1318,7 @@ function Bags:Layout(capture, light)
   -- next switch back. Only a snapshot has no live container to act on, so it alone hides the button.
   if self.sortBtn then self.sortBtn:SetShown(not self.snap) end
   if self.reagentBtn then self:PaintReagents() end
-  if self.pocketBtn then
-    self.pocketBtn:SetShown((ns.Pocket and ns.Pocket:Enabled()) and true or false)
-  end
+  if self.pocketBtn then self.pocketBtn:Show() end
   self:VendorState()
   -- The snapshot is the one thing here that costs a scan of every bag, and a plain
   -- repaint cannot change it: same cells, same contents, same picture. Only the points
@@ -1753,9 +1851,9 @@ function Bags:TransferNow()
     -- use verb and wears it instead of banking it (see ns.BankDepositMove).
     return ns.BankDepositMove(bag, slot, alloc)
   end, function()
-    local ok = (ns.Bank and ns.Bank.bankerOpen and self.frame and self.frame:IsShown()) and true or false
-    ns.ArmTransferChips()
-    return ok
+    -- Alive runs once per pump poll: the chips are armed by the pump after each batch and at the end of
+    -- the run, so this only answers whether the window is still there (see View:TransferNow).
+    return (ns.Bank and ns.Bank.bankerOpen and self.frame and self.frame:IsShown()) and true or false
   end, bt == (Enum and Enum.BankType and Enum.BankType.Account), ns.ArmTransferChips)
 end
 
@@ -1918,6 +2016,51 @@ function Bags:HideCatHoles(from)
   end
 end
 
+-- The crosshair a run shows the moment a piece leaves, before any pass has drawn the section's own holes.
+-- Same art as CatHole and the same pool idea, kept apart: a pass places its holes by index, and marks drawn
+-- between passes must not shift that indexing or a section would hold somebody else's place. The pass that
+-- follows takes the picture over (LayoutCats hides the lot at its top and places the real holes), so these
+-- stand only until the regroup that owns the section arrives.
+function Bags:TouchHole(i)
+  self.tHoles = self.tHoles or {}
+  local t = self.tHoles[i]
+  if not t then
+    t = ns.CatHole(self.content)
+    self.tHoles[i] = t
+  end
+  return t
+end
+
+function Bags:HideTouchHoles()
+  if not self.tHoles then return end
+  for i = 1, #self.tHoles do
+    local t = self.tHoles[i]
+    if t and t:IsShown() then t:Hide() end
+  end
+  self.tHoleN = 0
+end
+
+-- A cell whose piece has just left is a hole the next pass has not drawn yet: the cell is parked hidden the
+-- way the placer parks it and a crosshair takes its place, at the cell's own last position, so the space
+-- reads as emptied rather than as a free slot the grouped view never means to show. Nothing is remembered:
+-- the pass that follows rebinds or parks the cell on its own.
+function Bags:ParkAsHole(b)
+  -- A cell the last sweep already parked is the same hole met again (the sweeps between passes run more
+  -- than once between two plans): a crosshair stacked on a crosshair is art nothing asked for.
+  if not b.holder:IsShown() then return end
+  local i = (self.tHoleN or 0) + 1
+  self.tHoleN = i
+  local t = self:TouchHole(i)
+  local size = b.wpeSize or self.iconSize or 0
+  ns.SnapSize(t, size, size)
+  t:ClearAllPoints()
+  ns.SnapPoint(t, "TOPLEFT", self.content, "TOPLEFT", b.wpeX or 0, b.wpeY or 0)
+  t:Show()
+  b.link = nil
+  b.holder:Hide()
+  b:Hide()
+end
+
 -- One watcher flips the zones the moment the cursor picks up or sets down an item, so the highlight
 -- tracks the drag with no per-frame polling. Declared before SyncDropZones so that function can reach it
 -- as an upvalue. While a drag is live it also polls the cursor so the cell under it lights like the native
@@ -2005,7 +2148,11 @@ function Bags:BucketCats()
   return buckets, used, total
 end
 
-function Bags:LayoutCats(place, size, gap, step, cols, light)
+function Bags:LayoutCats(place, park, size, gap, step, cols, light)
+  -- The crosshairs the between-passes repaint drew belong to the picture this pass is about to replace: the
+  -- plan below places the real holes (in the same places, since a hole holds the slot its piece left), so
+  -- the hand-drawn ones are cleared first rather than left to double the mark.
+  self:HideTouchHoles()
   local Cats = ns.Categories
   local buckets, used, total
   local cached = light and self.catCache or nil
@@ -2269,6 +2416,13 @@ function Bags:LayoutCats(place, size, gap, step, cols, light)
           t:ClearAllPoints()
           ns.SnapPoint(t, "TOPLEFT", self.content, "TOPLEFT", cx, cy)
           t:Show()
+          -- The hole takes its turn in the cell pool here as well, or every cell behind it is handed a
+          -- different widget than it held last pass, and every one of those reads as a moved piece and
+          -- repaints: one hole near the top of a window is a repaint of the whole window, on every pass it
+          -- appears in -- which is what a right click transfer, emptying a section hole by hole, spent its
+          -- time on. `park` takes the turn and draws nothing (a hidden cell, its link dropped so the loops
+          -- that walk the shown cells pass it by); the crosshair above is the mark the player sees.
+          park()
         else
           -- A folded stack draws the summed count on its one bound slot; an unmerged cell passes nil so it
           -- shows its own slot count. (count is always set, so the > 1 test is what tells a fold from a single.)
@@ -2460,8 +2614,16 @@ function Bags:HighlightBag(bagID)
     local b = self.pool[j]
     if b then
       local on = (b.wpeBagID == bagID)
-      b:SetAlpha(on and 1 or 0.15)
-      ns.SetSlotHighlight(b, on)
+      -- The hover dims like a search miss, not to near-zero: bagMiss rides the same paint the
+      -- search uses, so the icon greys and the ring and the badges fade. The bag's own cells keep
+      -- only a faint wash (0.12 against the usual 0.30): with everything else dimmed filled cells
+      -- read on their own and the bar button under the pointer carries the accent edge, but one
+      -- blank slot looks like another, so an empty bag still needs the wash to read. The search
+      -- flag is untouched, so a search and a hover combine and the leave pass restores whichever
+      -- is still on.
+      b.bagMiss = (not on) and true or nil
+      ns.SetSlotHighlight(b, on, 0.12)
+      self:ApplyToButton(b)
     end
   end
 end
@@ -2474,7 +2636,7 @@ function Bags:ClearBagHighlight()
     if b then
       ns.SetSlotHighlight(b, false)
       b:SetAlpha(1)
-      b.searchMiss = nil
+      b.bagMiss = nil
       self:ApplyToButton(b)
     end
   end
@@ -2541,11 +2703,9 @@ function Bags:VendorState()
   -- The coin follows CanBuy, not IsOpen: a repair-only NPC opens a merchant that takes nothing, so
   -- the button stays dim there rather than lighting up over a sale that would silently do nothing.
   local on = (ns.Vendor and ns.Vendor:CanBuy()) and true or false
+  -- The coin dresses itself in its own paint (see Build), and the repaint this makes hands the ground
+  -- under it the same alpha, so nothing here follows the icon by hand any more.
   ns.SetButtonEnabled(b, on)
-  if b.icon then
-    b.icon:SetDesaturated(not on)
-    b.icon:SetAlpha(on and 1 or 0.45)
-  end
   -- The merchant edge changes what VendorBlocked answers, so re-dim the open bags here: the grey
   -- appears the moment a buying merchant is up and clears when he closes or turns out repair-only.
   if ns.RefreshBagDim then ns.RefreshBagDim() end
@@ -2558,11 +2718,9 @@ function Bags:BrowseState()
   if b then
     local on = ((ns.Bank and ns.Bank.bankerOpen) or V:Saved("bank") or V:Saved("warband"))
                and true or false
+    -- The icon dresses itself in its own paint (see Build): the repaint this makes is what dims it
+    -- and, where the button carries a ground, what keeps that copy on the same alpha.
     ns.SetButtonEnabled(b, on)
-    if b.icon then
-      b.icon:SetDesaturated(not on)
-      b.icon:SetAlpha(on and 1 or 0.45)
-    end
   end
   local t = self.charTag
   if t then
@@ -3307,7 +3465,7 @@ end
 -- typo in this list drops the entry rather than offering a word the field cannot parse.
 -- The curated vocabulary the category editor's token picker offers, as an ordered list of
 -- { token, axis } — ONE canonical token per concept, unlike the parser tables, which carry every
--- synonym a player might type (boots/feet, ring/finger, шлем/head). The parser still takes them all;
+-- synonym a player might type (boots/feet, ring/finger and their localized kin). The parser still
 -- this is only what the picker shows, so browsing reads as one clean word per thing.
 --
 -- The axes are grouped by what a PERSON thinks, not by how the classifier stores the match: the parser
@@ -3986,17 +4144,34 @@ function Bags:RefreshCooldowns()
   end
 end
 
-function Bags:ApplyToButton(b)
-  local blocked = (ns.DepositBlocked and ns.DepositBlocked(b))
-    or (ns.AuctionBlocked and ns.AuctionBlocked(b))
-    or (ns.ContextBlocked and ns.ContextBlocked(b))
-    or (ns.GuildDepositBlocked and ns.GuildDepositBlocked(b))
-    or (ns.MailBlocked and ns.MailBlocked(b))
-    or (ns.VendorBlocked and ns.VendorBlocked(b))
-  ns.ApplySearchToButton(b, self.filters, blocked)
+-- The chain ApplyToButton runs asks the client, and the head of it costs a call wrapped in a pcall the
+-- moment any interaction window is up: the bank's own "will it take this piece", the item context matcher,
+-- the mailer's bound-item rule -- and ContextBlocked builds an item location on the way. Asked per cell on
+-- every pass and on every hover, that is the same question about the same piece hundreds of times in one
+-- transfer: the piece in the cell does not change between two passes, and neither does the window. So the
+-- answer is kept on the cell, stamped with what it was asked about (the piece's link and bind state, both of
+-- which the paint keeps current) and with a generation every context edge moves -- each of them already
+-- redraws the windows through ns.RefreshBagDim, so a stale stamp cannot outlive its window.
+ns.BlockGen = 0
+function ns.BumpBlocked()
+  ns.BlockGen = ns.BlockGen + 1
 end
 
-function Bags:UpdateDirty()
+function Bags:ApplyToButton(b)
+  local g = ns.BlockGen
+  if b.wpeBlockGen ~= g or b.wpeBlockLink ~= b.link or b.wpeBlockBound ~= b.wpeBound then
+    b.wpeBlockGen, b.wpeBlockLink, b.wpeBlockBound = g, b.link, b.wpeBound
+    b.wpeBlocked = (ns.DepositBlocked and ns.DepositBlocked(b))
+      or (ns.AuctionBlocked and ns.AuctionBlocked(b))
+      or (ns.ContextBlocked and ns.ContextBlocked(b))
+      or (ns.GuildDepositBlocked and ns.GuildDepositBlocked(b))
+      or (ns.MailBlocked and ns.MailBlocked(b))
+      or (ns.VendorBlocked and ns.VendorBlocked(b))
+  end
+  ns.ApplySearchToButton(b, self.filters, b.wpeBlocked)
+end
+
+function Bags:UpdateDirty(force)
   if not (self.frame and self.frame:IsShown()) then self.dirty = {}; return end
   self:Build()
   if not (self.content and self.gaugeBg and self.gaugeFill and self.gridBg
@@ -4014,7 +4189,40 @@ function Bags:UpdateDirty()
   -- away a line later. Skip it and let the full pass do the one capture. The anti-jump while a
   -- take-items window is open lives in LayoutCats (slot memory + holes), not here.
   if self:CatMode() then
-    if next(self.dirty) then self.dirty = {}; self:Layout(true) end
+    if next(self.dirty) or force then
+      local quiet = not force and ns.Categories and ns.Categories.MoveQuiet
+                    and ns.Categories:MoveQuiet()
+      local now = GetTime()
+      local gap = (ns.Categories.PassGap and ns.Categories:PassGap()) or 0.25
+      if (not quiet) or (now - (self.viewT or 0)) >= gap then
+        -- Full pass: re-buckets the sections, draws the holes, repaints the locks. Spaced out
+        -- mid-run, forced at its end. It is a cheap pass now: the placer leaves a cell whose
+        -- slot and recipe did not move alone, so only the cells that changed are actually drawn.
+        self.viewT = now
+        self.dirty = {}; self:Layout(true)
+      else
+        -- Between spaced passes: repaint the touched cells where they stand, so a piece that
+        -- landed between two passes shows at once and the sections catch up on the next one.
+        for bag in pairs(self.dirty) do
+          local num = C_Container.GetContainerNumSlots(bag) or 0
+          for slot = 1, num do
+            local b = self.byKey and self.byKey[bag * 1000 + slot]
+            if b then
+              -- This branch is the grouped view's alone (the grid has its own arm below), and there a slot
+              -- that empties is a hole in waiting: it is crossed out on this very repaint, at the place the
+              -- piece left, instead of standing empty until the next pass reflows the section.
+              local _, painted = ns.UpdateItemButton(b)
+              if painted then
+                if C_Container.GetContainerItemInfo(b.wpeBagID, b:GetID()) then self:ApplyToButton(b)
+                else self:ParkAsHole(b) end
+              end
+            end
+          end
+        end
+        self.dirty = {}
+        self:ArmTransfer()
+      end
+    end
     return
   end
   if next(self.dirty) then ns.Vault:Capture("bags", self.dirty) end

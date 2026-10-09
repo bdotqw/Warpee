@@ -299,6 +299,8 @@ local STRINGS = {
   ["Slot background"] = "Sfondo degli scomparti",
   ["Pay with"] = "Pagare con",
   ["Plate opacity"] = "Opacità dello sfondo",
+  ["Transparency"] = "Trasparenza",
+  ["See-through windows. Settings stay solid."] = "Finestre traslucide. Le impostazioni restano opache.",
   ["Bank slots per row"] = "Scomparti per riga (banca)",
   ["Warband slots per row"] = "Scomparti per riga (Brigata)",
   ["Guild bank slots per row"] = "Caselle per riga (banca di gilda)",
@@ -566,6 +568,10 @@ local STRINGS = {
   ["FANNY PACK"] = "MARSUPIO",
   ["Pocket"] = "Tasca",
   ["Pocket window"] = "Finestra della tasca",
+  ["LMB: Pocket"] = "CS: Tasca",
+  ["RMB: grid/cat"] = "CD: griglia/cat",
+  ["LMB: grid/cat."] = "CS: griglia/cat.",
+  ["Click: grid/cat"] = "Clic: griglia/cat",
   ["Pocket rows"] = "Righe della tasca",
   ["Pocket size"] = "Dimensioni della tasca",
   ["Pocket slot size"] = "Dimensione celle della tasca",
@@ -580,8 +586,8 @@ local STRINGS = {
     "Quante righe di celle contiene la finestra della tasca.",
   ["How wide the pocket window grows."] =
     "Determina la larghezza della finestra della tasca.",
-  ["Size of one cell in the pocket. It follows the bag slot size until you move this."] =
-    "Dimensione di una cella nella tasca. Segue quella degli scomparti delle borse finché non modifichi questo valore.",
+  ["Size of one cell in the pocket. It is a setting of its own: a pocket that has none takes the bag slot size once."] =
+    "Dimensione di una cella nella tasca. Un valore suo: una tasca che non ne ha prende una volta quello degli scomparti delle borse.",
   ["The key that opens and closes the pocket. Click, then press a key, a mouse button or the wheel, with Shift, Ctrl or Alt if you like; a right click clears it, Escape cancels."] =
     "Il tasto che apre e chiude la tasca. Fai clic, quindi premi un tasto, un pulsante del mouse o la rotella, anche con Maiusc, Ctrl o Alt; il clic destro cancella, Esc annulla.",
   ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] =
