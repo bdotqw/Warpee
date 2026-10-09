@@ -1,39 +1,29 @@
 # Warpee
 
-## 11.6
+## 11.7
 
 ENG
 
-- Settings reorganized into pages with subpages.
-- Settings search finds options by name, slang, language.
-- Bags and bank tabs draw apart, named, per window.
-- Snapshots remember real bag names, not Bag N.
-- Bags, bank and Warband each set their own block gap.
-- The Warband bank keeps a slot size of its own.
-- Reverse order and fill-up act inside every block.
-- Merge reagents greys out while the bags stand apart.
-- Window pickers tick several windows and read the set back.
-- Settings pages build on the first visit, not on open.
-- Sliders keep the grid moving for the whole drag.
-- Items no merchant will buy are dimmed at a vendor.
-- Fixed: the Recent count could sit one below the bags.
-- Fixed: the gold wipe dialog threw before it opened.
-- Fixed: bought bank tabs showed numbers instead of names.
+- Hovering over a bag dims the others, just like search.
+- Clicking a bag opens Blizzard's filter menu.
+- Right-clicking the Pocket header button switches between grid and category views.
+- Optimized item transfers when right-clicking a category.
+- New transparency slider fades all windows except Settings.
+- Close buttons now draw their own X.
+- Plus buttons now draw their own symbols.
+- Header icons now have dark silhouettes.
+- Recent item borders now update when changing themes.
+- Pocket header now adjusts to slot size.
 
 RU
 
-- Настройки разложены по страницам с подвкладками.
-- Поиск находит настройки по имени, сленгу, языку.
-- Сумки и вкладки — врозь, с именами, для каждого окна.
-- Сохранённые данные помнят настоящие имена сумок.
-- У сумок, банка и отряда свой промежуток блоков.
-- У банка отряда свой размер ячейки.
-- Порядок и заполнение снизу действуют внутри блока.
-- «Слить реагенты» гаснет, пока сумки стоят врозь.
-- Выбор окон отмечает несколько окон и читается обратно.
-- Страницы настроек строятся при первом заходе.
-- Ползунки двигают сетку всю протяжку без рывков.
-- Предметы, которые торговец не купит, приглушены у него.
-- Исправлено: число в «Недавнем» могло отставать от сумок.
-- Исправлено: окно сброса золота падало при открытии.
-- Исправлено: купленные вкладки банка звались номерами.
+- Наведение на сумку приглушает остальные, как при поиске.
+- Клик по сумке открывает меню фильтров Blizzard.
+- ПКМ по кнопке Pocket в шапке переключает вид между сеткой и категориями.
+- Оптимизирована отправка вещей при нажатии ПКМ на категорию.
+- Новый ползунок прозрачности делает все окна полупрозрачными, кроме настроек.
+- Крестики закрытия теперь рисуются кодом, а не шрифтом.
+- Значки плюса теперь тоже рисуются кодом, а не шрифтом.
+- Значки в шапке теперь имеют тёмный силуэт.
+- Рамки недавних предметов теперь обновляются при смене темы.
+- Шапка Pocket теперь подстраивается под размер слотов.
