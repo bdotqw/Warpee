@@ -791,8 +791,9 @@ local BADGES = {
 -- true because the real gate is ns.Bags.junkCoin -- this only lets ApplyBadge draw it opaque once MarkJunk
 -- has decided it shows.
 -- follow: the two coins are one mark on two different triggers, so the junk coin is sized by the sale
--- mark's record rather than one of its own. It has no row in the editor (its toggle is the checkbox), so
--- a share of its own could never be changed and the two coins would drift apart on the first resizing.
+-- mark's record rather than one of its own, and drawn in the place just under its line in the badge order.
+-- It has no row in the editor (its toggle is the checkbox), so a share or a place of its own could never
+-- be changed and the two coins would drift apart on the first resizing or dragging.
 -- The s/m below are only the fallback for the case the followed def is missing.
 local JUNK = { key = "junk", n = "Junk coin", tex = true, on = true, follow = "sell",
   c = "TOPRIGHT", x = -1, y = -1, s = 0.4, m = 8 }
@@ -812,7 +813,8 @@ local ALIGN_POINT = {
 -- The order the badges the player can edit draw in, the first being over the rest. The stack count is
 -- not in it: it is the game's own string on the button, under every frame of ours, and putting it in the
 -- order would mean drawing a number of our own. The junk coin left the panel for its own marker toggle,
--- so it is gone from here too; a saved order that still lists it has the key dropped by ns.BadgeOrder.
+-- so it is not here either: it draws in the place its follower gives it (ns.BadgeOrderSlot), and a saved
+-- order that still lists it has the key dropped by ns.BadgeOrder.
 ns.BADGE_ORDER = { "sell", "outfit", "bind", "ilvl" }
 local ORDER_SET = {}
 for _, k in ipairs(ns.BADGE_ORDER) do ORDER_SET[k] = true end
@@ -843,6 +845,23 @@ function ns.BadgeOrderAt(key)
     for i, k in ipairs(ORDER) do ORDER_AT[k] = i end
   end
   return ORDER_AT[key], #ORDER
+end
+
+-- Where a badge draws in the stack, for a badge the player cannot order at all. One with a row of its own
+-- answers from the order; the junk coin has no row, and falling through to the floor put it under every
+-- badge -- including the plain numbers -- while the sale mark it belongs to could be anywhere. So it takes
+-- the place just under the badge it follows: one mark on two triggers, and the coin the player moved is
+-- still the one it sits under. At the bottom of the order that place is the floor, which is where it was.
+function ns.BadgeOrderSlot(key)
+  local at, n = ns.BadgeOrderAt(key)
+  if at then return at, n end
+  local d = BADGE[key]
+  local f = d and d.follow
+  if f then
+    local fat = ns.BadgeOrderAt(f)
+    if fat then return fat + 1, n end
+  end
+  return at, n
 end
 
 function ns.BadgePoint(g)
@@ -1058,7 +1077,7 @@ function ns.ApplyBadge(b, key)
   -- and the cooldown digits live, so the whole order stays under them and nothing there has to move.
   local holder = b.wpeBadgeFrame and b.wpeBadgeFrame[key]
   if holder then
-    local at, n = ns.BadgeOrderAt(key)
+    local at, n = ns.BadgeOrderSlot(key)
     holder:SetFrameLevel(ns.BadgeLevel(b, key, at, n))
   end
 end
