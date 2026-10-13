@@ -29,8 +29,12 @@ local function ready()
   return Theme.colors and Theme.colors.slot ~= nil
 end
 
+-- Every call below goes through one door so a failure is said once instead of vanishing. The label is
+-- left for ns.Guard to read off the callee: this helper is handed both the addon's own dress passes and
+-- Blizzard's frame methods, and a name per call site would be sixty labels to keep in step by hand. A
+-- method that is simply absent stays silent, since try() is only reached once the caller has checked it.
 local function try(fn, ...)
-  if fn then pcall(fn, ...) end
+  if fn then ns.Guard(nil, fn, ...) end
 end
 
 local function mute(region)
@@ -604,6 +608,10 @@ end
 local function coinMark(btn, letter, r, g, b, a)
   local art = btn.GetNormalTexture and btn:GetNormalTexture()
   local fs = btn.wpeMark
+  -- The coin on a line of money is the client's own, in this window as in the bags: it is the metal the
+  -- amount is written in. Warpee's own coin is the sale mark, and it stays on the bags' header, the sale
+  -- mark and the junk coin. An earlier pass put our coin in the icon's seat here and in the bags at once,
+  -- and at twelve pixels our rings turn to mud -- worse here, where the seat is only about twelve wide.
   if not (ns.Bags and ns.Bags.goldLetters) then
     if fs then fs:Hide() end
     if art then art:SetAlpha(1) end
@@ -1052,7 +1060,8 @@ end
 local function paintRing(b, link, q)
   local m = link and itemMeta(link)
   if ns.Bags.qualityBorder and m and m.classID == Enum.ItemClass.Questitem then
-    ns.SetRarityRing(b, QUEST_YELLOW[1], QUEST_YELLOW[2], QUEST_YELLOW[3], 1)
+    local y = ns.QUEST_YELLOW
+    ns.SetRarityRing(b, y[1], y[2], y[3], 1)
   elseif ns.Bags.unusableBorder and m and ns.IsLinkUnusable(link) then
     local R = RED_FONT_COLOR
     ns.SetRarityRing(b, R.r, R.g, R.b, 1)
@@ -1097,7 +1106,7 @@ end
 function Skin:Restyle()
   local frame = _G.GuildBankFrame
   if not (self.applied and frame) then return end
-  C_Timer.After(0, function() pcall(dressFrame, frame) end)
+  C_Timer.After(0, function() ns.Guard("guild bank dress", dressFrame, frame) end)
   for _, rec in ipairs(self.texts) do try(rec.dress) end
   for i = 1, COLUMNS do
     local col = colAt(frame, i)

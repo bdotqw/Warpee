@@ -27,6 +27,15 @@ local HEADER, FOOTER = 66, 28
 local DIV = 22
 local HB = 26
 local ROW1_Y = 4
+-- The purse line's inset from the window's right edge, over PAD. It used to stand at PAD + 4 and the
+-- amount ran onto the right border (owner), so it keeps a further eight clear of it. Height is the
+-- density's own and is not touched here: the line sits in the footer band it always sat in.
+local FOOT_RIGHT = 12
+-- How solid the sell coin's unlit state is. Full opacity is kept for "press me" alone: the coin reaches it
+-- only with a buying merchant open AND something in the bags to hand him. Short of that it sits under half
+-- and stays short of full even under the pointer, which is the client's own way of saying a control is
+-- there but not to be pressed.
+local COIN_INERT, COIN_INERT_HOT = 0.45, 0.65
 local SEARCH = 22
 local GAUGE_Y = ROW1_Y + HB + 6
 local ROW2_Y = GAUGE_Y + 6
@@ -50,25 +59,28 @@ end
 -- once and never again, so a font picked in the settings reached these buttons only after a
 -- reload: GetFont answered with the new file while the mark on screen stayed in the old one.
 -- Every other window of the addon re-applies its fonts the same way, with the file itself.
-local function sizeGlyph(btn, size)
-  if not btn then return end
-  local fp = ns.Fonts:Current()
-  if btn.wpeBoxW == size and btn.wpeBoxH == size and btn.wpeFont == fp then return end
-  btn.wpeFont = fp
-  ns.SnapBox(btn, size, size)
-  if btn.Text then btn.Text:SetFont(fp, math.max(16, math.floor(size * 0.74)), ns.OutlineFlags()) end
-  if btn.icon and btn.iconPct then
-    local h = btn.iconPctY or btn.iconPct
-    btn.icon:SetSize(math.floor(size * btn.iconPct / 100 + 0.5), math.floor(size * h / 100 + 0.5))
-  end
-  btn:Repaint()
+-- Dressing a cell -- its box, its caption and its icon -- is ns.SizeGlyph in Theme.lua now: the bags, the
+-- bank and the pocket each carried a byte-for-byte copy. Kept as a file local so the call sites read as they
+-- always did.
+local sizeGlyph = ns.SizeGlyph
+
+-- Flip the bags between the plain grid and the category view: the same switch the Category view row in
+-- Grid > Layout runs, reached through ns.Options -- Options itself is local to its own file, so a bare
+-- read here would be nil and the click would do nothing at all. It rides the BAGS button now (right
+-- click): what it changes is the bags' own picture, and it used to sit on the pocket button, where a
+-- right click read as if the pocket were the thing being switched. Being here also means the switch is
+-- still at hand when the pocket is switched off and its button has left the row.
+local function switchView()
+  local h = ns.Options and ns.Options.helpers
+  local fl = h and h.flow
+  if fl and fl.catSet and fl.catGet then fl.catSet(not fl.catGet()) end
 end
 
 local Bags = { pool = {}, vpool = {}, cols = COLS_DEFAULT, gap = GAP_DEFAULT, iconSize = SIZE_DEFAULT,
                slotStyle = "tile", showGauge = true, goldLetters = false, goldOnly = false,
                font = ns.Fonts.DEFAULT, query = "", dirty = {},
                badge = ns.BadgeDefaults(),
-               qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, reagentTint = true, unusableBorder = true,
+               qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, junkCoin = true, reagentTint = true, unusableBorder = true,
                revFill = false, fillUp = false, newOnTop = false, reagentTop = false, hideReagents = false,
                splitBags = false, splitGapBags = 12, splitGapBank = 12, splitGapWb = 12,
                nameBags = true,
@@ -305,8 +317,8 @@ function Bags:FlowHeader()
   if not self.frame then return end
   local row1 = ROW1_Y + Theme:TopInset() + Theme:HeadDrop()
   self.headEdge = ns.FlowRow(self.frame, -PAD, -row1, 4,
-    { self.closeBtn, self.gearBtn, self.bagsToggle, self.bankBtn,
-      self.pocketBtn, self.sellBtn, self.sortBtn })
+    { self.closeBtn, self.gearBtn, self.bagsToggle, self.pocketBtn,
+      self.bankBtn, self.sellBtn, self.sortBtn })
 end
 
 -- The search row: the box takes the whole width, except while the transfer chip stands at its right
@@ -348,7 +360,7 @@ function Bags:AnchorHeader()
   end
   if self.money then
     self.money:ClearAllPoints()
-    self.money:SetPoint("BOTTOMRIGHT", -PAD, 6)
+    self.money:SetPoint("BOTTOMRIGHT", -(PAD + FOOT_RIGHT), 6)
   end
   if self.charTag then
     self.charTag:ClearAllPoints()
@@ -395,7 +407,7 @@ function Bags:Build()
     if not self.money then
       local money = Theme:Label(f, FONT + 1, "text")
       Theme:Money(money)
-      money:SetPoint("BOTTOMRIGHT", -PAD, 6)
+      money:SetPoint("BOTTOMRIGHT", -(PAD + FOOT_RIGHT), 6)
       self.money = money
       ns.AttachGoldTooltip(money, f, function() return self.iconSize end)
     end
@@ -460,11 +472,11 @@ function Bags:Build()
 
   local title = Theme:Title(f, FONT, "accent")
   title:SetPoint("BOTTOMLEFT", PAD, 6)
-  title:SetText("WARPEE")
+  title:SetText(ns.TITLE)
   self.title = title
 
-  local function addTip(btn, txt)
-    ns.AddTip(btn, txt, "top")
+  local function addTip(btn, txt, extra)
+    ns.AddTip(btn, txt, "top", extra)
   end
 
   -- The left cluster is built first, because the two things that follow it hang off the tag:
@@ -486,6 +498,13 @@ function Bags:Build()
   local close = ns.CreateGlyphButton(f, "×", HB, "icon")
   close:SetPoint("TOPRIGHT", -PAD, -ROW1_Y)
   close:SetScript("OnClick", function() ns.Toggle(false) end)
+  -- Quiet at rest, up to the text ink under the pointer -- the one paint every header mark shares,
+  -- so the row reads as one set rather than a bright close beside a dim gear and lock.
+  close.wpeIconPaint = function(s)
+    local hot = s.wpeHot and not s.offDuty
+    ns.TintMarkX(s, hot and "text" or "dim")
+  end
+  close.wpeIconPaint(close)
   self.closeBtn = close
 
   local sort = ns.CreateGlyphButton(f, "", HB, "icon")
@@ -499,57 +518,90 @@ function Bags:Build()
   -- wording for each language is carried in the locale tables and read through ns.L instead. A function,
   -- so it is re-read on every hover after a language change rather than captured once here.
   addTip(sort, function() return ns.L["Clean Up Bags"] end)
+  -- Warpee's own brush, baked at 128px like the gear and the bank: a brush is "tidy up / put in
+  -- order", which is what this button does, and it is the row's own drawn mark rather than Blizzard's
+  -- atlas arrow it wore before. White RGB with the shape in the alpha, tinted by the quiet paint below.
   local sortIcon = sort:CreateTexture(nil, "ARTWORK")
-  sortIcon:SetAtlas("auctionhouse-ui-sortarrow")
-  sortIcon:SetSize(15, 17)
+  sortIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\sort.tga]])
   sortIcon:SetPoint("CENTER")
-  sortIcon:SetVertexColor(Theme:C("overlay"))
-  Theme:Track(sortIcon, function(x) x:SetVertexColor(Theme:C("overlay")) end)
   sort.icon = sortIcon
-  sort.iconPct, sort.iconPctY = 58, 66
+  -- The brush paints into only 55% of its texture's width and 62% of its height -- the designer baked a
+  -- wide margin all round so the glyph never touches the texture edge at any scale -- and that margin is
+  -- what the share has to make up for: at 100 the mark lands in the row with the bag and the bank instead
+  -- of under them. The bank window's own sort button draws this same brush at 100, and the two windows
+  -- have to show it at one size.
+  sort.iconPct = 100
+  -- The row's quiet paint: dim at rest, the window ink under the pointer, like the gear and the bank.
   sort.wpeIconPaint = function(s)
-    if s.icon then s.icon:SetVertexColor(Theme:C("overlay")) end
+    if not s.icon then return end
+    local hot = s.wpeHot and not s.offDuty
+    s.icon:SetVertexColor(Theme:C(hot and "text" or "dim"))
   end
+  sort.wpeIconPaint(sort)
   ns.IconSilhouette(sort, sortIcon)
   self.sortBtn = sort
 
   -- The gear was the one header mark riding in the button's text as a texture escape (|T...|t), and
   -- a texture inside a string has no shadow to be given: the art sat flat on the band while every
   -- mark around it carried its own. As a texture on the icon path it takes the same ground as the
-  -- rest of the row, and keeps the 15px it already had -- the escapes were fixed-size too, so the
-  -- gear is the one art mark here that does not follow the density, and it is not made to now.
+  -- rest of the row. The art is Warpee's own white-on-transparent cog, so it tints with the theme
+  -- the way the drawn marks do, and iconPct sizes it off the header box like every other icon. A
+  -- round solid body reads heavier than the thin-stroked lock, so it is held to half the box rather
+  -- than the lock's 60% -- at that size the two marks weigh the same instead of the cog shouting.
   local gear = ns.CreateGlyphButton(f, "", HB, "icon")
   gear:SetPoint("TOPRIGHT", close, "TOPLEFT", -4, 0)
   gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
   addTip(gear, "Settings")
   local gearIcon = gear:CreateTexture(nil, "ARTWORK")
-  gearIcon:SetTexture([[Interface\Buttons\UI-OptionsButton]])
-  gearIcon:SetSize(15, 15)
+  gearIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\gear.tga]])
   gearIcon:SetPoint("CENTER")
-  gearIcon:SetVertexColor(Theme:IconTint())
-  Theme:Track(gearIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
   gear.icon = gearIcon
+  -- The cog is authored on the grid it is shown on: 16 pixels of art, hard alpha, at 62% of the box.
+  -- A 128px drawing blurred down to the thirteen a half-box asked for left four fifths of the mark in
+  -- half-tones -- a grey smudge in a row of 2px strokes -- so the art is drawn at the size the header
+  -- shows it, every edge on a whole pixel. Sixteen is also the power of two a TGA wants, and the square
+  -- 4px bore is the same care: the ground IconSilhouette draws grows the art by a pixel on every side,
+  -- and a round bore came back at its corners as black notches.
+  gear.iconPct = 62
+  -- The cog takes the pointer-state ink the drawn marks take, not a flat IconTint: dim at rest, the
+  -- way the pocket padlock sits when it is open, and up to the text ink under the pointer. A fixed
+  -- tint left it full white at rest, louder than every mark beside it. The button's own repaint
+  -- (Theme:Track in CreateButton) re-runs this on a theme change, so the icon needs no tracker of its own.
   gear.wpeIconPaint = function(s)
-    if s.icon then s.icon:SetVertexColor(Theme:IconTint()) end
+    if not s.icon then return end
+    local hot = s.wpeHot and not s.offDuty
+    s.icon:SetVertexColor(Theme:C(hot and "text" or "dim"))
   end
+  gear.wpeIconPaint(gear)
   ns.IconSilhouette(gear, gearIcon)
   self.gearBtn = gear
 
   local bagsToggle = ns.CreateGlyphButton(f, "", HB, "icon")
   bagsToggle:SetPoint("TOPRIGHT", gear, "TOPLEFT", -4, 0)
-  bagsToggle:SetScript("OnClick", function() Bags:ToggleBagWindow() end)
-  addTip(bagsToggle, "Bags")
+  -- Two actions on the one button: LMB opens or closes the bag bar, RMB flips the view between the plain
+  -- grid and the category view (switchView, top of the file). Both are named in the tooltip, one line
+  -- each, the way the pocket's used to be named.
+  bagsToggle:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  bagsToggle:SetScript("OnClick", function(s, button)
+    if button == "RightButton" then switchView(); return end
+    Bags:ToggleBagWindow()
+  end)
+  addTip(bagsToggle, "LMB: Bags", function() return { { text = "RMB: grid/cat", color = "dim" } } end)
+  -- Warpee's own backpack, baked at 64px with its own soft edge so the shape survives the header's
+  -- downscale to ~22px instead of collapsing to the grey smudge a hard 16px silhouette becomes. White
+  -- RGB with the shape in the alpha, so the quiet paint below tints it like the row's other marks.
   local bagIcon = bagsToggle:CreateTexture(nil, "ARTWORK")
-  bagIcon:SetAtlas("bag-main")
-  bagIcon:SetSize(22, 22)
+  bagIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\bags.tga]])
   bagIcon:SetPoint("CENTER")
-  bagIcon:SetVertexColor(Theme:IconTint())
-  Theme:Track(bagIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
   bagsToggle.icon = bagIcon
   bagsToggle.iconPct = 85
+  -- Same quiet paint as the rest of the header: dim at rest, text under the pointer.
   bagsToggle.wpeIconPaint = function(s)
-    if s.icon then s.icon:SetVertexColor(Theme:IconTint()) end
+    local hot = s.wpeHot and not s.offDuty
+    s.icon:SetVertexColor(Theme:C(hot and "text" or "dim"))
   end
+  bagsToggle.wpeIconPaint(bagsToggle)
+  ns.IconSilhouette(bagsToggle, bagIcon)
   self.bagsToggle = bagsToggle
 
   -- Reagents, on the switch the settings already had. It stands with the tag and the count
@@ -561,126 +613,160 @@ function Bags:Build()
   reags:SetPoint("LEFT", charTag, "RIGHT", 4, 0)
   reags:SetScript("OnClick", function() Bags:ToggleReagents() end)
   addTip(reags, "Hide reagents")
+  -- Warpee's own reagent mark: a point-up pentagon (the craft-quality shape, since reagents feed
+  -- crafting), drawn in white with the shape in the alpha so the row's paint tints it like every other
+  -- mark. The state is carried by the SHAPE, not the brightness: a filled pentagon while the reagent
+  -- slots sit in the grid, a hollow outline while they are left out -- the same open/closed trick the
+  -- padlock uses, told by the fill and not the colour. Both files are centred identically so the
+  -- pentagon does not jump on the swap. The two states wear the same row ink (dim at rest, text under the
+  -- pointer), so the mark stays the grey of the gear and the bag beside it and only the fill reads the
+  -- state. PaintReagents does the swap and the ink; IconSilhouette gives it the row's 1px dark ground.
+  reags.iconShown  = [[Interface\AddOns\Warpee\Media\Icons\reagent-shown.tga]]
+  reags.iconHidden = [[Interface\AddOns\Warpee\Media\Icons\reagent-hidden.tga]]
   local reagsIcon = reags:CreateTexture(nil, "ARTWORK")
-  local reagsAtlas = C_Texture and C_Texture.GetAtlasInfo
-                     and C_Texture.GetAtlasInfo("bags-icon-reagents")
-  if reagsAtlas then
-    reagsIcon:SetAtlas("bags-icon-reagents")
-  else
-    reagsIcon:SetTexture("Interface\\Icons\\INV_Misc_Bag_EnchantedMageweave")
-  end
-  reagsIcon:SetSize(20, 20)
+  reagsIcon:SetTexture(reags.iconShown)
   reagsIcon:SetPoint("CENTER")
   reags.icon = reagsIcon
-  reags.iconPct = 77
+  -- The pentagon is nearly square (bbox ~78% x 74% of the texture); 80 lands its mass with the bag and
+  -- gear in the row. Was 77 for the old atlas sprite.
+  reags.iconPct = 80
   reags.wpeIconPaint = function(s) Bags:PaintReagents(s) end
+  ns.IconSilhouette(reags, reagsIcon)
   self.reagentBtn = reags
   Bags:PaintReagents(reags)
 
   slots:SetPoint("LEFT", reags, "RIGHT", 10, 0)
 
   local bank = ns.CreateGlyphButton(f, "", HB, "icon")
-  bank:SetPoint("TOPRIGHT", bagsToggle, "TOPLEFT", -4, 0)
   bank:SetScript("OnClick", function() if ns.ToggleBank then ns.ToggleBank() end end)
   ns.AddTip(bank, "Bank / Warband", "top", function(s)
     if s:IsEnabled() then return nil end
     return { { text = "Visit a banker to record this bank", color = "dim" } }
   end)
+  -- Warpee's own bank: a stack of three gold bars (bullion), two on the floor with one on top. Each bar
+  -- is an ingot and not a block -- a low, wide front face with a deep sheared lid above it -- so the mark
+  -- reads as slabs lying flat. A front face as tall as it is wide is a cube, and a cube stack reads as a
+  -- sugar bowl or a blocky figure (owner, in game), which is what the first bake of this art did.
+  -- The bake is two-channel like the coin: bright lid, slightly deeper front face, black contour struck in
+  -- the texel, so the quiet paint below still tints the whole mark to the row's ink (it is NOT coloured
+  -- gold -- the colour is the header's, like every mark here) while the lid/front split and the contour
+  -- keep their own tones at any size. Chosen over the temple building, a chest, a sack, coins, a padlock
+  -- and a piggy bank: every other mark in the row is a hand-held object, so a monument broke the family,
+  -- and every soft round container rhymed with the bag and the pocket.
   local bankIcon = bank:CreateTexture(nil, "ARTWORK")
-  local atlasOK = C_Texture and C_Texture.GetAtlasInfo
-                  and C_Texture.GetAtlasInfo("Minimap_tracking_banker")
-  if atlasOK then
-    bankIcon:SetAtlas("Minimap_tracking_banker")
-  else
-    bankIcon:SetTexture("Interface\\Minimap\\Tracking\\Banker")
-  end
-  bankIcon:SetSize(20, 20)
+  bankIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\bank.tga]])
   bankIcon:SetPoint("CENTER")
-  bankIcon:SetVertexColor(Theme:IconTint())
-  Theme:Track(bankIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
   bank.icon = bankIcon
-  bank.iconPct = 77
+  -- Smaller than the chest wore (92): the bars are a wide, low block (bbox ~91% x 49% of the texture), so
+  -- a high share let them outweigh every mark beside them. 84 lands their ink -- the area they cover, not
+  -- their bounding box -- level with the bag, which is what the chest's 72 worked out to. The contour is
+  -- thin on purpose (~2px at 128): a fat one ate the corners and rounded the bars back into blobs.
+  bank.iconPct = 84
+  -- The contour lives in the bake, so the ground IconSilhouette lays under it only adds the same 1px dark
+  -- edge the bag and the gear wear -- the bars are a solid mass like the bag, not the dropped building
+  -- whose column gaps filled black.
+  -- The row's own quiet paint: dim at rest, the text ink under the pointer, faint when the button is off
+  -- duty (no banker seen, nothing saved yet) -- spelled in the ink the way the drawn marks spell it.
   bank.wpeIconPaint = function(s)
     if not s.icon then return end
-    local on = ((ns.Bank and ns.Bank.bankerOpen) or ns.Vault:Saved("bank")
-                or ns.Vault:Saved("warband")) and true or false
-    s.icon:SetVertexColor(Theme:IconTint())
-    s.icon:SetDesaturated(not on)
-    s.icon:SetAlpha(on and 1 or 0.45)
+    local hot = s.wpeHot and not s.offDuty
+    s.icon:SetVertexColor(Theme:C(s.offDuty and "faint" or (hot and "text" or "dim")))
   end
-  -- No silhouette: the tracking icon wears its own baked border, so a black
-  -- copy under it would only double the edge.
+  bank.wpeIconPaint(bank)
+  ns.IconSilhouette(bank, bankIcon)
   self.bankBtn = bank
 
-  sort:SetPoint("TOPRIGHT", bank, "TOPLEFT", -4, 0)
-
   local sell = ns.CreateGlyphButton(f, "", HB, "icon")
-  sell:SetPoint("TOPRIGHT", sort, "TOPLEFT", -4, 0)
   sell:SetScript("OnClick", function() if ns.Vendor then ns.Vendor:Sell() end end)
   ns.AddTip(sell, "Sell now", "top", function()
     return ns.Vendor and ns.Vendor:TipLines() or nil
   end)
+  -- Warpee's own coin -- the one mark the junk badge, the alt-click sale mark and this button all wear,
+  -- so one look ties the three together. A level per texel, with the ground struck black in the file,
+  -- tinted by the paint below: the very same gold as those two marks (ns.COIN_GOLD, shared from ItemButton.lua) when
+  -- the button can actually sell something right now, and the row's own dim ink when it cannot. The theme's
+  -- accent would have made the header coin a different yellow from the badge on the item under it, and the
+  -- pair has to read as one mark.
   local sellIcon = sell:CreateTexture(nil, "ARTWORK")
-  sellIcon:SetTexture("Interface\\MoneyFrame\\UI-GoldIcon")
-  sellIcon:SetSize(16, 16)
+  sellIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\coin.tga]])
   sellIcon:SetPoint("CENTER")
-  sellIcon:SetDesaturated(true)
-  sellIcon:SetAlpha(0.45)
-  sellIcon:SetVertexColor(Theme:IconTint())
-  Theme:Track(sellIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
   sell.icon = sellIcon
-  sell.iconPct = 61
-  -- The coin's dress is asked of the vendor inside the paint, not written from VendorState: the
-  -- ground the silhouette draws under it copies the icon's alpha in the same pass, and the copy runs
-  -- after this -- so a state written outside would leave the two apart on any repaint that happened
-  -- in the other order. A disabled button still repaints on every hover leave, and there the coin
-  -- now re-dresses itself from CanBuy instead of keeping whatever the last caller left on it.
+  -- The row's other marks run from 62 (the gear) to 100 (the brush), and the two are not comparable: the
+  -- brush's ink covers little of its square while the coin's fills its own, so a pct that reads level
+  -- beside them lands higher. The tipped coin also gives up a slice of the disc to the tilt, which this
+  -- pays back -- at 76 its ink stands level with the brush and the bag.
+  sell.iconPct = 76
+  -- The coin is gold only when BOTH halves of the trade are true: a merchant who is buying stands open,
+  -- and the player's own sell rules find something in the bags to hand over (wpeSellReady, set by
+  -- RefreshSellCoin). Neither alone lights it -- a bag full of greys with no merchant up is not an
+  -- invitation to click a button that would do nothing, and an empty bag in front of a merchant is not
+  -- money either. The hover lifts the same gold toward white rather than swapping hue.
+  -- The unlit state is told by OPACITY as well as by ink. Dim alone read as "quiet, like the gear beside
+  -- it", and the gear is pressable -- so the coin looked clickable at the one moment a click could only
+  -- answer "talk to a merchant first" (owner). Full strength now means pressable and nothing else: the
+  -- unlit coin sits at COIN_INERT and stops short of 1 even under the pointer. Alpha is safe here and
+  -- nowhere near as safe on the item badges: the header is a flat dark band with nothing bright beneath
+  -- the coin, which is what made a faint badge on an item icon read as a bug with the colour forgotten.
+  -- A third hue for "merchant open, nothing to sell" was considered and left out: to the player that
+  -- state means the same thing as no merchant at all, nothing to do, and a warning-coloured mark would
+  -- pull the eye at the one moment there is nothing to act on. The tooltip already names the difference.
+  -- Colours are read from the theme each paint, so a skin change re-dresses it through the button's own
+  -- repaint (CreateButton tracks it) with no tint frozen at creation.
   sell.wpeIconPaint = function(s)
     if not s.icon then return end
-    local on = (ns.Vendor and ns.Vendor:CanBuy()) and true or false
-    s.icon:SetVertexColor(Theme:IconTint())
-    s.icon:SetDesaturated(not on)
-    s.icon:SetAlpha(on and 1 or 0.45)
+    local hot = s.wpeHot
+    if s.wpeSellReady then
+      local g = hot and ns.COIN_GOLD_HOT or ns.COIN_GOLD
+      s.icon:SetVertexColor(g[1], g[2], g[3])
+      s.icon:SetAlpha(1)
+    else
+      -- Theme:C hands back FOUR values, and SetVertexColor takes an alpha as its fourth argument: passing
+      -- the call straight in wrote the theme colour's own alpha over the fade a line later and left the
+      -- unlit coin at full strength -- the disabled state shipped and could not be seen. Three values are
+      -- taken out of it here for exactly that reason, the way the rest of the file takes them.
+      local r, g, b = Theme:C(hot and "text" or "dim")
+      s.icon:SetVertexColor(r, g, b)
+      s.icon:SetAlpha(hot and COIN_INERT_HOT or COIN_INERT)
+    end
   end
-  ns.IconSilhouette(sell, sellIcon)
-  ns.SetButtonEnabled(sell, false)
+  sell.wpeIconPaint(sell)
+  -- No IconSilhouette here, unlike every other mark in the row: the coin's two-channel bake already
+  -- strikes its own rim in black, so the grown 1px ground only fattens that rim -- the header coin came
+  -- out the heaviest mark in the row for it. Left bare, its edge is exactly what the art cuts. (The ground
+  -- is NOT what made it read doubled: the two dark rings are struck in the bake. This only stops the row
+  -- from adding a third band around them.)
   self.sellBtn = sell
 
   local pocket = ns.CreateGlyphButton(f, "", HB, "icon")
-  pocket:SetPoint("TOPRIGHT", sell, "TOPLEFT", -4, 0)
-  pocket:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-  pocket:SetScript("OnClick", function(s, button)
-    -- Quick-switch the bags between the plain grid and the category view, the same toggle
-    -- as the Category view row in Grid > Layout. Through ns.Options: Options itself is local
-    -- to its own file, so a bare read here is nil and silently does nothing.
-    local function switchView()
-      local h = ns.Options and ns.Options.helpers
-      local fl = h and h.flow
-      if fl and fl.catSet and fl.catGet then fl.catSet(not fl.catGet()) end
-    end
-    if button == "RightButton" then switchView(); return end
-    -- No pocket window, no pocket to open: the button is the view switch then.
-    if ns.Pocket and ns.Pocket:Enabled() then ns.Pocket:Toggle() else switchView() end
+  -- One action and one line: the view switch left for the bags button, where the picture it changes
+  -- lives, and the button itself leaves the row while the pocket is switched off (see the paint pass),
+  -- so there is no dead control left over and nothing for a second tooltip line to explain. The one line
+  -- is the name alone as well: the key in front of it only earns its room where a second key has to be
+  -- told apart, which is the bags button's LMB/RMB pair.
+  pocket:SetScript("OnClick", function()
+    if ns.Pocket and ns.Pocket:Enabled() then ns.Pocket:Toggle() end
   end)
-  ns.AddTip(pocket, function()
-    if ns.Pocket and ns.Pocket:Enabled() then return "LMB: Pocket" end
-    return "Click: grid/cat"
-  end, "top", function(s)
-    if ns.Pocket and ns.Pocket:Enabled() then return { { text = "RMB: grid/cat", color = "dim" } } end
-  end)
-  local dots = {}
-  for k = 1, 6 do dots[k] = Theme:Rect(pocket, "overlay", "ARTWORK") end
-  ns.PixelJob(pocket, function(s)
-    local d, sp = ns.PX(s, 4), ns.PX(s, 2)
-    local gw, gh = 3 * d + 2 * sp, 2 * d + sp
-    for k = 1, 6 do
-      local col, row = (k - 1) % 3, math.floor((k - 1) / 3)
-      dots[k]:SetSize(d, d)
-      dots[k]:ClearAllPoints()
-      dots[k]:SetPoint("TOPLEFT", s, "CENTER",
-                       -gw / 2 + col * (d + sp), gh / 2 - row * (d + sp))
-    end
-  end, "pocket")
+  ns.AddTip(pocket, "Pocket", "top")
+  -- Warpee's own jeans back pocket, baked at 128px like the bag and the gear: the button is literally
+  -- "Pocket", the place a few things are kept to hand, so the mark is a pocket -- a rounded-bottom body
+  -- with one curved yoke seam near the top. White RGB with the shape in the alpha, tinted by the quiet
+  -- paint below; the seam is a transparent cut, so IconSilhouette's dark ground shows through it as a
+  -- dark stitch, the way the bag's seams and the lock's keyhole do. The six pooled dots it wore before
+  -- argued with a drawn pin at header size; a pocket says "a few things kept to hand" as a single shape.
+  local pocketIcon = pocket:CreateTexture(nil, "ARTWORK")
+  pocketIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\pocket.tga]])
+  pocketIcon:SetPoint("CENTER")
+  pocket.icon = pocketIcon
+  -- A smaller share than the bag's: the pocket is an angular hexagon that paints a tall slim footprint,
+  -- so at the bag's 80 it distended the cell. At 72 it stands as a compact mark beside the bag instead.
+  pocket.iconPct = 72
+  pocket.wpeIconPaint = function(s)
+    if not s.icon then return end
+    local hot = s.wpeHot and not s.offDuty
+    s.icon:SetVertexColor(Theme:C(hot and "text" or "dim"))
+  end
+  pocket.wpeIconPaint(pocket)
+  ns.IconSilhouette(pocket, pocketIcon)
   self.pocketBtn = pocket
 
   local search = ns.CreateSearchBox(f, function(text)
@@ -727,7 +813,7 @@ function Bags:Build()
 
   local money = Theme:Label(f, FONT + 1, "text")
   Theme:Money(money)
-  money:SetPoint("BOTTOMRIGHT", -PAD, 6)
+  money:SetPoint("BOTTOMRIGHT", -(PAD + FOOT_RIGHT), 6)
   self.money = money
   ns.AttachGoldTooltip(money, f, function() return self.iconSize end)
 
@@ -770,6 +856,12 @@ function Bags:BuildBagWindow()
   local wclose = ns.CreateGlyphButton(w, "×")
   wclose:SetPoint("TOPRIGHT", -6, -6)
   wclose:SetScript("OnClick", function() w:Hide() end)
+  -- The same quiet paint the main header's close wears: dim at rest, text under the pointer.
+  wclose.wpeIconPaint = function(s)
+    local hot = s.wpeHot and not s.offDuty
+    ns.TintMarkX(s, hot and "text" or "dim")
+  end
+  wclose.wpeIconPaint(wclose)
   self.bagWinClose = wclose
 
   local bagList = { 0, 1, 2, 3, 4, ns.reagentBag }
@@ -845,16 +937,30 @@ end
 
 function Bags:ReagentsHidden() return self.hideReagents and true or false end
 
--- The icon carries the state: full colour while the reagent bag is in the grid, dull once it
--- is left out. Called from the button's own Repaint as well, so a theme or a profile change
--- arrives here without the header having to know about it.
+-- The mark carries its state in the shape: a filled pentagon while the reagent block sits in the grid, a
+-- hollow outline while it is left out -- the open/closed trick the padlock uses, told by the fill and not
+-- the colour. The ink is the row's own, the same dim-at-rest / text-on-hover every mark wears, so the
+-- reagent button is the grey of the gear and the bag beside it and only the fill reads the state. Called
+-- from the button's own Repaint, so a theme or a profile change arrives here without the header having to
+-- know, and flipped by the toggle itself for the change that is not a repaint at all.
 function Bags:PaintReagents(b)
   b = b or self.reagentBtn
   if not (b and b.icon) then return end
-  local off = self:ReagentsHidden()
-  b.icon:SetVertexColor(Theme:IconTint())
-  b.icon:SetDesaturated(off)
-  b.icon:SetAlpha(off and 0.45 or 1)
+  local hidden = self:ReagentsHidden()
+  local icon = b.icon
+  -- The picture first: the two states wear two textures, one filled, one hollow, and the swap is guarded
+  -- so a hover repaint does not re-ask the file for art it already shows. The grown-black ground copies
+  -- whichever shape is up through FitIconShadow below, so the dark ring follows the swap.
+  local want = hidden and b.iconHidden or b.iconShown
+  if b.wpeReagTex ~= want then
+    b.wpeReagTex = want
+    icon:SetTexture(want)
+    if b.wpeIconShadow then b.wpeIconShadow:SetTexture(want) end
+  end
+  -- Then the ink, exactly the row's: text under the pointer, dim at rest, faint off duty -- never alpha,
+  -- the state is the shape above. IconSilhouette's wrapper re-fits the ground after this on every paint.
+  local hot = b.wpeHot and not b.offDuty
+  icon:SetVertexColor(Theme:C(b.offDuty and "faint" or (hot and "text" or "dim")))
 end
 
 -- The same key the settings row writes, from the other end of the window. Layout is the whole
@@ -1318,7 +1424,12 @@ function Bags:Layout(capture, light)
   -- next switch back. Only a snapshot has no live container to act on, so it alone hides the button.
   if self.sortBtn then self.sortBtn:SetShown(not self.snap) end
   if self.reagentBtn then self:PaintReagents() end
-  if self.pocketBtn then self.pocketBtn:Show() end
+  -- The pocket button opens the pocket and nothing else now, so a pocket that is switched off takes the
+  -- button off the row with it -- the row chains through the shown buttons only, so nothing is left
+  -- standing in its place. The view switch it used to fall back on lives on the bags button.
+  if self.pocketBtn then
+    self.pocketBtn:SetShown(ns.Pocket and ns.Pocket:Enabled() and true or false)
+  end
   self:VendorState()
   -- The snapshot is the one thing here that costs a scan of every bag, and a plain
   -- repaint cannot change it: same cells, same contents, same picture. Only the points
@@ -2517,10 +2628,21 @@ function ns.FormatNumber(n)
   return groupNumber(n, sep)
 end
 
+-- The three money coins are the client's own, the ones every amount in the game is written with. A number
+-- written as a string has to carry its coin inside the string and a texture escape cannot be tinted, so
+-- there is nothing here to tint in the first place. Warpee's own coin stays where it means something -- the
+-- header button, the sale mark and the junk coin, where it says "this is for sale" -- and an earlier pass
+-- that put it on the money line too read wrong the moment it was drawn at twelve: our coin is authored at
+-- 128 for a header cell and its rings turn to mud at a twelfth of that.
+-- The last number of each escape is the icon's own lift off the baseline. At 0 the coin hangs on the
+-- digits' bottom -- a texture in a string is drawn sitting on the baseline -- so it reads as standing under
+-- the number rather than level with it (owner: "выровнена по низу числа, а не посередине"). One pixel up
+-- puts its middle on the digits' middle at the sizes this addon writes money in. The letter form below
+-- needs none of this: a letter is text and rides the line by itself.
 local COIN_ICON = {
-  g = "|TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:0|t",
-  s = "|TInterface\\MoneyFrame\\UI-SilverIcon:12:12:2:0|t",
-  c = "|TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:0|t",
+  g = "|TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:1|t",
+  s = "|TInterface\\MoneyFrame\\UI-SilverIcon:12:12:2:1|t",
+  c = "|TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:1|t",
 }
 local COIN_HEX = { g = "ffd700", s = "c7c7cf", c = "eda55f" }
 -- The colour of a coin's letter is the one thing another window can borrow from here: the guild
@@ -2535,6 +2657,8 @@ end
 
 local function coinUnit(letter)
   if not Bags.goldLetters then return COIN_ICON[letter] end
+  -- The space is the one the short money puts before the letter: "1.2k g" reads as a number and a unit,
+  -- where "1.2kg" reads as a weight.
   local sp = (letter == "g" and WarpeeDB and WarpeeDB.goldFormat == "short") and " " or ""
   return sp .. "|cff" .. COIN_HEX[letter] .. ns.CoinLetter(letter) .. "|r"
 end
@@ -2700,16 +2824,35 @@ function Bags:VendorState()
   local b = self.sellBtn
   if not b then return end
   b:SetShown(not self.snap)
-  -- The coin follows CanBuy, not IsOpen: a repair-only NPC opens a merchant that takes nothing, so
-  -- the button stays dim there rather than lighting up over a sale that would silently do nothing.
-  local on = (ns.Vendor and ns.Vendor:CanBuy()) and true or false
-  -- The coin dresses itself in its own paint (see Build), and the repaint this makes hands the ground
-  -- under it the same alpha, so nothing here follows the icon by hand any more.
-  ns.SetButtonEnabled(b, on)
+  -- The coin is painted from wpeSellReady (RefreshSellCoin), which asks for a buying merchant AND
+  -- something to sell. The button itself stays enabled even when the coin is dim, so the tooltip
+  -- ("Talk to a merchant first") can say why instead of the button going dead. The merchant edge changes
+  -- both halves, so the coin is refreshed here.
+  self:RefreshSellCoin()
   -- The merchant edge changes what VendorBlocked answers, so re-dim the open bags here: the grey
   -- appears the moment a buying merchant is up and clears when he closes or turns out repair-only.
   if ns.RefreshBagDim then ns.RefreshBagDim() end
   self:FitHeader()
+end
+
+-- The coin's gold is the conjunction of two reads, never one: a merchant who is open and actually buying,
+-- AND something in the live bags the player's own sell rules would hand over (Vendor:Scan runs the ilvl
+-- window, the grey/consumable/token toggles, the keep settings and the carousel marks). CanBuy covers the
+-- repair-only stall -- open, but with empty shelves, so it would sell nothing -- in the same read.
+-- Guarded for the pre-login window where the bags exist but Vendor has not loaded. Cheap: it is the same
+-- per-slot container read the sell run already does, no tooltip scan, in keeping with the no-scan rule,
+-- and it only runs at all while a merchant is up.
+function Bags:RefreshSellCoin()
+  local b = self.sellBtn
+  if not b then return end
+  local ready = false
+  local V = ns.Vendor
+  if V and V.Scan and V.IsOpen and V:IsOpen() and V.CanBuy and V:CanBuy() then
+    local list = V:Scan()
+    ready = list and #list > 0 or false
+  end
+  b.wpeSellReady = ready
+  b:Repaint()
 end
 
 function Bags:BrowseState()
@@ -2909,7 +3052,7 @@ function Bags:FitHeader()
     self.slotText:SetShown(show)
   end
   if self.title and self.money then
-    self.title:SetText("WARPEE")
+    self.title:SetText(ns.TITLE)
     local tw = math.ceil(self.title:GetStringWidth())
     local room = w - PAD * 2 - math.ceil(self.money:GetStringWidth()) - 12
     local show = tw <= 0 or room >= tw
@@ -2935,6 +3078,10 @@ function Bags:UpdateMeta()
   else
     self.gaugeBg:Hide(); self.gaugeFill:Hide()
   end
+  -- The bags just settled (a loot, a sale, a delete), so the sell coin re-reads them: an item that
+  -- became sellable lights it gold, the last one leaving darkens it. This is the one place a plain bag
+  -- change reaches, since VendorState fires only on a merchant edge.
+  self:RefreshSellCoin()
   self:FitHeader()
 end
 
@@ -3218,14 +3365,17 @@ local function classify(f, token)
     f.ilvlMin = tonumber(gt) + (token:find(">=", 1, true) and 0 or 1)
   elseif lt then
     f.ilvlMax = tonumber(lt) - (token:find("<=", 1, true) and 0 or 1)
-  elseif token:match("^id:?(%d+)$") then
+  elseif ns.SearchFold(token):match("^id:?(%d+)$") then
     -- Match one exact itemID. A bare number is already ilvl, so the id is prefixed; several ids in
     -- one string OR together like kinds do, so a rule can name a small set (a Hearthstone category).
     -- The colon is taken as well as the bare form: "id:6948" is how the token gets written by hand, and
     -- nothing else it could mean, so reading it is the rule the player wrote rather than a text search
-    -- that silently matches nothing.
+    -- that silently matches nothing. Folded first, like the item-level prefixes: every language's
+    -- interface labels the field "ID" ("Gegenstands-ID", "物品 ID"), so the spelling a player copies out
+    -- of the help sheet has to answer whether it is typed in the case the panel shows or in the lower
+    -- case the legend prints.
     f.ids = f.ids or {}
-    f.ids[tonumber(token:match("^id:?(%d+)$"))] = true
+    f.ids[tonumber(ns.SearchFold(token):match("^id:?(%d+)$"))] = true
   elseif num then
     f.ilvl = tonumber(num)
   elseif QUALITY_WORDS[token] then
@@ -3540,6 +3690,42 @@ local PICK_TOKENS = {
 -- lowercase token; this is only how the row is spelled in the picker.
 local PICK_DISPLAY = { boe = "BoE", boa = "BoA" }
 
+-- The one token each expansion level carries in the list above, so a caller holding a level the client gave
+-- it — the vendor page ticks levels, not tokens — reaches the same name the picker draws here. Built from
+-- the list, so a new expansion is a row there and nothing here; a level no token names, a client one
+-- expansion ahead of the addon, answers nil.
+local EXP_TOKEN
+function ns.ExpansionToken(i)
+  if not EXP_TOKEN then
+    EXP_TOKEN = {}
+    for _, e in ipairs(PICK_TOKENS) do
+      local lvl = (e[2] == "expansion") and EXP_WORDS[e[1]] or nil
+      if lvl and EXP_TOKEN[lvl] == nil then EXP_TOKEN[lvl] = e[1] end
+    end
+  end
+  return EXP_TOKEN[tonumber(i) or -1]
+end
+
+-- An expansion's name in the ADDON's language, which is not the same thing as the client's: the locale
+-- file's own title where it carries one (the Chinese and Korean files write Blizzard's translated titles
+-- down), and only then the game's own global (EXPANSION_NAME0..N, in the client's language, so English on
+-- an English client whatever the addon reads). The global used to be read first, which is how English
+-- titles landed in a Chinese or Korean vendor page. nil when neither answers, so a caller can fall back to
+-- a bare number.
+function ns.ExpansionName(i)
+  i = tonumber(i)
+  if not i then return nil end
+  local token = ns.ExpansionToken(i)
+  if token then
+    local key = "expansion " .. token
+    local own = ns.L[key]
+    if own ~= key then return own end
+  end
+  local n = _G["EXPANSION_NAME" .. i]
+  if type(n) == "string" and n ~= "" then return n end
+  return nil
+end
+
 -- The token picker's rows: each curated entry with the word to SHOW (the player's own language when the
 -- locale spells that token, else the English token) and the word to INSERT (always the English token).
 -- So a Russian player browses "латы" but the field is written "plate" — the stored rule stays canonical
@@ -3573,13 +3759,10 @@ function ns.SearchTokenList()
         show = PICK_DISPLAY[token]
       elseif axis == "expansion" and EXP_WORDS[token] then
         -- Show the expansion's full name rather than the short code the field takes — "The Burning
-        -- Crusade", not "tbc". The locale file's own name wins where it carries one: the Chinese and
-        -- Korean clients ship official titles and those files write them down, while Blizzard never
-        -- translated the rest and those read the English title straight off the game's own global
-        -- (EXPANSION_NAME0..N). The field still stores the short token; only the label is a name.
-        local key = "expansion " .. token
-        local own = ns.L[key]
-        show = (own ~= key and own) or _G["EXPANSION_NAME" .. EXP_WORDS[token]]
+        -- Crusade", not "tbc" — read through the same call the vendor page's token list uses, so a title
+        -- the locale carries stands in both places or in neither. The field still stores the short token;
+        -- only the label is a name.
+        show = ns.ExpansionName(EXP_WORDS[token])
       elseif axis == "stat" then
         -- The official stat name in the ADDON language: the locale's own string if it carries one, else
         -- the English name. Never the game client's spelling -- the chip must follow Warpee's language,

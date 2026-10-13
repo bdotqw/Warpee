@@ -342,7 +342,7 @@ function P:ImportCategories(str, mode)
   -- The editor was never opened in this session, so its own refresh path does not exist yet. Applying
   -- the state again is the heavy door, but it is the one that leaves the bag, the bank and the pocket
   -- classifying by the list that was just read in.
-  if not (ns.Options and ns.Options.catChanged) and ns.ApplyAll then pcall(ns.ApplyAll) end
+  if not (ns.Options and ns.Options.catChanged) and ns.ApplyAll then ns.Guard("profile apply", ns.ApplyAll) end
   return true, count, replace and "replace" or "merge"
 end
 
@@ -479,8 +479,10 @@ local function tintButton(b, inkKey, edgeKey)
     ns.SetBg(s, Theme:C(hot and "panelHi" or "panel"))
     ns.SetEdge(s, Theme:C(fade and "strokeSoft"
                                      or (hot and "accent" or (edgeKey or "stroke"))))
+    -- Hover lights the edge, not the word: the ink stays the button's resting colour so the label is
+    -- never painted over under the pointer.
     if s.Text then
-      s.Text:SetTextColor(Theme:C(fade and "faint" or (hot and "accent" or inkKey)))
+      s.Text:SetTextColor(Theme:C(fade and "faint" or inkKey))
     end
     if s.wpeIconPaint then s.wpeIconPaint(s) end
   end
@@ -489,8 +491,7 @@ local function tintButton(b, inkKey, edgeKey)
   if b.Text then
     Theme:Track(b.Text, function(s)
       local p = s:GetParent()
-      local hot = p and p.wpeHot and not p.offDuty
-      s:SetTextColor(Theme:C((p and p.offDuty) and "faint" or (hot and "accent" or inkKey)))
+      s:SetTextColor(Theme:C((p and p.offDuty) and "faint" or inkKey))
     end)
   end
   paint(b)
@@ -609,7 +610,18 @@ function P:BuildPanel()
     StaticPopupDialogs["WARPEE_DEL_PROFILE"].text = T("Delete profile %s?")
     StaticPopup_Show("WARPEE_DEL_PROFILE", active, nil, active)
   end)
-  tintButton(delX, "gaugeHi", "gaugeHi")
+  -- The delete control: a white cross in a red-framed square, the same "this removes" red the category
+  -- editor's delete wears (Theme danger). tintButton keeps the cross white (inkKey "text"); the edge is
+  -- then overridden to danger / dangerHi so the frame, not the glyph, carries the warning.
+  tintButton(delX, "text", "danger")
+  local baseDelX = delX.Repaint
+  local function delXPaint(s)
+    baseDelX(s)
+    if not s.offDuty then ns.SetEdge(s, Theme:C(s.wpeHot and "dangerHi" or "danger")) end
+  end
+  delX.Repaint = delXPaint
+  Theme:Track(delX, delXPaint)
+  delXPaint(delX)
   ns.AddTip(delX, function()
     if P:Active() ~= RESERVED then return nil end
     return T("Cannot delete the default profile")

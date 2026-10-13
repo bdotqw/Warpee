@@ -92,18 +92,25 @@ end
 
 function ns.AddTip(frame, title, side, extra)
   if not frame then return end
+  -- One hook per frame: HookScript adds rather than replaces, so a persistent frame re-decorated on a
+  -- rebuild would stack OnEnter/OnLeave handlers and fire ShowTip several times per hover. The guard
+  -- matches AttachGoldTooltip's wpeGoldHit. The title/extra closures still see the latest values because
+  -- they are stored on the frame and read live below, not captured once.
+  frame.wpeTipTitle, frame.wpeTipSide, frame.wpeTipExtra = title, side, extra
+  if frame.wpeTip then return end
+  frame.wpeTip = true
   frame:HookScript("OnEnter", function(s)
     local entries = {}
-    local head = title
-    if type(title) == "function" then head = title(s) end
+    local head = s.wpeTipTitle
+    if type(head) == "function" then head = head(s) end
     if type(head) == "string" and head ~= "" then entries[#entries + 1] = { text = head } end
-    if extra then
-      local more = extra(s)
+    if s.wpeTipExtra then
+      local more = s.wpeTipExtra(s)
       if type(more) == "table" then
         for _, e in ipairs(more) do entries[#entries + 1] = e end
       end
     end
-    ns.ShowTip(s, entries, side)
+    ns.ShowTip(s, entries, s.wpeTipSide)
   end)
   frame:HookScript("OnLeave", ns.HideTip)
 end

@@ -211,6 +211,35 @@ function ns.SizeArrow(b, px)
   b.wpeGlyph:SetSize(t:GetWidth(), t:GetHeight())
 end
 
+-- The drag half of a scrollbar: press plants the thumb, the cursor carries it, release lets go, and the
+-- thumb wears three tints on the way (resting, hovered, held). Four scrollbars in the addon had these ten
+-- lines each -- the settings dropdown, a settings page, the help sheet and the character picker -- and they
+-- differed only in what a scroll means to their own list. So the two halves that are the caller's are
+-- handed in: `scrollTo(v)` moves the list (and usually repaints it), `span()` is how far it can travel.
+-- The caller clamps v itself; this only says where the cursor went.
+function ns.ScrollThumb(thumb, tex, sf, scrollTo, span)
+  thumb:EnableMouse(true)
+  thumb:SetScript("OnMouseDown", function(s)
+    s.grabY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+    s.grabScroll = sf:GetVerticalScroll() or 0
+    s:SetScript("OnUpdate", function(t)
+      local y = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+      local travel = sf:GetHeight() - t:GetHeight()
+      if travel <= 0 then return end
+      scrollTo(t.grabScroll + (t.grabY - y) * span() / travel)
+    end)
+    tex:SetVertexColor(Theme:C("accent"))
+  end)
+  thumb:SetScript("OnMouseUp", function(s)
+    s:SetScript("OnUpdate", nil)
+    tex:SetVertexColor(Theme:C("faint"))
+  end)
+  thumb:SetScript("OnEnter", function() tex:SetVertexColor(Theme:C("dim")) end)
+  thumb:SetScript("OnLeave", function(s)
+    if not s:GetScript("OnUpdate") then tex:SetVertexColor(Theme:C("faint")) end
+  end)
+end
+
 local function barField(bar, apply)
   local e = CreateFrame("EditBox", nil, bar, "BackdropTemplate")
   ns.SnapBox(e, 40, 16)
@@ -657,7 +686,10 @@ function ns.CreateButton(parent, text, width, height, template, dark)
   local function repaint(s)
     local hot = s.wpeHot and not s.offDuty
     local bg = hot and "panelHi" or "panel"
-    local ink = hot and "accent" or (s.offDuty and "faint" or (lightInk and "overlay" or "text"))
+    -- The hover shows in the plate and the border, never in the ink: a label kept its colour under the
+    -- pointer and only the box around it lights. Accent on the text itself read as the word being painted
+    -- over, which is not wanted anywhere the window puts a control.
+    local ink = s.offDuty and "faint" or (lightInk and "overlay" or "text")
     ns.SetBg(s, Theme:C(bg))
     ns.SetEdge(s, Theme:C(hot and "accent" or (s.offDuty and "strokeSoft" or "stroke")))
     if s.Text then s.Text:SetTextColor(Theme:C(ink)) end
@@ -669,8 +701,7 @@ function ns.CreateButton(parent, text, width, height, template, dark)
   local fs = Theme:Label(b, 12, lightInk and "overlay" or "text")
   Theme:Track(fs, function(s)
     local p = s:GetParent()
-    local hot = p and p.wpeHot and not p.offDuty
-    local key = hot and "accent" or ((p and p.offDuty) and "faint" or (lightInk and "overlay" or "text"))
+    local key = (p and p.offDuty) and "faint" or (lightInk and "overlay" or "text")
     s:SetTextColor(Theme:C(key))
   end)
   fs:SetPoint("CENTER")
@@ -753,6 +784,16 @@ local function fitArm(host, d, sh, len, px)
   sh:SetSize(len + 2 * u, px + 2 * u)
   sh:SetRotation(math.rad(sh.wpeAngle))
 end
+-- A measure that a mark is laid out by, in whole physical pixels and always an even count. The marks
+-- that are built from axis-aligned rectangles rather than turned arms -- the padlock and the question
+-- mark -- lay every one of their parts out from the centre of the box, and half of an odd measure is a
+-- half pixel that would put an edge between two of them. Even measures keep every edge on a boundary
+-- with that centre, and the parity shift those two fits apply keeps them there when the box itself is
+-- an odd count of pixels across.
+local function evenCount(v, least)
+  local n = math.max(least or 2, math.floor(v + 0.5))
+  return n + (n % 2)
+end
 function ns.MarkX(host)
   local mark = host.wpeMarkX
   if not mark then
@@ -775,7 +816,8 @@ function ns.FitMarkX(host)
   for i, d in ipairs(mark) do fitArm(host, d, mark.shadow[i], len, px) end
 end
 function ns.TintMarkX(host, key)
-  local mark = host.wpeMarkX or host.wpeMarkPlus
+  local mark = host.wpeMarkX or host.wpeMarkPlus or host.wpeMarkLock or host.wpeMarkCaret
+     or host.wpeMarkHelp or host.wpeMarkArrow
   if not mark then return end
   local r, g, b = Theme:C(key or "text")
   for _, d in ipairs(mark) do d:SetVertexColor(r, g, b) end
@@ -783,12 +825,12 @@ end
 -- Drawn plus mark: horizontal and vertical strokes, same reason as MarkX.
 -- No outline: at 2-3px a 1px rim rasterises unevenly and reads as a stray
 -- pixel on one side, so the plus stays a clean bar.
-function ns.MarkPlus(host)
+function ns.MarkPlus(host, shadow)
   local mark = host.wpeMarkPlus
   if not mark then
     mark = { shadow = {} }
-    addArm(mark, host, 0)
-    addArm(mark, host, 90)
+    addArm(mark, host, 0, shadow)
+    addArm(mark, host, 90, shadow)
     -- The two strokes are never snapped to the pixel grid. The grid rounds every texture on its
     -- own, so the moment the window sits off the grid -- being dragged, or landed a fraction of a
     -- pixel away -- one bar rounds its edges out and the other rounds them in, and the arms stop
@@ -797,6 +839,7 @@ function ns.MarkPlus(host)
     -- the moment it lands, because the fit below already puts every edge on the grid for a box
     -- that sits on it.
     for _, d in ipairs(mark) do ns.NoPixelSnap(d) end
+    for _, sh in ipairs(mark.shadow) do ns.NoPixelSnap(sh) end
     host.wpeMarkPlus = mark
     host:HookScript("OnSizeChanged", function(s) ns.FitMarkPlus(s) end)
   end
@@ -817,18 +860,524 @@ function ns.FitMarkPlus(host)
   -- rounding out and the other in, which is the 2px/4px the arms used to come out as.
   local lenX, lenY = snapParity(host, span, "x"), snapParity(host, span, "y")
   local thX, thY = snapParity(host, want, "x"), snapParity(host, want, "y")
-  for _, d in ipairs(mark) do
+  local u = ns.PX(host, 1)
+  for i, d in ipairs(mark) do
     d:ClearAllPoints()
     d:SetPoint("CENTER", host, "CENTER", 0, 0)
-    if d.wpeAngle == 90 then d:SetSize(thX, lenY) else d:SetSize(lenX, thY) end
+    local sh = mark.shadow[i]
+    if d.wpeAngle == 90 then
+      d:SetSize(thX, lenY)
+      -- Proud by a pixel on every side, the ends included, so the plus reads against a lit panel the
+      -- same way the X's shadow carries it. Axis-aligned, never rotated: the plus bars are not either.
+      if sh then sh:ClearAllPoints(); sh:SetPoint("CENTER", host, "CENTER", 0, 0); sh:SetSize(thX + 2 * u, lenY + 2 * u) end
+    else
+      d:SetSize(lenX, thY)
+      if sh then sh:ClearAllPoints(); sh:SetPoint("CENTER", host, "CENTER", 0, 0); sh:SetSize(lenX + 2 * u, thY + 2 * u) end
+    end
   end
 end
+-- Drawn padlock, for the same reason as the X and the plus: a mark drawn here can never be missing
+-- from the font the player happened to pick, and it needs no ground built for it either, because its
+-- own shadow travels with it (IconSilhouette is what an art mark needs instead).
+-- Six marks and every one of them axis aligned: the four bars -- the body, the two legs of the
+-- shackle and the bar that closes them at the top -- plus the two dark marks the keyhole is built
+-- from. The only arc this file can draw is a turned bar (fitArm), and a turned bar is a staircase at
+-- the size a header carries, where right angles stay crisp.
+-- That shadow is a silhouette and not an outline: one pixel of black standing outside the shape
+-- (see the shadow pass in the fit below). An outline -- a rim drawn round every bar on both of its
+-- sides -- spends half of itself inside the mark, and the shackle is where it shows: the two
+-- pixels between the legs fill up and the arch reads as one more solid block.
+function ns.MarkLock(host, shadow)
+  local mark = host.wpeMarkLock
+  if not mark then
+    mark = { shadow = {}, hole = {} }
+    for _ = 1, 4 do
+      local sh
+      if shadow then
+        sh = host:CreateTexture(nil, "ARTWORK")
+        sh:SetDrawLayer("ARTWORK", -1)
+        sh:SetColorTexture(0, 0, 0, 0.85)
+        ns.NoPixelSnap(sh)
+        mark.shadow[#mark.shadow + 1] = sh
+      end
+      local d = host:CreateTexture(nil, "ARTWORK")
+      d:SetDrawLayer("ARTWORK", 0)
+      d:SetColorTexture(1, 1, 1, 1)
+      -- Never snapped to the pixel grid, the same call the plus makes on its two strokes: the bars
+      -- carry the fractional offset the parity shift below hands them, and a grid that rounds each
+      -- texture on its own would round them apart from each other and from the box.
+      ns.NoPixelSnap(d)
+      d.wpeShadow = sh
+      mark[#mark + 1] = d
+    end
+    -- The keyhole, and the reason the shape reads as a padlock and not as a letter: without it the
+    -- body is a closed block with an arch over it and the eye has to guess. A hole cannot be punched
+    -- through a colour texture -- there is no alpha to cut away -- so these two sit over the body in
+    -- the same near-black the outline bars wear, which is what the header behind the mark already is.
+    -- They are kept in their own list so the ink pass (TintMarkX) never reaches them: the keyhole
+    -- stays dark whatever colour the lock itself takes, the way a real hole would.
+    for _ = 1, 2 do
+      local d = host:CreateTexture(nil, "ARTWORK")
+      -- Over the bars, since sitting on the body is the whole point of them.
+      d:SetDrawLayer("ARTWORK", 1)
+      d:SetColorTexture(0, 0, 0, 0.85)
+      ns.NoPixelSnap(d)
+      mark.hole[#mark.hole + 1] = d
+    end
+    host.wpeMarkLock = mark
+    host:HookScript("OnSizeChanged", function(s) ns.FitMarkLock(s) end)
+  end
+  ns.FitMarkLock(host)
+  return mark
+end
+
+-- Every measure is a whole number of physical pixels, and every one of them even: the bars are laid
+-- out from the box centre, so half of an odd measure is a half pixel and would put a bar's edge
+-- between two of them. Even measures keep every edge on a boundary with the centre, and the parity
+-- shift below keeps them there when the box itself is an odd count of pixels across.
+function ns.FitMarkLock(host)
+  local mark = host and host.wpeMarkLock
+  if not (mark and mark[1]) then return end
+  local w, h = host:GetWidth() or 0, host:GetHeight() or 0
+  if w <= 0 or h <= 0 then return end
+  local u = ns.PX(host, 1)
+  local bw = math.max(8, math.floor(w / u + 0.5))
+  local bh = math.max(8, math.floor(h / u + 0.5))
+  -- Drawn a shade inside its box rather than across it. At the box's own width the body came out as
+  -- wide as the gear standing beside it and the mark read as the heaviest thing in the row; pulled
+  -- in, it sits with the plus and the X instead of over them.
+  local stroke = evenCount(bh * 0.075, 2)  -- what the shackle and the bar over it are drawn with
+  local bodyW = evenCount(bw * 0.44, 10)
+  local bodyH = evenCount(bh * 0.28, 6)
+  local legH = evenCount(bh * 0.18, 4)
+  -- The opening the shackle is read by, and the one measure the ground presses on. The silhouette
+  -- stands a pixel proud of everything the mark is made of, so the bar above the gap and the body
+  -- under it each spend one of those pixels inside the gap. A gap of two -- what the shackle had --
+  -- loses both rows to them and the opening becomes a black bar, which is the shape the eye then
+  -- reads as one solid block. Four leaves two whole rows of the panel showing through.
+  local gapW = evenCount(bw * 0.18, 4)
+  local shW = stroke * 2 + gapW
+  -- The body has to stay wider than the shackle standing on it, or their edges line up and the
+  -- shackle stops reading as a handle over a plate. One pixel of shoulder is what a small box can
+  -- pay for that, and the width pass below takes the opening in first if even that is too much.
+  bodyW = math.max(bodyW, shW + 2)
+  -- A box too small for these proportions gets a smaller lock rather than one that runs over it: the
+  -- opening goes first -- two pixels is still an opening -- and then the body comes in.
+  while bodyW + 2 > bw - 2 and gapW > 2 do
+    gapW = gapW - 2
+    shW = stroke * 2 + gapW
+    bodyW = math.max(bodyW, shW + 2)
+  end
+  while bodyW + 2 > bw - 2 and bodyW > 6 do bodyW = bodyW - 2 end
+  -- A lock that can open (the pocket's) reserves headroom above the closed shackle so the body never
+  -- jumps when it toggles: the shackle lifts into room that was already held empty, in both states. The
+  -- badge's lock cannot open (no flag) and so reserves nothing, which keeps it byte-for-byte the shape
+  -- it was. rise is one shackle-stroke and the opening it leaves above the body.
+  local rise = host.wpeLockHinge and evenCount(bh * 0.14, 2) or 0
+  -- What the box has to hold is the BLOCK: the closed shape with the room the opening shackle lifts
+  -- into. It has to hold it with the ground on -- the ground is the mark's silhouette, a pixel proud on
+  -- every side (see the shadow pass) -- so a block of bh - 2 is a block whose ground lands on the box's
+  -- own edge rows, and the button paints its frame there. That is what happened at the smallest step of
+  -- the pocket's header: the lock's ground painted over the bottom edge of its own square (owner, in
+  -- game). A step further down the ink left the box as well, because the guard asked for bh - 3 - rise
+  -- and then floored every measure: a box too small to pay for the floors kept the full-size lock and
+  -- hung it outside its square.
+  local block = function() return stroke + legH + bodyH + rise end
+  -- So the block is fitted to the box in three passes: what the mark wants first (a clear pixel of
+  -- frame all round the ground, which is how the plus and the X sit in their squares), then the clear
+  -- pixel alone for a box the shape's own floors cannot come in far enough for (the ground then lands
+  -- on the box's edge rows, which is inside), and the ground itself last, for a box too small even for
+  -- that -- a lock badge on the smallest item cell can land at ten pixels across, where the mark is a
+  -- speck and the ground is what was hanging outside. The measures give way in the order that costs the
+  -- mark least: the reserved rise first (two is still room for the shackle to lift into, and the pose is
+  -- what the state is read by), then the legs, then the body, then the stroke. Every step is two pixels,
+  -- so the measures stay even and every edge stays on a boundary.
+  local function shrink(target)
+    while block() > target do
+      if rise > 2 then rise = rise - 2
+      elseif legH > 2 then legH = legH - 2
+      elseif bodyH > 4 then bodyH = bodyH - 2
+      elseif stroke > 2 then stroke = stroke - 2
+      elseif bodyH > 2 then bodyH = bodyH - 2
+      else break end
+    end
+  end
+  shrink(math.max(4, bh - 4))
+  if block() + 2 > bh - 2 then shrink(math.max(2, bh - 2)) end
+  local GROUND = (block() + 2 <= bh) and 1 or 0
+  -- The reserved rise is centred into the box with the lock, so the closed shackle sits the same whether
+  -- or not the lock can open, and the body keeps its place when the shackle rises into the held room.
+  local top = block() / 2 - rise
+  local shiftX = (bw % 2 == 0) and 0 or 0.5
+  local shiftY = (bh % 2 == 0) and 0 or 0.5
+  local legX = (shW - stroke) / 2
+  local bodyY = top - stroke - legH - bodyH / 2
+  -- The keyhole: the round part high in the body and the slot under it, touching, so the two read as
+  -- one shape. Both are an even count of pixels, the same parity the bars are held to, and one pixel
+  -- of body is left above the hole and below the slot -- that margin is what makes it a hole in a
+  -- plate instead of a gap splitting it.
+  local holeW = evenCount(bodyW * 0.36, 2)
+  local holeH = evenCount(bodyH * 0.30, 2)
+  local slotW = evenCount(holeW * 0.5, 2)
+  local slotH = evenCount(bodyH * 0.34, 2)
+  -- A plate keeps a pixel of itself above and below what is cut out of it, or the keyhole reads as a gap
+  -- splitting the plate rather than a hole in it. Six pixels of plate and up pay for both parts of the
+  -- keyhole; four -- the smallest the fit takes the body to while it is a plate at all -- keep the round
+  -- hole alone; and the two-pixel stub the smallest boxes end at gets no keyhole, because at that size
+  -- the cut is the whole plate and the mark is read by its shackle and its body alone.
+  if bodyH < 4 then holeH = 0 end
+  if holeH == 0 then slotH = 0
+  elseif holeH + slotH > bodyH - 2 then slotH = bodyH - 2 - holeH end
+  local holeY = bodyY + bodyH / 2 - holeH / 2 - 1
+  local slotY = holeY - holeH / 2 - slotH / 2
+  -- The body first, then the two legs, then the bar: left and right, the legs stand at the shackle's
+  -- own width and the bar spans their outer edges, so the three read as one shape over the body. The
+  -- keyhole closes the list. Open (the pocket unlocked), the shackle hinges on the left: the left leg
+  -- keeps its foot on the body and grows up to the raised bar, the bar lifts by the reserved rise, and
+  -- the right leg hangs from the raised bar with its foot lifted clear of the body -- the universal
+  -- open-padlock shape, read without any colour change.
+  local legMidY = top - stroke - legH / 2
+  local barY = top - stroke / 2
+  local legs
+  if host.wpeLockHinge and host.wpeLockOpen and rise > 0 then
+    -- The shackle lifts a pixel short of the reserved headroom, so the open lock sits a touch lower in
+    -- the box instead of pinned to its top edge. The body is left where the closed shape has it, so the
+    -- toggle still moves nothing but the shackle.
+    local lift = rise - 1
+    local barHi = barY + lift
+    legs = {
+      { stroke, legH + lift, -legX, legMidY + lift / 2, -1, 0 },
+      { stroke, legH, legX, barHi - stroke / 2 - legH / 2, 1, 0 },
+      { shW, stroke, 0, barHi },
+    }
+  else
+    legs = {
+      { stroke, legH, -legX, legMidY, -1, 0 },
+      { stroke, legH, legX, legMidY, 1, 0 },
+      { shW, stroke, 0, barY },
+    }
+  end
+  local parts = {
+    { bodyW, bodyH, 0, bodyY },
+    -- The fifth number is how far the part's ground is pushed sideways and the sixth how much it is
+    -- allowed to grow (see the shadow pass).
+    legs[1],
+    legs[2],
+    legs[3],
+    { holeW, holeH, 0, holeY },
+    { slotW, slotH, 0, slotY },
+  }
+  for i = 1, #parts do
+    -- The keyhole's two marks live in a list of their own, so they take the last two entries of the
+    -- parts table -- and no shadow: an outline drawn around a hole would fill it back in.
+    local d = mark[i] or mark.hole[i - 4]
+    local sh = (i <= 4) and mark.shadow[i] or nil
+    local p = parts[i]
+    if d then
+      local x, y = (p[3] + shiftX) * u, (p[4] + shiftY) * u
+      d:ClearAllPoints()
+      d:SetPoint("CENTER", host, "CENTER", x, y)
+      d:SetSize(p[1] * u, p[2] * u)
+      d:SetShown(p[1] > 0 and p[2] > 0)
+      if sh then
+        -- The ground is the mark's silhouette, and the one rule it keeps is a pixel of it outside
+        -- the shape and never a pixel inside. Grown on every side, that is what the body and the bar
+        -- over the shackle get. The two legs cannot be grown that way: a pixel of theirs on the
+        -- inner side lands between them and eats the opening the shackle is read by -- and the push
+        -- alone, on a leg still grown, is worse, because it leaves two pixels of black hanging on
+        -- the outside of each leg while the opening it was meant to save is spent anyway. They take
+        -- their pixel sideways instead, the same rect moved out by one (p[6] = 0, p[5] = the push),
+        -- which is a pixel of ground on the outside of each leg and none on the inside. The outer
+        -- edge is then one pixel wide all the way round the mark, and the opening stays open.
+        local grow = p[6] or GROUND
+        sh:ClearAllPoints()
+        sh:SetPoint("CENTER", host, "CENTER", x + (p[5] or 0) * u, y)
+        sh:SetSize((p[1] + 2 * grow) * u, (p[2] + 2 * grow) * u)
+        sh:SetShown(p[1] > 0 and p[2] > 0)
+      end
+    end
+  end
+end
+
+-- Drawn text caret: a bar with a serif at each end, which is the shape the pointer takes over a
+-- piece of editable text in every system there is. Drawn for the same reason the X, the plus and the
+-- lock are -- but for one more of its own: the toggle it faces used to carry a letter, and a letter
+-- says nothing at all where the alphabet is another one (the rule editor is read in Chinese and
+-- Korean too, where a "T" is a shape and nothing else). The caret is furniture rather than a word:
+-- nobody reads it as text in one language and as something else in another, and three rectangles of
+-- the furniture this file already has are the whole of it.
+function ns.MarkCaret(host, shadow)
+  local mark = host.wpeMarkCaret
+  if not mark then
+    mark = { shadow = {} }
+    -- Three marks: the bar and the two serifs that cap it.
+    for _ = 1, 3 do
+      local sh
+      if shadow then
+        sh = host:CreateTexture(nil, "ARTWORK")
+        sh:SetDrawLayer("ARTWORK", -1)
+        sh:SetColorTexture(0, 0, 0, 0.85)
+        ns.NoPixelSnap(sh)
+        mark.shadow[#mark.shadow + 1] = sh
+      end
+      local d = host:CreateTexture(nil, "ARTWORK")
+      d:SetDrawLayer("ARTWORK", 0)
+      d:SetColorTexture(1, 1, 1, 1)
+      ns.NoPixelSnap(d)
+      d.wpeShadow = sh
+      mark[#mark + 1] = d
+    end
+    host.wpeMarkCaret = mark
+    host:HookScript("OnSizeChanged", function(s) ns.FitMarkCaret(s) end)
+  end
+  ns.FitMarkCaret(host)
+  return mark
+end
+
+-- The bar stands on the box centre and the two serifs cap it, each of them drawn at the bar's own
+-- end rather than past it, so the three read as one piece of furniture: a bar with a foot and a head.
+-- Every measure comes from snapParity, which asks the box and hands back a measure of that box's own
+-- parity -- so on a box of an odd count of pixels across, where the centre sits between two of them,
+-- the bar comes out that one pixel wider and every edge still lands on a boundary.
+function ns.FitMarkCaret(host)
+  local mark = host and host.wpeMarkCaret
+  if not (mark and mark[1]) then return end
+  local w, h = host:GetWidth() or 0, host:GetHeight() or 0
+  if w <= 0 or h <= 0 then return end
+  local u = ns.PX(host, 1)
+  local t = snapParity(host, h * 0.09, "y")        -- the bar, and the serifs with it
+  local len = snapParity(host, h * 0.55, "y")      -- how far the bar stands
+  -- A box short of the caret's own height gets a shorter bar rather than one running over the edge.
+  while len > 4 * u and len + 2 * u > h - 2 * u do len = len - 2 * u end
+  local capW = snapParity(host, w * 0.27, "x")
+  local capY = len / 2 - t / 2
+  -- [width, height, x, y], the bar first and then the serif at each end of it.
+  local parts = {
+    { t, len, 0, 0 },
+    { capW, t, 0, capY },
+    { capW, t, 0, -capY },
+  }
+  for i, d in ipairs(mark) do
+    local p = parts[i]
+    d:ClearAllPoints()
+    d:SetPoint("CENTER", host, "CENTER", p[3], p[4])
+    d:SetSize(p[1], p[2])
+    d:Show()
+    local sh = mark.shadow[i]
+    if sh then
+      -- A pixel of ground on every side, the ends included, the same rule the plus and the lock
+      -- follow. The serifs stand wide enough that the bar's own ground is hidden behind them at the
+      -- two ends, so the band that reads is the one around the whole caret and nothing else.
+      sh:ClearAllPoints()
+      sh:SetPoint("CENTER", host, "CENTER", p[3], p[4])
+      sh:SetSize(p[1] + 2 * u, p[2] + 2 * u)
+      sh:Show()
+    end
+  end
+end
+
+-- Drawn question mark, for the same reason the X, the plus, the lock and the caret are drawn: it is
+-- furniture of the addon and not a glyph out of whatever font the player picked, so it is the same
+-- shape on every client and at every ui scale, and it wears its own ground instead of borrowing the
+-- outline the font gave a string.
+-- Every stroke is axis aligned and a whole count of physical pixels wide, and no two parts of it meet
+-- at a corner: the bar over the bowl carries the leg that hangs under its left end and the side that
+-- comes down under its right one, two steps bring the tail back to the centre column, and the dot sits
+-- below the whole of it with a gap of its own. Corner-to-corner is how a pixel font draws a curve, and
+-- it works there because every cell of the glyph is flat ink; here each part stands on its own pixel of
+-- ground, so a mark whose parts met at corners reads as a row of separate blocks -- the shape this one
+-- was drawn badly as the first time. The bowl is four strokes wide and the leg stands two strokes
+-- deep, which is what leaves an opening inside it rather than a slot: the earlier mark carried its bar
+-- over the whole five-stroke width of the glyph, and a bar that wide over a bowl that narrow is a
+-- plate with a hole in it, not a hook.
+function ns.MarkHelp(host, shadow)
+  local mark = host.wpeMarkHelp
+  if not mark then
+    mark = { shadow = {} }
+    for _ = 1, 6 do
+      local sh
+      if shadow then
+        sh = host:CreateTexture(nil, "ARTWORK")
+        sh:SetDrawLayer("ARTWORK", -1)
+        sh:SetColorTexture(0, 0, 0, 0.85)
+        mark.shadow[#mark.shadow + 1] = sh
+      end
+      local d = host:CreateTexture(nil, "ARTWORK")
+      d:SetDrawLayer("ARTWORK", 0)
+      d:SetColorTexture(1, 1, 1, 1)
+      d.wpeShadow = sh
+      mark[#mark + 1] = d
+    end
+    host.wpeMarkHelp = mark
+    host:HookScript("OnSizeChanged", function(s) ns.FitMarkHelp(s) end)
+  end
+  ns.FitMarkHelp(host)
+  return mark
+end
+
+-- The glyph is four strokes wide and eight tall, and the stroke is the one measure all of it follows:
+-- every offset is a whole multiple of half of one and every part is one, two, three or four, which is
+-- what keeps the whole mark on the pixel grid through the parity shift below. A box that cannot pay
+-- for that at this thickness gets a thinner stroke, and one that cannot even for that loses the dot
+-- and comes down to the hook -- which still reads as the mark, where a mark running over the edge of
+-- its button does not.
+function ns.FitMarkHelp(host)
+  local mark = host and host.wpeMarkHelp
+  if not (mark and mark[1]) then return end
+  local w, h = host:GetWidth() or 0, host:GetHeight() or 0
+  if w <= 0 or h <= 0 then return end
+  local u = ns.PX(host, 1)
+  local bw = math.max(8, math.floor(w / u + 0.5))
+  local bh = math.max(8, math.floor(h / u + 0.5))
+  local stroke = evenCount(bh * 0.09, 2)
+  -- Eight strokes and the pixel of ground above and below them are what the glyph needs of the box.
+  while stroke > 2 and (8 * stroke + 2 > bh - 2 or 4 * stroke + 2 > bw - 2) do stroke = stroke - 2 end
+  local full = 8 * stroke + 2 <= bh - 2
+  -- With the dot gone the hook sits high in its box, so the rest of the glyph comes down by a stroke
+  -- and the mark stays centred on the plate it is drawn on.
+  local drop = full and 0 or -stroke
+  local parts = {
+    { 4 * stroke, stroke, 0, 3.5 * stroke + drop },            -- the bar over the bowl
+    { stroke, 2 * stroke, -1.5 * stroke, 2 * stroke + drop },  -- the leg under its left end
+    { stroke, 3 * stroke, 1.5 * stroke, 1.5 * stroke + drop }, -- the side under its right one
+    { 2 * stroke, stroke, stroke, -0.5 * stroke + drop },      -- the tail's first step to the centre
+    { 2 * stroke, stroke, 0, -1.5 * stroke + drop },           -- and the second, under the first
+  }
+  if full then parts[#parts + 1] = { 2 * stroke, stroke, 0, -3.5 * stroke } end  -- the dot
+  local shiftX = (bw % 2 == 0) and 0 or 0.5
+  local shiftY = (bh % 2 == 0) and 0 or 0.5
+  for i, d in ipairs(mark) do
+    local p = parts[i]
+    if p then
+      local x, y = (p[3] + shiftX) * u, (p[4] + shiftY) * u
+      d:ClearAllPoints()
+      d:SetPoint("CENTER", host, "CENTER", x, y)
+      d:SetSize(p[1] * u, p[2] * u)
+      d:Show()
+      local sh = mark.shadow[i]
+      if sh then
+        -- A pixel of ground on every side, the ends included, the same rule the other drawn marks
+        -- follow. The bowl's ground eats one of the pixels inside its own opening from every side, the
+        -- way the shackle's does, and the four that are left are what the hook is read by. The parts
+        -- of the tail share their edges with the side above them and with each other, so the grounds
+        -- they lay over one another are hidden behind the ink and the band that reads is the one
+        -- around the whole shape and nothing else.
+        sh:ClearAllPoints()
+        sh:SetPoint("CENTER", host, "CENTER", x, y)
+        sh:SetSize((p[1] + 2) * u, (p[2] + 2) * u)
+        sh:Show()
+      end
+    else
+      d:Hide()
+      if mark.shadow[i] then mark.shadow[i]:Hide() end
+    end
+  end
+end
+
+-- Drawn down-arrow (the clean-up / sort action), for the same reason as the X, the plus and the lock:
+-- a mark drawn here can never be missing from the font the player picked, and it carries its own ground.
+-- The head is a stack of 1px-tall bars whose width grows by two a row -- the staircase a pixel font draws
+-- a 45-degree edge as, and the only diagonal this file makes without turning a bar. The stem is one
+-- vertical bar from a row inside the head up to the top. Each white part grows a 1px silhouette on every
+-- side, the lock's rule, and the parts share edges so the grounds merge into one outline.
+-- The head's row count follows the box, so the textures are pooled and reused per fit, not made once like
+-- the lock's four: a fit shows the ones it used and hides the rest. The ink lives in mark's own array so
+-- TintMarkX and ShowMark reach it over ipairs, exactly as the lock's bars do.
+function ns.MarkArrow(host, shadow)
+  local mark = host.wpeMarkArrow
+  if not mark then
+    mark = { shadow = {} }
+    mark.wantShadow = shadow and true or false
+    host.wpeMarkArrow = mark
+    host:HookScript("OnSizeChanged", function(s) ns.FitMarkArrow(s) end)
+  end
+  ns.FitMarkArrow(host)
+  return mark
+end
+
+-- One pooled texture of a layer, made on first need. The ink pool IS mark (numeric keys), so the tint and
+-- show passes walk it with ipairs; the shadow pool is mark.shadow, which ShowMark already walks. No
+-- NoPixelSnap: like the question mark, the many overlapping grounds must round to the grid together, or a
+-- window landed off the grid rounds them apart and the outline frays. (The plus keeps snap off for the
+-- opposite reason -- two congruent bars that must share one fractional offset -- but a stack of grounds is
+-- the help mark's case, not the plus'.)
+local function arrowPool(host, mark, layer, i)
+  local pool = (layer == "shadow") and mark.shadow or mark
+  local t = pool[i]
+  if not t then
+    t = host:CreateTexture(nil, "ARTWORK")
+    if layer == "shadow" then
+      t:SetDrawLayer("ARTWORK", -1); t:SetColorTexture(0, 0, 0, 0.85)
+    else
+      t:SetDrawLayer("ARTWORK", 0); t:SetColorTexture(1, 1, 1, 1)
+    end
+    pool[i] = t
+  end
+  return t
+end
+
+-- Every measure is a whole count of physical pixels. The footprint matches the atlas arrow this replaces
+-- (it sat at 58% of the box wide, 66% tall), so the drawn mark drops into the header at the same weight
+-- and stands level with the lock and the gear. The head is even-wide so its tip lands on the box centre
+-- column; the parity shift keeps every edge on the grid when the box is an odd count across.
+function ns.FitMarkArrow(host)
+  local mark = host and host.wpeMarkArrow
+  if not mark then return end
+  local w, h = host:GetWidth() or 0, host:GetHeight() or 0
+  if w <= 0 or h <= 0 then return end
+  local u = ns.PX(host, 1)
+  local bw = math.max(8, math.floor(w / u + 0.5))
+  local bh = math.max(8, math.floor(h / u + 0.5))
+
+  local headW = evenCount(bw * 0.34, 6)
+  if headW > bw - 2 then headW = headW - 2 end
+  local rows = headW / 2                         -- widths 2,4,...,headW over `rows` rows -> 45-degree sides
+  local height = evenCount(bh * 0.40, rows + 2)  -- total height, floored so a little stem always clears the head
+  if height > bh - 2 then height = height - 2 end
+  local halfH = height / 2
+  local stemW = evenCount(bw * 0.14, 2)
+
+  local shiftX = (bw % 2 == 0) and 0 or 0.5
+  local shiftY = (bh % 2 == 0) and 0 or 0.5
+
+  local ni, ng = 0, 0
+  local function place(wd, ht, x, y)
+    ni = ni + 1
+    local d = arrowPool(host, mark, "ink", ni)
+    d:ClearAllPoints()
+    d:SetPoint("CENTER", host, "CENTER", (x + shiftX) * u, (y + shiftY) * u)
+    d:SetSize(wd * u, ht * u); d:Show()
+    if mark.wantShadow then
+      ng = ng + 1
+      local sh = arrowPool(host, mark, "shadow", ng)
+      sh:ClearAllPoints()
+      sh:SetPoint("CENTER", host, "CENTER", (x + shiftX) * u, (y + shiftY) * u)
+      sh:SetSize((wd + 2) * u, (ht + 2) * u); sh:Show()
+    end
+  end
+
+  -- Head: row 0 is the tip (narrow, at the bottom), the last row is the widest (the shoulders). y runs up
+  -- from the box centre, so the tip sits at -halfH and the head climbs from there.
+  for r = 0, rows - 1 do
+    place(2 + 2 * r, 1, 0, -halfH + 0.5 + r)
+  end
+  -- Stem: from one row up into the head (so it overlaps and the grounds merge) to the top edge.
+  local stemBottom = (-halfH + rows) - 1
+  local stemTop = halfH
+  place(stemW, stemTop - stemBottom, 0, (stemTop + stemBottom) / 2)
+
+  for i = ni + 1, #mark        do mark[i]:Hide() end
+  for i = ng + 1, #mark.shadow do mark.shadow[i]:Hide() end
+end
+
 function ns.ShowMark(host, on)
-  local mark = host.wpeMarkX or host.wpeMarkPlus
+  local mark = host.wpeMarkX or host.wpeMarkPlus or host.wpeMarkLock or host.wpeMarkCaret
+     or host.wpeMarkHelp or host.wpeMarkArrow
   if not mark then return end
   on = on and true or false
   for _, d in ipairs(mark) do d:SetShown(on) end
   if mark.shadow then for _, sh in ipairs(mark.shadow) do sh:SetShown(on) end end
+  if mark.hole then for _, d in ipairs(mark.hole) do d:SetShown(on) end end
 end
 
 -- The dark ground a header mark is read against. Text gets one from the font's own outline
@@ -901,12 +1450,18 @@ function ns.CreateGlyphButton(parent, glyph, size, dark)
   -- back, since a face change can take the colour with it.
   b.Text:SetFont(ns.Fonts:Current(), math.max(16, math.floor((size or 22) * 0.74)), ns.OutlineFlags())
   b:Repaint()
-  if glyph == "×" or glyph == "+" then
+  if glyph == "×" or glyph == "+" or glyph == "lock" or glyph == "?" or glyph == "arrow" then
     b.Text:SetText("")
-    if glyph == "+" then ns.MarkPlus(b) else ns.MarkX(b) end
+    if glyph == "lock" then ns.MarkLock(b, true)
+    elseif glyph == "+" then ns.MarkPlus(b, true)
+    elseif glyph == "?" then ns.MarkHelp(b, true)
+    elseif glyph == "arrow" then ns.MarkArrow(b, true)
+    else ns.MarkX(b) end
+    -- The hover shows in the box edge (SetEdge above), never in the mark ink: a cross or a plus kept its
+    -- colour under the pointer instead of flashing accent, which read as the mark being painted over. The
+    -- rest colour is the state's -- faint when off duty, the window's own ink otherwise.
     b.wpeIconPaint = function(s)
-      local hot = s.wpeHot and not s.offDuty
-      ns.TintMarkX(s, hot and "accent" or (s.offDuty and "faint" or ((dark == true or dark == "icon") and "overlay" or "text")))
+      ns.TintMarkX(s, s.offDuty and "faint" or ((dark == true or dark == "icon") and "overlay" or "text"))
     end
     b.wpeIconPaint(b)
   end
@@ -1068,6 +1623,161 @@ function ns.CreateSearchBox(parent, onChanged, hintKey)
   box:SetScript("OnEnterPressed", function(s) s:ClearFocus() end)
   linkBoxes[#linkBoxes + 1] = box
   return box
+end
+
+-- An item-id field: a number box that takes nothing but digits, and a live preview of the item the id
+-- names — its icon, then its name — so what was typed is seen to resolve before it is committed. The "+"
+-- plate beside the preview is the same "add one of these" control the racks lead with, and Enter does the
+-- same thing; a shift-clicked item link lands as its bare id (RegisterLinkBox above). Two callers read it,
+-- the category editor's pin entry and the pocket's picks panel, and it is written once here so the two
+-- cannot drift into two different fields.
+--
+-- opts:
+--   hint      localized key of the empty-state hint, which owns the field until a digit lands
+--   height    height of the number box; the frame stands 6 taller
+--   boxWidth  width of the number box
+--   font      size of the number itself
+--   smallFont size of the hint and of the name beside the icon (default: one less than font)
+--   onCommit  function(id), called by Enter and by the "+" with an id that resolved
+function ns.CreateIdField(parent, opts)
+  opts = opts or {}
+  local boxW = opts.boxWidth or 56
+  local boxH = opts.height or 22
+  local numSize = opts.font or 14
+  local small = opts.smallFont or (numSize - 1)
+
+  local f = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+  ns.SnapBox(f, nil, boxH + 6)
+  ns.PixelBackdrop(f)
+  -- The whole field carries a field/drop-zone border, so at rest it reads as "put something here" rather
+  -- than as a bare label: it brightens on hover and while a piece rides the cursor, the two ways in.
+  local function paint(s)
+    local live = s.wpeHot or s.wpeDrag
+    ns.SetBg(s, Theme:C(live and "panelHi" or "bg"))
+    local er, eg, eb = Theme:C(live and "accent" or "strokeSoft")
+    ns.SetEdge(s, er, eg, eb, live and 1 or 0.6)
+  end
+  f.Repaint = paint
+  paint(f)
+  Theme:Track(f, paint)
+  f:EnableMouse(true)
+  f:SetScript("OnEnter", function(s) s.wpeHot = true; paint(s) end)
+  f:SetScript("OnLeave", function(s) s.wpeHot = nil; paint(s) end)
+
+  -- Left: the number box, borderless — the frame is the field, this is only where the digits land. Numeric,
+  -- so a stray letter never sits in a field that means an item id, and the preview never eats the width the
+  -- typed number needs.
+  local box = CreateFrame("EditBox", nil, f)
+  box:SetPoint("LEFT", 10, 0)
+  box:SetWidth(boxW)
+  box:SetHeight(boxH)
+  box:SetFont(ns.Fonts:Current(), numSize, ns.OutlineFlags())
+  box:SetTextColor(Theme:C("text"))
+  box:SetAutoFocus(false)
+  box:SetNumeric(true)
+  box:SetMaxLetters(12)
+  f.box = box
+
+  -- One empty-state hint that names the way in, spanning the field so a long translation has room: it owns
+  -- the field until a digit lands.
+  local ph = Theme:Label(f, small, "faint")
+  ph:SetPoint("LEFT", box, "LEFT", 0, 0)
+  ph:SetPoint("RIGHT", f, "RIGHT", -8, 0)
+  ph:SetJustifyH("LEFT")
+  ph:SetWordWrap(false)
+  ns.LocalText(ph, opts.hint or "Add ID")
+  f.hint = ph
+
+  -- The hairline shows only once something is typed: while the field is empty the hint owns the whole
+  -- width, so a divider mid-hint would read as a break in the sentence.
+  local div = Theme:Rect(f, "strokeSoft", "ARTWORK")
+  ns.PixelLine(div, 1, "w")
+  div:SetPoint("TOPLEFT", box, "TOPRIGHT", 6, -2)
+  div:SetPoint("BOTTOMLEFT", box, "BOTTOMRIGHT", 6, 2)
+  div:Hide()
+  f.div = div
+
+  -- Right of the divider: the live preview of the item the id names — its icon, then its name. Empty until
+  -- a valid id resolves.
+  local ic = f:CreateTexture(nil, "ARTWORK")
+  ic:SetPoint("LEFT", box, "RIGHT", 14, 0)
+  ns.SnapSize(ic, boxH - 6, boxH - 6)
+  ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+  ic:Hide()
+  f.ic = ic
+  local name = Theme:Label(f, small, "text")
+  name:SetPoint("LEFT", ic, "RIGHT", 5, 0)
+  name:SetPoint("RIGHT", -30, 0)
+  name:SetJustifyH("LEFT")
+  name:SetWordWrap(false)
+  name:Hide()
+  f.name = name
+
+  -- The commit control, lit once the id resolves. A "+" plate, the same "add one" affordance the rule row
+  -- and the rack lead with, so it reads without a glyph the addon font may not carry.
+  local ok = ns.CreateGlyphButton(f, "+", 16)
+  -- 2px arms. The 16px plate is even, so snapParity keeps an even arm clean at 2 (an odd 3 would round up
+  -- to 4 on this plate -- the symmetry trap the chip-add plus dodges with an odd plate).
+  ok.wpeMarkW = 2
+  ns.FitMarkPlus(ok)
+  ns.SnapPoint(ok, "RIGHT", f, "RIGHT", -3, 0)
+  ok:Hide()
+  f.ok = ok
+
+  local function preview()
+    local text = box:GetText() or ""
+    local id = tonumber(text)
+    if not id and text ~= "" then id = C_Item.GetItemInfoInstant(text) end
+    local empty = text == ""
+    ph:SetShown(empty)
+    div:SetShown(not empty)
+    if id and id > 0 then
+      local tex = ns.PinIcon(id)
+      local nm = ns.PinName(id)
+      if tex and nm then
+        ic:SetTexture(tex); ic:Show()
+        name:SetText(nm); name:Show()
+        ok:Show()
+        f.wpeId = id
+        return
+      end
+    end
+    -- Nothing valid yet: no icon, no name, no tick.
+    ic:Hide(); name:Hide(); ok:Hide()
+    f.wpeId = nil
+  end
+  f.Preview = preview
+
+  local function commit()
+    local id = f.wpeId
+    if id and opts.onCommit then opts.onCommit(id) end
+    box:SetText(""); box:ClearFocus(); preview()
+  end
+  f.Commit = commit
+  box:SetScript("OnTextChanged", preview)
+  box:SetScript("OnEnterPressed", commit)
+  box:SetScript("OnEscapePressed", function(s) s:SetText(""); s:ClearFocus(); preview() end)
+  ok:SetScript("OnClick", commit)
+  ns.RegisterLinkBox(box, true)
+
+  -- The face travels with the call: a pin entry is rebuilt with its page, but the pocket's panel is not, so
+  -- the pocket hands its density font through on every paint.
+  f.ApplyFont = function(s, path, num, sm)
+    numSize, small = num or numSize, sm or small
+    local fp = path or ns.Fonts:Current()
+    box:SetFont(fp, numSize, ns.OutlineFlags())
+    ph:SetFont(fp, small, ns.OutlineFlags())
+    name:SetFont(fp, small, ns.OutlineFlags())
+  end
+  -- The box height again, for a caller whose density moves: the pocket's panel is laid out on every paint
+  -- and its step changes with the pocket's size, so the frame and the preview icon follow the box.
+  f.SetBoxHeight = function(s, h)
+    boxH = h
+    box:SetHeight(h)
+    ns.SnapSize(ic, h - 6, h - 6)
+    ns.SnapBox(s, nil, h + 6)
+  end
+  return f
 end
 
 function ns.MirrorSearch(from, text)

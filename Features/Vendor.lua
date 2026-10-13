@@ -153,6 +153,9 @@ local function sellRepaint()
   ns.ClearItemPaint()
   local B = ns.Bags
   if B and B.frame and B.frame:IsShown() then B:Layout() end
+  -- A mark or a lock changed what the scan would take, so the header coin re-reads the bags: marking a
+  -- kept piece lights it, locking the last sellable one darkens it.
+  if B and B.RefreshSellCoin then B:RefreshSellCoin() end
   if ns.Bank then ns.Bank:Repaint() end
   if ns.Pocket then ns.Pocket:Soon() end
   local O = ns.Options

@@ -12,6 +12,12 @@ local cells, seq, known, got, base = {}, {}, {}, {}, {}
 local missed, guidMiss, cellMiss = {}, {}, {}
 local locBag, locSlot = {}, {}
 local poor = {}
+-- Items a scan saw in a slot but could not read yet: GetContainerItemInfo answers nil for an item whose
+-- data has not reached the client (a gem just taken from the mail is the common case). The id is kept here
+-- and its load requested, so the ITEM_DATA_LOAD_RESULT handler can run one more detect the moment it caches
+-- -- the pass the arrival would otherwise never get, since taking the last item out of the mail is usually
+-- the final bag event for a while.
+local pending = {}
 local counter = 0
 local primed = nil
 local guidNow, guidHad, everWorn = {}, {}, {}
@@ -116,7 +122,21 @@ local function scanBag(bag, counts)
   for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
     local info = C_Container.GetContainerItemInfo(bag, slot)
     local id = info and info.itemID
+    -- A slot can hold an item the client has not read yet: GetContainerItemInfo answers nil for an item
+    -- whose data has not arrived -- a gem just taken from the mail is the usual case. The slot would be
+    -- skipped and the arrival lost, and the bag event that took it out of the mail is often the last one
+    -- for a while, so the pass that would have caught it never comes. GetContainerItemID still gives the
+    -- id (it needs no full data), so the load is asked for and the id noted; ITEM_DATA_LOAD_RESULT re-runs
+    -- the pass once it caches, and that pass reads the slot in full and counts it the normal way.
+    if not id then
+      local pid = C_Container.GetContainerItemID and C_Container.GetContainerItemID(bag, slot)
+      if pid then
+        pending[pid] = true
+        if C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(pid) end
+      end
+    end
     if id then
+      pending[id] = nil
       local g = ns.GearItem(id) and itemGuid(bag, slot) or nil
       if g then
         guidNow[g] = true
@@ -598,12 +618,21 @@ ev:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 ev:RegisterEvent("PLAYER_REGEN_ENABLED")
 ev:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 ev:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
+-- An item whose data was not cached when a scan read its slot (pending). The scan asked for the load; the
+-- game answers here, once per id, and the pass is run again -- now the slot reads in full and the arrival
+-- is counted. Without this an item taken from the mail whose BAG_UPDATE was its last event never lists.
+ev:RegisterEvent("ITEM_DATA_LOAD_RESULT")
 -- The cursor picking an item up or putting it down. Stamped before any bag pass so a split in flight is
 -- already on record when the source-shrunk BAG_UPDATE arrives; without this the pass beats the cursor read.
 ev:RegisterEvent("CURSOR_CHANGED")
-ev:SetScript("OnEvent", function(_, event)
+ev:SetScript("OnEvent", function(_, event, arg1)
   if event == "CURSOR_CHANGED" then
     noteCursor()
+    return
+  end
+  if event == "ITEM_DATA_LOAD_RESULT" then
+    -- Only a load we are waiting on, so an unrelated item resolving elsewhere does not drive a pass.
+    if arg1 and pending[arg1] then soon() end
     return
   end
   if event == "PLAYER_EQUIPMENT_CHANGED" then

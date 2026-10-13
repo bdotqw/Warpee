@@ -611,26 +611,7 @@ local function ensureDropdown()
   sf:EnableMouseWheel(true)
   sf:SetScript("OnMouseWheel", function(s, d) menuScroll(s:GetVerticalScroll() - d * 40) end)
 
-  thumb:EnableMouse(true)
-  thumb:SetScript("OnMouseDown", function(s)
-    s.grabY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
-    s.grabScroll = sf:GetVerticalScroll()
-    s:SetScript("OnUpdate", function(t)
-      local y = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
-      local travel = sf:GetHeight() - t:GetHeight()
-      if travel <= 0 then return end
-      menuScroll(t.grabScroll + (t.grabY - y) * menuSpan() / travel)
-    end)
-    thumbTex:SetVertexColor(Theme:C("accent"))
-  end)
-  thumb:SetScript("OnMouseUp", function(s)
-    s:SetScript("OnUpdate", nil)
-    thumbTex:SetVertexColor(Theme:C("faint"))
-  end)
-  thumb:SetScript("OnEnter", function() thumbTex:SetVertexColor(Theme:C("dim")) end)
-  thumb:SetScript("OnLeave", function(s)
-    if not s:GetScript("OnUpdate") then thumbTex:SetVertexColor(Theme:C("faint")) end
-  end)
+  ns.ScrollThumb(thumb, thumbTex, sf, menuScroll, menuSpan)
 
   m.rows, m.sf, m.child, m.catcher = {}, sf, child, catcher
   m:SetScript("OnHide", function() catcher:Hide(); ns.HideTip() end)
@@ -688,7 +669,9 @@ local function showDropdown(anchor, spec, onPick)
     end
     -- A tick box is wider, so a set's text steps past the gutter.
     r.Text:SetPoint("LEFT", spec.multi and 20 or 10, 0)
-    local tkey = head and "faint" or (on and "accentInk" or "text")
+    -- The pick is shown by its dot and the row plate, not by painting the word accent: the current entry
+    -- keeps the text ink and the gutter dot marks it. A header stays faint.
+    local tkey = head and "faint" or "text"
     r.Text:SetTextColor(Theme:C(tkey))
     r.bg:Hide()
     if head and not spec.nav then
@@ -804,8 +787,8 @@ function factories.header(parent, spec)
     row.Refresh()
     Options:ReflowPages()
   end)
-  row:SetScript("OnEnter", function() fs:SetTextColor(Theme:C("accentInk")) end)
-  row:SetScript("OnLeave", function() fs:SetTextColor(Theme:C("azure")) end)
+  -- The header title does not recolor on hover: the caret already shows open/closed and the row is
+  -- plainly clickable, so lighting the words would be the text-fill highlight the rest of the window drops.
   row.Refresh()
   return row
 end
@@ -1126,7 +1109,14 @@ function factories.input(parent, spec)
   end
 
   box:SetScript("OnEnterPressed", function(s) s:ClearFocus() end)
-  box:SetScript("OnEscapePressed", function(s) s:ClearFocus(); row.Refresh() end)
+  -- Escape cancels the edit. ClearFocus fires OnEditFocusLost synchronously, which commits through
+  -- apply(), so the typed text is reverted to the stored value first: apply then reads the current value
+  -- back and the edit is a no-op. Refresh after, to redraw the reverted number.
+  box:SetScript("OnEscapePressed", function(s)
+    s:SetText(tostring(spec.get() or 0))
+    s:ClearFocus()
+    row.Refresh()
+  end)
   box:SetScript("OnEditFocusGained", function(s) ns.SetEdge(s, Theme:C("accent")) end)
   box:SetScript("OnEditFocusLost", function(s)
     ns.SetEdge(s, Theme:C("stroke"))
@@ -1795,6 +1785,9 @@ function factories.badges(parent, spec)
 
   local function measure(key)
     local d = ns.BADGE[key] or ns.BADGES[1]
+    -- Read everything off the resolved def's key, not the raw argument: the fallback above is only real
+    -- if an unknown key then draws from BADGES[1] too, otherwise art[key] is nil and GetStringWidth throws.
+    key = d.key or key
     if d.tex then
       local sz = math.max(6, PREV * (ns.Badge(key).s or d.s))
       return sz, sz
@@ -1838,7 +1831,9 @@ function factories.badges(parent, spec)
     local hover = c:IsMouseOver()
     ns.SetBg(c, Theme:C(hover and "panelHi" or "panel"))
     ns.SetEdge(c, Theme:C(sel and "accent" or (hover and "accentInk" or "stroke")))
-    c.Text:SetTextColor(Theme:C((not on) and "faint" or (sel and "accentInk" or "text")))
+    -- Selection and hover show in the edge; the label keeps its ink (faint only when the badge is off),
+    -- so the word is never painted over.
+    c.Text:SetTextColor(Theme:C((not on) and "faint" or "text"))
   end
 
   local function paint()
@@ -2387,27 +2382,7 @@ local function makeScrollArea(parent, list)
   end)
   sf:SetScript("OnSizeChanged", paintBar)
 
-  thumb:EnableMouse(true)
-  thumb:SetScript("OnMouseDown", function(s)
-    s.grabY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
-    s.grabScroll = sf:GetVerticalScroll()
-    s:SetScript("OnUpdate", function(t)
-      local y = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
-      local view = sf:GetHeight()
-      local travel = view - t:GetHeight()
-      if travel <= 0 then return end
-      scrollTo(t.grabScroll + (t.grabY - y) * range() / travel)
-    end)
-    thumbTex:SetVertexColor(Theme:C("accent"))
-  end)
-  thumb:SetScript("OnMouseUp", function(s)
-    s:SetScript("OnUpdate", nil)
-    thumbTex:SetVertexColor(Theme:C("faint"))
-  end)
-  thumb:SetScript("OnEnter", function() thumbTex:SetVertexColor(Theme:C("dim")) end)
-  thumb:SetScript("OnLeave", function(s)
-    if not s:GetScript("OnUpdate") then thumbTex:SetVertexColor(Theme:C("faint")) end
-  end)
+  ns.ScrollThumb(thumb, thumbTex, sf, scrollTo, range)
   return sf
 end
 
@@ -2801,13 +2776,10 @@ function factories.catlist(parent, spec)
     return n and tonumber(n) or nil
   end
 
+  -- The shared reader (Items/ItemButton.lua), so the label this page draws for an id and the name the id
+  -- field previews can never read the item two different ways.
   local function itemName(id)
-    local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)
-    if type(name) ~= "string" or name == "" then
-      name = GetItemInfo and GetItemInfo(id)
-    end
-    if type(name) ~= "string" or name == "" then return nil end
-    return name
+    return ns.PinName(id)
   end
 
   -- The release half of a drag: take the held piece off the cursor and pin it to this section. Nothing is
@@ -2829,7 +2801,9 @@ function factories.catlist(parent, spec)
     ns.SetBg(s, Theme:C(on and "panelHi" or "bg"))
     local er, eg, eb = Theme:C(on and "accent" or "emptyLine")
     ns.SetEdge(s, er, eg, eb, on and 1 or 0.55)
-    ns.TintMarkX(s, on and "accent" or "faint")
+    -- Hover/drop shows in the plate and the border; the mark lifts to the window ink but never fills
+    -- accent, the same rule the header marks follow.
+    ns.TintMarkX(s, on and "text" or "faint")
   end
 
   local function makePlusSlot(parent, w, h)
@@ -2848,123 +2822,31 @@ function factories.catlist(parent, spec)
     return b
   end
 
-  -- The pin entry: an id field that previews the item as it is typed, so a player sees the icon and name
-  -- before committing and knows the id is right. Enter (or the check) pins it; it is also a drop target,
-  -- so dragging a piece in from the bags files it with no id at all. One per panel, built lazily.
+  -- The pin entry: the shared id field (Core/Widgets.lua) — digits only, previewing the item as it is
+  -- typed, so a player sees the icon and name before committing and knows the id is right. Enter (or the
+  -- check) pins it; it is also a drop target, so dragging a piece in from the bags files it with no id at
+  -- all. One per panel, built lazily.
   local function makePinEntry(panel)
     local e = panel.pinEntry
     if e then return e end
-    e = CreateFrame("Frame", nil, panel, "BackdropTemplate")
-    e:SetHeight(CHIP + 6)
-    ns.PixelBackdrop(e)
-    -- The whole entry carries a field/drop-zone border, so at rest it reads as "put something here" rather
-    -- than as a bare label: a slot you can drop an item onto, or click to type an id into. Brightens on
-    -- hover and while a piece rides the cursor, the two ways in. This is the OUTER frame, not the number box
-    -- (which stays borderless) — the border is the affordance the plain hint was missing.
-    local function paintE(s)
-      local live = s.wpeHot or s.wpeDrag
-      ns.SetBg(s, Theme:C(live and "panelHi" or "bg"))
-      local er, eg, eb = Theme:C(live and "accent" or "strokeSoft")
-      ns.SetEdge(s, er, eg, eb, live and 1 or 0.6)
-    end
-    e.Repaint = paintE
-    paintE(e)
-    Theme:Track(e, paintE)
-    e:EnableMouse(true)
-    e:SetScript("OnEnter", function(s) s.wpeHot = true; paintE(s) end)
-    e:SetScript("OnLeave", function(s) s.wpeHot = nil; paintE(s) end)
-    -- Left: the id field, a fixed narrow box that always shows the typed number. Digits only, so a stray
-    -- letter never sits in a field that means an item id; it never carries the preview, so what was typed
-    -- stays readable. Borderless — the outer frame is the field; this is only where the digits land.
-    local ID_W = 56
-    local box = CreateFrame("EditBox", nil, e)
-    box:SetPoint("LEFT", 10, 0)
-    box:SetWidth(ID_W)
-    box:SetHeight(CHIP)
-    box:SetFont(dropdownFont(), BASE_FONT - 1, ns.OutlineFlags())
-    box:SetTextColor(Theme:C("text"))
-    box:SetAutoFocus(false)
-    box:SetNumeric(true)
-    box:SetMaxLetters(12)
-    e.box = box
-    -- One empty-state hint that names both ways in ("drop an item, or type an id"), spanning the whole
-    -- field so a long translation has room. Owns the field until a digit lands.
-    local ph = Theme:Label(e, BASE_FONT - 2, "faint")
-    ph:SetPoint("LEFT", box, "LEFT", 0, 0)
-    ph:SetPoint("RIGHT", e, "RIGHT", -8, 0)
-    ph:SetJustifyH("LEFT")
-    ph:SetWordWrap(false)
-    ns.LocalText(ph, "Drop an item here, or type an id")
-    -- The hairline shows only once something is typed: while the field is empty the hint owns the whole
-    -- width, so a divider mid-hint would read as a break in the sentence.
-    local div = Theme:Rect(e, "strokeSoft", "ARTWORK")
-    ns.PixelLine(div, 1, "w")
-    div:SetPoint("TOPLEFT", box, "TOPRIGHT", 6, -2)
-    div:SetPoint("BOTTOMLEFT", box, "BOTTOMRIGHT", 6, 2)
-    div:Hide()
-    -- Right of the divider: the live preview of the item the id names — its icon, then its name — so a
-    -- player sees what they typed resolves to before committing. Empty until a valid id resolves.
-    local ic = e:CreateTexture(nil, "ARTWORK")
-    ic:SetPoint("LEFT", box, "RIGHT", 14, 0)
-    ns.SnapSize(ic, CHIP - 6, CHIP - 6)
-    ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    ic:Hide()
-    e.ic = ic
-    local name = Theme:Label(e, BASE_FONT - 2, "text")
-    name:SetPoint("LEFT", ic, "RIGHT", 5, 0)
-    name:SetPoint("RIGHT", -30, 0)
-    name:SetJustifyH("LEFT")
-    name:SetWordWrap(false)
-    name:Hide()
-    e.name = name
-    -- The commit control, lit once the id resolves. A "+" plate, the same "add one" affordance the rule and
-    -- rack lead with, so it reads without a glyph the addon font may not carry.
-    local ok = ns.CreateGlyphButton(e, "+", 16)
-    ns.SnapPoint(ok, "RIGHT", e, "RIGHT", -3, 0)
-    ok:Hide()
-    e.ok = ok
-    local function preview()
-      local text = box:GetText() or ""
-      local id = tonumber(text)
-      if not id and text ~= "" then id = C_Item.GetItemInfoInstant(text) end
-      local empty = text == ""
-      ph:SetShown(empty)
-      div:SetShown(not empty)
-      if id and id > 0 then
-        local tex = ns.PinIcon(id)
-        local nm = itemName(id)
-        if tex and nm then
-          ic:SetTexture(tex); ic:Show()
-          name:SetText(nm); name:Show()
-          ok:Show()
-          e.wpeId = id
-          return
-        end
-      end
-      -- Nothing valid yet: no icon, no name, no tick.
-      ic:Hide(); name:Hide(); ok:Hide()
-      e.wpeId = nil
-    end
-    e.Preview = preview
-    local function commit()
-      if e.wpeId and panel.wpeId then
-        act(function() Cats:PinItem(e.wpeId, panel.wpeId) end)
-      end
-      box:SetText(""); box:ClearFocus(); preview()
-    end
-    box:SetScript("OnTextChanged", preview)
-    box:SetScript("OnEnterPressed", commit)
-    box:SetScript("OnEscapePressed", function(s) s:SetText(""); s:ClearFocus(); preview() end)
-    ok:SetScript("OnClick", commit)
-    ns.RegisterLinkBox(box, true)
+    e = ns.CreateIdField(panel, {
+      hint = "Drop an item here, or type an id",
+      height = CHIP,
+      font = BASE_FONT - 1,
+      smallFont = BASE_FONT - 2,
+      -- The commit lands on the section this panel edits; the field clears itself afterwards.
+      onCommit = function(id)
+        if panel.wpeId then act(function() Cats:PinItem(id, panel.wpeId) end) end
+      end,
+    })
     -- A shift-clicked link or a dragged piece files straight in, same as the old rack did. The whole frame
-    -- is the drop target and the click focuses the number box, so both ways in land on the one field.
+    -- is the drop target and a click focuses the number box, so both ways in land on the one field.
     e:SetScript("OnReceiveDrag", function() pinFromCursor(panel) end)
-    e:SetScript("OnMouseUp", function() if CursorHasItem() then pinFromCursor(panel) else box:SetFocus() end end)
-    e:SetScript("OnMouseDown", function() box:SetFocus() end)
+    e:SetScript("OnMouseUp", function() if CursorHasItem() then pinFromCursor(panel) else e.box:SetFocus() end end)
+    e:SetScript("OnMouseDown", function() e.box:SetFocus() end)
     ns.AddTip(e, "Drop an item here to pin it, or type its id. Pins beat rules, so a pinned item always lands in this category.", "top")
     -- Lit while a piece rides the cursor, so the field flags itself as a drop target the moment a drag starts.
-    e.SyncDrag = function(s) s.wpeDrag = CursorHasItem() and s:IsShown() or nil; paintE(s) end
+    e.SyncDrag = function(s) s.wpeDrag = CursorHasItem() and s:IsShown() or nil; s:Repaint() end
     panel.pinEntry = e
     return e
   end
@@ -3051,10 +2933,10 @@ function factories.catlist(parent, spec)
     btn.wpeDrop = { spec = spec, onPick = refresh }
     btn:SetScript("OnClick", function(s) openDropdown(s, spec, refresh) end)
     btn:SetScript("OnEnter", function(s)
-      arrow:SetTint("accent"); cur:SetTextColor(Theme:C("accent"))
+      arrow:SetTint("accent")
       if spec.desc then ns.ShowTip(s, { { text = spec.desc } }, "top") end
     end)
-    btn:SetScript("OnLeave", function() arrow:SetTint("dim"); cur:SetTextColor(Theme:C("text")); ns.HideTip() end)
+    btn:SetScript("OnLeave", function() arrow:SetTint("dim"); ns.HideTip() end)
     btn.Refresh = refresh
     return btn
   end
@@ -3109,14 +2991,14 @@ function factories.catlist(parent, spec)
       fs:SetJustifyH("CENTER")
       fs:SetText((v > 0 and "+" or "") .. v)
       b.Text, b.wpeVal = fs, v
-      -- Selected cell reads like the join switch's live face: recessed plate, accent text and edge, so it
-      -- is legible in every theme (an accent-filled cell sank its own number on dark-accent themes).
+      -- Selected cell reads by its recessed plate and accent edge, not by painting the number accent: the
+      -- ink stays text so the word is never covered by the highlight colour.
       local function paint(s)
         local on, hot = s.wpeOn, s.wpeHot
         ns.SetBg(s, Theme:C(on and "panelHi" or "bg"))
         local er, eg, eb = Theme:C(on and "accent" or (hot and "accent" or "strokeSoft"))
         ns.SetEdge(s, er, eg, eb, 1)
-        s.Text:SetTextColor(Theme:C(on and "accent" or (hot and "text" or "dim")))
+        s.Text:SetTextColor(Theme:C((on or hot) and "text" or "dim"))
       end
       b.Repaint = paint
       paint(b)
@@ -3188,7 +3070,7 @@ function factories.catlist(parent, spec)
         s.chk:SetKeys("slot", on and "bg" or (hot and "accent" or "stroke"),
                       on and "accent" or (hot and "accent" or "stroke"))
         s.chk.mark:SetShown(on)
-        s.Text:SetTextColor(Theme:C(on and "text" or (hot and "accent" or "dim")))
+        s.Text:SetTextColor(Theme:C((on or hot) and "text" or "dim"))
       end
       c.Repaint = paint
       paint(c)
@@ -3296,7 +3178,14 @@ function factories.catlist(parent, spec)
 
     -- Adding a condition is the same "+" plate the pin rack leads with: one control for "add one of these",
     -- and no sentence standing on the row for the player to guess at.
-    local addCond = makePlusSlot(p, ADD_COND_W, COND_H)
+    -- A 3px arm sits centred only on an odd-sized plate: FitMarkPlus ties arm thickness to the plate's
+    -- parity (snapParity), so an even plate (26) only ever yields an even arm -- the 4px it used to be --
+    -- and forcing 3 on an even plate splits it, one sleeve a pixel longer than the other. So this one
+    -- plate is drawn odd (25) and the arm asked for 3: the same reason the favorites cell comes out even,
+    -- read the other way. ADD_COND_W stays the wrap reserve; only the drawn plate loses 1px.
+    local addCond = makePlusSlot(p, ADD_COND_W - 1, COND_H - 1)
+    addCond.wpeMarkW = 3
+    ns.FitMarkPlus(addCond)
     addCond:SetScript("OnClick", function()
       openCatPicker(addCond, function(token) if p.wpeAddCond then p.wpeAddCond(token) end end)
     end)
@@ -3327,15 +3216,20 @@ function factories.catlist(parent, spec)
     local rawToggle = CreateFrame("Button", nil, p, "BackdropTemplate")
     ns.SnapBox(rawToggle, 22, 22, true)
     ns.PixelBackdrop(rawToggle)
-    local rawTxt = Theme:Label(rawToggle, BASE_FONT, "dim")
-    rawTxt:SetPoint("CENTER")
-    rawTxt:SetText("T")
-    rawToggle.Text = rawTxt
+    -- The face of the toggle is drawn, not typed. It used to carry a letter -- "T", for text -- and a
+    -- letter says nothing at all in the languages whose alphabet is another one: this panel is read in
+    -- Chinese and Korean too, where that shape is a shape and no word. The caret is the one mark that
+    -- means "text" without being a word in any language: it is the pointer every system shows over a
+    -- piece of editable text, and drawn it follows the theme, the density and the ink of its state the
+    -- way the X and the plus already do.
+    ns.MarkCaret(rawToggle, true)
     local function paintRaw(s)
       ns.SetBg(s, Theme:C(s.wpeRaw and "panelHi" or "bg"))
       local er, eg, eb = Theme:C(s.wpeRaw and "accent" or (s.wpeHot and "accent" or "strokeSoft"))
       ns.SetEdge(s, er, eg, eb, 1)
-      s.Text:SetTextColor(Theme:C(s.wpeRaw and "accent" or (s.wpeHot and "text" or "dim")))
+      -- The text-mode state shows in the plate and the accent edge, not by filling the caret: the mark
+      -- keeps the window ink (dim at rest, text live/under the pointer) so the glyph is never painted over.
+      ns.TintMarkX(s, (s.wpeRaw or s.wpeHot) and "text" or "dim")
     end
     rawToggle.Repaint = paintRaw
     paintRaw(rawToggle)
@@ -3350,7 +3244,8 @@ function factories.catlist(parent, spec)
 
     -- "?": every word the search takes, as a list to read. Shown in the text form only (the chip form is
     -- built from the picker, which already names every word), so it starts hidden and a text-mode layout
-    -- brings it out.
+    -- brings it out. Drawn, like the X, the plus, the lock and the caret: a question mark out of the
+    -- player's font was the last thing on this row that followed the face rather than the theme.
     local helpToggle = ns.CreateGlyphButton(p, "?", 22)
     ns.AddTip(helpToggle, "Search words", "top")
     helpToggle:SetScript("OnClick", function(s) showCatHelp(s) end)
@@ -3498,7 +3393,12 @@ function factories.catlist(parent, spec)
       local aw = ADD_COND_W
       if x > 0 and x + aw > usable then x = 0; line = line + 1 end
       p.addCond:ClearAllPoints()
-      p.addCond:SetPoint("TOPLEFT", pad + x, -(y + line * (COND_H + 4)))
+      -- Snapped, not raw SetPoint: x accumulates measured (fractional) chip widths, and a
+      -- fractionally-standing plate rounds the two bars' edges independently, so the junction
+      -- lands off-centre and the left arm reads shorter. The old parity-snapped 4px survived
+      -- this (even edges round symmetric); the literal 3px does not. Same fix as the Favorites
+      -- ghosts, which ride SnapPoint for exactly this reason.
+      ns.SnapPoint(p.addCond, "TOPLEFT", p, "TOPLEFT", pad + x, -(y + line * (COND_H + 4)))
       p.addCond:Show()
       y = y + (line + 1) * (COND_H + 4) + 8
     else
@@ -3906,26 +3806,7 @@ function factories.catlist(parent, spec)
     end
     sf:EnableMouseWheel(true)
     sf:SetScript("OnMouseWheel", function(s, d) wscroll((s:GetVerticalScroll() or 0) - d * PROWH * 2) end)
-    wthumb:EnableMouse(true)
-    wthumb:SetScript("OnMouseDown", function(s)
-      s.grabY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
-      s.grabScroll = sf:GetVerticalScroll() or 0
-      s:SetScript("OnUpdate", function(t)
-        local y = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
-        local travel = sf:GetHeight() - t:GetHeight()
-        if travel <= 0 then return end
-        wscroll(t.grabScroll + (t.grabY - y) * wspan() / travel)
-      end)
-      wthumbTex:SetVertexColor(Theme:C("accent"))
-    end)
-    wthumb:SetScript("OnMouseUp", function(s)
-      s:SetScript("OnUpdate", nil)
-      wthumbTex:SetVertexColor(Theme:C("faint"))
-    end)
-    wthumb:SetScript("OnEnter", function() wthumbTex:SetVertexColor(Theme:C("dim")) end)
-    wthumb:SetScript("OnLeave", function(s)
-      if not s:GetScript("OnUpdate") then wthumbTex:SetVertexColor(Theme:C("faint")) end
-    end)
+    ns.ScrollThumb(wthumb, wthumbTex, sf, wscroll, wspan)
     m.sf, m.wordChild = sf, child
     m.idPool = {}
     -- Off-screen scratch string in the row font, so each open can measure real rendered label/word widths
@@ -3963,7 +3844,7 @@ function factories.catlist(parent, spec)
         ns.SetBg(s, Theme:C(on and "panelHi" or "bg"))
         local er, eg, eb = Theme:C(on and "accent" or (s.wpeHot and "accent" or "strokeSoft"))
         ns.SetEdge(s, er, eg, eb, 1)
-        s.Text:SetTextColor(Theme:C(on and "accent" or (s.wpeHot and "text" or "dim")))
+        s.Text:SetTextColor(Theme:C((on or s.wpeHot) and "text" or "dim"))
       end
       b.Repaint = paint
       paint(b)
@@ -4070,7 +3951,8 @@ function factories.catlist(parent, spec)
     for _, r in ipairs(m.axisRows) do
       local sel = r.wpeAxis == axis
       r.wpeSel = sel or nil
-      r.Text:SetTextColor(Theme:C(sel and "accent" or "text"))
+      -- The chosen axis is shown by its plate (r.bg), not by accent ink: the label keeps the text colour.
+      r.Text:SetTextColor(Theme:C("text"))
       r.bg:SetShown(sel)
     end
     m.axis = axis
@@ -4272,9 +4154,24 @@ function factories.catlist(parent, spec)
       local sp = s.wpeSpot
       if s.wpeMoved or not sp then return end
       s:ClearAllPoints()
+      local x, y = sp.x, sp.y
+      -- Keep the whole sheet on screen vertically. Hung off a "?" low in a centred settings window, a
+      -- tall list ran off the bottom edge and half of it was lost (SetClampedToScreen does not help once
+      -- the sheet is anchored to another frame). The top is pulled down no further than leaves the bottom
+      -- above the screen's floor, and never raised above its ceiling; its height is known here because the
+      -- fill sizes it before showing it.
+      if sp.host then
+        local htop = sp.host:GetTop()
+        local sh = s:GetHeight() or 0
+        local screenH = UIParent:GetHeight() or 0
+        if htop and sh > 0 and screenH > 0 then
+          local top = math.max(sh, math.min(screenH, htop + y))
+          y = top - htop
+        end
+      end
       -- To the right of the settings window, level with the button that opened it: the sheet's left edge
       -- sits a short gap past the window's right edge, so it never lands on top of the page it explains.
-      s:SetPoint("TOPLEFT", sp.host or UIParent, sp.host and "TOPRIGHT" or "TOPLEFT", sp.x, sp.y)
+      s:SetPoint("TOPLEFT", sp.host or UIParent, sp.host and "TOPRIGHT" or "TOPLEFT", x, y)
     end
     m.Place = placeSheet
     m:SetScript("OnShow", function(s) placeSheet(s) end)
@@ -4286,6 +4183,12 @@ function factories.catlist(parent, spec)
 
     local close = ns.CreateGlyphButton(m, "\195\151", 22)
     close:SetScript("OnClick", function() m:Hide() end)
+    -- Dim at rest, text under the pointer, like the window close marks elsewhere.
+    close.wpeIconPaint = function(s)
+      local hot = s.wpeHot and not s.offDuty
+      ns.TintMarkX(s, hot and "text" or "dim")
+    end
+    close.wpeIconPaint(close)
     m.close = close
 
     -- What the words are for, and the two marks a hand-written rule uses. Read through the same words the
@@ -4364,26 +4267,7 @@ function factories.catlist(parent, spec)
     -- wheel that reached that page would scroll it and drag the sheet along with whatever it is hung off.
     m:EnableMouseWheel(true)
     m:SetScript("OnMouseWheel", function(s, d) wheel(d) end)
-    thumb:EnableMouse(true)
-    thumb:SetScript("OnMouseDown", function(s)
-      s.grabY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
-      s.grabScroll = sc:GetVerticalScroll() or 0
-      s:SetScript("OnUpdate", function(t)
-        local y = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
-        local travel = sc:GetHeight() - t:GetHeight()
-        if travel <= 0 then return end
-        scroll(t.grabScroll + (t.grabY - y) * span() / travel)
-      end)
-      thumbTex:SetVertexColor(Theme:C("accent"))
-    end)
-    thumb:SetScript("OnMouseUp", function(s)
-      s:SetScript("OnUpdate", nil)
-      thumbTex:SetVertexColor(Theme:C("faint"))
-    end)
-    thumb:SetScript("OnEnter", function() thumbTex:SetVertexColor(Theme:C("dim")) end)
-    thumb:SetScript("OnLeave", function(s)
-      if not s:GetScript("OnUpdate") then thumbTex:SetVertexColor(Theme:C("faint")) end
-    end)
+    ns.ScrollThumb(thumb, thumbTex, sc, scroll, span)
 
     -- Off-screen scratch string in the row font, so each open measures the real rendered words and sizes
     -- the window to them rather than trusting a number, the same way the picker sizes its columns.
@@ -4631,6 +4515,24 @@ function factories.catlist(parent, spec)
 
     -- Default right anchor for a marker row; a category row re-anchors del next to its name each pass.
     local del = ns.CreateGlyphButton(c, "\195\151", 18)
+    -- The delete cross reads "removes" by colour, not by having a border the way the plus does: the plus
+    -- wears an accent border when its panel is open (active), so a cross that showed its own state in a
+    -- border would be the same language saying a different thing. Instead the whole mark and its frame
+    -- carry the kit's one red (Theme danger), dangerHi on hover -- a red cross is delete, an accent border
+    -- is active, two colours for two meanings. A red-filled cross still beats a red-framed white one here:
+    -- the glyph is what the eye lands on. Faded rows (Empty/Other hide this) keep the base paint.
+    -- One pooled row deletes a category and a marker (divider/group head) alike, so this covers dividers.
+    local baseDel = del.Repaint
+    local function delPaint(s)
+      baseDel(s)
+      if not s.offDuty then
+        ns.SetEdge(s, Theme:C(s.wpeHot and "dangerHi" or "danger"))
+        ns.TintMarkX(s, s.wpeHot and "dangerHi" or "danger")
+      end
+    end
+    del.Repaint = delPaint
+    Theme:Track(del, delPaint)
+    delPaint(del)
     ns.SnapPoint(del, "TOPRIGHT", c, "TOPRIGHT", -1, -4)
     del:SetScript("OnClick", function()
       -- Drop the open-panel flag with the row, so re-adding a shipped category later (its id is reused)
@@ -4642,14 +4544,19 @@ function factories.catlist(parent, spec)
     end)
     c.del = del
 
-    -- "+" opens this row's rule/pin panel. Lights accent while its panel is open; the open state must
-    -- outlast the hover, so wpeOpen is a sticky flag the wrapped Repaint reads on top of the hover.
+    -- "+" opens this row's rule/pin panel. The open state shows in the plate edge, not by filling the
+    -- mark: the glyph keeps the window ink and the accent border marks it active, the same way the rest of
+    -- the window shows selection. The open state must outlast the hover, so wpeOpen is a sticky flag the
+    -- wrapped Repaint reads on top of the base paint.
     local addPin = ns.CreateGlyphButton(c, "+", 18)
+    -- Thinner arms than the id-commit plus: this one only unfolds the row, so it reads lighter.
+    addPin.wpeMarkW = 2
+    ns.FitMarkPlus(addPin)
     ns.SnapPoint(addPin, "RIGHT", del, "LEFT", -4, 0)
     local basePaint = addPin.Repaint
     addPin.Repaint = function(s)
       basePaint(s)
-      if s.wpeOpen and s.Text then s.Text:SetTextColor(Theme:C("accent")) end
+      if s.wpeOpen then ns.SetEdge(s, Theme:C("accent")) end
     end
     addPin:SetScript("OnClick", function()
       local id = c.catId
@@ -4898,11 +4805,9 @@ function factories.catlist(parent, spec)
   sortRow:SetScript("OnClick", function(s) openDropdown(s, SORT_SPEC, refreshSort) end)
   sortRow:SetScript("OnEnter", function()
     sortArrow:SetTint("accent")
-    sortVal:SetTextColor(Theme:C("accent"))
   end)
   sortRow:SetScript("OnLeave", function()
     sortArrow:SetTint("dim")
-    sortVal:SetTextColor(Theme:C("text"))
   end)
   tip(sortRow, SORT_SPEC.desc)
 
@@ -5344,7 +5249,7 @@ local function paintTab(b)
     local def = Theme.SkinDef and Theme:SkinDef()
     ns.SetBg(b, Theme:C((def and def.quietTabs) and "panel" or "panelHi"))
     ns.SetEdge(b, Theme:C("accent"))
-    b.Text:SetTextColor(Theme:C("accent"))
+    b.Text:SetTextColor(Theme:C("text"))
   else
     ns.SetBg(b, Theme:C("panel"))
     ns.SetEdge(b, Theme:C("stroke"))
@@ -5356,7 +5261,7 @@ end
 local function paintSub(b)
   ns.SetBg(b, Theme:C(b.sel and "panelHi" or "panel"))
   ns.SetEdge(b, Theme:C(b.sel and "accent" or "stroke"))
-  b.Text:SetTextColor(Theme:C(b.sel and "accent" or "dim"))
+  b.Text:SetTextColor(Theme:C(b.sel and "text" or "dim"))
 end
 
 local function paintSubs(entry)
@@ -5988,7 +5893,7 @@ function Options:Build()
 
   local title = Theme:Title(f, BASE_FONT + 2, "accent")
   title:SetPoint("TOPLEFT", PAD, -10)
-  title:SetText("WARPEE")
+  title:SetText(ns.TITLE)
   track(title, 2)
   self.title = title
 

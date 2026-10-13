@@ -23,6 +23,7 @@ local themeSet, zoomGet, zoomSet = H.themeSet, H.zoomGet, H.zoomSet
 
 local questGet, questSet     = styleField("questMarks")
 local newGet, newSet         = styleField("newItemGlow")
+local junkGet, junkSet       = styleField("junkCoin")
 local unusableGet, unusableSet = styleField("unusableBorder")
 local function gridAlphaGet() return tonumber(WarpeeDB and WarpeeDB.gridAlpha) or 0 end
 local function gridAlphaSet(v) WarpeeDB.gridAlpha = v; Theme:ApplyGridAlpha() end
@@ -246,6 +247,8 @@ local ITEMS_PAGE = {
     desc = "Tint the item level number with the item's quality color." },
   { type = "toggle", name = "Unwearable border", col = 2, get = unusableGet, set = unusableSet,
     desc = "Red border around gear your character cannot wear." },
+  { type = "toggle", name = "Junk coin", col = 1, get = junkGet, set = junkSet,
+    desc = "A copper coin on gray junk items: the same coin the Sell button and the sale mark wear in gold, copper here because the rules would sell it, not you." },
   { type = "range", name = "Border thickness", min = 1, max = 6, step = 1,
     get = edgeGet, set = edgeSet,
     desc = "Thickness of the slot border." },
@@ -268,8 +271,9 @@ local ITEMS_PAGE = {
     get = bg.yGet, set = bg.ySet, half = "right" },
   { type = "range", name = "Text size", min = 6, max = 24, step = 1, section = "badges",
     get = bg.sGet, set = bg.sSet, hidden = bg.isTex },
-  { type = "range", name = "Badge scale", min = 0.2, max = 1, step = 0.02, section = "badges",
-    get = bg.sGet, set = bg.sSet, hidden = bg.isText },
+  { type = "range", name = "Badge scale", min = 0.4, max = 0.6, step = 0.02, section = "badges",
+    get = bg.sGet, set = bg.sSet, hidden = bg.isText,
+    desc = "How much of the slot the coin and the padlock take." },
   { type = "range", name = "Letters", min = 2, max = 8, step = 1, section = "badges",
     get = bg.kGet, set = bg.kSet, hidden = bg.notFit,
     desc = "How many letters of the set name to show." },
@@ -379,7 +383,7 @@ local GRID_PAGE = {
         "Lay the containers out in labelled sections instead of one grid: equipment, consumables, reagents and the rest, with anything left over under Other. Tick each window you want it in.",
         VIEW_ON, VIEW_SET),
       surfaceRow("Separate bags and tabs", SURFACES,
-        "Draw every bag and every bank tab on its own, with a gap between them, in the windows you tick. The reagent bag stands apart already and joins the row of blocks with the bags; one merged into them is separated again the moment the banks go on.",
+        "Draw every bag and every bank tab on its own, with a gap between them, in the windows you tick. The reagent bag stands apart already and joins the row of blocks with the bags; one merged into them is separated again the moment the bags go on.",
         SPLIT_ON, SPLIT_SET, flow.gridGone, grouped),
       surfaceRow("Name bags and tabs", SURFACES,
         "Name each one over its cells with the bag or tab it holds, in the windows you tick. A name needs them drawn apart: a window left as one grid has nothing to name, and its gap does the separating alone.",
@@ -578,16 +582,23 @@ local function vIlvlGet() return tonumber(WarpeeDB.vendorIlvl) or 0 end
 local function vIlvlSet(v)
   WarpeeDB.vendorIlvl = tonumber(v) or 0
   if Bags and Bags.VendorState then Bags:VendorState() end
+  if Bags and Bags.RefreshSellCoin then Bags:RefreshSellCoin() end
+end
+-- A sell-rule change moves what Vendor:Scan would take, so the header coin re-reads the bags: turning the
+-- grey rule off, raising the ilvl floor and so on lights or darkens the coin while the panel is open and
+-- the bags sit behind it. Cheaper than VendorState (no lock sweep), since only the coin's read changed.
+local function vendorRuleChanged()
+  if Bags and Bags.RefreshSellCoin then Bags:RefreshSellCoin() end
 end
 local V = {}
 function V.boeGet() return WarpeeDB.vendorKeepBoE ~= false end
-function V.boeSet(v) WarpeeDB.vendorKeepBoE = v and true or false end
+function V.boeSet(v) WarpeeDB.vendorKeepBoE = v and true or false; vendorRuleChanged() end
 function V.wbGet() return WarpeeDB.vendorKeepWarbound ~= false end
-function V.wbSet(v) WarpeeDB.vendorKeepWarbound = v and true or false end
+function V.wbSet(v) WarpeeDB.vendorKeepWarbound = v and true or false; vendorRuleChanged() end
 function V.gemGet() return WarpeeDB.vendorKeepGems ~= false end
-function V.gemSet(v) WarpeeDB.vendorKeepGems = v and true or false end
+function V.gemSet(v) WarpeeDB.vendorKeepGems = v and true or false; vendorRuleChanged() end
 function V.greyGet() return WarpeeDB.vendorGrey ~= false end
-function V.greySet(v) WarpeeDB.vendorGrey = v and true or false end
+function V.greySet(v) WarpeeDB.vendorGrey = v and true or false; vendorRuleChanged() end
 function V.repGet() return WarpeeDB.vendorRepair and true or false end
 function V.repSet(v) WarpeeDB.vendorRepair = v and true or false end
 V.REPAIR_BY = { "player", "guild", "both" }
@@ -596,16 +607,16 @@ V.REPAIR_LABELS = { player = "Your gold", guild = "Guild bank",
 function V.repByGet() return WarpeeDB.vendorRepairBy or "player" end
 function V.repBySet(v) WarpeeDB.vendorRepairBy = v or "player" end
 function V.relicGet() return WarpeeDB.vendorRelics ~= false end
-function V.relicSet(v) WarpeeDB.vendorRelics = v and true or false end
+function V.relicSet(v) WarpeeDB.vendorRelics = v and true or false; vendorRuleChanged() end
 
 function V.minGet() return tonumber(WarpeeDB.vendorIlvlMin) or 0 end
-function V.minSet(v) WarpeeDB.vendorIlvlMin = tonumber(v) or 0 end
+function V.minSet(v) WarpeeDB.vendorIlvlMin = tonumber(v) or 0; vendorRuleChanged() end
 function V.consumGet() return WarpeeDB.vendorConsum and true or false end
-function V.consumSet(v) WarpeeDB.vendorConsum = v and true or false end
+function V.consumSet(v) WarpeeDB.vendorConsum = v and true or false; vendorRuleChanged() end
 function V.autoGet() return WarpeeDB.vendorAuto and true or false end
 function V.autoSet(v) WarpeeDB.vendorAuto = v and true or false end
 function V.tokenGet() return WarpeeDB.vendorTokens and true or false end
-function V.tokenSet(v) WarpeeDB.vendorTokens = v and true or false end
+function V.tokenSet(v) WarpeeDB.vendorTokens = v and true or false; vendorRuleChanged() end
 function V.tokensOff() return not (WarpeeDB.vendorTokens and true or false) end
 function V.expGet(i)
   local t = WarpeeDB.vendorTokenExp
@@ -616,9 +627,10 @@ function V.expSet(i, v)
   WarpeeDB.vendorTokenExp[i] = v and true or false
 end
 function V.expName(i)
-  local n = _G["EXPANSION_NAME" .. i]
-  if type(n) == "string" and n ~= "" then return n end
-  return "Expansion " .. i
+  -- The shared reader (Windows/Bags.lua): the locale file's own title where it carries one (the Chinese and
+  -- Korean files do), then the game's global, then a bare number. Read through the addon and not straight
+  -- off _G, so a translated title reaches the vendor page on a client set to another language.
+  return ns.ExpansionName(i) or ("Expansion " .. i)
 end
 
 local VENDOR_PAGE = {
@@ -719,7 +731,9 @@ do
   for i = 0, cur do
     if not none[i] then
       rows[#rows + 1] = {
-        type = "toggle", name = V.expName(i), col = (slot % 2 == 0) and 1 or 2,
+        -- A function name, so the row re-reads its expansion on every refresh: the title is the addon's
+        -- own where the locale has one, and a language chosen in Settings moves the labels with it.
+        type = "toggle", name = function() return V.expName(i) end, col = (slot % 2 == 0) and 1 or 2,
         section = "tokenexp",
         get = function() return V.expGet(i) end,
         set = function(v) V.expSet(i, v) end,

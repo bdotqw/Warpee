@@ -215,6 +215,7 @@ local STRINGS = {
     "Выберите слово поиска из списка. Правило по-прежнему можно вписать вручную.",
   ["Sort"] = "Порядок",
   ["By rule"] = "По правилу",
+  ["Rule"] = "Правило",
   ["By expansion"] = "По дополнению",
   ["The order items take inside every section. Each falls back to name, so the order never flickers."] =
     "Порядок предметов внутри каждой секции. При равенстве сортирует по имени, поэтому порядок не скачет.",
@@ -248,6 +249,8 @@ local STRINGS = {
   ["Letters"] = "Буквы",
   ["How many letters of the set name to show."] =
     "Сколько букв из названия набора показывать.",
+  ["How much of the slot the coin and the padlock take."] =
+    "Какую часть ячейки занимают монета и замок.",
   ["Vendor lock"] = "Защита от продажи",
   ["Sale mark"] = "Метка продажи",
   ["A coin on the items you marked for sale."] = "Монета на предметах, отмеченных на продажу.",
@@ -444,6 +447,8 @@ local STRINGS = {
   ["Red border around gear your character cannot wear."] =
     "Красная рамка вокруг вещей, которые персонаж не может надеть.",
   ["Thickness of the slot border."] = "Толщина рамки ячейки.",
+  ["A copper coin on gray junk items: the same coin the Sell button and the sale mark wear in gold, copper here because the rules would sell it, not you."] =
+    "Медная монета на сером хламе: та же монета, что у кнопки «Продать сейчас» и метки продажи, только золотая; медь здесь потому, что продать её хотят правила, а не вы.",
   ["Tint the item level number with the item's quality color."] =
     "Окрашивать уровень предмета в цвет его качества.",
   ["Alt-click an item to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Works in the bags, the bank, the favorites row and the pocket. Alt-click again, or the cross here, to unlock."] =
@@ -640,10 +645,8 @@ local STRINGS = {
   ["FANNY PACK"] = "БАРСЕТКА",
   ["Pocket"] = "Карман",
   ["Pocket window"] = "Окно кармана",
-  ["LMB: Pocket"] = "ЛКМ: карман",
+  ["LMB: Bags"] = "ЛКМ: сумки",
   ["RMB: grid/cat"] = "ПКМ: сетка/кат",
-  ["LMB: grid/cat."] = "ЛКМ: сетка/кат.",
-  ["Click: grid/cat"] = "Клик: сетка/кат",
   ["Pocket rows"] = "Рядов в кармане",
   ["Pocket size"] = "Размер кармана",
   ["Pocket slot size"] = "Размер ячейки кармана",
@@ -664,7 +667,7 @@ local STRINGS = {
     "Клавиша, открывающая и закрывающая карман. Клик, затем клавиша, кнопка мыши или колесо, при желании с Shift, Ctrl или Alt; ПКМ снимает бинд, Esc отменяет.",
   ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] =
     "Снаряжение закрепляется перетаскиванием или вставкой ссылки: по голому id нельзя отличить одну копию от другой.",
-  ["Add ID"] = "id",
+  ["Add ID"] = "Впиши id",
   ["Drop an item here, or type an id"] = "Перетащи предмет сюда или впиши id",
   ["Drop an item here to pin it, or type its id. Pins beat rules, so a pinned item always lands in this category."] =
     "Перетащи предмет сюда, чтобы закрепить, или впиши его id. Закреплённое сильнее правил, поэтому закреплённый предмет всегда попадает в эту категорию.",

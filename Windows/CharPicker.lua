@@ -98,11 +98,14 @@ function Picker:Build()
   child:SetPoint("TOPLEFT")
   sf:SetScrollChild(child)
   sf:EnableMouseWheel(true)
-  sf:SetScript("OnMouseWheel", function(s, d)
-    local span = math.max(0, child:GetHeight() - s:GetHeight())
-    s:SetVerticalScroll(math.min(span, math.max(0, s:GetVerticalScroll() - d * ROW_H * 2)))
+  -- How far this list can travel, and how it takes a new offset: the two halves the shared scrollbar thumb
+  -- asks its owner for. The wheel goes through the same pair, so a wheel and a drag cannot land apart.
+  local function listSpan() return math.max(0, child:GetHeight() - sf:GetHeight()) end
+  local function listScroll(v)
+    sf:SetVerticalScroll(math.min(listSpan(), math.max(0, v or 0)))
     if Picker.PaintBar then Picker:PaintBar() end
-  end)
+  end
+  sf:SetScript("OnMouseWheel", function(s, d) listScroll((s:GetVerticalScroll() or 0) - d * ROW_H * 2) end)
   self.sf, self.child = sf, child
 
   local bar = CreateFrame("Frame", nil, m)
@@ -115,30 +118,7 @@ function Picker:Build()
   thumbTex:SetAllPoints(thumb)
   bar:Hide()
   self.bar, self.thumb = bar, thumb
-  thumb:EnableMouse(true)
-  thumb:SetScript("OnMouseDown", function(s)
-    s.grabY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
-    s.grabScroll = sf:GetVerticalScroll()
-    s:SetScript("OnUpdate", function(t)
-      local y = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
-      local view = sf:GetHeight()
-      local travel = view - t:GetHeight()
-      if travel <= 0 then return end
-      local span = math.max(0, child:GetHeight() - view)
-      local v = math.min(span, math.max(0, t.grabScroll + (t.grabY - y) * span / travel))
-      sf:SetVerticalScroll(v)
-      if Picker.PaintBar then Picker:PaintBar() end
-    end)
-    thumbTex:SetVertexColor(Theme:C("accent"))
-  end)
-  thumb:SetScript("OnMouseUp", function(s)
-    s:SetScript("OnUpdate", nil)
-    thumbTex:SetVertexColor(Theme:C("faint"))
-  end)
-  thumb:SetScript("OnEnter", function() thumbTex:SetVertexColor(Theme:C("dim")) end)
-  thumb:SetScript("OnLeave", function(s)
-    if not s:GetScript("OnUpdate") then thumbTex:SetVertexColor(Theme:C("faint")) end
-  end)
+  ns.ScrollThumb(thumb, thumbTex, sf, listScroll, listSpan)
 
   return m
 end

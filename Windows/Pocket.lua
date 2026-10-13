@@ -40,19 +40,9 @@ local function applyDensity()
 end
 
 -- Header buttons follow the pocket slot size the same way the bags follow theirs.
-local function sizeGlyph(btn, size)
-  if not btn then return end
-  local fp = ns.Fonts:Current()
-  if btn.wpeBoxW == size and btn.wpeBoxH == size and btn.wpeFont == fp then return end
-  btn.wpeFont = fp
-  ns.SnapBox(btn, size, size)
-  if btn.Text then btn.Text:SetFont(fp, math.max(16, math.floor(size * 0.74)), ns.OutlineFlags()) end
-  if btn.icon and btn.iconPct then
-    local h = btn.iconPctY or btn.iconPct
-    btn.icon:SetSize(math.floor(size * btn.iconPct / 100 + 0.5), math.floor(size * h / 100 + 0.5))
-  end
-  btn:Repaint()
-end
+-- Dressing a cell is ns.SizeGlyph in Theme.lua now: the pocket, the bags and the bank each carried a copy.
+-- A file local, so the call sites read as they always did.
+local sizeGlyph = ns.SizeGlyph
 
 local POCKET_PICKS = {
   259085, -- Void-Touched Augment Rune
@@ -524,24 +514,31 @@ function Pocket:Build()
 
   local close = ns.CreateGlyphButton(w, "×")
   close:SetScript("OnClick", function() Pocket:Close() end)
+  close.wpeIconPaint = function(s)
+    local hot = s.wpeHot and not s.offDuty
+    ns.TintMarkX(s, hot and "text" or "dim")
+  end
+  close.wpeIconPaint(close)
   self.closeBtn = close
 
   -- The gear as art on the icon path rather than a texture escape inside the label, the way the bags
   -- and the bank carry theirs: only a real texture can be given the ground the drawn marks wear, and
-  -- the layout below keeps sizing it at 60% of the header box exactly as the escape was.
+  -- the layout below sizes it off the header box like every other icon: 62% of this box, the same
+  -- share the bags and the bank give the same 16px cog.
   local gear = ns.CreateGlyphButton(w, "")
   gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
   ns.AddTip(gear, ns.L["Settings"], "top")
   local gearIcon = gear:CreateTexture(nil, "ARTWORK")
-  gearIcon:SetTexture([[Interface\Buttons\UI-OptionsButton]])
-  gearIcon:SetSize(13, 13)
+  gearIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\gear.tga]])
   gearIcon:SetPoint("CENTER")
-  gearIcon:SetVertexColor(Theme:IconTint())
-  Theme:Track(gearIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
   gear.icon = gearIcon
+  gear.iconPct = 62
   gear.wpeIconPaint = function(s)
-    if s.icon then s.icon:SetVertexColor(Theme:IconTint()) end
+    if not s.icon then return end
+    local hot = s.wpeHot and not s.offDuty
+    s.icon:SetVertexColor(Theme:C(hot and "text" or "dim"))
   end
+  gear.wpeIconPaint(gear)
   ns.IconSilhouette(gear, gearIcon)
   self.gearBtn = gear
 
@@ -549,18 +546,29 @@ function Pocket:Build()
   plus:SetScript("OnClick", function() Pocket:TogglePicks() end)
   ns.AddTip(plus, ns.L["Popular"], "top")
   plus.wpeMarkW = 2
+  plus.wpeIconPaint = function(s)
+    local hot = s.wpeHot and not s.offDuty
+    ns.TintMarkX(s, hot and "text" or "dim")
+  end
+  plus.wpeIconPaint(plus)
   ns.FitMarkPlus(plus)
   self.plusBtn = plus
 
-  local lock = ns.CreateGlyphButton(w, "")
+  -- The lock is drawn in code, like the X and the plus, and carries its own ground. State is shown by
+  -- the shape of the shackle, not by colour: closed = locked, open (the shackle hinged up on the left,
+  -- the universal open-padlock) = unlocked. The glyph keeps the row's own ink in both states (dim at
+  -- rest, text under the pointer) with no accent, so nothing in the row jumps. wpeLockHinge tells the
+  -- fit to reserve headroom for the lift in both states, so the body never moves when it toggles;
+  -- wpeLockOpen picks the pose. The paint runs on every hover, so the pose is reasserted there.
+  local lock = ns.CreateGlyphButton(w, "lock")
+  lock.wpeLockHinge = true
   lock:SetScript("OnClick", function() Pocket:ToggleLock() end)
-  local lockIcon = lock:CreateTexture(nil, "ARTWORK")
-  lockIcon:SetSize(15, 15)
-  lockIcon:SetPoint("CENTER")
-  ns.BadgeArt(lockIcon, "lock")
-  lock.icon = lockIcon
-  lock.iconPct = 68
-  ns.IconSilhouette(lock, lockIcon)
+  lock.wpeIconPaint = function(s)
+    local hot = s.wpeHot and not s.offDuty
+    s.wpeLockOpen = not Pocket:Locked()
+    ns.TintMarkX(s, hot and "text" or "dim")
+    ns.FitMarkLock(s)
+  end
   ns.AddTip(lock, function() return ns.L["Lock the pocket"] end, "top")
   self.lockBtn = lock
 
@@ -596,6 +604,11 @@ function Pocket:Build()
 
   local pclose = ns.CreateGlyphButton(picks, "×", 22)
   pclose:SetScript("OnClick", function() Pocket:TogglePicks() end)
+  pclose.wpeIconPaint = function(s)
+    local hot = s.wpeHot and not s.offDuty
+    ns.TintMarkX(s, hot and "text" or "dim")
+  end
+  pclose.wpeIconPaint(pclose)
   self.picksClose = pclose
 
   self.pickBtns = {}
@@ -650,20 +663,25 @@ function Pocket:Build()
     self.pickBtns[i] = b
   end
 
-  local box = ns.CreateSearchBox(picks, nil, "Add ID")
-  box.wpeLinkID = true
-  box:SetHeight(22)
-  box:SetScript("OnEnterPressed", function(s)
-    Pocket:AddByText(s:GetText())
+  -- The same id field the category editor's pin entry uses (Core/Widgets.lua): a number box that takes
+  -- nothing but digits, with a live preview of the item that id names beside it, so what was typed is seen
+  -- to resolve before it lands in the pocket — the icon and the name, exactly as the pins panel shows
+  -- them. Enter adds it and the "+" does the same; a shift-clicked link arrives as its bare id. It used to
+  -- be the plain search box, which took any text and gave nothing back until the item showed up in the
+  -- grid. Losing focus still empties it, the way the old field did, so nothing typed is left standing when
+  -- the panel closes.
+  local field = ns.CreateIdField(picks, {
+    hint = "Add ID",
+    height = BOX_H,
+    font = FONT - 2,
+    smallFont = FONT - 3,
+    onCommit = function(id) Pocket:AddByText(id) end,
+  })
+  field.box:SetScript("OnEditFocusLost", function(s)
     s:SetText("")
-    s:ClearFocus()
+    field:Preview()
   end)
-  box:SetScript("OnEscapePressed", function(s)
-    s:SetText("")
-    s:ClearFocus()
-  end)
-  box:SetScript("OnEditFocusLost", function(s) s:SetText("") end)
-  self.idBox = box
+  self.idField = field
 
   w:Hide()
   self.frame = w
@@ -753,16 +771,6 @@ function Pocket:Layout()
   local hb = math.min(ns.Density(pocketSize()).pocketBand - 4, 24)
   sizeGlyph(self.closeBtn, hb)
   sizeGlyph(self.gearBtn, hb)
-  -- The gear sits on the icon path, so it still has to be measured by hand -- the button's own size
-  -- pass leaves an icon without an iconPct alone, and the art wants 60% of the box rather than a
-  -- percentage of it that would fight the escape it used to be. Its ground is a copy of that same
-  -- art, so it is re-fitted here, right after the resize.
-  local gicon = math.floor(hb * 0.6 + 0.5)
-  if self.gearBtn.wpeIconSize ~= gicon then
-    self.gearBtn.wpeIconSize = gicon
-    self.gearBtn.icon:SetSize(gicon, gicon)
-    ns.FitIconShadow(self.gearBtn)
-  end
   sizeGlyph(self.lockBtn, hb)
   sizeGlyph(self.plusBtn, hb)
   self.closeBtn:ClearAllPoints()
@@ -779,7 +787,10 @@ function Pocket:Layout()
     self.lockBtn:ClearAllPoints()
     ns.SnapPoint(self.lockBtn, "RIGHT", rightBtn, "LEFT", -4, 0)
     rightBtn = self.lockBtn
-    self.lockBtn.icon:SetVertexColor(Theme:C(self:Locked() and "accent" or "dim"))
+    -- The lock's state is an accent underline the paint shows or hides, so the flip only has to ask for
+    -- the repaint -- sizeGlyph above repaints on a size change alone and would leave the mark wearing the
+    -- old state otherwise.
+    self.lockBtn:Repaint()
     self.lockBtn:Show()
   end
   if self.plusBtn then
@@ -789,6 +800,11 @@ function Pocket:Layout()
   end
 
   local gen = ((Bags and Bags.styleGen) or 0) .. ":" .. tostring(path) .. ":" .. size
+  -- Only drop a cell's cached link when the style generation moved (theme/font/size/badge change), the
+  -- way Favorites and Recent gate it. Without this the loops below cleared b.link every pass, so
+  -- UpdateItemButton's early return (b.link == link and ...) never held and every live cell repainted in
+  -- full on every Layout -- and Layout runs on each bag event while the pocket is open.
+  local repaint = self.paintKey ~= gen
   self.paintKey = gen
 
   local R = ns.Recent
@@ -830,7 +846,7 @@ function Pocket:Layout()
         ns.SnapPoint(h, "TOPLEFT", w, "TOPLEFT", PAD + (i - 1) * step, -y)
         h:Show(); b:Show()
         b.wpeForce = R:Got(id)
-        b.link = nil
+        if repaint then b.link = nil end
         ns.UpdateItemButton(b)
         if g then g:Hide() end
       else
@@ -898,7 +914,7 @@ function Pocket:Layout()
         h:ClearAllPoints()
         ns.SnapPoint(h, "TOPLEFT", w, "TOPLEFT", px, -py)
         h:Show(); b:Show()
-        b.link = nil
+        if repaint then b.link = nil end
         ns.UpdateItemButton(b)
         if g then g:Hide() end
       else
@@ -963,14 +979,15 @@ function Pocket:PickPaint()
     self.picksClose:ClearAllPoints()
     ns.SnapPoint(self.picksClose, "RIGHT", p, "TOPRIGHT", -6, -mid)
   end
-  if self.idBox then
-    self.idBox:SetFont(path, FONT - 2, ns.OutlineFlags())
-    if self.idBox.Hint then self.idBox.Hint:SetFont(path, FONT - 2, ns.OutlineFlags()) end
-    self.idBox:ClearAllPoints()
-    ns.SnapPoint(self.idBox, "TOPLEFT", p, "TOPLEFT", PICK_PAD, -head)
-    ns.SnapPoint(self.idBox, "TOPRIGHT", p, "TOPRIGHT", -PICK_PAD, -head)
+  if self.idField then
+    -- Density first: the field stands 6 taller than its box, the room the border takes.
+    self.idField:SetBoxHeight(BOX_H)
+    self.idField:ApplyFont(path, FONT - 2, FONT - 3)
+    self.idField:ClearAllPoints()
+    ns.SnapPoint(self.idField, "TOPLEFT", p, "TOPLEFT", PICK_PAD, -head)
+    ns.SnapPoint(self.idField, "TOPRIGHT", p, "TOPRIGHT", -PICK_PAD, -head)
   end
-  local gridTop = head + BOX_H + BOX_GAP
+  local gridTop = head + BOX_H + 6 + BOX_GAP
   for i = 1, n do
     local id = POCKET_PICKS[i]
     local b = self.pickBtns[i]
@@ -1024,7 +1041,7 @@ function Pocket:TogglePicks()
   if not p then return end
   if p:IsShown() then
     p:Hide()
-    if self.idBox then self.idBox:ClearFocus() end
+    if self.idField then self.idField.box:ClearFocus() end
     return
   end
   self:PickPaint()
@@ -1032,7 +1049,7 @@ function Pocket:TogglePicks()
   for _, id in ipairs(POCKET_PICKS) do
     if C_Item and C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(id) end
   end
-  if self.idBox then self.idBox:SetFocus() end
+  if self.idField then self.idField.box:SetFocus() end
 end
 
 function Pocket:Soon()
@@ -1069,7 +1086,7 @@ function Pocket:Open()
 end
 
 function Pocket:Close(keep)
-  if self.idBox then self.idBox:SetText(""); self.idBox:ClearFocus() end
+  if self.idField then self.idField.box:SetText(""); self.idField.box:ClearFocus(); self.idField:Preview() end
   if self.picksFrame then self.picksFrame:Hide() end
   if self.frame then self.frame:Hide() end
   if not keep then WarpeeDB.pocketOpen, self.solo = nil, nil end

@@ -3,6 +3,11 @@ local addonName, ns = ...
 local Theme = {}
 ns.Theme = Theme
 
+-- The word across the head of every window the addon draws. Three places set it -- the bags, once at build
+-- and again where the header measures itself against the money band, and the settings window -- and it is
+-- the addon's own name, so it reads the same in every language and never goes through ns.L.
+ns.TITLE = "WARPEE"
+
 local SHARED = {
   emptyLine  = { 0.271, 0.310, 0.380, 1.00 },
   overlay    = { 0.949, 0.957, 0.973, 1.00 },
@@ -12,6 +17,11 @@ local SHARED = {
   azure      = { 0.435, 0.706, 0.831, 1.00 },
   reagent    = { 0.353, 0.804, 0.616, 1.00 },
   gaugeHi    = { 0.878, 0.451, 0.420, 1.00 },
+  -- The one red in the kit: the colour the rule chips paint "Not" with (|cffe64d4d), shared so the
+  -- category/divider delete cross can read as the same "this removes/negates" red in every theme.
+  -- dangerHi is that red lifted toward white for hover, the way accentInk lifts the accent.
+  danger     = { 0.902, 0.302, 0.302, 1.00 },
+  dangerHi   = { 0.941, 0.581, 0.581, 1.00 },
   worn       = { 0.353, 0.780, 1.000, 1.00 },
   gone       = { 0.902, 0.678, 0.325, 1.00 },
 }
@@ -174,6 +184,60 @@ local function refreshPhys()
 end
 refreshPhys()
 
+-- The one place a failure in the addon's own code can be said out loud. A pcall keeps one broken paint
+-- from taking the window with it, but an error nobody ever sees is a bug nobody can fix, and the passes
+-- that used to swallow theirs are the ones a theme or a profile change runs -- the hardest to reproduce
+-- by hand. The label names the pass, the message goes to the chat frame, and it is said once per label
+-- and message: a paint that breaks on every frame must not fill the chat frame with the same line, while
+-- a *different* failure under the same label still earns its own line. `label` may be nil, in which case
+-- the callee names itself -- which is what the guild bank's try() helper relies on, since it is handed
+-- both the addon's own dress passes and Blizzard's frame methods.
+--
+-- Nothing is said unless something failed: the guard is silent on a pass that works, and one line of chat
+-- on one that does not. Guarded passes and said lines share one cap, GUARD_LIMIT, which is also what stops
+-- a loop failing with fresh text on every pass from growing the record without bound -- past it the guard
+-- stops both saying and remembering for the rest of the session, having already said the first lines that
+-- matter.
+
+local GUARD_LIMIT = 20
+local guardSaid, guardCount = {}, 0
+
+local function guardLine(name, err)
+  print("|cffd9a85fWarpee|r |cffffffff" .. name .. " failed: " .. tostring(err) .. "|r")
+end
+
+-- The tail of a source path: the game hands over the addon file whole, and a line of chat is no place for
+-- it. Capped, since a path the client reports under some other form must not push the message off screen.
+local function guardWhere(src)
+  local s = tostring(src or ""):match("[^\\/]*$")
+  if not s or s == "" then s = "?" end
+  if #s > 32 then s = s:sub(-32) end
+  return s
+end
+
+function ns.Guard(label, fn, ...)
+  if type(fn) ~= "function" then return end
+  local ok, err = pcall(fn, ...)
+  if ok then return end
+  -- A caller that passes its own word for the pass gets it said; one that hands the function over alone gets
+  -- where it was written, which is what the guild bank's try() helper needs: its call sites pass closures as
+  -- often as named functions, and a closure called through pcall carries no name to read. One of the game's
+  -- own carries no line either, and says so instead of pointing at itself.
+  local name = label
+  if type(name) ~= "string" and debug and debug.getinfo then
+    local d = debug.getinfo(fn, "S")
+    local line = d and (tonumber(d.linedefined) or 0)
+    if line > 0 then name = guardWhere(d.short_src) .. ":" .. line end
+  end
+  if type(name) ~= "string" then name = "a game call" end
+  local key = name .. "|" .. tostring(err)
+  if guardSaid[key] then return end
+  if guardCount >= GUARD_LIMIT then return end
+  guardSaid[key] = true
+  guardCount = guardCount + 1
+  guardLine(name, err)
+end
+
 function ns.PixelUnit(region)
   local s = (region or UIParent):GetEffectiveScale()
   if not s or s <= 0 then s = 1 end
@@ -290,6 +354,52 @@ function ns.SnapBox(frame, w, h, even)
     end
     ns.AlignToScreen(x)
   end, "size")
+end
+
+-- A header icon (the gear, the bags, the sort arrow) is a texture centred in its button and scaled by
+-- the GPU from a 16/64px source, so its symmetry depends on where its edges land. Sized in button-local
+-- units and centred, the source lands half a pixel off the screen grid at some densities and the bilinear
+-- scale smears the two sides unequally -- the gear came out with a three-pixel tooth on one side and two
+-- on the other. This sizes the icon to a whole number of physical pixels and matches that count's parity
+-- to the button's, so the centre anchor puts both edges on a boundary and the two sides scale alike.
+-- NoPixelSnap stops the texture rounding itself a second, conflicting way.
+function ns.SizeIcon(host, icon, pct, pctY)
+  if not (host and icon and pct) then return end
+  ns.NoPixelSnap(icon)
+  local u = ns.PX(host, 1)
+  if u <= 0 then return end
+  local bw = math.max(2, math.floor((host.wpeBoxW or host:GetWidth() or 0) / u + 0.5))
+  local bh = math.max(2, math.floor((host.wpeBoxH or host:GetHeight() or 0) / u + 0.5))
+  local function fit(box, p)
+    local target = box * p / 100
+    local n = math.max(2, math.floor(target + 0.5))
+    if n % 2 ~= box % 2 then                       -- match parity, keeping the size closest to target
+      n = (math.abs((n - 1) - target) <= math.abs((n + 1) - target)) and (n - 1) or (n + 1)
+    end
+    if n < 2 then n = (box % 2 == 0) and 2 or 3 end
+    if n > box then n = n - 2 end
+    return n
+  end
+  icon:SetSize(fit(bw, pct) * u, fit(bh, pctY or pct) * u)
+  icon:ClearAllPoints()
+  icon:SetPoint("CENTER", host, "CENTER", 0, 0)
+end
+
+-- One cell size moves its box, its caption and its icon together: a size that reached only the box left the
+-- icon drawn at the old one until something else happened to repaint the cell, and the three windows each
+-- carried a byte-for-byte copy of this. The face is read every call, so a font change lands here too, and
+-- the guard at the top skips the work when nothing moved, which matters when a relayout walks every cell.
+function ns.SizeGlyph(btn, size)
+  if not btn then return end
+  local fp = ns.Fonts:Current()
+  if btn.wpeBoxW == size and btn.wpeBoxH == size and btn.wpeFont == fp then return end
+  btn.wpeFont = fp
+  ns.SnapBox(btn, size, size)
+  if btn.Text then btn.Text:SetFont(fp, math.max(16, math.floor(size * 0.74)), ns.OutlineFlags()) end
+  if btn.icon and btn.iconPct then
+    ns.SizeIcon(btn, btn.icon, btn.iconPct, btn.iconPctY)
+  end
+  btn:Repaint()
 end
 
 function ns.PixelLine(t, n, axis)
@@ -566,15 +676,15 @@ local function restoreAll()
   ns.RestoreArt(_G.WarpeeTip)
   ns.RestoreArt(_G.WarpeeGoldTip)
   if InCombatLockdown and InCombatLockdown() then return end
-  if Theme.Restyle then pcall(Theme.Restyle, Theme, Theme.active) end
+  if Theme.Restyle then ns.Guard("Theme:Restyle", Theme.Restyle, Theme, Theme.active) end
 end
 
 function ns.RefreshPixels()
   refreshPhys()
   for obj, list in pairs(pixelJobs) do
-    for _, fn in pairs(list) do pcall(fn, obj) end
+    for _, fn in pairs(list) do ns.Guard("pixel job", fn, obj) end
   end
-  if ns.CloseDropdown then pcall(ns.CloseDropdown) end
+  if ns.CloseDropdown then ns.Guard("dropdown close", ns.CloseDropdown) end
   local quiet = not (InCombatLockdown and InCombatLockdown())
   if ns.Bags then
     if ns.Bags.frame then ns.SnapFrame(ns.Bags.frame) end
@@ -607,7 +717,7 @@ local lastRun = 0
 local function runRefresh()
   pending = false
   lastRun = (GetTime and GetTime()) or 0
-  pcall(ns.RefreshPixels)
+  ns.Guard("pixel refresh", ns.RefreshPixels)
   -- RefreshPixels restores the art once, at the end of its own run. The frames it
   -- restyled are laid out again a frame or two later, so a second restore goes out
   -- behind them. This is what the three OnUpdate passes used to do.
@@ -664,7 +774,7 @@ Theme.Track = function(_, obj, fn) return track(obj, fn) end
 
 function Theme:Restyle(name)
   self:Apply(name)
-  for obj, fn in pairs(tracked) do pcall(fn, obj) end
+  for obj, fn in pairs(tracked) do ns.Guard("theme paint", fn, obj) end
   if ns.Bags and ns.Bags.Restyle then ns.Bags:Restyle() end
   if ns.Bank and ns.Bank.Restyle then ns.Bank:Restyle() end
   if ns.GuildBankSkin and ns.GuildBankSkin.Restyle then ns.GuildBankSkin:Restyle() end

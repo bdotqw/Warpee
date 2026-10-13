@@ -44,6 +44,10 @@ local DEFAULTS = {
   pocketLock = NONE,
   revFill = false, fillUp = false, questMarks = true, newItemGlow = false,
   newOnTop = false,
+  -- The grey-junk coin is a marker toggle of its own now, not a badge in the panel. It ships on, the
+  -- way the junk badge always did; ns.MarkJunk reads Bags.junkCoin, and the login path below carries
+  -- the old badge/junkIcon state into it.
+  junkCoin = true,
   reagentTint = true, unusableBorder = true,
   bagView = "grid", bankView = "grid", categories = {},
   catSort = "ilvl",
@@ -137,6 +141,33 @@ local function fillComputed(db)
     end
   end
   ns.BadgeMigrate(db, db.badge)
+  -- The grey-junk coin left the badge panel for its own marker toggle (junkCoin). This runs on login and
+  -- on every profile switch, so a profile stored before the move carries its answer across either way. The
+  -- signal is the old badge.junk record still being there: badge.junk.on == false means the player had the
+  -- coin off, anything else means on. junkIcon was the switch before badge.junk and is folded in for a save
+  -- old enough to carry it but no junk badge. The old record is dropped once read, so a captured profile no
+  -- longer holds it; on a fresh save it was never created (it left BadgeDefaults with the panel row), so
+  -- junkCoin keeps whatever default or choice it already has.
+  if type(db.badge) == "table" and db.badge.junk ~= nil then
+    local j = db.badge.junk
+    db.junkCoin = not (type(j) == "table" and j.on == false)
+    db.badge.junk = nil
+  elseif db.junkIcon == false then
+    db.junkCoin = false
+  end
+  -- The coin's scale field narrowed to 0.4-0.6: below 0.4 it was only ever a coin small enough that the
+  -- art stopped reading, above 0.6 the mark covered the item it sat on. A stored value outside that band is
+  -- brought in here, once, rather than clamped in the field's getter -- a getter that answers something
+  -- other than what it holds fights the slider, and the window losing that fight on every frame is what
+  -- used to lag. Written only when it is actually out of band, so nothing is rewritten twice. The junk
+  -- coin needs no entry: it is sized by the sale mark's record and has no scale of its own.
+  local sellRec = db.badge and db.badge.sell
+  if type(sellRec) == "table" then
+    local s = tonumber(sellRec.s)
+    if s and (s < 0.4 or s > 0.6) then
+      sellRec.s = s < 0.4 and 0.4 or 0.6
+    end
+  end
 end
 
 ns.FillComputed = fillComputed
@@ -186,6 +217,7 @@ function ns.PushConfig()
   Bags.newOnTop         = WarpeeDB.newOnTop
   Bags.questMarks       = WarpeeDB.questMarks
   Bags.newItemGlow      = WarpeeDB.newItemGlow
+  Bags.junkCoin         = WarpeeDB.junkCoin
   Bags.reagentTint      = WarpeeDB.reagentTint
   Bags.unusableBorder   = WarpeeDB.unusableBorder
   Bags.bagView          = WarpeeDB.bagView
@@ -251,7 +283,7 @@ local function repaintItems()
   -- passes above cannot reach: an item whose scan had to wait got its border only the next time
   -- the slots happened to be painted, which in practice meant once it was moved.
   local gb, f = ns.GuildBankSkin, _G.GuildBankFrame
-  if gb and gb.PaintSlots and f and f:IsShown() then pcall(gb.PaintSlots, gb) end
+  if gb and gb.PaintSlots and f and f:IsShown() then ns.Guard("guild bank paint", gb.PaintSlots, gb) end
 end
 
 local repaintQ
@@ -545,338 +577,436 @@ for _, e in ipairs({ "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CH
   pcall(ev.RegisterEvent, ev, e)
 end
 local SCALE_CVARS = { uiscale = true, useuiscale = true }
-ev:SetScript("OnEvent", function(_, event, a1, a2)
-  if event == "UI_SCALE_CHANGED" or event == "DISPLAY_SIZE_CHANGED" then
-    ns.ScaleChanged()
-    return
+
+-- The event handler is one function per group of events plus a table that says which event goes where.
+-- It used to be a single if/elseif chain of 340 lines written into the frame's script: readable top to
+-- bottom, but every new event had to be threaded into the chain by hand, and two branches answering the
+-- same event read as two answers when only the first one could ever run. A table cannot hold two answers
+-- for one key, so where an event goes is a lookup rather than the order of the lines above it. Nothing
+-- else changed: each body is the branch that stood there, comments and all, and a branch that used to
+-- tell its events apart -- money, whose two events answer differently, and the quest log, which reacts
+-- only to the player's own -- still reads the event it was handed.
+local on = {}
+
+local function onScale()
+  ns.ScaleChanged()
+end
+
+local function onCvar(_, a1)
+  if type(a1) == "string" and SCALE_CVARS[a1:lower()] then ns.ScaleChanged() end
+end
+
+local function onRegen()
+  if Bags.cold then Bags:Warm(); Bags:Refresh() end
+  local B = ns.Bank
+  if B and B.cold then B.cold = nil; B:Refresh() end
+  Bags:VendorState()
+end
+
+local function onLogin()
+  -- The view chooser is for first installs only. A save that already carries any key predates
+  -- this release: that player set their bags up the way they like long before categories, so
+  -- mark it prompted here and the chooser never appears for them. Only a genuinely empty save
+  -- (a fresh install, nothing written yet) is left unmarked, so MaybeShow can offer the choice.
+  local freshInstall = (WarpeeDB == nil) or (next(WarpeeDB) == nil)
+  WarpeeDB = WarpeeDB or {}
+  if not freshInstall and WarpeeDB.startPrompted == nil then WarpeeDB.startPrompted = 1 end
+  if WarpeeDB.goldLetters == nil then
+    WarpeeDB.goldLetters = WarpeeDB.goldMode == nil or WarpeeDB.goldMode == "letters"
   end
-  if event == "CVAR_UPDATE" then
-    if type(a1) == "string" and SCALE_CVARS[a1:lower()] then ns.ScaleChanged() end
-    return
+  if WarpeeDB.goldOnly == nil then
+    WarpeeDB.goldOnly = WarpeeDB.goldMode == nil or WarpeeDB.goldMode == "gold"
   end
-  if event == "PLAYER_REGEN_ENABLED" then
-    if Bags.cold then Bags:Warm(); Bags:Refresh() end
-    local B = ns.Bank
-    if B and B.cold then B.cold = nil; B:Refresh() end
-    Bags:VendorState()
-    return
+  WarpeeDB.goldMode = nil
+
+  -- Recent was one switch for both windows, and it is two now. The split has to happen
+  -- before the defaults are filled in, because that is what would otherwise write two
+  -- "on" over the only record of the row having been off. A save that already carries
+  -- either key was written by this version, so the old value is spent either way.
+  if WarpeeDB.recentBags == nil then WarpeeDB.recentBags = WarpeeDB.recentShow ~= false end
+  if WarpeeDB.recentPocket == nil then WarpeeDB.recentPocket = WarpeeDB.recentShow ~= false end
+  WarpeeDB.recentShow = nil
+
+  -- The pocket used to be frozen by the lock that governs the bags and the bank. It is
+  -- independent now, and a save that predates that has no answer of its own: take the old
+  -- lock's answer once, so nobody's pocket starts moving on its own after an update. From
+  -- here on the two never read each other.
+  if WarpeeDB.pocketLock == nil then WarpeeDB.pocketLock = WarpeeDB.lockWindows == true end
+
+  -- The one category gap became two, X across a shelf and Y between rows. A save that carried the
+  -- single number seeds both from it, so a window that was packed to the player's taste stays packed
+  -- that way; the old key is dropped so it does not linger in the save or ride along in a profile.
+  if WarpeeDB.catGap ~= nil then
+    local g = tonumber(WarpeeDB.catGap)
+    if g then
+      if WarpeeDB.catGapX == nil then WarpeeDB.catGapX = g end
+      if WarpeeDB.catGapY == nil then WarpeeDB.catGapY = g end
+    end
+    WarpeeDB.catGap = nil
   end
-  if event == "PLAYER_LOGIN" then
-    -- The view chooser is for first installs only. A save that already carries any key predates
-    -- this release: that player set their bags up the way they like long before categories, so
-    -- mark it prompted here and the chooser never appears for them. Only a genuinely empty save
-    -- (a fresh install, nothing written yet) is left unmarked, so MaybeShow can offer the choice.
-    local freshInstall = (WarpeeDB == nil) or (next(WarpeeDB) == nil)
-    WarpeeDB = WarpeeDB or {}
-    if not freshInstall and WarpeeDB.startPrompted == nil then WarpeeDB.startPrompted = 1 end
-    if WarpeeDB.goldLetters == nil then
-      WarpeeDB.goldLetters = WarpeeDB.goldMode == nil or WarpeeDB.goldMode == "letters"
-    end
-    if WarpeeDB.goldOnly == nil then
-      WarpeeDB.goldOnly = WarpeeDB.goldMode == nil or WarpeeDB.goldMode == "gold"
-    end
-    WarpeeDB.goldMode = nil
 
-    -- Recent was one switch for both windows, and it is two now. The split has to happen
-    -- before the defaults are filled in, because that is what would otherwise write two
-    -- "on" over the only record of the row having been off. A save that already carries
-    -- either key was written by this version, so the old value is spent either way.
-    if WarpeeDB.recentBags == nil then WarpeeDB.recentBags = WarpeeDB.recentShow ~= false end
-    if WarpeeDB.recentPocket == nil then WarpeeDB.recentPocket = WarpeeDB.recentShow ~= false end
-    WarpeeDB.recentShow = nil
+  -- Before fillDefaults: a saved number must not be seeded over by the default.
+  if WarpeeDB.warbandIconSize == nil then WarpeeDB.warbandIconSize = WarpeeDB.bankIconSize end
+  -- The same one-time seed for the pocket's own size, and for the same reason: a save written
+  -- before the pocket had a size keeps the look it had, the moment it is read. After this it is
+  -- a setting of its own and the bags' size is never consulted again -- a save that carries no
+  -- bags size either is left to the default above.
+  if WarpeeDB.pocketIconSize == nil then WarpeeDB.pocketIconSize = WarpeeDB.iconSize end
+  -- Before fillDefaults, or the saved number is thrown away for the default. All three split gaps came
+  -- in together, so the one old splitGap seeds all three alike -- the warband one was missing here, so a
+  -- save carrying legacy splitGap kept it for bags and bank but lost it to the default for warband.
+  if WarpeeDB.splitGapBags == nil then WarpeeDB.splitGapBags = WarpeeDB.splitGap or 12 end
+  if WarpeeDB.splitGapBank == nil then WarpeeDB.splitGapBank = WarpeeDB.splitGap or 12 end
+  if WarpeeDB.splitGapWb == nil then WarpeeDB.splitGapWb = WarpeeDB.splitGap or 12 end
+  fillDefaults(WarpeeDB)
+  -- autoOpen is a table default, so fillDefaults only seeds it whole on a fresh profile; a profile
+  -- that predates these two keys keeps its table and would read them as nil (off). Seed the pair so
+  -- the shipped default (on) reaches everyone, the way the rest of the auto-open toggles ship on.
+  if WarpeeDB.autoOpen then
+    if WarpeeDB.autoOpen.itemupgrade == nil then WarpeeDB.autoOpen.itemupgrade = true end
+    if WarpeeDB.autoOpen.catalyst == nil then WarpeeDB.autoOpen.catalyst = true end
+  end
+  for i = 1, #NUMERIC do
+    local k = NUMERIC[i]
+    if WarpeeDB[k] ~= nil then WarpeeDB[k] = tonumber(WarpeeDB[k]) or DEFAULTS[k] end
+  end
 
-    -- The pocket used to be frozen by the lock that governs the bags and the bank. It is
-    -- independent now, and a save that predates that has no answer of its own: take the old
-    -- lock's answer once, so nobody's pocket starts moving on its own after an update. From
-    -- here on the two never read each other.
-    if WarpeeDB.pocketLock == nil then WarpeeDB.pocketLock = WarpeeDB.lockWindows == true end
+  if not ns.Theme.THEMES[WarpeeDB.theme] then WarpeeDB.theme = "blizzard" end
+  ns.Theme:Apply(WarpeeDB.theme)
 
-    -- The one category gap became two, X across a shelf and Y between rows. A save that carried the
-    -- single number seeds both from it, so a window that was packed to the player's taste stays packed
-    -- that way; the old key is dropped so it does not linger in the save or ride along in a profile.
-    if WarpeeDB.catGap ~= nil then
-      local g = tonumber(WarpeeDB.catGap)
-      if g then
-        if WarpeeDB.catGapX == nil then WarpeeDB.catGapX = g end
-        if WarpeeDB.catGapY == nil then WarpeeDB.catGapY = g end
-      end
-      WarpeeDB.catGap = nil
-    end
+  if WarpeeDB.slotStyle and SLOT_RENAMES[WarpeeDB.slotStyle] then
+    WarpeeDB.slotStyle = SLOT_RENAMES[WarpeeDB.slotStyle]
+  end
 
-    -- Before fillDefaults: a saved number must not be seeded over by the default.
-    if WarpeeDB.warbandIconSize == nil then WarpeeDB.warbandIconSize = WarpeeDB.bankIconSize end
-    -- The same one-time seed for the pocket's own size, and for the same reason: a save written
-    -- before the pocket had a size keeps the look it had, the moment it is read. After this it is
-    -- a setting of its own and the bags' size is never consulted again -- a save that carries no
-    -- bags size either is left to the default above.
-    if WarpeeDB.pocketIconSize == nil then WarpeeDB.pocketIconSize = WarpeeDB.iconSize end
-    -- Before fillDefaults, or the saved number is thrown away for the default.
-    if WarpeeDB.splitGapBags == nil then WarpeeDB.splitGapBags = WarpeeDB.splitGap or 12 end
-    if WarpeeDB.splitGapBank == nil then WarpeeDB.splitGapBank = WarpeeDB.splitGap or 12 end
-    fillDefaults(WarpeeDB)
-    -- autoOpen is a table default, so fillDefaults only seeds it whole on a fresh profile; a profile
-    -- that predates these two keys keeps its table and would read them as nil (off). Seed the pair so
-    -- the shipped default (on) reaches everyone, the way the rest of the auto-open toggles ship on.
-    if WarpeeDB.autoOpen then
-      if WarpeeDB.autoOpen.itemupgrade == nil then WarpeeDB.autoOpen.itemupgrade = true end
-      if WarpeeDB.autoOpen.catalyst == nil then WarpeeDB.autoOpen.catalyst = true end
-    end
-    for i = 1, #NUMERIC do
-      local k = NUMERIC[i]
-      if WarpeeDB[k] ~= nil then WarpeeDB[k] = tonumber(WarpeeDB[k]) or DEFAULTS[k] end
-    end
+  ns.Fonts:Settle()
+  fillComputed(WarpeeDB)
 
-    if not ns.Theme.THEMES[WarpeeDB.theme] then WarpeeDB.theme = "blizzard" end
-    ns.Theme:Apply(WarpeeDB.theme)
+  -- The save used to keep its groups in a second table beside the categories; Migrate folds that
+  -- pair into the one ordered list once, markers and all, and drops the leftovers. Empty and Other
+  -- are real, movable category rows but neither is deletable, so both rows must always exist; an
+  -- older or short custom list gets them restored at the tail here, on every login.
+  -- The upgrades sit between them because they are about the shipped rules rather than the shape of the
+  -- list: two shipped rules were rewritten so the rule editor can show them as chips, the four gear rows
+  -- gained an item-level floor after saves existed, and five rule words were later spelled the way the
+  -- picker spells them, so their chips read as words the player can pick back and a language can
+  -- translate. Each carries its change onto those rows alone where they are still exactly as shipped,
+  -- leaving written rules alone.
+  if ns.Categories then
+    ns.Categories:Migrate()
+    ns.Categories:UpgradePresetRules()
+    ns.Categories:UpgradeFloor()
+    ns.Categories:UpgradeRuleWords()
+    ns.Categories:EnsureEmpty()
+    ns.Categories:EnsureOther()
+  end
 
-    if WarpeeDB.slotStyle and SLOT_RENAMES[WarpeeDB.slotStyle] then
-      WarpeeDB.slotStyle = SLOT_RENAMES[WarpeeDB.slotStyle]
-    end
+  WarpeeDB.favorites = WarpeeDB.favorites or {}
+  -- The sale carousel's store (Features/Vendor.lua): any older vendor lock is folded into it here,
+  -- and the folded ids that are gear are moved onto the copies at hand on PLAYER_ENTERING_WORLD.
+  WarpeeDB.sellMark = WarpeeDB.sellMark or {}
+  if ns.Vendor and ns.Vendor.FoldLocks then ns.Vendor:FoldLocks() end
 
-    ns.Fonts:Settle()
-    fillComputed(WarpeeDB)
-    if WarpeeDB.junkIcon == false then WarpeeDB.badge.junk.on = false end
+  WarpeeDB.highContrast = nil
+  WarpeeDB.bgAlpha = nil
+  WarpeeDB.catCollapsed = nil
+  WarpeeDB.favCount = nil
+  WarpeeDB.junkIcon = nil
+  WarpeeDB.pocketKeyDone = nil
+  WarpeeDB.unusable = nil
+  WarpeeDB.ilvlSize, WarpeeDB.ilvlAnchor = nil, nil
+  WarpeeDB.ilvlX, WarpeeDB.ilvlY = nil, nil
+  WarpeeDB.qualityAnchor, WarpeeDB.qualityScale = nil, nil
+  WarpeeDB.countSize, WarpeeDB.countAnchor = nil, nil
+  WarpeeDB.countX, WarpeeDB.countY = nil, nil
+  WarpeeDB.fontMigrated = nil
+  WarpeeDB.vendorKeepWarband = nil
+  WarpeeDB.vendorKeepMog, WarpeeDB.vendorKeepFresh = nil, nil
+  WarpeeDB.bankSlotStyle = nil
+  WarpeeDB.bankFontSize, WarpeeDB.bankCustomSize, WarpeeDB.hideBlizzBank = nil, nil, nil
+  -- Warband icon size is live again: not wiped here, or it is re-seeded every login.
+  WarpeeDB.warbandCustomSize = nil
+  WarpeeDB.bankPool = nil
+  -- Empty was briefly deletable and used this flag to remember a delete; it is not deletable now
+  -- and EnsureEmpty always restores the row, so the flag is dead. Cleared so no save keeps it.
+  WarpeeDB.emptySeeded = nil
+  -- Four fold keys no page carries; cleared with the other retired keys.
+  if WarpeeDB.optSections then
+    WarpeeDB.optSections.interface, WarpeeDB.optSections.bankgrid = nil, nil
+    WarpeeDB.optSections.autoopen, WarpeeDB.optSections.arrange = nil, nil
+  end
+  if WarpeeDB.locale == "auto" then WarpeeDB.locale = nil end
 
-    -- The save used to keep its groups in a second table beside the categories; Migrate folds that
-    -- pair into the one ordered list once, markers and all, and drops the leftovers. Empty and Other
-    -- are real, movable category rows but neither is deletable, so both rows must always exist; an
-    -- older or short custom list gets them restored at the tail here, on every login.
-    -- The upgrades sit between them because they are about the shipped rules rather than the shape of the
-    -- list: two shipped rules were rewritten so the rule editor can show them as chips, the four gear rows
-    -- gained an item-level floor after saves existed, and five rule words were later spelled the way the
-    -- picker spells them, so their chips read as words the player can pick back and a language can
-    -- translate. Each carries its change onto those rows alone where they are still exactly as shipped,
-    -- leaving written rules alone.
-    if ns.Categories then
-      ns.Categories:Migrate()
-      ns.Categories:UpgradePresetRules()
-      ns.Categories:UpgradeFloor()
-      ns.Categories:UpgradeRuleWords()
-      ns.Categories:EnsureEmpty()
-      ns.Categories:EnsureOther()
+  sanitizeConfig(WarpeeDB)
+  ns.PushConfig()
+  Bags:Build()
+  Bags:RestorePos()
+  Bags:Warm()
+  if ns.Fav then ns.Fav:Warm() end
+  if ns.Recent then ns.Recent:Warm() end
+  if ns.Pocket then ns.Pocket:Warm() end
+  ns.Theme:ApplyGridAlpha()
+  ns.Theme:ApplyWindowAlpha()
+  HookBagToggles()
+  WarpeeDB.bankTabSel = WarpeeDB.bankTabSel or {}
+  if ns.Bank then ns.Bank:HideBlizzard() end
+  if ns.ApplyLocaleText then ns.ApplyLocaleText() end
+  if ns.ApplyMinimapIcon then ns.ApplyMinimapIcon() end
+  if C_CVar and C_CVar.SetCVarBitfield then
+    -- The mount equipment tutorial hooks the container slot template, and the taint
+    -- it leaves is reported against whichever bag addon is loaded. Closing both
+    -- tutorials keeps that off us, and the reagent bag one points at a ui we replace.
+    if LE_FRAME_TUTORIAL_MOUNT_EQUIPMENT_SLOT_FRAME then
+      pcall(C_CVar.SetCVarBitfield, "closedInfoFrames", LE_FRAME_TUTORIAL_MOUNT_EQUIPMENT_SLOT_FRAME, true)
     end
+    if LE_FRAME_TUTORIAL_EQUIP_REAGENT_BAG then
+      pcall(C_CVar.SetCVarBitfield, "closedInfoFrames", LE_FRAME_TUTORIAL_EQUIP_REAGENT_BAG, true)
+    end
+  end
+  ns.Ready = true
+  if ns.Profiles and ns.Profiles.Migrate then ns.Profiles:Migrate() end
+end
 
-    WarpeeDB.favorites = WarpeeDB.favorites or {}
-    -- The sale carousel's store (Features/Vendor.lua): any older vendor lock is folded into it here,
-    -- and the folded ids that are gear are moved onto the copies at hand on PLAYER_ENTERING_WORLD.
-    WarpeeDB.sellMark = WarpeeDB.sellMark or {}
-    if ns.Vendor and ns.Vendor.FoldLocks then ns.Vendor:FoldLocks() end
+local function onBagChanged(_, a1)
+  if not Bags.warmed then Bags:Warm() end
+  if ns.IsPlayerBag(a1) then
+    Bags.dirty[a1] = true
+    -- The counts in the tooltip read our own bags live but are cached per character, and
+    -- with the window shut nothing captures, so the own row kept the number it was filled
+    -- with. A buy, a loot or a deposit moves the item and not one of our windows.
+    ns.Vault:Stale()
+  end
+  if ns.Bank and ns.IsBankContainer and ns.IsBankContainer(a1) then ns.Bank:QueueRefresh(a1) end
+end
 
-    WarpeeDB.highContrast = nil
-    WarpeeDB.bgAlpha = nil
-    WarpeeDB.catCollapsed = nil
-    WarpeeDB.favCount = nil
-    WarpeeDB.junkIcon = nil
-    WarpeeDB.pocketKeyDone = nil
-    WarpeeDB.unusable = nil
-    WarpeeDB.ilvlSize, WarpeeDB.ilvlAnchor = nil, nil
-    WarpeeDB.ilvlX, WarpeeDB.ilvlY = nil, nil
-    WarpeeDB.qualityAnchor, WarpeeDB.qualityScale = nil, nil
-    WarpeeDB.countSize, WarpeeDB.countAnchor = nil, nil
-    WarpeeDB.countX, WarpeeDB.countY = nil, nil
-    WarpeeDB.fontMigrated = nil
-    WarpeeDB.vendorKeepWarband = nil
-    WarpeeDB.vendorKeepMog, WarpeeDB.vendorKeepFresh = nil, nil
-    WarpeeDB.bankSlotStyle = nil
-    WarpeeDB.bankFontSize, WarpeeDB.bankCustomSize, WarpeeDB.hideBlizzBank = nil, nil, nil
-    -- Warband icon size is live again: not wiped here, or it is re-seeded every login.
-    WarpeeDB.warbandCustomSize = nil
-    WarpeeDB.bankPool = nil
-    -- Empty was briefly deletable and used this flag to remember a delete; it is not deletable now
-    -- and EnsureEmpty always restores the row, so the flag is dead. Cleared so no save keeps it.
-    WarpeeDB.emptySeeded = nil
-    -- Four fold keys no page carries; cleared with the other retired keys.
-    if WarpeeDB.optSections then
-      WarpeeDB.optSections.interface, WarpeeDB.optSections.bankgrid = nil, nil
-      WarpeeDB.optSections.autoopen, WarpeeDB.optSections.arrange = nil, nil
-    end
-    if WarpeeDB.locale == "auto" then WarpeeDB.locale = nil end
+local function onBagsSettled()
+  if Bags.sorting then Bags:SortSettle() else Bags:UpdateDirty() end
+end
 
-    sanitizeConfig(WarpeeDB)
-    ns.PushConfig()
-    Bags:Build()
-    Bags:RestorePos()
-    Bags:Warm()
-    if ns.Fav then ns.Fav:Warm() end
-    if ns.Recent then ns.Recent:Warm() end
-    if ns.Pocket then ns.Pocket:Warm() end
-    ns.Theme:ApplyGridAlpha()
-    ns.Theme:ApplyWindowAlpha()
-    HookBagToggles()
-    WarpeeDB.bankTabSel = WarpeeDB.bankTabSel or {}
-    if ns.Bank then ns.Bank:HideBlizzard() end
-    if ns.ApplyLocaleText then ns.ApplyLocaleText() end
-    if ns.ApplyMinimapIcon then ns.ApplyMinimapIcon() end
-    if C_CVar and C_CVar.SetCVarBitfield then
-      -- The mount equipment tutorial hooks the container slot template, and the taint
-      -- it leaves is reported against whichever bag addon is loaded. Closing both
-      -- tutorials keeps that off us, and the reagent bag one points at a ui we replace.
-      if LE_FRAME_TUTORIAL_MOUNT_EQUIPMENT_SLOT_FRAME then
-        pcall(C_CVar.SetCVarBitfield, "closedInfoFrames", LE_FRAME_TUTORIAL_MOUNT_EQUIPMENT_SLOT_FRAME, true)
-      end
-      if LE_FRAME_TUTORIAL_EQUIP_REAGENT_BAG then
-        pcall(C_CVar.SetCVarBitfield, "closedInfoFrames", LE_FRAME_TUTORIAL_EQUIP_REAGENT_BAG, true)
-      end
-    end
-    ns.Ready = true
-    if ns.Profiles and ns.Profiles.Migrate then ns.Profiles:Migrate() end
-  elseif event == "BAG_UPDATE" then
-    if not Bags.warmed then Bags:Warm() end
-    if ns.IsPlayerBag(a1) then
-      Bags.dirty[a1] = true
-      -- The counts in the tooltip read our own bags live but are cached per character, and
-      -- with the window shut nothing captures, so the own row kept the number it was filled
-      -- with. A buy, a loot or a deposit moves the item and not one of our windows.
-      ns.Vault:Stale()
-    end
-    if ns.Bank and ns.IsBankContainer and ns.IsBankContainer(a1) then ns.Bank:QueueRefresh(a1) end
-  elseif event == "BAG_UPDATE_DELAYED" then
-    if Bags.sorting then Bags:SortSettle() else Bags:UpdateDirty() end
-  elseif event == "BAG_UPDATE_COOLDOWN" then
-    Bags:RefreshCooldowns()
-  elseif event == "PLAYER_MONEY" or event == "ACCOUNT_MONEY" then
-    if event == "PLAYER_MONEY" and Bags.frame and Bags.frame:IsShown() then Bags:UpdateMeta() end
-    if ns.Bank and ns.Bank.frame and ns.Bank.frame:IsShown() then ns.Bank:UpdateFooter() end
-    -- The warband read has to happen while the bank is open, so this event waits less.
-    ns.Vault:QueueGold(event == "ACCOUNT_MONEY" and 0.5 or 2)
-  elseif event == "ITEM_LOCK_CHANGED" then
-    -- The game locks a slot the instant a move is issued and unlocks it when the move lands, so this is
-    -- what greys a cell mid-transfer, the way Blizzard's own bags desaturate a locked item. a2 nil means an
-    -- equipment slot (a1 is the equip slot), which no container cell draws, so those are skipped. The change
-    -- is fanned to every surface that draws live cells, not just the bag grid: the bank, and the pinned rows
-    -- (Recent, Favorites, Pocket) all mirror bag or bank slots and have to grey the same slot the same way.
-    if a2 and not Bags.sorting and not Bags.snap and Bags.frame and Bags.frame:IsShown()
-       and Bags.byKey then
-      local b = Bags.byKey[a1 * 1000 + a2]
-      if b then ns.UpdateItemLock(b) end
-    end
-    if a2 then
-      if ns.Bank and ns.Bank.RefreshLock then ns.Bank:RefreshLock(a1, a2) end
-      if ns.Recent and ns.Recent.RefreshLock then ns.Recent:RefreshLock(a1, a2) end
-      if ns.Fav and ns.Fav.RefreshLock then ns.Fav:RefreshLock(a1, a2) end
-      if ns.Pocket and ns.Pocket.RefreshLock then ns.Pocket:RefreshLock(a1, a2) end
-    end
-  elseif event == "BAG_NEW_ITEMS_UPDATED" then
-    -- A fresh new-item flag is the pump's trigger: an item just acquired (loot, buy, quest) is flagged
-    -- here. Run whether or not the window is open, so a piece taken while it was shut is already at the far
-    -- end by the time it opens: the move is done unseen instead of jumping the moment the bag appears.
-    if Bags.newOnTop and not Bags.snap and Bags.ArrangeNew then Bags:ArrangeNew() end
-    Bags:RefreshNewItems()
-    if ns.Bank then ns.Bank:RefreshNewItems() end
-  elseif event == "QUEST_ACCEPTED" or event == "UNIT_QUEST_LOG_CHANGED" then
-    if event == "QUEST_ACCEPTED" or a1 == "player" then
-      Bags:RefreshQuests()
-      if ns.Bank then ns.Bank:RefreshQuests() end
-      refreshQuestRows()
-    end
-  elseif event == "PLAYER_LEVEL_UP" or event == "SKILL_LINES_CHANGED"
-      or event == "UPDATE_FACTION" or event == "PLAYER_SPECIALIZATION_CHANGED"
-      or event == "PVP_RATING_UPDATE" then
-    -- All four move the same verdicts: a level opens gear, a reputation or an arena rating
-    -- closes it, and a spec change swaps which of it an item is built for. The red edge
-    -- would otherwise keep saying no after the requirement has been met.
-    ns.ClearUnusableCache()
-    repaintSoon()
-  elseif event == "PLAYER_ENTERING_WORLD" then
-    ns.ClearUnusableCache()
-    -- The character's coins are stamped here and never at login or logout: at both ends of a session
-    -- the money reads as 0 while the client is still loading the character or already tearing it down,
-    -- so a stamp there wrote that zero over the number the store had, and the gold list lost the
-    -- character. A couple of beats after the world is up the read is the player's real purse.
-    ns.Vault:QueueGold(2)
-    -- Timewalking rescales every equippable item to the event's level, and the number changes at the
-    -- instance boundary with no BAG_UPDATE behind it. GetCurrentItemLevel is read live per paint, so a
-    -- window left open across the zone-in kept the outside ilvl on its cells. Difficulty 33 is
-    -- Timewalking; repaint only when that boundary is actually crossed, not on every loading screen.
-    local diff = GetDungeonDifficultyID and GetDungeonDifficultyID()
-    if diff ~= lastDifficulty then
-      local twNow, twWas = (diff == 33), (lastDifficulty == 33)
-      lastDifficulty = diff
-      if twNow ~= twWas then repaintSoon() end
-    end
-  elseif event == "CURRENT_SPELL_CAST_CHANGED" then
-    -- The moment a right-click puts an item-targeting spell on the cursor (a lockbox key, mill,
-    -- prospect, disenchant), note the time. UNIT_SPELLCAST_SUCCEEDED below uses it to know the cast
-    -- that just finished was one of ours worth refreshing after, without watching every cast.
-    if ns.ItemTargeting() then lastItemSpell = GetTime() end
-  elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
-    -- A lockbox opened by right-click, or a mill/prospect/disenchant, targets an item and the bag
-    -- change lands a beat later than the cast. If our own click just put an item-targeting spell on
-    -- the cursor, refresh once the cast reports done so #locked and counts do not sit stale until the
-    -- delayed BAG_UPDATE. Only after a recent targeting cast, so ordinary casts cost nothing here.
-    if a1 == "player" and (GetTime() - lastItemSpell) < 2 then
-      lastItemSpell = 0
-      repaintLater()
-    end
-  elseif event == "ITEM_CHANGED" then
-    -- The link from before and after: a marked or locked piece keeps its entry through an upgrade, a
-    -- gem or an enchant instead of being left on a key that is no longer there.
-    if ns.Vendor and ns.Vendor.RetargetMarks then ns.Vendor:RetargetMarks(a1, a2) end
-    repaintSoon()
+local function onCooldowns()
+  Bags:RefreshCooldowns()
+end
+
+local function onMoney(event)
+  if event == "PLAYER_MONEY" and Bags.frame and Bags.frame:IsShown() then Bags:UpdateMeta() end
+  if ns.Bank and ns.Bank.frame and ns.Bank.frame:IsShown() then ns.Bank:UpdateFooter() end
+  -- The warband read has to happen while the bank is open, so this event waits less.
+  ns.Vault:QueueGold(event == "ACCOUNT_MONEY" and 0.5 or 2)
+end
+
+local function onSlotLocked(_, a1, a2)
+  -- The game locks a slot the instant a move is issued and unlocks it when the move lands, so this is
+  -- what greys a cell mid-transfer, the way Blizzard's own bags desaturate a locked item. a2 nil means an
+  -- equipment slot (a1 is the equip slot), which no container cell draws, so those are skipped. The change
+  -- is fanned to every surface that draws live cells, not just the bag grid: the bank, and the pinned rows
+  -- (Recent, Favorites, Pocket) all mirror bag or bank slots and have to grey the same slot the same way.
+  if a2 and not Bags.sorting and not Bags.snap and Bags.frame and Bags.frame:IsShown()
+     and Bags.byKey then
+    local b = Bags.byKey[a1 * 1000 + a2]
+    if b then ns.UpdateItemLock(b) end
+  end
+  if a2 then
+    if ns.Bank and ns.Bank.RefreshLock then ns.Bank:RefreshLock(a1, a2) end
+    if ns.Recent and ns.Recent.RefreshLock then ns.Recent:RefreshLock(a1, a2) end
+    if ns.Fav and ns.Fav.RefreshLock then ns.Fav:RefreshLock(a1, a2) end
+    if ns.Pocket and ns.Pocket.RefreshLock then ns.Pocket:RefreshLock(a1, a2) end
+  end
+end
+
+local function onNewItems()
+  -- A fresh new-item flag is the pump's trigger: an item just acquired (loot, buy, quest) is flagged
+  -- here. Run whether or not the window is open, so a piece taken while it was shut is already at the far
+  -- end by the time it opens: the move is done unseen instead of jumping the moment the bag appears.
+  if Bags.newOnTop and not Bags.snap and Bags.ArrangeNew then Bags:ArrangeNew() end
+  Bags:RefreshNewItems()
+  if ns.Bank then ns.Bank:RefreshNewItems() end
+end
+
+local function onQuests(event, a1)
+  if event == "QUEST_ACCEPTED" or a1 == "player" then
+    Bags:RefreshQuests()
+    if ns.Bank then ns.Bank:RefreshQuests() end
+    refreshQuestRows()
+  end
+end
+
+local function onRequirements()
+  -- All four move the same verdicts: a level opens gear, a reputation or an arena rating
+  -- closes it, and a spec change swaps which of it an item is built for. The red edge
+  -- would otherwise keep saying no after the requirement has been met.
+  ns.ClearUnusableCache()
+  repaintSoon()
+end
+
+local function onWorldEntered()
+  ns.ClearUnusableCache()
+  -- The character's coins are stamped here and never at login or logout: at both ends of a session
+  -- the money reads as 0 while the client is still loading the character or already tearing it down,
+  -- so a stamp there wrote that zero over the number the store had, and the gold list lost the
+  -- character. A couple of beats after the world is up the read is the player's real purse.
+  ns.Vault:QueueGold(2)
+  -- Timewalking rescales every equippable item to the event's level, and the number changes at the
+  -- instance boundary with no BAG_UPDATE behind it. GetCurrentItemLevel is read live per paint, so a
+  -- window left open across the zone-in kept the outside ilvl on its cells. Difficulty 33 is
+  -- Timewalking; repaint only when that boundary is actually crossed, not on every loading screen.
+  local diff = GetDungeonDifficultyID and GetDungeonDifficultyID()
+  if diff ~= lastDifficulty then
+    local twNow, twWas = (diff == 33), (lastDifficulty == 33)
+    lastDifficulty = diff
+    if twNow ~= twWas then repaintSoon() end
+  end
+end
+
+local function onCastBegan()
+  -- The moment a right-click puts an item-targeting spell on the cursor (a lockbox key, mill,
+  -- prospect, disenchant), note the time. UNIT_SPELLCAST_SUCCEEDED below uses it to know the cast
+  -- that just finished was one of ours worth refreshing after, without watching every cast.
+  if ns.ItemTargeting() then lastItemSpell = GetTime() end
+end
+
+local function onCastEnded(_, a1)
+  -- A lockbox opened by right-click, or a mill/prospect/disenchant, targets an item and the bag
+  -- change lands a beat later than the cast. If our own click just put an item-targeting spell on
+  -- the cursor, refresh once the cast reports done so #locked and counts do not sit stale until the
+  -- delayed BAG_UPDATE. Only after a recent targeting cast, so ordinary casts cost nothing here.
+  if a1 == "player" and (GetTime() - lastItemSpell) < 2 then
+    lastItemSpell = 0
     repaintLater()
-  elseif event == "EQUIPMENT_SETS_CHANGED" or event == "EQUIPMENT_SWAP_FINISHED"
-      or event == "PLAYER_EQUIPMENT_CHANGED" then
-    ns.Sets:Dirty()
-    repaintSoon()
-  elseif event == "BANKFRAME_OPENED" then
-    ns.Sets:Dirty()
-    -- A banker or the warband portal: the one moment the account bank is readable.
-    ns.Vault:StampGold()
-    if ns.Bank then ns.Bank.bankerOpen = true; ns.Bank:OnBankOpened() end
-    autoOpenBags("bank")
-  elseif event == "BANKFRAME_CLOSED" then
-    if ns.Bank then ns.Bank.bankerOpen = false; ns.Bank:OnBankClosed() end
-    autoCloseBags("bank")
-    -- Settle the grouped anti-jump freeze the bank interactions left: holes held in place while the
-    -- banker was open (a deposit from the bags, a withdraw in the bank) relay into the packed order now.
-    ns.RelayoutForSplit()
-  elseif event == "TRADE_SKILL_SHOW" then
-    autoOpenBags("professions")
-  elseif event == "TRADE_SKILL_CLOSE" then
-    autoCloseBags("professions")
-  elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
-    local IT = Enum and Enum.PlayerInteractionType
-    if IT and a1 == IT.Transmogrifier then
-      -- The transmog window covers most of the screen and no bag is needed on it, so
-      -- both of ours get out of the way. Hiding the bags takes the pocket with it when
-      -- it is open beside them; one on its own needs its own word.
-      ns.Toggle(false)
-      if ns.Pocket then ns.Pocket:Close(true) end
-      return
+  end
+end
+
+local function onItemChanged(_, a1, a2)
+  -- The link from before and after: a marked or locked piece keeps its entry through an upgrade, a
+  -- gem or an enchant instead of being left on a key that is no longer there.
+  if ns.Vendor and ns.Vendor.RetargetMarks then ns.Vendor:RetargetMarks(a1, a2) end
+  repaintSoon()
+  repaintLater()
+end
+
+local function onGearChanged()
+  ns.Sets:Dirty()
+  repaintSoon()
+end
+
+local function onBankOpened()
+  ns.Sets:Dirty()
+  -- A banker or the warband portal: the one moment the account bank is readable.
+  ns.Vault:StampGold()
+  if ns.Bank then ns.Bank.bankerOpen = true; ns.Bank:OnBankOpened() end
+  autoOpenBags("bank")
+end
+
+local function onBankClosed()
+  if ns.Bank then ns.Bank.bankerOpen = false; ns.Bank:OnBankClosed() end
+  autoCloseBags("bank")
+  -- Settle the grouped anti-jump freeze the bank interactions left: holes held in place while the
+  -- banker was open (a deposit from the bags, a withdraw in the bank) relay into the packed order now.
+  ns.RelayoutForSplit()
+end
+
+local function onProfessionsOpened()
+  autoOpenBags("professions")
+end
+
+local function onProfessionsClosed()
+  autoCloseBags("professions")
+end
+
+local function onInteractionOpened(_, a1)
+  local IT = Enum and Enum.PlayerInteractionType
+  if IT and a1 == IT.Transmogrifier then
+    -- The transmog window covers most of the screen and no bag is needed on it, so
+    -- both of ours get out of the way. Hiding the bags takes the pocket with it when
+    -- it is open beside them; one on its own needs its own word.
+    ns.Toggle(false)
+    if ns.Pocket then ns.Pocket:Close(true) end
+    return
+  end
+  if ns.Bank and IT then
+    if a1 == IT.AccountBanker then
+      ns.Bank.acctBanker = true
+    elseif a1 == IT.Banker or a1 == IT.CharacterBanker then
+      ns.Bank.acctBanker = false
     end
-    if ns.Bank and IT then
-      if a1 == IT.AccountBanker then
-        ns.Bank.acctBanker = true
-      elseif a1 == IT.Banker or a1 == IT.CharacterBanker then
-        ns.Bank.acctBanker = false
-      end
-      if ns.Bank.frame and ns.Bank.frame:IsShown() then
-        ns.Bank:UpdateTabs()
-        ns.Bank:EnforceMode()
-      end
+    if ns.Bank.frame and ns.Bank.frame:IsShown() then
+      ns.Bank:UpdateTabs()
+      ns.Bank:EnforceMode()
     end
-    local k = interactKey(a1)
-    if k then autoOpenBags(k) end
-    -- A stack-splitting window just opened: if the grouped view is up with Combine stacks on, relayout so
-    -- the fold lifts and every physical stack is its own cell (Categories reads the window live). Harmless
-    -- otherwise — a grid or an ungrouped window relayouts to the same picture.
-    ns.RelayoutForSplit()
-  elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
-    local IT = Enum and Enum.PlayerInteractionType
-    if ns.Bank and IT and (a1 == IT.AccountBanker or a1 == IT.Banker
-       or a1 == IT.CharacterBanker) then
+  end
+  local k = interactKey(a1)
+  if k then autoOpenBags(k) end
+  -- A stack-splitting window just opened: if the grouped view is up with Combine stacks on, relayout so
+  -- the fold lifts and every physical stack is its own cell (Categories reads the window live). Harmless
+  -- otherwise — a grid or an ungrouped window relayouts to the same picture.
+  ns.RelayoutForSplit()
+end
+
+local function onInteractionClosed(_, a1)
+  local IT = Enum and Enum.PlayerInteractionType
+  if ns.Bank and IT and (a1 == IT.AccountBanker or a1 == IT.Banker
+     or a1 == IT.CharacterBanker) then
+    -- Fallback close: BANKFRAME_CLOSED is dropped now and then and strands the window open and
+    -- empty. bankerOpen gates this to a no-op once the normal close has run.
+    if ns.Bank.bankerOpen then
+      ns.Bank.bankerOpen = false
+      ns.Bank:OnBankClosed()
+      autoCloseBags("bank")
+    else
       ns.Bank.acctBanker = nil
     end
-    local k = interactKey(a1)
-    if k then autoCloseBags(k) end
-    -- The window closed: fold the stacks back if Combine stacks is on.
-    ns.RelayoutForSplit()
-  elseif event == "PLAYERBANKSLOTS_CHANGED" or event == "PLAYERBANKBAGSLOTS_CHANGED"
-      or event == "PLAYERREAGENTBANKSLOTS_CHANGED" or event == "REAGENTBANK_UPDATE"
-      or event == "BANK_TABS_CHANGED" or event == "BANK_TAB_SETTINGS_UPDATED"
-      or event == "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED" then
-    if ns.Bank then ns.Bank:QueueRefresh() end
   end
+  local k = interactKey(a1)
+  if k then autoCloseBags(k) end
+  -- The window closed: fold the stacks back if Combine stacks is on.
+  ns.RelayoutForSplit()
+end
+
+local function onBankSlots()
+  if ns.Bank then ns.Bank:QueueRefresh() end
+end
+
+on.UI_SCALE_CHANGED = onScale
+on.DISPLAY_SIZE_CHANGED = onScale
+on.CVAR_UPDATE = onCvar
+on.PLAYER_REGEN_ENABLED = onRegen
+on.PLAYER_LOGIN = onLogin
+on.BAG_UPDATE = onBagChanged
+on.BAG_UPDATE_DELAYED = onBagsSettled
+on.BAG_UPDATE_COOLDOWN = onCooldowns
+on.PLAYER_MONEY = onMoney
+on.ACCOUNT_MONEY = onMoney
+on.ITEM_LOCK_CHANGED = onSlotLocked
+on.BAG_NEW_ITEMS_UPDATED = onNewItems
+on.QUEST_ACCEPTED = onQuests
+on.UNIT_QUEST_LOG_CHANGED = onQuests
+on.PLAYER_LEVEL_UP = onRequirements
+on.SKILL_LINES_CHANGED = onRequirements
+on.UPDATE_FACTION = onRequirements
+on.PLAYER_SPECIALIZATION_CHANGED = onRequirements
+on.PVP_RATING_UPDATE = onRequirements
+on.PLAYER_ENTERING_WORLD = onWorldEntered
+on.CURRENT_SPELL_CAST_CHANGED = onCastBegan
+on.UNIT_SPELLCAST_SUCCEEDED = onCastEnded
+on.ITEM_CHANGED = onItemChanged
+on.EQUIPMENT_SETS_CHANGED = onGearChanged
+on.EQUIPMENT_SWAP_FINISHED = onGearChanged
+on.PLAYER_EQUIPMENT_CHANGED = onGearChanged
+on.BANKFRAME_OPENED = onBankOpened
+on.BANKFRAME_CLOSED = onBankClosed
+on.TRADE_SKILL_SHOW = onProfessionsOpened
+on.TRADE_SKILL_CLOSE = onProfessionsClosed
+on.PLAYER_INTERACTION_MANAGER_FRAME_SHOW = onInteractionOpened
+on.PLAYER_INTERACTION_MANAGER_FRAME_HIDE = onInteractionClosed
+on.PLAYERBANKSLOTS_CHANGED = onBankSlots
+on.PLAYERBANKBAGSLOTS_CHANGED = onBankSlots
+on.PLAYERREAGENTBANKSLOTS_CHANGED = onBankSlots
+on.REAGENTBANK_UPDATE = onBankSlots
+on.BANK_TABS_CHANGED = onBankSlots
+on.BANK_TAB_SETTINGS_UPDATED = onBankSlots
+on.PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED = onBankSlots
+
+ev:SetScript("OnEvent", function(_, event, a1, a2)
+  local h = on[event]
+  if h then h(event, a1, a2) end
 end)
 
 local cleared = {}

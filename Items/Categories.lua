@@ -1316,6 +1316,11 @@ local function metaFromID(itemID)
   m.bound, m.ilvl, m.loc, m.wb, m.exp, m.boa, m.toy = false, nil, nil, nil, nil, nil, nil
   m.statset = nil
   m.reagent = classID == Enum.ItemClass.Tradegoods or classID == Enum.ItemClass.Reagent
+  -- Cosmetic from the game's own flag (same source buildMeta uses off the link). Without it an id-only
+  -- meta always read cosmetic as nil, so RuleHome could not see a plain cosmetic piece land in Wardrobe
+  -- (cosmetic | glyph | tabard | shirt) and PinItem left a redundant pin instead of reading unfile.
+  -- IsCosmeticItem takes a numeric id and is nil-safe; nil folds to false here.
+  m.cosmetic = (C_Item and C_Item.IsCosmeticItem and C_Item.IsCosmeticItem(itemID)) and true or false
   -- Every Mythic keystone is item 180653, so an id-only meta can flag it without a link (buildMeta
   -- reads the keystone: hyperlink instead). Left false here, RuleHome could not see a dropped keystone
   -- land in the keystone category, so PinItem pinned it there instead of reading the drop as unfile.
@@ -1562,6 +1567,10 @@ Cats.EMPTY_MEMORY = {}
 -- batch and do not send the next one until the one before it landed. What "landed" is read from is the
 -- run's own list, since either direction empties the slot it sent, so it costs no container reads.
 local ctstate = nil
+-- A run carries a generation: MoveSlots bumps it, and both the step loop and finish bail the moment a
+-- newer call has replaced them. Without this, a replaced run's pending C_Timer.After(step) still fired,
+-- read the new ctstate and started a second parallel sweep chain over the same mutable state.
+local ctgen = 0
 local CT_BATCH, CT_TRIES, CT_WAIT = 6, 4, 0.12
 -- A slot that reads locked is a move in flight, so the sweep waits it out rather than firing at it. But a
 -- lock that never clears is a server-side stall (the state a reload does not fix, only a relog): waited on
@@ -1727,19 +1736,27 @@ end
 -- of its own (the transfer chips) repaints it there instead of waiting for the next layout. Re-entrant: a
 -- second call replaces the run, and the run it replaces is not told, since only one moves at a time.
 function Cats:MoveSlots(slots, send, alive, warband, done)
+  ctgen = ctgen + 1
+  local mine = ctgen
   ctstate = { slots = slots, send = send, alive = alive, done = done, tries = {},
               batch = warband and Cats.WARBAND_BATCH or CT_BATCH, pace = warband or nil }
   ctQuiet = true
   -- The run is over: the state is dropped and the caller told. The last pieces land after the windows'
   -- own events have redrawn them, so a caller with a live surface (the transfer chip) reads its final
-  -- count from this rather than waiting for the next layout.
+  -- count from this rather than waiting for the next layout. A run replaced by a newer MoveSlots never
+  -- finishes the old one here: its generation is stale, so it neither drops the new state nor calls the
+  -- old done() over the new run.
   local function finish()
+    if mine ~= ctgen then return end
     local st = ctstate
     ctstate = nil
     settleViews()
     if st and st.done then st.done() end
   end
   local function step()
+    -- A pending timer from a run that has since been replaced wakes here: its generation is stale, so it
+    -- stops dead rather than driving a second sweep chain over the live ctstate.
+    if mine ~= ctgen then return end
     local st = ctstate
     if not (st and st.slots) then return end
     if not st.alive() then finish(); return end
@@ -1823,6 +1840,9 @@ end
 -- Stop the run in flight. Nothing is left half moved: a slot the sweep has not reached is simply never
 -- sent, and one already handed to the server lands on its own. Views still get their final pass.
 function Cats:StopMove()
+  -- Bump the generation so any timer still pending from the stopped run bails on its own check, the
+  -- same way a run replaced by a new MoveSlots does.
+  ctgen = ctgen + 1
   ctstate = nil
   settleViews()
 end

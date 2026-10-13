@@ -44,23 +44,18 @@ local function applyDensity(size)
   HBAND = d.headerBand
 end
 
-local function sizeGlyph(btn, size)
-  if not btn then return end
-  local fp = ns.Fonts:Current()
-  if btn.wpeBoxW == size and btn.wpeBoxH == size and btn.wpeFont == fp then return end
-  btn.wpeFont = fp
-  ns.SnapBox(btn, size, size)
-  if btn.Text then btn.Text:SetFont(fp, math.max(16, math.floor(size * 0.74)), ns.OutlineFlags()) end
-  if btn.icon and btn.iconPct then
-    local h = btn.iconPctY or btn.iconPct
-    btn.icon:SetSize(math.floor(size * btn.iconPct / 100 + 0.5), math.floor(size * h / 100 + 0.5))
-  end
-  btn:Repaint()
-end
+-- Dressing a cell is ns.SizeGlyph in Theme.lua now, the same way the caption fit came over (ns.FitLabel):
+-- the bank, the bags and the pocket each carried a copy of it. A file local, so the call sites read unchanged.
+local sizeGlyph = ns.SizeGlyph
 local ROW1_Y = 4
 local SEARCH_MIN = 80
 local function headerH(base) return math.max(34, base + 16) end
 local function footerH(base) return math.max(34, base + 16) end
+
+-- The purse line's inset from the window's right edge, over PAD: it used to stand at PAD + 4 and the amount
+-- ran onto the right border (owner), so it keeps a further eight clear of it (the bags' own line took the
+-- same).
+local FOOT_RIGHT = 12
 
 function ns.WarbandActive()
   return C_Bank ~= nil and C_Bank.FetchPurchasedBankTabData ~= nil and #WARBAND > 0
@@ -484,24 +479,31 @@ function View:Build()
   local close = ns.CreateGlyphButton(f, "×", HBTN, "icon")
   close:SetPoint("TOPRIGHT", -PAD, -ROW1_Y)
   close:SetScript("OnClick", function() f:Hide() end)
+  close.wpeIconPaint = function(s)
+    local hot = s.wpeHot and not s.offDuty
+    ns.TintMarkX(s, hot and "text" or "dim")
+  end
+  close.wpeIconPaint(close)
   self.closeBtn = close
 
   -- The gear as art on the icon path rather than a texture escape inside the label, the way the bags
-  -- carry theirs: only a real texture can be given the ground the drawn marks wear.
+  -- carry theirs: only a real texture can be given the ground the drawn marks wear. The art is the same
+  -- 16px cog the bag window shows, held to the same 62% of the box (see the bags' note on the grid).
   local gear = ns.CreateGlyphButton(f, "", HBTN, "icon")
   gear:SetPoint("TOPRIGHT", close, "TOPLEFT", -4, 0)
   gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
   addTip(gear, "Settings", nil, "top")
   local gearIcon = gear:CreateTexture(nil, "ARTWORK")
-  gearIcon:SetTexture([[Interface\Buttons\UI-OptionsButton]])
-  gearIcon:SetSize(15, 15)
+  gearIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\gear.tga]])
   gearIcon:SetPoint("CENTER")
-  gearIcon:SetVertexColor(Theme:IconTint())
-  Theme:Track(gearIcon, function(x) x:SetVertexColor(Theme:IconTint()) end)
   gear.icon = gearIcon
+  gear.iconPct = 62
   gear.wpeIconPaint = function(s)
-    if s.icon then s.icon:SetVertexColor(Theme:IconTint()) end
+    if not s.icon then return end
+    local hot = s.wpeHot and not s.offDuty
+    s.icon:SetVertexColor(Theme:C(hot and "text" or "dim"))
   end
+  gear.wpeIconPaint(gear)
   ns.IconSilhouette(gear, gearIcon)
   self.gearBtn = gear
 
@@ -516,17 +518,19 @@ function View:Build()
     if self.mode == "warband" then return ns.L["Clean Up Warband Bank"] end
     return ns.L["Clean Up Bank"]
   end, nil, "top")
+  -- The same brush the bag window's clean-up button wears (see the note there) -- one action, one shape
+  -- in both windows -- Warpee's own drawn mark rather than Blizzard's atlas arrow it carried before.
   local sortIcon = sort:CreateTexture(nil, "ARTWORK")
-  sortIcon:SetAtlas("auctionhouse-ui-sortarrow")
-  sortIcon:SetSize(15, 17)
+  sortIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\sort.tga]])
   sortIcon:SetPoint("CENTER")
-  sortIcon:SetVertexColor(Theme:C("overlay"))
-  Theme:Track(sortIcon, function(x) x:SetVertexColor(Theme:C("overlay")) end)
   sort.icon = sortIcon
-  sort.iconPct, sort.iconPctY = 58, 66
+  sort.iconPct = 100
   sort.wpeIconPaint = function(s)
-    if s.icon then s.icon:SetVertexColor(Theme:C("overlay")) end
+    if not s.icon then return end
+    local hot = s.wpeHot and not s.offDuty
+    s.icon:SetVertexColor(Theme:C(hot and "text" or "dim"))
   end
+  sort.wpeIconPaint(sort)
   ns.IconSilhouette(sort, sortIcon)
   self.sortBtn = sort
 
@@ -577,12 +581,15 @@ function View:Build()
 
   local money = Theme:Label(f, 16, "text")
   Theme:Money(money)
-  money:SetPoint("BOTTOMRIGHT", -PAD, 7)
+  money:SetPoint("BOTTOMRIGHT", -(PAD + FOOT_RIGHT), 7)
   self.money = money
   ns.AttachGoldTooltip(money, f, function() return self:CellSize() end)
 
   local caption = Theme:Label(f, 10, "faint")
-  caption:SetPoint("RIGHT", money, "LEFT", -6, 1)
+  -- Centre the caption on the money's own vertical middle, not its baseline: the two strings are
+  -- different sizes, so a shared bottom/baseline left the smaller caption sitting high against the
+  -- coins. Anchoring middle-to-middle keeps "ON HAND" / "WARBAND BANK" level with the number.
+  caption:SetPoint("RIGHT", money, "LEFT", -6, 0)
   self.moneyCaption = caption
 
   local function moneyPopup(which, other)
@@ -1103,7 +1110,9 @@ end
 function View:UpdateTabs()
   local function paint(btn, on)
     if not btn then return end
-    btn.Text:SetTextColor(Theme:C(on and "accent" or "text"))
+    -- The open mode is told by the accent border and by the label standing at full ink while the other
+    -- mode's sits dim -- never by painting the text accent, which read as the word being filled in.
+    btn.Text:SetTextColor(Theme:C(on and "text" or "dim"))
     ns.SetEdge(btn, Theme:C(on and "accent" or "stroke"))
   end
   paint(self.bankTab, self.mode == "bank")
@@ -1191,8 +1200,11 @@ function View:PlaceBuyCell(x)
   if buy.Text then buy.Text:SetText("") end
   if not (buy.wpeMarkX or buy.wpeMarkPlus) then
     ns.MarkPlus(buy)
+    -- Dim at rest, text under the pointer, with no accent -- the same quiet paint the header marks wear,
+    -- so the add-a-tab plus sits in the strip without shouting.
     buy.wpeIconPaint = function(s)
-      ns.TintMarkX(s, (s.wpeHot and not s.offDuty) and "accent" or "text")
+      local hot = s.wpeHot and not s.offDuty
+      ns.TintMarkX(s, hot and "text" or "dim")
     end
   end
   if buy.Repaint then buy:Repaint() end
@@ -1297,7 +1309,7 @@ function View:TabSettings()
     pop.GetBankPanel = function()
       return { GetTabData = function(_, tabID) return self:TabData(tabID) end }
     end
-    if ns.SkinIconPopup then pcall(ns.SkinIconPopup, pop) end
+    if ns.SkinIconPopup then ns.Guard("skin icon popup", ns.SkinIconPopup, pop) end
   end
   return pop
 end
@@ -1488,7 +1500,7 @@ function View:PaintKey(size)
   -- flag names. In the key, the switch rebuilds every cell once, whatever else the view moved.
   return table.concat({ size, Bags.slotStyle or "tile", Bags.styleGen or 0,
                         Bags.qualityBorder and 1 or 0, Bags.qualityColorIlvl and 1 or 0,
-                        ns.Badge("junk").on and 1 or 0, Bags.reagentTint and 1 or 0,
+                        Bags.junkCoin and 1 or 0, Bags.reagentTint and 1 or 0,
                         Bags.unusableBorder and 1 or 0, self:CatMode() and "cat" or "grid",
                         (self.tabSel and self.tabSel[self.mode]) or 0 }, ":")
 end

@@ -147,6 +147,7 @@ local STRINGS = {
     "Escolha uma palavra de busca da lista. Você ainda pode digitar a regra à mão.",
   ["Sort"] = "Ordem",
   ["By rule"] = "Por regra",
+  ["Rule"] = "Regra",
   ["By expansion"] = "Por expansão",
   ["The order items take inside every section. Each falls back to name, so the order never flickers."] =
     "A ordem dos itens dentro de cada seção. Em caso de empate vale o nome, então a ordem nunca oscila.",
@@ -179,6 +180,7 @@ local STRINGS = {
   ["Gear set"] = "Conjunto de equipamento",
   ["Letters"] = "Letras",
   ["How many letters of the set name to show."] = "Quantas letras do nome do conjunto mostrar.",
+  ["How much of the slot the coin and the padlock take."] = "Quanto do espaço a moeda e o cadeado ocupam.",
   ["Vendor lock"] = "Proteção contra venda",
   ["Sale mark"] = "Marca de venda",
   ["A coin on the items you marked for sale."] = "Uma moeda nos itens marcados para venda.",
@@ -373,6 +375,8 @@ local STRINGS = {
   ["Red border around gear your character cannot wear."] =
     "Borda vermelha em equipamentos que seu personagem não pode usar.",
   ["Thickness of the slot border."] = "Espessura da borda do espaço.",
+  ["A copper coin on gray junk items: the same coin the Sell button and the sale mark wear in gold, copper here because the rules would sell it, not you."] =
+    "Uma moeda de cobre nos itens cinzas (sucata): a mesma moeda que o botão «Vender agora» e a marca de venda usam em ouro; o cobre aqui diz que quem venderia são as regras, não você.",
   ["Tint the item level number with the item's quality color."] =
     "Colore o nível do item com a cor da qualidade.",
   ["Alt-click an item to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Works in the bags, the bank, the favorites row and the pocket. Alt-click again, or the cross here, to unlock."] =
@@ -568,10 +572,8 @@ local STRINGS = {
   ["FANNY PACK"] = "POCHETE",
   ["Pocket"] = "Bolso",
   ["Pocket window"] = "Janela do bolso",
-  ["LMB: Pocket"] = "BE: Bolso",
+  ["LMB: Bags"] = "BE: Bolsas",
   ["RMB: grid/cat"] = "BD: grade/cat",
-  ["LMB: grid/cat."] = "BE: grade/cat.",
-  ["Click: grid/cat"] = "Clique: grade/cat",
   ["Pocket rows"] = "Linhas do bolso",
   ["Pocket size"] = "Tamanho do bolso",
   ["Pocket slot size"] = "Tamanho das células do bolso",
@@ -728,7 +730,7 @@ local STRINGS = {
   ["stat mastery"] = "Maestria", ["stat versatility"] = "Versatilidade",
   ["stat leech"] = "Sorver", ["stat avoidance"] = "Evasiva",
   ["stat speed"] = "Velocidade",
-  ["Type several words: an item must match all of them. %s = space, %s = |, %s = !. For example, (mount | toy) !quest means mounts or toys, but no quest items. More forms: id:6948; 400; ilvl400; ilvl>400; ilvl>=400; ilvl<400; ilvl<=400; ilvl400-450."] = "Várias palavras: um item serve se atender a todas. %s = espaço, %s = |, %s = !. Por exemplo, (montaria | brinquedo) !missão significa montarias ou brinquedos, mas nenhum item de missão. Mais formas: id:6948; 400; ilvl400; ilvl>400; ilvl>=400; ilvl<400; ilvl<=400; ilvl400-450.",
+  ["Type several words: an item must match all of them. %s = space, %s = |, %s = !. For example, (mount | toy) !quest means mounts or toys, but no quest items. More forms: id:6948; 400; ilvl400; ilvl>400; ilvl>=400; ilvl<400; ilvl<=400; ilvl400-450."] = "Várias palavras: um item serve se atender a todas. %s = espaço, %s = |, %s = !. Por exemplo, (montaria | brinquedo) !missão significa montarias ou brinquedos, mas nenhum item de missão. Mais formas: id:6948; 400; nível-de-item400; nível-de-item>400; nível-de-item>=400; nível-de-item<400; nível-de-item<=400; nível-de-item400-450.",
   ["Edit as text"] = "Editar como texto",
   ["Item class"] = "Classe do item",
   ["Item Upgrade"] = "Aprimoramento de Itens",

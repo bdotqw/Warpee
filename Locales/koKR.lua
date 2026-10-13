@@ -170,6 +170,7 @@ local STRINGS = {
   ["Gear set"] = "세트",
   ["Letters"] = "글자 수",
   ["How many letters of the set name to show."] = "세트 이름을 몇 글자까지 보여줄지.",
+  ["How much of the slot the coin and the padlock take."] = "칸에서 동전과 자물쇠가 차지하는 비율.",
   ["Vendor lock"] = "상인 잠금",
   ["Sale mark"] = "판매 표시",
   ["A coin on the items you marked for sale."] = "판매 표시한 아이템 위의 동전.",
@@ -329,6 +330,7 @@ local STRINGS = {
   ["Tint the slots of the reagent bag and the reagent bank."] = "재료 가방과 재료 은행 칸에 색을 입힙니다.",
   ["Red border around gear your character cannot wear."] = "캐릭터가 입을 수 없는 장비에 빨간 테두리.",
   ["Thickness of the slot border."] = "칸 테두리 두께.",
+  ["A copper coin on gray junk items: the same coin the Sell button and the sale mark wear in gold, copper here because the rules would sell it, not you."] = "회색 잡동사니 아이템 위의 동화. 「지금 판매」 버튼과 판매 표시가 쓰는 것과 같은 동전이지만 그쪽은 금색이고, 규칙이 팔 물건이라 여기서는 구리색입니다.",
   ["Tint the item level number with the item's quality color."] = "아이템 레벨 숫자를 아이템 등급 색으로.",
   ["Alt-click an item to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Works in the bags, the bank, the favorites row and the pocket. Alt-click again, or the cross here, to unlock."] = "아이템을 ALT+좌클릭하면 잠급니다: 자물쇠가 생기고 자동 판매도 상인 우클릭 판매도 안 됩니다. 가방, 은행, 즐겨찾기 줄, 주머니에서 됩니다. 다시 ALT+좌클릭하거나 여기의 X를 눌러 푸세요.",
   ["ALT-click to lock it from the vendor"] = "ALT+좌클릭으로 상인 판매 잠금",
@@ -491,10 +493,8 @@ local STRINGS = {
   ["FANNY PACK"] = "허리춤 가방",
   ["Pocket"] = "주머니",
   ["Pocket window"] = "주머니 창",
-  ["LMB: Pocket"] = "좌클릭: 주머니", -- ?
+  ["LMB: Bags"] = "좌클릭: 가방",
   ["RMB: grid/cat"] = "우클릭: 격자/분류", -- ?
-  ["LMB: grid/cat."] = "좌클릭: 격자/분류.", -- ?
-  ["Click: grid/cat"] = "클릭: 격자/분류", -- ?
   ["Pocket rows"] = "주머니 줄 수",
   ["Pocket size"] = "주머니 크기",
   ["Pocket slot size"] = "주머니 칸 크기",
@@ -509,7 +509,7 @@ local STRINGS = {
   ["Size of one cell in the pocket. It is a setting of its own: a pocket that has none takes the bag slot size once."] = "주머니 칸 하나의 크기. 주머니만의 설정입니다. 자기 크기가 없으면 한 번만 가방 칸 크기를 가져옵니다.",
   ["The key that opens and closes the pocket. Click, then press a key, a mouse button or the wheel, with Shift, Ctrl or Alt if you like; a right click clears it, Escape cancels."] = "주머니를 여닫는 키. 클릭 후 키보드, 마우스, 휠을 누르세요. Shift, Ctrl, Alt 조합 가능. 우클릭은 해제, Esc는 취소.",
   ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] = "장비는 드래그하거나 링크를 붙여넣어 고정합니다. id만으로는 같은 것끼리 구분이 안 됩니다.",
-  ["Add ID"] = "Id 추가",
+  ["Add ID"] = "ID 추가",
   ["Popular"] = "인기",
   ["Already in the pocket"] = "이미 주머니에 있음",
   ["Clear"] = "지우기",
@@ -591,6 +591,7 @@ local STRINGS = {
     "목록에서 검색어를 선택하세요. 규칙을 직접 입력할 수도 있습니다.",
   ["Sort"] = "정렬",
   ["By rule"] = "규칙순",
+  ["Rule"] = "규칙",
   ["By expansion"] = "확장팩순",
   ["The order items take inside every section. Each falls back to name, so the order never flickers."] = "섹션 안에서 아이템이 서는 순서. 다음은 항상 이름순이라 깜빡이지 않습니다.",
   ["Quality"] = "등급",
@@ -666,7 +667,7 @@ local STRINGS = {
   ["stat mastery"] = "특화", ["stat versatility"] = "유연성",
   ["stat leech"] = "생기흡수", ["stat avoidance"] = "광역회피",
   ["stat speed"] = "이동 속도",
-  ["Type several words: an item must match all of them. %s = space, %s = |, %s = !. For example, (mount | toy) !quest means mounts or toys, but no quest items. More forms: id:6948; 400; ilvl400; ilvl>400; ilvl>=400; ilvl<400; ilvl<=400; ilvl400-450."] = "여러 단어: 모두 맞아야 아이템이 걸립니다. %s = 공백, %s = |, %s = !. 예를 들어 (탈것 | 장난감) !퀘스트는 탈것이나 장난감이되 퀘스트 아이템은 제외입니다. 다른 형식: id:6948; 400; ilvl400; ilvl>400; ilvl>=400; ilvl<400; ilvl<=400; ilvl400-450.",
+  ["Type several words: an item must match all of them. %s = space, %s = |, %s = !. For example, (mount | toy) !quest means mounts or toys, but no quest items. More forms: id:6948; 400; ilvl400; ilvl>400; ilvl>=400; ilvl<400; ilvl<=400; ilvl400-450."] = "여러 단어: 모두 맞아야 아이템이 걸립니다. %s = 공백, %s = |, %s = !. 예를 들어 (탈것 | 장난감) !퀘스트는 탈것이나 장난감이되 퀘스트 아이템은 제외입니다. 다른 형식: id:6948; 400; 렙400; 렙>400; 렙>=400; 렙<400; 렙<=400; 렙400-450.",
   ["Edit as text"] = "텍스트로 편집",
   ["Item class"] = "아이템 분류",
   ["Item Upgrade"] = "아이템 강화",

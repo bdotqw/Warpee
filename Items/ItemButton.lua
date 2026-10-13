@@ -275,7 +275,10 @@ function ns.QuestMarked(b)
   return (t and t:IsShown()) and true or false
 end
 
-local QUEST_YELLOW = { 1, 0.82, 0 }
+-- The quest ring colour, on ns so GuildBank can read the same value: a file-local would be invisible
+-- there (every .lua is its own chunk), and GuildBank's paintRing used to index a nonexistent global.
+ns.QUEST_YELLOW = { 1, 0.82, 0 }
+local QUEST_YELLOW = ns.QUEST_YELLOW
 
 function ns.MarkQuestItem(b, questID, isActive)
   local t = questTex(b)
@@ -393,7 +396,6 @@ local function tierFit(b)
 end
 
 local function tierTake(b, src)
-  local t = tierTex(b)
   if not b.wpeTierSize then
     b.wpeTierSize = true
     b:HookScript("OnSizeChanged", function(s) tierFit(s) end)
@@ -443,11 +445,12 @@ local function clearOverlays(b)
   if b.bind then b.bind:SetText("") end
   if b.outfit then b.outfit:SetText("") end
   if b.junk then b.junk:Hide() end
+  if b.junkBg then b.junkBg:Hide() end
   if b.sell then b.sell:Hide() end
   if b.sellBg then b.sellBg:Hide() end
+  if b.sellLock then b.sellLock:Hide() end
   b.wpeLocked = nil
   b.wpeSell = nil
-  b.wpeSellArt = nil
 end
 local muted = setmetatable({}, { __mode = "k" })
 
@@ -776,17 +779,26 @@ local BADGES = {
   { key = "outfit", n = "Gear set",    p = "Myth", c = "TOPLEFT",     x = 2,  y = -2, s = 10,
     k = 4, a = "left", m = 8, ref = DEFAULT_CELL,
     t = "The equipment set the item belongs to, cut to a few letters." },
-  { key = "junk",    n = "Junk coin",   tex = true,
-    c = "TOPRIGHT", x = -1, y = -1, s = 0.4, m = 8,
-    t = "A coin on gray junk items." },
   -- The coin and the padlock are two states of one carousel and never share a cell, so they share one
   -- badge row. fixed: the badge is the only sign an alt-click landed, so the panel cannot hide it.
   { key = "sell",    n = "Sale mark", tex = true, fixed = true,
     c = "TOPRIGHT", x = -1, y = -1, s = 0.4, m = 10,
     t = "A coin on the items you marked for sale." },
 }
+-- The junk coin is not an editable badge: no chip, no place in the draw order, just a marker toggled in
+-- Items > Markers that wears the same coin on grey items. It keeps a def here so MarkJunk can size and
+-- place it through the shared badge path; it never joins the BADGES array the panel walks. on is held
+-- true because the real gate is ns.Bags.junkCoin -- this only lets ApplyBadge draw it opaque once MarkJunk
+-- has decided it shows.
+-- follow: the two coins are one mark on two different triggers, so the junk coin is sized by the sale
+-- mark's record rather than one of its own. It has no row in the editor (its toggle is the checkbox), so
+-- a share of its own could never be changed and the two coins would drift apart on the first resizing.
+-- The s/m below are only the fallback for the case the followed def is missing.
+local JUNK = { key = "junk", n = "Junk coin", tex = true, on = true, follow = "sell",
+  c = "TOPRIGHT", x = -1, y = -1, s = 0.4, m = 8 }
 local BADGE = {}
 for _, d in ipairs(BADGES) do BADGE[d.key] = d end
+BADGE[JUNK.key] = JUNK
 ns.BADGES, ns.BADGE = BADGES, BADGE
 ns.BADGE_CORNERS = { TOPLEFT = true, TOPRIGHT = true,
                      BOTTOMLEFT = true, BOTTOMRIGHT = true }
@@ -799,8 +811,9 @@ local ALIGN_POINT = {
 
 -- The order the badges the player can edit draw in, the first being over the rest. The stack count is
 -- not in it: it is the game's own string on the button, under every frame of ours, and putting it in the
--- order would mean drawing a number of our own.
-ns.BADGE_ORDER = { "sell", "junk", "outfit", "bind", "ilvl" }
+-- order would mean drawing a number of our own. The junk coin left the panel for its own marker toggle,
+-- so it is gone from here too; a saved order that still lists it has the key dropped by ns.BadgeOrder.
+ns.BADGE_ORDER = { "sell", "outfit", "bind", "ilvl" }
 local ORDER_SET = {}
 for _, k in ipairs(ns.BADGE_ORDER) do ORDER_SET[k] = true end
 
@@ -909,16 +922,31 @@ function ns.BadgeRef(d, g)
   return r
 end
 
+-- The def and the record a badge takes its size, floor and reference cell from. A def carrying `follow`
+-- borrows them from another badge instead of its own: the junk coin is the sale mark's coin on a different
+-- trigger, it has no row in the editor to hold a share of its own, and without this the two coins drift
+-- apart the first time the sale mark is resized. Everything else about the follower -- its corner, its
+-- offsets -- still comes from its own def.
+local function sizeSrc(key, g)
+  local d = BADGE[key]
+  if not d then return nil end
+  local f = d.follow
+  if f then
+    local fd = BADGE[f]
+    if fd then return fd, ns.Badge(f) end
+  end
+  return d, g or ns.Badge(key)
+end
+
 -- The only place a text badge's pixel size is worked out, so the grid, the panel preview and
 -- the panel's hint cannot come apart. The second return says whether the floor is what holds
 -- it: at or under the floor the badge stops shrinking with the cell, which is the one case
 -- where the drawing parts company with the share of the cell everything else here follows.
 function ns.BadgeSize(key, cell, g)
-  local d = BADGE[key]
+  local d, src = sizeSrc(key, g)
   if not d then return 0, false end
-  g = g or ns.Badge(key)
   if not (cell and cell > 0) then cell = DEFAULT_CELL end
-  local raw = (tonumber(g and g.s) or d.s) * cell / ns.BadgeRef(d, g)
+  local raw = (tonumber(src and src.s) or d.s) * cell / ns.BadgeRef(d, src)
   local m = d.m or 8
   local px = math.floor(raw + 0.5)
   -- At the floor as well as under it: a badge drawn at the floor is one that will not shrink
@@ -989,7 +1017,12 @@ function ns.ApplyBadge(b, key)
   -- with, so it keeps the ratio of one and nothing about it moves.
   local k = 1
   if d.tex then
-    local sz = math.max(d.m or 8, math.floor(cell * (g.s or d.s) + 0.5))
+    -- The share comes through sizeSrc and not off this badge's own record: the junk coin follows the sale
+    -- mark, and a follower reading its own def would ignore that and drift the moment the sale mark's
+    -- slider moves. Its own floor still holds. No ref cell here -- a texture's size is already a share of
+    -- the cell, which is what the ratio of one below keeps.
+    local _, src = sizeSrc(key, g)
+    local sz = math.max(d.m or 8, math.floor(cell * ((src and src.s) or d.s) + 0.5))
     o:SetSize(sz, sz)
   else
     k = ns.BadgeScale(cell, key, g)
@@ -999,18 +1032,27 @@ function ns.ApplyBadge(b, key)
   o:ClearAllPoints()
   o:SetPoint(ns.BadgePoint(g), b, g.c, px, py)
   o:SetAlpha(g.on and ns.SearchBadgeAlpha(b) or 0)
-  -- The sale badge's outline: a black copy of its own art a pixel proud of it on every side, so the
-  -- coin and the padlock both hold an edge over a bright icon. A texture cannot be a parent, so the
-  -- copy is placed off the badge's centre instead, and its pad is capped by the badge's own offset:
-  -- the outline is never drawn past the cell the badge sits in.
-  local bg = (key == "sell") and b.sellBg
+  -- The black copy under a coin badge: the mark lands on the item's own art, and on a bright icon the rim
+  -- struck in the bake is not enough to hold it off the picture, so the same art is painted black
+  -- underneath, one whole physical pixel proud on every side. A whole pixel and not a share of the badge:
+  -- a share steps between one and two as the cell resizes, and the halo it threw drifted with the step.
+  -- A texture cannot be a parent, so the copy is placed off the coin's own centre instead.
+  local bg
+  if key == "sell" then bg = b.sellBg elseif key == "junk" then bg = b.junkBg end
   if bg then
-    local w, h = o:GetWidth(), o:GetHeight()
-    local pad = math.min(math.max(1, math.floor(w * 0.06 + 0.5)), math.abs(px), math.abs(py))
-    bg:SetSize(w + pad * 2, h + pad * 2)
+    local u = ns.PX(b, 1)
+    bg:SetSize(ns.SnapValue(b, o:GetWidth() + 2 * u), ns.SnapValue(b, o:GetHeight() + 2 * u))
     bg:ClearAllPoints()
     bg:SetPoint("CENTER", o, "CENTER", 0, 0)
     bg:SetAlpha(o:GetAlpha())
+  end
+  -- The padlock shares the sell badge's rect: it is sized and placed to the coin it stands in for.
+  local lk = (key == "sell") and b.sellLock
+  if lk then
+    local w, h = o:GetWidth(), o:GetHeight()
+    lk:SetSize(w, h)
+    lk:ClearAllPoints()
+    lk:SetPoint("CENTER", o, "CENTER", 0, 0)
   end
   -- The player's order, carried as a frame level: 20 frames up is the border frame, where the quest mark
   -- and the cooldown digits live, so the whole order stays under them and nothing there has to move.
@@ -1279,11 +1321,7 @@ local LOCK_ATLAS = { "bags-icon-lock", "Garr_LockedBuilding" }
 function ns.BadgeArt(t, key)
   if not t then return end
   if key == "junk" then
-    if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("bags-junkcoin") then
-      t:SetAtlas("bags-junkcoin")
-    else
-      t:SetTexture("Interface\\MoneyFrame\\UI-GoldIcon")
-    end
+    t:SetTexture([[Interface\AddOns\Warpee\Media\Icons\coin.tga]])
   elseif key == "lock" then
     if C_Texture and C_Texture.GetAtlasInfo then
       for _, a in ipairs(LOCK_ATLAS) do
@@ -1292,9 +1330,10 @@ function ns.BadgeArt(t, key)
     end
     t:SetTexture("Interface\\PetBattles\\PetBattle-LockIcon")
   elseif key == "sell" then
-    -- The same coin the sell button in the bags header wears, so one look says both "this is about
-    -- selling" and "this is the same trade".
-    t:SetTexture("Interface\\MoneyFrame\\UI-GoldIcon")
+    -- Warpee's own coin, the one mark for the junk badge, the alt-click sale mark and the header's sell
+    -- button alike. White metal with its rings struck black in the texel RGB, so one gold tint colours
+    -- the body while the baked rings stay dark at any size -- the same two-channel trick the padlock uses.
+    t:SetTexture([[Interface\AddOns\Warpee\Media\Icons\coin.tga]])
   end
 end
 
@@ -1449,18 +1488,65 @@ function ns.MarkOutfit(b, label)
   b.outfit:SetText(label or "")
 end
 
+-- The one gold the carousel wears: the sell coin, the junk coin and the padlock are all tinted with it,
+-- so the two faces of the mark and the junk marker read as one trade told apart by shape, not colour. A
+-- flat literal and not a theme key: these sit on item icons, not themed chrome, and the three must match
+-- each other exactly rather than the window ink.
+-- The game's own money gold -- GOLD_COLOR in Blizzard's constants, the |cffffd100 every gold amount in
+-- the UI is written in. The earlier 0.98/0.80/0.28 carried a blue channel, which washed the coin out to
+-- a pale cream next to the client's own gold; the blue has to be zero for it to read as gold at all.
+local COIN_GOLD = { 1.0, 0.82, 0.0 }
+-- Exported so the header's sell coin can wear the very same gold as the two marks on the items: a second
+-- literal in Bags.lua would drift from this one on the next tweak.
+ns.COIN_GOLD = COIN_GOLD
+-- The header coin's hover: the same gold lifted toward white, not a different hue -- under the pointer
+-- the mark still has to be the yellow of the badge on the item beside it.
+ns.COIN_GOLD_HOT = { 1, 0.92, 0.30 }
+
+-- The junk coin wears the game's own COPPER -- eda55f, the colour every copper amount in the UI is
+-- written in, and the same copper the addon's money text is painted with (ns.COIN_HEX.c, spelled out here
+-- because Bags.lua loads after this file; the two must be changed together). It says what the mark means:
+-- a piece the RULES would sell is worth coppers, one the player marked by hand is worth gold -- and at
+-- badge size a copper coin and a gold coin are told apart at a glance, which the deeper gold this first
+-- wore was not. Silver (c7c7cf) was the other candidate and was left: it is a near-grey, so on the grey
+-- items a junk coin sits on it reads as a dead mark rather than a cheap one. The mark itself is unchanged
+-- -- it is still the one coin; only its metal says which of the two triggers put it there.
+local COIN_COPPER = { 0.929, 0.647, 0.373 }
+ns.COIN_COPPER = COIN_COPPER
+
+-- A coin and the black copy under it are one mark: showing or hiding the coin moves the copy with it, so
+-- the two can never come apart and leave a black coin on a cell whose mark has gone.
+local function showCoin(main, bg, on)
+  if main then main:SetShown(on) end
+  if bg then bg:SetShown(on) end
+end
+
 function ns.MarkJunk(b, quality)
-  if not (ns.Badge("junk").on and quality == 0) then
-    if b.junk then b.junk:Hide() end
+  -- The carousel is the older claim on this corner: a piece it holds -- marked or locked -- is never also
+  -- drawn as "the rules would sell it". Without this the junk coin stayed under the sale coin or the
+  -- padlock and the two read as one fat mark (gold multiplies over gold), which is what the owner saw.
+  -- wpeLocked is asked as well as wpeSell so a locked piece keeps its corner bare even with the sale mark
+  -- switched off in the panel: the rules are not going to sell it, and the coin would say they were.
+  -- Asked off the cell because MarkSell runs first and leaves both verdicts there.
+  if not (ns.Bags.junkCoin and quality == 0 and not b.wpeSell and not b.wpeLocked) then
+    showCoin(b.junk, b.junkBg, false)
     return
   end
   if not b.junk then
     if not b.borderFrame then return end
-    b.junk = ns.BadgeFrame(b, "junk"):CreateTexture(nil, "OVERLAY", nil, 5)
+    local f = ns.BadgeFrame(b, "junk")
+    b.junkBg = f:CreateTexture(nil, "OVERLAY", nil, 4)
+    ns.BadgeArt(b.junkBg, "junk")
+    b.junkBg:SetVertexColor(0, 0, 0)
+    b.junk = f:CreateTexture(nil, "OVERLAY", nil, 5)
     ns.BadgeArt(b.junk, "junk")
   end
+  -- Written on every paint, not once when the texture is built: the tone is part of the mark's meaning,
+  -- and a tone set only at creation is one that cannot change without a reload -- which is exactly how a
+  -- colour change ships and still looks like it never arrived.
+  b.junk:SetVertexColor(COIN_COPPER[1], COIN_COPPER[2], COIN_COPPER[3])
   ns.ApplyBadge(b, "junk")
-  b.junk:Show()
+  showCoin(b.junk, b.junkBg, true)
 end
 
 local function lockClicks(b, locked)
@@ -1484,36 +1570,58 @@ end
 
 -- The sale carousel on the cell: alt-click marks, alt-click again locks, a third clears it
 -- (Features/Vendor.lua keeps the store). The lock state also stops the cell's clicks at a merchant.
+-- Both faces are Warpee's own textures (coin.tga, lock.tga) rather than the game's atlases, each baked
+-- white with its rim struck black, and the coin takes a black copy under it for the item art behind.
 function ns.MarkSell(b, itemID, link)
   local V = ns.Vendor
   local state = (itemID and V and V.SellState) and V:SellState(itemID, link) or nil
-  b.wpeSell = state or nil
+  -- wpeSell answers one question for the rest of the paint: does the carousel hold this cell's corner? A
+  -- state the panel has switched the sale mark off for is not drawn, so the corner is not the carousel's
+  -- and the junk coin keeps it -- which is the read MarkJunk makes. The true state is kept for the lock
+  -- below, which holds regardless: it is the store's answer and what stops a click at a merchant.
+  b.wpeSell = (state and ns.Badge("sell").on) and state or nil
   b.wpeLocked = (state == "lock") or nil
   ns.LockClicks(b)
-  if not (state and ns.Badge("sell").on) then
-    if b.sell then b.sell:Hide() end
-    if b.sellBg then b.sellBg:Hide() end
+  if not b.wpeSell then
+    showCoin(b.sell, b.sellBg, false)
+    if b.sellLock then b.sellLock:Hide() end
     return
   end
   if not b.sell then
     if not b.borderFrame then return end
     -- Both textures ride one frame, so the outline and the coin share the badge's place in the order.
     local f = ns.BadgeFrame(b, "sell")
-    -- The outline under the coin: the same art, painted black, one sublayer down and a pixel larger.
+    -- The black copy under the coin: same art, painted black, one sublayer down. ApplyBadge sizes and
+    -- places it off the coin, so it follows every cell size and offset the coin does.
     b.sellBg = f:CreateTexture(nil, "OVERLAY", nil, 4)
-    b.sellBg:SetVertexColor(0, 0, 0, 1)
+    ns.BadgeArt(b.sellBg, "sell")
+    b.sellBg:SetVertexColor(0, 0, 0)
     b.sell = f:CreateTexture(nil, "OVERLAY", nil, 6)
-  end
-  -- Handed over only when it changes: a repaint must not re-set a texture the cell already wears.
-  local art = (state == "lock") and "lock" or "sell"
-  if b.wpeSellArt ~= art then
-    b.wpeSellArt = art
-    ns.BadgeArt(b.sell, art)
-    ns.BadgeArt(b.sellBg, art)
+    ns.BadgeArt(b.sell, "sell")
+    -- Gold on the coin: the art is white metal with its rings struck black, so one gold multiply colours
+    -- the body and leaves the rings dark. The same gold the header coin and the padlock wear.
+    b.sell:SetVertexColor(COIN_GOLD[1], COIN_GOLD[2], COIN_GOLD[3])
+    -- Warpee's own padlock, a texture on the same frame as the coin -- the two carousel faces never show
+    -- at once, so they share one slot in the badge order. The art is white with its rim and keyhole baked
+    -- black, so one gold tint colours the body while the baked edge stays dark. Gold to match the coin it
+    -- stands in for -- the carousel's two faces read as one trade, told apart by the shape, not the colour.
+    -- It is the one face with no black copy under it: its rim is baked thick enough to seal the mark
+    -- against any item icon on its own, so the coin's copy is simply hidden while the lock is up.
+    b.sellLock = f:CreateTexture(nil, "OVERLAY", nil, 6)
+    b.sellLock:SetTexture([[Interface\AddOns\Warpee\Media\Icons\lock.tga]])
+    b.sellLock:SetVertexColor(COIN_GOLD[1], COIN_GOLD[2], COIN_GOLD[3])
   end
   ns.ApplyBadge(b, "sell")
-  b.sell:Show()
-  b.sellBg:Show()
+  if state == "lock" then
+    showCoin(b.sell, b.sellBg, false)
+    -- The lock is one texture now, so its dim rides its own alpha (SearchBadgeAlpha) the way the coin's
+    -- does; the per-layout pass keeps it in step on a search change.
+    b.sellLock:SetAlpha(ns.SearchBadgeAlpha(b))
+    b.sellLock:Show()
+  else
+    b.sellLock:Hide()
+    showCoin(b.sell, b.sellBg, true)
+  end
 end
 
 local function slotLoc(b, bag, slot)
@@ -1624,7 +1732,9 @@ function ns.UpdateItemButton(b)
   if not info then
     -- An empty slot hands the game no link at all, so the cell keeps no craft-tier identity either.
     b.wpeQualityLink, b.wpeTierShown = nil, nil
-    b.wpeItemLocked = nil
+    -- false, not nil: the guard above compares wpeItemLocked against a boolean (locked), and nil ~= false
+    -- always, so a nil here meant a re-empty cell never took the early return and repainted every pass.
+    b.wpeItemLocked = false
     SetItemButtonTexture(b, nil)
     SetItemButtonCount(b, 0)
     SetItemButtonDesaturated(b, false)
@@ -1711,8 +1821,10 @@ function ns.UpdateItemButton(b)
   ns.ApplyIconZoom(b)
   ns.MarkQuestItem(b, qi and qi.questID, qi and qi.isActive)
   ns.MarkNewItem(b, bagID, slot, info and info.quality)
-  ns.MarkJunk(b, info and info.quality)
+  -- The sale mark is asked first: it is the older of the two, and MarkJunk reads its verdict off the
+  -- cell (a piece the carousel holds is not the junk rule's to draw).
   ns.MarkSell(b, info and info.itemID, hl)
+  ns.MarkJunk(b, info and info.quality)
   -- The game locks a slot the instant a move is issued and unlocks it when it lands; a locked cell greys,
   -- the same read Blizzard's own bags show. Stashed on the cell (wpeItemLocked) because ApplySearchToButton
   -- runs right after every layout and sets desaturation from the search miss alone: without the piece here
@@ -1842,8 +1954,8 @@ function ns.PaintVaultButton(b, d, bagID, forceCount)
     SetItemButtonQuality(b, q, link, false, d.b)
     ns.FitOverlays(b)
     ns.MarkQuestItem(b)
-    ns.MarkJunk(b, q)
     ns.MarkSell(b, (C_Item.GetItemInfoInstant(link)), link)
+    ns.MarkJunk(b, q)
     -- A record written before the flag existed carries no w, and reading that as "not
     -- warbound until equipped" is what turns such a piece into a green BoE badge. The strict
     -- question is asked instead: warbound on the link and not plain account binding. Only the
@@ -1973,8 +2085,12 @@ function ns.ApplySearchToButton(b, filters, blocked)
   paintBadgeAlpha(b, b.bind, "bind")
   paintBadgeAlpha(b, b.outfit, "outfit")
   paintBadgeAlpha(b, b.junk, "junk")
+  paintBadgeAlpha(b, b.junkBg, "junk")
   paintBadgeAlpha(b, b.sell, "sell")
   paintBadgeAlpha(b, b.sellBg, "sell")
+  -- The lock is a texture on the same badge, so it dims through the same path as the coin; which face
+  -- shows is the carousel's Show/Hide, not this alpha.
+  paintBadgeAlpha(b, b.sellLock, "sell")
   paintBadgeAlpha(b, questTex(b))
   paintBadgeAlpha(b, b.wpeTier)
   paintBadgeAlpha(b, b.NewItemTexture)
@@ -2218,6 +2334,16 @@ function ns.PinIcon(id)
     if ok and tex then return tex end
   end
   return (GetItemIcon and GetItemIcon(id)) or 134400
+end
+
+-- The name an id resolves to, or nil while the client has not answered for it yet: an id field prints
+-- this beside the icon, and nil is what keeps the empty state empty. Both readers are tried, the modern
+-- one first, the way the icon lookup above does.
+function ns.PinName(id)
+  local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)
+  if type(name) ~= "string" or name == "" then name = GetItemInfo and GetItemInfo(id) end
+  if type(name) ~= "string" or name == "" then return nil end
+  return name
 end
 
 -- Two keys have the same stem when they differ in bonus ids alone. Bonus ids are where an

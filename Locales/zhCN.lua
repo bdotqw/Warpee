@@ -148,6 +148,7 @@ local STRINGS = {
     "从列表中选择搜索词。你仍然可以手动输入规则。",
   ["Sort"] = "排序",
   ["By rule"] = "按规则",
+  ["Rule"] = "规则",
   ["By expansion"] = "按资料片",
   ["The order items take inside every section. Each falls back to name, so the order never flickers."] =
     "每个分区内物品的排列顺序。最终都按名称排序，所以顺序不会跳动。",
@@ -180,6 +181,7 @@ local STRINGS = {
   ["Gear set"] = "套装",
   ["Letters"] = "字数",
   ["How many letters of the set name to show."] = "套装名称显示前几个字。",
+  ["How much of the slot the coin and the padlock take."] = "硬币和锁占用格子的比例。",
   ["Vendor lock"] = "商人锁定",
   ["Sale mark"] = "出售标记",
   ["A coin on the items you marked for sale."] = "标记出售的物品上的一枚硬币。",
@@ -341,6 +343,7 @@ local STRINGS = {
   ["Tint the slots of the reagent bag and the reagent bank."] = "给材料包和材料银行的格子染色。",
   ["Red border around gear your character cannot wear."] = "角色穿不了的装备加一圈红边。",
   ["Thickness of the slot border."] = "格子边框的粗细。",
+  ["A copper coin on gray junk items: the same coin the Sell button and the sale mark wear in gold, copper here because the rules would sell it, not you."] = "灰色垃圾物品上的铜币。和「立即出售」按钮、出售标记用的是同一枚，但那两处是金色的；铜色在这里表示想卖它的是规则，不是你。",
   ["Tint the item level number with the item's quality color."] = "物品等级的数字用物品的品质颜色。",
   ["Alt-click an item to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Works in the bags, the bank, the favorites row and the pocket. Alt-click again, or the cross here, to unlock."] = "ALT+左键点击物品可以锁定它：会出现一把锁，这件物品不能再被卖掉，自动出售和右键卖给商人都不会卖它。背包、银行、收藏栏和口袋里都能用。再按一次 ALT+左键，或者点这里的叉，就能解锁。",
   ["ALT-click to lock it from the vendor"] = "ALT+左键点击可禁止出售给商人",
@@ -503,10 +506,8 @@ local STRINGS = {
   ["FANNY PACK"] = "腰包",
   ["Pocket"] = "口袋",
   ["Pocket window"] = "口袋窗口",
-  ["LMB: Pocket"] = "左键：口袋", -- ?
+  ["LMB: Bags"] = "左键：背包",
   ["RMB: grid/cat"] = "右键：网格/分类", -- ?
-  ["LMB: grid/cat."] = "左键：网格/分类。", -- ?
-  ["Click: grid/cat"] = "点击：网格/分类", -- ?
   ["Pocket rows"] = "口袋行数",
   ["Pocket size"] = "口袋大小",
   ["Pocket slot size"] = "口袋格子大小",
@@ -657,7 +658,7 @@ local STRINGS = {
   ["stat mastery"] = "精通", ["stat versatility"] = "全能",
   ["stat leech"] = "吸血", ["stat avoidance"] = "闪避",
   ["stat speed"] = "加速",
-  ["Type several words: an item must match all of them. %s = space, %s = |, %s = !. For example, (mount | toy) !quest means mounts or toys, but no quest items. More forms: id:6948; 400; ilvl400; ilvl>400; ilvl>=400; ilvl<400; ilvl<=400; ilvl400-450."] = "多个词：物品需全部满足才算命中。%s = 空格，%s = |，%s = !。例如 (坐骑 | 玩具) !任务物品 表示坐骑或玩具，但不含任务物品。其他写法：id:6948；400；ilvl400；ilvl>400；ilvl>=400；ilvl<400；ilvl<=400；ilvl400-450。",
+  ["Type several words: an item must match all of them. %s = space, %s = |, %s = !. For example, (mount | toy) !quest means mounts or toys, but no quest items. More forms: id:6948; 400; ilvl400; ilvl>400; ilvl>=400; ilvl<400; ilvl<=400; ilvl400-450."] = "多个词：物品需全部满足才算命中。%s = 空格，%s = |，%s = !。例如 (坐骑 | 玩具) !任务物品 表示坐骑或玩具，但不含任务物品。其他写法：id:6948；400；装等400；装等>400；装等>=400；装等<400；装等<=400；装等400-450。",
   ["Edit as text"] = "以文本编辑",
   ["Item class"] = "物品分类",
   ["Item Upgrade"] = "物品升级",
