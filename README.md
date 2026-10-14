@@ -10,13 +10,15 @@ Bag and bank windows for World of Warcraft (Midnight, 12.x). Grid or categories,
 - **Guild bank skin** matching the rest of the addon; its contents are not saved.
 - **Snapshots** of other characters' bags and bank, behind a shared switcher popup.
 - **Favorites row**: drag an item in to keep it one click away, reorder the row by dragging, and read the total you carry on the square, every stack in every bag added up.
-- **Marks on the slots**, placed where you want them: item level, stack count, binding (BoE, WuE, BoA), gear set, a coin on junk and a padlock on locked items, each with its own corner, offset, size and growth direction, plus a countdown on anything on cooldown.
-- **Vendor sell** in one click: item level range in the options, grey junk, Legion relics, old consumables and raid tier tokens optional; BoE, warbound and socketed gear stay in the bags, and any item can be locked with alt-click.
+- **Pocket window** on a hotkey: a small grid of tracked items for when the full bags are overkill, with ghosts that stay behind to rebuy what ran out.
+- **Recent loot row** in the bags and the pocket, toggled on its own.
+- **Marks on the slots**, placed where you want them: item level, stack count, binding (BoE, WuE, BoA), gear set, a coin on junk and a sale mark with a padlock for locked items, each with its own corner, offset, size and growth direction, plus a countdown on anything on cooldown.
+- **Vendor sell** in one click: item level range in the options, grey junk, old consumables and raid loot optional, with guards for old runes, alchemist stones and fishing gear; BoE, warbound, enchanted and socketed gear stay in the bags. Alt-click marks an item for the next visit, alt-click again locks it.
 - **Item counts across every character** inside the Blizzard tooltip (bags / bank / Warband / total).
-- **Search filters** by quality, slot, item type, expansion and item level, in English, Russian, German, French, Spanish, Italian or Portuguese.
-- **Gold formats** (commas, dots, spaces, K/M) and a gold tooltip listing characters.
+- **Search filters** by quality, slot, item type, expansion and item level, in every interface language below.
+- **Gold formats** (commas, dots, spaces, K/M), coin letters or coin icons, and a gold tooltip listing characters, with the WoW Token price in the bags.
 - **X/Y bar** for placing windows exactly, plus a position lock.
-- **English, Russian, German, French, Spanish, Italian and Portuguese** interface text.
+- **Interface text** in English, Russian, German, French, Spanish, Italian, Portuguese, Korean and Chinese.
 - **Two bundled fonts** (Rubik Bold, Russo One); anything registered with LibSharedMedia also shows up.
 
 ## Install
