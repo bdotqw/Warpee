@@ -1722,6 +1722,19 @@ function Bags:CursorInBags()
   return false
 end
 
+-- Does the cursor hold a split-off piece? The origin slot still carries the same item when only
+-- part of its stack was lifted, while a wholly picked-up stack leaves it empty. Read-only.
+function Bags:CursorIsSplit()
+  if not (C_Cursor and C_Cursor.GetCursorItem) then return false end
+  local loc = C_Cursor.GetCursorItem()
+  if not (loc and loc.IsBagAndSlot and loc:IsBagAndSlot()) then return false end
+  local bag, slot = loc:GetBagAndSlot()
+  if not (bag and slot) then return false end
+  local info = C_Container.GetContainerItemInfo(bag, slot)
+  local ctype, cid = GetCursorInfo()
+  return ctype == "item" and info and info.itemID and cid and info.itemID == cid and true or false
+end
+
 -- Set a worn piece down into the first bag with room, which is the unequip. PutItemInBag wants the
 -- bag's inventory slot, not its container id, so the worn bag is translated first; the backpack has
 -- no inventory slot and goes through PutItemInBackpack. Neither is protected, and both are driven by
@@ -1834,8 +1847,9 @@ function Bags:DropToBackground(targetId, toEmpty)
   end
   if self:CursorInBags() then
     -- A split off the cursor came from these bags: drop on Empty lands it in a named empty slot so it
-    -- stays its own stack. Anywhere else the game returns it to its own slot when the cursor clears.
-    if toEmpty then self:StowToEmptySlot() end
+    -- stays its own stack, and so does a drop anywhere else on the window body -- clearing the cursor
+    -- would hand it back to its own slot and merge it away. A wholly lifted stack still goes home.
+    if toEmpty or self:CursorIsSplit() then self:StowToEmptySlot() end
   else
     -- A piece from outside (worn, bank, warband) is stowed into a free slot. Onto Empty, place it in a
     -- named empty slot for the same reason; onto any other section, the general stow is fine.
@@ -2423,8 +2437,11 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
       local ghead = self:CatGroupHead(gi)
       ghead.wpeEntry, ghead.wpeCaret, ghead.wpeLabel = band.key, gcaret, glabel
       ghead:ClearAllPoints()
-      ns.SnapPoint(ghead, "TOPLEFT", self.content, "TOPLEFT", 0, -top)
-      ghead:SetSize(math.max(1, gridW), headH)
+      -- The fold handle hugs the caret and the name only: the strip-wide button ate drops meant for
+      -- the cells and folded the band on any misclick along the row.
+      local gw = (isHead and glabel:GetStringWidth()) or 0
+      ns.SnapPoint(ghead, "TOPLEFT", self.content, "TOPLEFT", labelX - 13, -top)
+      ns.SnapPoint(ghead, "BOTTOMRIGHT", self.content, "TOPLEFT", labelX + gw, -(top + headH))
       ghead:SetShown(isHead)
     end
     -- A folded band keeps its heading but draws no sections: an empty range is the same thing as
@@ -2731,10 +2748,8 @@ end
 local function coinUnit(letter, font)
   -- A letter is a word and outranks both coins: asking for letters asks for no coin at all.
   if Bags.goldLetters then
-    -- The space is the one the short money puts before the letter: "1.2k g" reads as a number and a unit,
-    -- where "1.2kg" reads as a weight.
-    local sp = (WarpeeDB and WarpeeDB.goldFormat == "short") and " " or ""
-    return sp .. "|cff" .. COIN_HEX[letter] .. ns.CoinLetter(letter) .. "|r"
+    -- The space before the letter: "123 g" reads as a number and a unit, where "123g" reads as a weight.
+    return " " .. "|cff" .. COIN_HEX[letter] .. ns.CoinLetter(letter) .. "|r"
   end
   local set = coinSet(font)
   return Bags.goldBlizzard and set.blizz[letter] or set.own[letter]

@@ -174,6 +174,7 @@ local STRINGS = {
   ["Vendor lock"] = "상인 잠금",
   ["Sale mark"] = "판매 표시",
   ["A coin on the items you marked for sale."] = "판매 표시한 아이템 위의 동전.",
+  ["A coin on the items you marked for sale. The junk coin sits in the same spot."] = "판매 표시한 아이템 위의 동전. 잡동사니 동전도 같은 자리입니다.",
   ["Sale lock"] = "판매 잠금",
   ["A padlock on the items you locked from sale."] = "판매 잠근 아이템 위의 자물쇠.",
   ["Badge scale"] = "배지 크기",

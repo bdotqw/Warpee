@@ -783,7 +783,7 @@ local BADGES = {
   -- badge row. fixed: the badge is the only sign an alt-click landed, so the panel cannot hide it.
   { key = "sell",    n = "Sale mark", tex = true, fixed = true,
     c = "TOPRIGHT", x = -1, y = -1, s = 0.4, m = 10,
-    t = "A coin on the items you marked for sale." },
+    t = "A coin on the items you marked for sale. The junk coin sits in the same spot." },
 }
 -- The junk coin is not an editable badge: no chip, no place in the draw order, just a marker toggled in
 -- Items > Markers that wears the same coin on grey items. It keeps a def here so MarkJunk can size and

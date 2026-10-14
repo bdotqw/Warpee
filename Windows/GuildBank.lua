@@ -630,9 +630,8 @@ local function coinMark(btn, letter, r, g, b, a)
   -- the guild cannot pay stays red from the digits to the letter rather than going red and gold at
   -- once.
   local tint = plainInk(btn) and ns.COIN_HEX and ns.COIN_HEX[letter] or nil
-  -- The space is the one the addon's own short money puts before the letter: "1.2k g" reads as a
-  -- number and a unit, where "1.2kg" reads as a weight.
-  local sp = (WarpeeDB and WarpeeDB.goldFormat == "short") and " " or ""
+  -- The space before the letter: "123 g" reads as a number and a unit, where "123g" reads as a weight.
+  local sp = " "
   if not fs:GetPoint() then
     if art then fs:SetPoint("LEFT", art, "LEFT", 0, 0) else fs:SetPoint("RIGHT", btn, "RIGHT", 0, 0) end
   end

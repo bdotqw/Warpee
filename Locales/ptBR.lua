@@ -184,6 +184,7 @@ local STRINGS = {
   ["Vendor lock"] = "Proteção contra venda",
   ["Sale mark"] = "Marca de venda",
   ["A coin on the items you marked for sale."] = "Uma moeda nos itens marcados para venda.",
+  ["A coin on the items you marked for sale. The junk coin sits in the same spot."] = "Uma moeda nos itens marcados para venda. A moeda de lixo fica no mesmo lugar.",
   ["Sale lock"] = "Bloqueio de venda",
   ["A padlock on the items you locked from sale."] = "Um cadeado nos itens protegidos contra venda.",
   ["Badge scale"] = "Tamanho do emblema",

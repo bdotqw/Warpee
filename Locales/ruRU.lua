@@ -254,6 +254,7 @@ local STRINGS = {
   ["Vendor lock"] = "Защита от продажи",
   ["Sale mark"] = "Метка продажи",
   ["A coin on the items you marked for sale."] = "Монета на предметах, отмеченных на продажу.",
+  ["A coin on the items you marked for sale. The junk coin sits in the same spot."] = "Монета на предметах, отмеченных на продажу. Монета хлама стоит на том же месте.",
   ["Sale lock"] = "Запрет продажи",
   ["A padlock on the items you locked from sale."] = "Замок на предметах, которым запрещена продажа.",
   ["Badge scale"] = "Размер значка",

@@ -185,6 +185,7 @@ local STRINGS = {
   ["Vendor lock"] = "商人锁定",
   ["Sale mark"] = "出售标记",
   ["A coin on the items you marked for sale."] = "标记出售的物品上的一枚硬币。",
+  ["A coin on the items you marked for sale. The junk coin sits in the same spot."] = "标记出售的物品上的一枚硬币。垃圾硬币也在同一位置。",
   ["Sale lock"] = "出售锁定",
   ["A padlock on the items you locked from sale."] = "禁止出售的物品上的一把锁。",
   ["Badge scale"] = "角标缩放",

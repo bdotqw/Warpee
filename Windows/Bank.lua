@@ -1544,7 +1544,15 @@ function View:DropToBackground()
   if self.snap or not CursorHasItem() then return end
   local ctype = GetCursorInfo()
   if ctype ~= "item" then return end
-  if not self:CursorInMode() then
+  if self:CursorInMode() then
+    -- A split off the cursor came from this mode's own containers: land it in a named empty slot so
+    -- it stays its own stack, the way the bags do. A wholly lifted piece still goes back to its slot.
+    if self:CursorIsSplit() then self:StowToEmptySlot() end
+  elseif self:CursorIsSplit() then
+    -- A split from elsewhere (the bags, a worn slot, the other mode) is deposited into a named empty
+    -- slot for the same reason: the general stow below would merge it into a matching partial stack.
+    self:StowToEmptySlot()
+  else
     for _, bag in ipairs(self:ModeBags(self.mode)) do
       if not CursorHasItem() then break end
       if (select(1, C_Container.GetContainerNumFreeSlots(bag)) or 0) > 0 then
@@ -1556,6 +1564,37 @@ function View:DropToBackground()
   ClearCursor()
   self:Layout()
   if ns.Options and ns.Options.RefreshOpen then ns.Options:RefreshOpen() end
+end
+
+-- Does the cursor hold a split-off piece? The origin slot still carries the same item when only
+-- part of its stack was lifted, while a wholly picked-up stack leaves it empty. Read-only.
+function View:CursorIsSplit()
+  if not (C_Cursor and C_Cursor.GetCursorItem) then return false end
+  local loc = C_Cursor.GetCursorItem()
+  if not (loc and loc.IsBagAndSlot and loc:IsBagAndSlot()) then return false end
+  local bag, slot = loc:GetBagAndSlot()
+  if not (bag and slot) then return false end
+  local info = C_Container.GetContainerItemInfo(bag, slot)
+  local ctype, cid = GetCursorInfo()
+  return ctype == "item" and info and info.itemID and cid and info.itemID == cid and true or false
+end
+
+-- Place the held item into a specific empty slot of the current mode with PickupContainerItem, not
+-- "into the bank in general": PutItemInBag tops up a matching partial stack, a named empty slot always
+-- lands a new stack. Unprotected, from the player's own drop. True once clear.
+function View:StowToEmptySlot()
+  for _, bag in ipairs(self:ModeBags(self.mode)) do
+    if not CursorHasItem() then break end
+    local num = C_Container.GetContainerNumSlots(bag) or 0
+    for slot = 1, num do
+      local info = C_Container.GetContainerItemInfo(bag, slot)
+      if not (info and (info.hyperlink or info.itemID)) then
+        C_Container.PickupContainerItem(bag, slot)
+        return not CursorHasItem()
+      end
+    end
+  end
+  return not CursorHasItem()
 end
 
 -- Does the piece on the cursor already live in one of this mode's containers? Then a body drop is only
@@ -1703,8 +1742,9 @@ function View:PlanCats(st, size, cols, gap, light)
       local ghead = self:CatGHead(st, gi)
       ghead.wpeEntry, ghead.wpeCaret, ghead.wpeLabel = band.key, gcaret, glabel
       ghead:ClearAllPoints()
-      ns.SnapPoint(ghead, "TOPLEFT", st.content, "TOPLEFT", 0, -top)
-      ghead:SetSize(math.max(1, gridW), headH)
+      local gw = (isHead and glabel:GetStringWidth()) or 0
+      ns.SnapPoint(ghead, "TOPLEFT", st.content, "TOPLEFT", labelX - 13, -top)
+      ns.SnapPoint(ghead, "BOTTOMRIGHT", st.content, "TOPLEFT", labelX + gw, -(top + headH))
       ghead:SetShown(isHead)
     end
     -- A folded band keeps its heading but draws no sections: an empty range is the same thing as
