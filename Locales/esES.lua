@@ -268,6 +268,9 @@ local STRINGS = {
     "Cómo se separan los millares en las cifras. «Corto» abrevia a k y M.",
   ["Show gold only, hide silver and copper."] = "Mostrar solo el oro, sin plata ni cobre.",
   ["On = g/s/c letters. Off = coin icons."] = "Activado: letras o/p/c. Desactivado: iconos de las monedas.",
+  ["Blizzard icons"] = "Iconos de Blizzard",
+  ["The coin on the money line and in the guild bank. On = the client's own coin icons. Off = Warpee's own coin."] = "La moneda de la línea de dinero y del Banco de hermandad. Activado: los iconos del cliente, desactivado: la moneda de Warpee.",
+  ["The coin on the money line, when the letters above are off. On = the client's own coin icons. Off = Warpee's own coin. Native game tooltips keep the client's coin either way."] = "La moneda de la línea de dinero, cuando las letras de arriba están quitadas. Activado: los iconos del cliente, desactivado: la moneda de Warpee. Las ventanas del juego muestran la moneda del cliente de todos modos.",
   ["Empty the search box when the window closes, so it opens unfiltered next time."] =
     "Vacía el campo de búsqueda al cerrar la ventana, para que la próxima vez se abra sin filtro.",
   ["While both windows are open, typing in either box searches both at once."] =
@@ -303,6 +306,7 @@ local STRINGS = {
   ["Drag an item onto a category in the grouped view to pin it there. Hold Alt pins only while Alt is held, so an ordinary drag never leaves a surprise pin. Off leaves pinning to the editor. A drop on the category the rules already choose unpins instead."] =
     "Arrastra un objeto sobre una categoría en la vista agrupada para fijarlo ahí. «Mantener Alt» fija solo con Alt pulsado, así un arrastre normal nunca deja una fijación inesperada. «Desactivado» deja la fijación al editor. Soltar en la categoría que las reglas ya eligen, en cambio, lo desfija.",
   ["Hide reagents"] = "Ocultar los componentes",
+  ["Show reagents"] = "Mostrar los componentes",
   ["Reverse slot order"] = "Orden inverso de espacios",
   ["Keep new items apart"] = "Mantener aparte los objetos nuevos",
   ["Grid order"] = "Orden de la cuadrícula",

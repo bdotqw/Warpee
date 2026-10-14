@@ -260,6 +260,9 @@ local STRINGS = {
     "Raggruppamento delle cifre nelle somme. Il formato breve usa mila, mln e mld.",
   ["Show gold only, hide silver and copper."] = "Mostra solo l'oro e nasconde argento e rame.",
   ["On = g/s/c letters. Off = coin icons."] = "Attivo: lettere o/a/r. Disattivo: icone delle monete.",
+  ["Blizzard icons"] = "Icone Blizzard",
+  ["The coin on the money line and in the guild bank. On = the client's own coin icons. Off = Warpee's own coin."] = "La moneta nella riga del denaro e nella Banca di Gilda. Attivo: le icone del client, disattivo: la moneta di Warpee.",
+  ["The coin on the money line, when the letters above are off. On = the client's own coin icons. Off = Warpee's own coin. Native game tooltips keep the client's coin either way."] = "La moneta nella riga del denaro, quando le lettere qui sopra sono spente. Attivo: le icone del client, disattivo: la moneta di Warpee. Nelle finestre del gioco resta comunque la moneta del client.",
   ["Empty the search box when the window closes, so it opens unfiltered next time."] =
     "Svuota la ricerca alla chiusura della finestra, così la prossima volta si apre senza filtri.",
   ["While both windows are open, typing in either box searches both at once."] =
@@ -295,6 +298,7 @@ local STRINGS = {
   ["Drag an item onto a category in the grouped view to pin it there. Hold Alt pins only while Alt is held, so an ordinary drag never leaves a surprise pin. Off leaves pinning to the editor. A drop on the category the rules already choose unpins instead."] =
     "Trascina un oggetto su una categoria nella vista raggruppata per fissarlo lì. «Tieni premuto Alt» fissa solo con Alt premuto, così un normale trascinamento non lascia mai un aggancio inatteso. «Off» lascia l'aggancio all'editor. Rilasciare sulla categoria che le regole già scelgono lo sgancia invece.",
   ["Hide reagents"] = "Nascondi i reagenti",
+  ["Show reagents"] = "Mostra i reagenti",
   ["Reverse slot order"] = "Inverti l'ordine degli scomparti",
   ["Keep new items apart"] = "Tieni separati gli oggetti nuovi",
   ["Grid order"] = "Ordine della griglia",

@@ -91,6 +91,7 @@ fav.pkSizeSet = function(v)
 end
 local lettersGet, lettersSet = field("goldLetters")
 local onlyGet, onlySet       = field("goldOnly")
+local blizzGet, blizzSet     = field("goldBlizzard")
 
 local GOLD_FORMATS = { "commas", "dots", "spaces", "short" }
 local GOLD_FORMAT_LABELS = {
@@ -174,6 +175,12 @@ local GENERAL_PAGE = {
         desc = "Show gold only, hide silver and copper." },
       { type = "toggle", name = "Coin letters", col = 2, get = lettersGet, set = lettersSet,
         desc = "On = g/s/c letters. Off = coin icons." },
+      -- The coin the money line draws when the letters are off. Off (the default) is Warpee's own coin,
+      -- on is the coin the client writes every other amount in the game with. Gated by the row above
+      -- because a letter outranks both coins -- with letters on there is no coin to choose.
+      { type = "toggle", name = "Blizzard icons", col = 1, get = blizzGet, set = blizzSet,
+        disabled = function() return lettersGet() end,
+        desc = "The coin on the money line, when the letters above are off. On = the client's own coin icons. Off = Warpee's own coin. Native game tooltips keep the client's coin either way." },
   },
 }
 

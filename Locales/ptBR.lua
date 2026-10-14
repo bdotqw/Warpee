@@ -259,6 +259,9 @@ local STRINGS = {
     "Agrupamento dos algarismos nos valores. O formato curto abrevia com mil, mi e bi.",
   ["Show gold only, hide silver and copper."] = "Mostra somente ouro, ocultando prata e cobre.",
   ["On = g/s/c letters. Off = coin icons."] = "Ativo: letras o/p/c. Desativado: ícones das moedas.",
+  ["Blizzard icons"] = "Ícones da Blizzard",
+  ["The coin on the money line and in the guild bank. On = the client's own coin icons. Off = Warpee's own coin."] = "A moeda na linha de dinheiro e no Banco da Guilda. Ativo: os ícones do cliente, desativado: a moeda do Warpee.",
+  ["The coin on the money line, when the letters above are off. On = the client's own coin icons. Off = Warpee's own coin. Native game tooltips keep the client's coin either way."] = "A moeda na linha de dinheiro, quando as letras acima estão desligadas. Ativo: os ícones do cliente, desativado: a moeda do Warpee. Nas janelas do jogo, a moeda segue sendo a do cliente.",
   ["Empty the search box when the window closes, so it opens unfiltered next time."] =
     "Esvazia a busca quando a janela fecha para que ela abra sem filtros na próxima vez.",
   ["While both windows are open, typing in either box searches both at once."] =
@@ -294,6 +297,7 @@ local STRINGS = {
   ["Drag an item onto a category in the grouped view to pin it there. Hold Alt pins only while Alt is held, so an ordinary drag never leaves a surprise pin. Off leaves pinning to the editor. A drop on the category the rules already choose unpins instead."] =
     "Arraste um item para uma categoria na visão agrupada para fixá-lo ali. «Segurar Alt» fixa só com Alt pressionado, então um arraste comum nunca deixa uma fixação inesperada. «Desligado» deixa a fixação para o editor. Soltar na categoria que as regras já escolhem, em vez disso, desafixa.",
   ["Hide reagents"] = "Ocultar reagentes",
+  ["Show reagents"] = "Mostrar reagentes",
   ["Reverse slot order"] = "Inverter ordem dos espaços",
   ["Keep new items apart"] = "Manter itens novos à parte",
   ["Grid order"] = "Ordem da grade",

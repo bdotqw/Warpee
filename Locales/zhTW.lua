@@ -229,6 +229,9 @@ local STRINGS = {
   ["Grouping for printed amounts. Short abbreviates to K and M."] = "數字的分隔方式。簡短會把數字縮寫成萬和億。",
   ["Show gold only, hide silver and copper."] = "只顯示金幣，隱藏銀幣和銅幣。",
   ["On = g/s/c letters. Off = coin icons."] = "開 = 顯示金/銀/銅文字；關 = 顯示硬幣圖示。",
+  ["Blizzard icons"] = "暴雪圖示",
+  ["The coin on the money line and in the guild bank. On = the client's own coin icons. Off = Warpee's own coin."] = "金額與公會銀行中的硬幣。開啟：用戶端圖示；關閉：Warpee 自己的硬幣。",
+  ["The coin on the money line, when the letters above are off. On = the client's own coin icons. Off = Warpee's own coin. Native game tooltips keep the client's coin either way."] = "上方字母關閉時，金額列裡用的硬幣。開啟：用戶端圖示；關閉：Warpee 自己的硬幣。遊戲內建提示裡的硬幣不受這個開關影響。",
   ["Empty the search box when the window closes, so it opens unfiltered next time."] = "關閉視窗時清空搜尋框，下次開啟時不帶過濾。",
   ["While both windows are open, typing in either box searches both at once."] = "兩個視窗都開啟時，在任意一邊輸入都會同時搜尋兩邊。",
   ["The bags open together with these windows and close with them again."] = "開啟這些視窗時背包會一起開啟，關閉時也一起關閉。",
@@ -263,6 +266,7 @@ local STRINGS = {
   ["Drag an item onto a category in the grouped view to pin it there. Hold Alt pins only while Alt is held, so an ordinary drag never leaves a surprise pin. Off leaves pinning to the editor. A drop on the category the rules already choose unpins instead."] =
     "在分組檢視中把物品拖到某個分類即可釘選到該分類。「按住 Alt」僅在按住 Alt 時釘選，因此一般拖曳不會留下意外的釘選。「關閉」則把釘選交給編輯器。放到規則本來就會選中的分類上，反而會取消釘選。",
   ["Hide reagents"] = "隱藏材料",
+  ["Show reagents"] = "顯示材料",
   ["Reverse slot order"] = "反轉格子順序",
   ["Keep new items apart"] = "新物品另外擺放",
   ["Grid order"] = "格子排列順序",

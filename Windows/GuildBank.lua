@@ -594,11 +594,14 @@ local function plainInk(btn)
   return plain == nil or fo == plain
 end
 
--- A coin of a money frame is drawn by the game as an icon beside the digits, and the addon has a
--- setting that writes it as a letter instead. The letter is the one the addon's own language gives
--- it, so a client set to Russian reads "з/с/м" and the same client set to English reads "g/s/c",
--- and it wears the coin's own colour, which is what the money of the addon does in every other
--- window.
+-- A coin of a money frame is drawn by the game as an icon beside the digits, and the addon has two
+-- settings about what stands there instead: Warpee's own coin (the default), or the client's icons it
+-- already drew. Either way the seat is the same -- the art the game put there is hidden and a font
+-- string takes its place at the art's own left edge -- so a frame written in our coin and a frame left
+-- to the client are the same width, and the switch is a switch of art and nothing else. A letter is
+-- the third setting and outranks both: it is the one the addon's own language gives the coin, so a
+-- client set to Russian reads "з/с/м" and the same client set to English reads "g/s/c", and it wears
+-- the coin's own colour, which is what the money of the addon does in every other window.
 --
 -- The letter is not written into the digits: it takes the seat the coin icon held, anchored to the
 -- icon's own left edge. Written into the string it would push the whole amount along, because the
@@ -608,11 +611,11 @@ end
 local function coinMark(btn, letter, r, g, b, a)
   local art = btn.GetNormalTexture and btn:GetNormalTexture()
   local fs = btn.wpeMark
-  -- The coin on a line of money is the client's own, in this window as in the bags: it is the metal the
-  -- amount is written in. Warpee's own coin is the sale mark, and it stays on the bags' header, the sale
-  -- mark and the junk coin. An earlier pass put our coin in the icon's seat here and in the bags at once,
-  -- and at twelve pixels our rings turn to mud -- worse here, where the seat is only about twelve wide.
-  if not (ns.Bags and ns.Bags.goldLetters) then
+  local letters = ns.Bags and ns.Bags.goldLetters
+  local ours = not letters and not (ns.Bags and ns.Bags.goldBlizzard)
+  -- Left to the client: the art the game drew goes back on and our string stands down. This is the
+  -- setting's whole other half, and the reason the frame is never asked to lay out again.
+  if not (letters or ours) then
     if fs then fs:Hide() end
     if art then art:SetAlpha(1) end
     return
@@ -629,11 +632,20 @@ local function coinMark(btn, letter, r, g, b, a)
   local tint = plainInk(btn) and ns.COIN_HEX and ns.COIN_HEX[letter] or nil
   -- The space is the one the addon's own short money puts before the letter: "1.2k g" reads as a
   -- number and a unit, where "1.2kg" reads as a weight.
-  local sp = (letter == "g" and WarpeeDB and WarpeeDB.goldFormat == "short") and " " or ""
+  local sp = (WarpeeDB and WarpeeDB.goldFormat == "short") and " " or ""
   if not fs:GetPoint() then
     if art then fs:SetPoint("LEFT", art, "LEFT", 0, 0) else fs:SetPoint("RIGHT", btn, "RIGHT", 0, 0) end
   end
   ns.SetOutlined(fs, 12)
+  -- Our coin is the same escape the bags' money line writes, so the two windows cannot drift apart, and a
+  -- texture in a string carries its own colour: the digits' paint never touches it.
+  if ours then
+    -- Bags.lua loads ahead of this file, but the guard stays: a seat with nothing in it is a missing
+    -- coin, not a broken window.
+    fs:SetText((ns.COIN_OWN and ns.COIN_OWN[letter]) or "")
+    fs:Show()
+    return
+  end
   if tint then
     fs:SetText(sp .. "|cff" .. tint .. ns.CoinLetter(letter) .. "|r")
   else

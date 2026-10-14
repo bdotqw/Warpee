@@ -110,7 +110,8 @@ local function mailing()
 end
 
 local function equipped(id)
-  local f = (C_Item and C_Item.IsEquippedItem) or IsEquippedItem
+  -- 12.1.5 removed the shim behind the bare IsEquippedItem, so the namespace is the only reader.
+  local f = C_Item.IsEquippedItem
   return (f and f(id)) and true or false
 end
 

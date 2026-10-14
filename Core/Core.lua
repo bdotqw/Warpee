@@ -63,7 +63,9 @@ local DEFAULTS = {
   -- drag never leaves a surprise pin; "on" pins on every section drop. Alt is the default: it keeps the
   -- plain drag safe and makes pinning a deliberate gesture.
   catPinDrag = "alt",
-  goldFormat = "short", goldLetters = true, goldOnly = true,
+  -- goldBlizzard: the money line's coin is Warpee's own unless this says otherwise (the client's icons
+  -- are the ones the rest of the game writes, kept for anyone who wants the window to match them).
+  goldFormat = "short", goldLetters = false, goldOnly = false, goldBlizzard = false,
   vendorIlvl = 100, vendorIlvlMin = 10, vendorConsum = false, vendorAuto = false,
   vendorTokens = false, vendorTokenExp = {},
   vendorKeepBoE = true, vendorKeepWarbound = true, vendorKeepGems = true,
@@ -195,6 +197,7 @@ function ns.PushConfig()
   Bags.borderWidth = WarpeeDB.borderWidth
   Bags.goldLetters = WarpeeDB.goldLetters
   Bags.goldOnly = WarpeeDB.goldOnly
+  Bags.goldBlizzard = WarpeeDB.goldBlizzard
   Bags.font = WarpeeDB.font
   Bags.showGauge = WarpeeDB.showGauge
   Bags.badge = WarpeeDB.badge
@@ -612,10 +615,10 @@ local function onLogin()
   WarpeeDB = WarpeeDB or {}
   if not freshInstall and WarpeeDB.startPrompted == nil then WarpeeDB.startPrompted = 1 end
   if WarpeeDB.goldLetters == nil then
-    WarpeeDB.goldLetters = WarpeeDB.goldMode == nil or WarpeeDB.goldMode == "letters"
+    WarpeeDB.goldLetters = WarpeeDB.goldMode == "letters"
   end
   if WarpeeDB.goldOnly == nil then
-    WarpeeDB.goldOnly = WarpeeDB.goldMode == nil or WarpeeDB.goldMode == "gold"
+    WarpeeDB.goldOnly = WarpeeDB.goldMode == "gold"
   end
   WarpeeDB.goldMode = nil
 

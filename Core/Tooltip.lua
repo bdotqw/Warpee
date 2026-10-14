@@ -26,7 +26,15 @@ local function tipBox()
   return t
 end
 
+-- The frame whose tip is on screen. The tip is drawn once, when the pointer arrives, so a click that
+-- changes the words it shows would leave the old ones standing until the pointer left -- which is exactly
+-- what a button offering the opposite action on its own label runs into the moment it is pressed. A
+-- frame that knows its words changed asks for RefreshTip below; a tip standing over another frame is not
+-- ours to touch.
+local tipOwner
+
 function ns.HideTip()
+  tipOwner = nil
   if tipFrame then tipFrame:Hide() end
 end
 
@@ -48,6 +56,7 @@ end
 
 function ns.ShowTip(owner, entries, side)
   if not owner or not entries or #entries == 0 then ns.HideTip(); return end
+  tipOwner = owner
   local t = tipBox()
   local path = ns.Fonts:Current()
   local cap = TIP_MAXW - TIP_PADT * 2
@@ -90,6 +99,31 @@ function ns.ShowTip(owner, entries, side)
   t:Show()
 end
 
+-- The entries a tip is made of, read fresh every time they are asked for: the title and the extra lines
+-- are closures (the bank's tab names, the reagent switch's promise), so a change of state lands in the
+-- words without the frame being told twice.
+local function tipEntries(s)
+  local entries = {}
+  local head = s.wpeTipTitle
+  if type(head) == "function" then head = head(s) end
+  if type(head) == "string" and head ~= "" then entries[#entries + 1] = { text = head } end
+  if s.wpeTipExtra then
+    local more = s.wpeTipExtra(s)
+    if type(more) == "table" then
+      for _, e in ipairs(more) do entries[#entries + 1] = e end
+    end
+  end
+  return entries
+end
+
+-- Redraw the tip of a frame whose own words just changed, and only that one: the tip already on screen
+-- belongs to the frame it was raised over, so another frame calling this changes nothing. Called by the
+-- reagent switch, whose tip offers the step the next click will take.
+function ns.RefreshTip(frame)
+  if not (frame and frame == tipOwner and tipFrame and tipFrame:IsShown()) then return end
+  ns.ShowTip(frame, tipEntries(frame), frame.wpeTipSide)
+end
+
 function ns.AddTip(frame, title, side, extra)
   if not frame then return end
   -- One hook per frame: HookScript adds rather than replaces, so a persistent frame re-decorated on a
@@ -100,22 +134,13 @@ function ns.AddTip(frame, title, side, extra)
   if frame.wpeTip then return end
   frame.wpeTip = true
   frame:HookScript("OnEnter", function(s)
-    local entries = {}
-    local head = s.wpeTipTitle
-    if type(head) == "function" then head = head(s) end
-    if type(head) == "string" and head ~= "" then entries[#entries + 1] = { text = head } end
-    if s.wpeTipExtra then
-      local more = s.wpeTipExtra(s)
-      if type(more) == "table" then
-        for _, e in ipairs(more) do entries[#entries + 1] = e end
-      end
-    end
-    ns.ShowTip(s, entries, s.wpeTipSide)
+    ns.ShowTip(s, tipEntries(s), s.wpeTipSide)
   end)
   frame:HookScript("OnLeave", ns.HideTip)
 end
 
 local goldTip
+local tokenTick = false
 local TIP_PAD, TIP_GAP = 8, 16
 local TIP_FONT_MIN = 8
 
@@ -165,7 +190,11 @@ local function showGoldTip(anchor)
   local wb = ns.Vault:WarbandMoney()
   local token = 0
   if C_WowTokenPublic and C_WowTokenPublic.GetCurrentMarketPrice then
-    if C_WowTokenPublic.UpdateMarketPrice then C_WowTokenPublic.UpdateMarketPrice() end
+    if not tokenTick and C_WowTokenPublic.UpdateMarketPrice and C_Timer and C_Timer.NewTicker then
+      tokenTick = true
+      C_WowTokenPublic.UpdateMarketPrice()
+      C_Timer.NewTicker(60, function() C_WowTokenPublic.UpdateMarketPrice() end)
+    end
     token = C_WowTokenPublic.GetCurrentMarketPrice() or 0
   end
 

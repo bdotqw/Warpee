@@ -31,6 +31,20 @@ local ROW1_Y = 4
 -- amount ran onto the right border (owner), so it keeps a further eight clear of it. Height is the
 -- density's own and is not touched here: the line sits in the footer band it always sat in.
 local FOOT_RIGHT = 12
+-- AND THE SHORTER THE LINE, THE CLOSER IT SITS. A line of one metal is a shorter thing than a line of
+-- three, and letters sit tighter than coins. Gold only drops eight, letters alone drop eight, and gold
+-- only with letters drops ten -- the states the line is read in. Bank.lua writes the same money and takes
+-- the same number from here, so the two footers cannot drift apart.
+local FOOT_GOLD, FOOT_GOLD_LETTERS = 8, 10
+local function footInset(base)
+  base = base or FOOT_RIGHT
+  local B = ns.Bags
+  if not B then return base end
+  if B.goldOnly and B.goldLetters then return base - FOOT_GOLD_LETTERS end
+  if B.goldOnly or B.goldLetters then return base - FOOT_GOLD end
+  return base
+end
+ns.FootInset = footInset
 -- How solid the sell coin's unlit state is. Full opacity is kept for "press me" alone: the coin reaches it
 -- only with a buying merchant open AND something in the bags to hand him. Short of that it sits under half
 -- and stays short of full even under the pointer, which is the client's own way of saying a control is
@@ -360,7 +374,7 @@ function Bags:AnchorHeader()
   end
   if self.money then
     self.money:ClearAllPoints()
-    self.money:SetPoint("BOTTOMRIGHT", -(PAD + FOOT_RIGHT), 6)
+    self.money:SetPoint("BOTTOMRIGHT", -(PAD + footInset()), 6)
   end
   if self.charTag then
     self.charTag:ClearAllPoints()
@@ -407,7 +421,7 @@ function Bags:Build()
     if not self.money then
       local money = Theme:Label(f, FONT + 1, "text")
       Theme:Money(money)
-      money:SetPoint("BOTTOMRIGHT", -(PAD + FOOT_RIGHT), 6)
+      money:SetPoint("BOTTOMRIGHT", -(PAD + footInset()), 6)
       self.money = money
       ns.AttachGoldTooltip(money, f, function() return self.iconSize end)
     end
@@ -612,7 +626,12 @@ function Bags:Build()
   local reags = ns.CreateGlyphButton(f, "", HB, "icon")
   reags:SetPoint("LEFT", charTag, "RIGHT", 4, 0)
   reags:SetScript("OnClick", function() Bags:ToggleReagents() end)
-  addTip(reags, "Hide reagents")
+  -- The tip names the step the click will take, not the switch it stands for: with the reagent slots in the
+  -- window it offers to take them out, with the block already left out it offers to bring it back. A fixed
+  -- word would contradict the mark right beside it the moment the pentagon changed its fill. Read live as
+  -- a closure, the way the bank's tab tips read their names -- and the open tip is redrawn by the toggle
+  -- itself, so the pointer still on the button does not keep reading the word of the state just left.
+  addTip(reags, function() return Bags:ReagentsHidden() and "Show reagents" or "Hide reagents" end)
   -- Warpee's own reagent mark: a point-up pentagon (the craft-quality shape, since reagents feed
   -- crafting), drawn in white with the shape in the alpha so the row's paint tints it like every other
   -- mark. The state is carried by the SHAPE, not the brightness: a filled pentagon while the reagent
@@ -813,7 +832,7 @@ function Bags:Build()
 
   local money = Theme:Label(f, FONT + 1, "text")
   Theme:Money(money)
-  money:SetPoint("BOTTOMRIGHT", -(PAD + FOOT_RIGHT), 6)
+  money:SetPoint("BOTTOMRIGHT", -(PAD + footInset()), 6)
   self.money = money
   ns.AttachGoldTooltip(money, f, function() return self.iconSize end)
 
@@ -970,6 +989,10 @@ function Bags:ToggleReagents()
   self.hideReagents = v
   if WarpeeDB then WarpeeDB.hideReagents = v end
   if self.frame and self.frame:IsShown() then self:Layout() else self:PaintReagents() end
+  -- The button is pressed with the pointer on it, so its tip is still up and still offering the step that
+  -- has just been taken. Re-worded here rather than left to the next hover: the words promise an action,
+  -- and the action has changed.
+  if ns.RefreshTip then ns.RefreshTip(self.reagentBtn) end
   if ns.Options and ns.Options.Refresh then ns.Options:Refresh() end
 end
 
@@ -2628,22 +2651,72 @@ function ns.FormatNumber(n)
   return groupNumber(n, sep)
 end
 
--- The three money coins are the client's own, the ones every amount in the game is written with. A number
--- written as a string has to carry its coin inside the string and a texture escape cannot be tinted, so
--- there is nothing here to tint in the first place. Warpee's own coin stays where it means something -- the
--- header button, the sale mark and the junk coin, where it says "this is for sale" -- and an earlier pass
--- that put it on the money line too read wrong the moment it was drawn at twelve: our coin is authored at
--- 128 for a header cell and its rings turn to mud at a twelfth of that.
+-- A coin in a line of money is either ours or the client's. Both are written here as a texture escape, so
+-- the setting swaps the art and nothing else: the same size, the same lift, the same gap after the digits.
+--
 -- The last number of each escape is the icon's own lift off the baseline. At 0 the coin hangs on the
 -- digits' bottom -- a texture in a string is drawn sitting on the baseline -- so it reads as standing under
 -- the number rather than level with it (owner: "выровнена по низу числа, а не посередине"). One pixel up
 -- puts its middle on the digits' middle at the sizes this addon writes money in. The letter form below
 -- needs none of this: a letter is text and rides the line by itself.
-local COIN_ICON = {
-  g = "|TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:1|t",
-  s = "|TInterface\\MoneyFrame\\UI-SilverIcon:12:12:2:1|t",
-  c = "|TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:1|t",
+local COIN_PATH = {
+  blizz = { g = "Interface\\MoneyFrame\\UI-GoldIcon",
+            s = "Interface\\MoneyFrame\\UI-SilverIcon",
+            c = "Interface\\MoneyFrame\\UI-CopperIcon" },
+  own = { g = "Interface\\AddOns\\Warpee\\Media\\Icons\\coin-gold",
+          s = "Interface\\AddOns\\Warpee\\Media\\Icons\\coin-silver",
+          c = "Interface\\AddOns\\Warpee\\Media\\Icons\\coin-copper" },
 }
+-- Warpee's own coin, on the money line by default and behind the "Blizzard icons" switch for anyone who
+-- wants the client's back. Three files and not one tinted at runtime: a texture inside a string carries no
+-- vertex colour, so the metal has to be in the file -- which is also why they are the very hexes the
+-- letters wear (COIN_HEX below): flipping the setting between letters and coins changes the mark, not the
+-- colour. They are baked for this line (integrate/cointilt/make-coin-money.js): the same tipped coin as the
+-- badges and the header button, averaged down from the mark's 128px master into a file of its own.
+--
+-- Two things that file is not. It is not at the size the escape names: the escape asks for 12x12 UNITS and
+-- the window draws them at 12 x the interface scale, so a file authored at 12 is MAGNIFIED -- and smeared by
+-- the client's filtering -- on every scale above 1.0, which is what the owner saw on his own screen. The
+-- file is 24px: at scale 2.0 that is exactly one texel per pixel and below it the file is minified, the
+-- same place the client's own 16px icons sit. And it is not black anywhere: the silhouette is a band of
+-- dark metal (the mark's ground is black because it stands on an item's art, and on a line of numbers that
+-- black was sent back as a sticker) and the recess of the face is a shade of the metal as well. Nothing
+-- here is the 128px mark sampled into this slot: that is 0.09 of a texel per pixel, and it is what turned
+-- the ring to noise on an earlier pass.
+-- AND THE SIZE IS THE FACE THE COIN RIDES, not a number of its own. A texture inside a string cannot
+-- measure the text around it: it is drawn at the units the escape names, so a coin written at one fixed 12
+-- stood a size bigger beside the 15-unit money face of the lowest density than beside the 17-unit face of
+-- the highest -- the mark shrinking against its own digits every time the slider moved, while the client's
+-- own money frames size their coins off the text they ride. So the size is three quarters of the face: the
+-- relation this line was signed off at -- 12 units of coin beside the 16-unit face the default density
+-- writes, and the client's own file is what it is measured against: their 16px icon holds its disc at 13-14
+-- texels of 16 with the alpha reaching the file's edge, ours at 23-24 of 24, and drawn at the same 12 units
+-- the two agree within a device pixel from scale 1.0 to 2.0 (share-vs-client.py beside the bake). A caller
+-- that hands no face over keeps the money line's own
+-- 12: the guild bank, whose coin stands on the game's own money buttons instead of in a string of ours, and
+-- the gold tooltip. Both tables are built at the same size, so the switch still swaps the art and nothing
+-- else -- which is the one thing it was ever allowed to do.
+local COIN_UNITS, COIN_CACHE = 12, {}
+local function coinSet(font)
+  local n = COIN_UNITS
+  if font then n = math.max(8, math.min(24, math.floor(font * 0.75 + 0.5))) end
+  local hit = COIN_CACHE[n]
+  if not hit then
+    hit = {}
+    for tag, paths in pairs(COIN_PATH) do
+      local set = {}
+      for letter, path in pairs(paths) do set[letter] = ("|T%s:%d:%d:2:1|t"):format(path, n, n) end
+      hit[tag] = set
+    end
+    COIN_CACHE[n] = hit
+  end
+  return hit
+end
+local COIN_DEFAULT = coinSet(nil)
+local COIN_OWN, COIN_ICON = COIN_DEFAULT.own, COIN_DEFAULT.blizz
+-- The guild bank writes its money a coin at a time and cannot go through FormatMoney, so the two tables of
+-- escapes travel with the colour table below.
+ns.COIN_OWN, ns.COIN_ICON = COIN_OWN, COIN_ICON
 local COIN_HEX = { g = "ffd700", s = "c7c7cf", c = "eda55f" }
 -- The colour of a coin's letter is the one thing another window can borrow from here: the guild
 -- bank writes its money a coin at a time, so it cannot go through FormatMoney, and the letters of
@@ -2655,40 +2728,50 @@ local function whiteNum(str, deep, plain)
   return "|cff" .. Theme:Hex(deep and "overlay" or "text") .. str .. "|r"
 end
 
-local function coinUnit(letter)
-  if not Bags.goldLetters then return COIN_ICON[letter] end
-  -- The space is the one the short money puts before the letter: "1.2k g" reads as a number and a unit,
-  -- where "1.2kg" reads as a weight.
-  local sp = (letter == "g" and WarpeeDB and WarpeeDB.goldFormat == "short") and " " or ""
-  return sp .. "|cff" .. COIN_HEX[letter] .. ns.CoinLetter(letter) .. "|r"
+local function coinUnit(letter, font)
+  -- A letter is a word and outranks both coins: asking for letters asks for no coin at all.
+  if Bags.goldLetters then
+    -- The space is the one the short money puts before the letter: "1.2k g" reads as a number and a unit,
+    -- where "1.2kg" reads as a weight.
+    local sp = (WarpeeDB and WarpeeDB.goldFormat == "short") and " " or ""
+    return sp .. "|cff" .. COIN_HEX[letter] .. ns.CoinLetter(letter) .. "|r"
+  end
+  local set = coinSet(font)
+  return Bags.goldBlizzard and set.blizz[letter] or set.own[letter]
 end
 
-local function coinSeg(num, letter, deep, plain)
-  return whiteNum(num, deep, plain) .. coinUnit(letter)
+local function coinSeg(num, letter, deep, plain, font)
+  return whiteNum(num, deep, plain) .. coinUnit(letter, font)
 end
 
-function ns.FormatMoney(money, goldOnly, deep, plain)
+-- The last field is the face the money is written in, in units. It is what sizes the coin (coinSet above):
+-- a line that knows its own font hands it over -- both footers read it off the label they are about to paint
+-- -- and a line that does not leaves it out and gets the money line's own 12.
+function ns.FormatMoney(money, goldOnly, deep, plain, font)
   money = money or 0
   local g = math.floor(money / 10000)
   if goldOnly == nil then goldOnly = Bags.goldOnly end
-  if goldOnly then return coinSeg(ns.FormatNumber(g), "g", deep, plain) end
+  if goldOnly then return coinSeg(ns.FormatNumber(g), "g", deep, plain, font) end
   local sv = math.floor((money % 10000) / 100)
   local cp = money % 100
   local parts = {}
-  if g  > 0 then parts[#parts + 1] = coinSeg(ns.FormatNumber(g), "g", deep, plain) end
-  if sv > 0 then parts[#parts + 1] = coinSeg(sv, "s", deep, plain) end
-  if cp > 0 or #parts == 0 then parts[#parts + 1] = coinSeg(cp, "c", deep, plain) end
+  if g  > 0 then parts[#parts + 1] = coinSeg(ns.FormatNumber(g), "g", deep, plain, font) end
+  if sv > 0 then parts[#parts + 1] = coinSeg(sv, "s", deep, plain, font) end
+  if cp > 0 or #parts == 0 then parts[#parts + 1] = coinSeg(cp, "c", deep, plain, font) end
   return table.concat(parts, " ")
 end
 -- The money the corner shows: the live purse on the own bags, the viewed character's remembered gold on a
 -- snapshot. A snapshot of a character whose gold was wiped (or never kept) has no number, so it reads as a
 -- dash instead of the viewer's own money -- the corner then matches the bags being shown, not the player.
 function Bags:FormatMoney()
+  -- The face the corner is written in, read off the label itself: the density moves it (FONT + 1) and the
+  -- coin has to move with it, which is the whole point of coinSet.
+  local face = self.money and select(2, self.money:GetFont()) or nil
   if self.snap then
     local m = ns.Vault:CharGold(ns.Vault:ViewKey("bags"))
-    return m and ns.FormatMoney(m, nil, Theme:IsLight()) or "—"
+    return m and ns.FormatMoney(m, nil, Theme:IsLight(), nil, face) or "—"
   end
-  return ns.FormatMoney(GetMoney(), nil, Theme:IsLight())
+  return ns.FormatMoney(GetMoney(), nil, Theme:IsLight(), nil, face)
 end
 
 function ns.FormatGold(copper, deep, plain)
@@ -4180,7 +4263,8 @@ end
 -- Lazy like MetaExp/MetaBoA: only built when a stat token is in the filter, and parked on the scratch
 -- meta for the pass. GetItemStats is a cached data read, not a tooltip scan, so this costs nothing per
 -- slot unless a stat search is active. A meta with no link (RuleHome's id-only metas) reads as no stats.
--- The call lives under C_Item on retail and as a bare global on some clients, so both are tried.
+-- C_Item.GetItemStats is the reader (its bare-global fallback shim went as far back as 11.0.2); the
+-- global is kept only as the last resort for an older client, and the local takes whichever answers.
 local GetItemStats = (C_Item and C_Item.GetItemStats) or GetItemStats
 function ns.MetaStats(m)
   if m.statset == nil then
@@ -4278,8 +4362,18 @@ function ns.MatchSearch(m, f)
 end
 
 function Bags:ApplySearch()
+  -- `shown` is what the layout planned; the pool may be shorter than that, because a cell gets its button
+  -- when the pool grows, and growing is refused in combat lockdown, while a switch between a character's
+  -- snapshot and the live bags re-pools for the new state with the previous count still standing. Every
+  -- other pass over the pool in this file reads its cell the same guarded way (HighlightBag, RefreshNewItems,
+  -- RefreshQuests, RefreshCooldowns), so this one does too: a cell with no button has nothing to paint. Left
+  -- unguarded it took the window down -- the char picker's SelectChar crashed here, mid-relayout, through
+  -- Layout -> VendorState -> RefreshBagDim.
   local p = self:Pool()
-  for j = 1, (self.shown or 0) do self:ApplyToButton(p[j]) end
+  for j = 1, (self.shown or 0) do
+    local btn = p[j]
+    if btn then self:ApplyToButton(btn) end
+  end
   -- A ghost stands for a pinned item that is not in the bags, so it can never be a search hit and is
   -- dimmed with the row's misses instead of staying lit while everything around it fades. It is a
   -- frame parented to the window, not a child of its slot button, so the button's own dim never

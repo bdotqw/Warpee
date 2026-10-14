@@ -1189,7 +1189,8 @@ local function buildMeta(bag, slot, info)
     if C_Item.DoesItemExist(scratchLoc) then m.guid = C_Item.GetItemGUID(scratchLoc) end
   end
   if isGear and not m.ilvl then
-    local getIL = C_Item.GetDetailedItemLevelInfo or GetDetailedItemLevelInfo
+    -- The bare GetDetailedItemLevelInfo went with 12.1.5; the namespace is all that is left.
+    local getIL = C_Item.GetDetailedItemLevelInfo
     if getIL and hl then m.ilvl = getIL(hl) end
   end
   m.reagent = (bag == ns.reagentBag) or iClassID == Enum.ItemClass.Tradegoods
@@ -1244,7 +1245,8 @@ local function buildMetaSnap(bag, d)
   m.loc = nil
   m.ilvl = d.v
   if isGear and not m.ilvl then
-    local getIL = C_Item.GetDetailedItemLevelInfo or GetDetailedItemLevelInfo
+    -- The bare GetDetailedItemLevelInfo went with 12.1.5; the namespace is all that is left.
+    local getIL = C_Item.GetDetailedItemLevelInfo
     if getIL and hl then m.ilvl = getIL(hl) end
   end
   m.wb = d.w

@@ -1694,7 +1694,8 @@ function ns.GearItem(id)
 end
 
 local function bagTotal(info, count)
-  local get = C_Item.GetItemCount or GetItemCount
+  -- The bare GetItemCount is gone as of 12.1.5 and no fallback is worth keeping for it.
+  local get = C_Item and C_Item.GetItemCount
   local id = info and info.itemID
   if not (get and id) then return count end
   local all = get(id) or count
@@ -1896,7 +1897,8 @@ function ns.UpdateItemButton(b)
     local il = isGear and gearIlvl or nil
     if isGear and not il then
       il = C_Item.DoesItemExist(loc) and C_Item.GetCurrentItemLevel(loc) or nil
-      local getIL = C_Item.GetDetailedItemLevelInfo or GetDetailedItemLevelInfo
+      -- The bare GetDetailedItemLevelInfo went with 12.1.5; the namespace is all that is left.
+      local getIL = C_Item.GetDetailedItemLevelInfo
       if not il and getIL then il = getIL(hl) end
     end
     local m = b.meta or {}
@@ -2348,19 +2350,26 @@ function ns.PinFor(id, link)
 end
 
 function ns.PinIcon(id)
+  -- C_Item.GetItemIconByID is the only reader left: 12.1.5 removed the shim behind the bare GetItemIcon,
+  -- which used to stand here as the second try. The call stays inside a pcall because an id the client
+  -- has never seen answers with an error rather than nil, and the default icon is the last answer either
+  -- way.
   if C_Item and C_Item.GetItemIconByID then
     local ok, tex = pcall(C_Item.GetItemIconByID, id)
     if ok and tex then return tex end
   end
-  return (GetItemIcon and GetItemIcon(id)) or 134400
+  return 134400
 end
 
 -- The name an id resolves to, or nil while the client has not answered for it yet: an id field prints
--- this beside the icon, and nil is what keeps the empty state empty. Both readers are tried, the modern
--- one first, the way the icon lookup above does.
+-- this beside the icon, and nil is what keeps the empty state empty.
 function ns.PinName(id)
   local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)
-  if type(name) ~= "string" or name == "" then name = GetItemInfo and GetItemInfo(id) end
+  -- The second reader is the namespace too: the bare GetItemInfo lost its shim in 12.1.5. It is a cached
+  -- read and answers nil while the client has not answered for the id yet, which is what the caller wants.
+  if type(name) ~= "string" or name == "" then
+    name = C_Item and C_Item.GetItemInfo and C_Item.GetItemInfo(id)
+  end
   if type(name) ~= "string" or name == "" then return nil end
   return name
 end
@@ -2487,7 +2496,8 @@ function ns.PinWorn(pin, t)
   local k = ns.ItemKey(pin)
   if k and t and t.wornKey and t.wornKey[k] then return true end
   if type(pin) == "number" then
-    local f = (C_Item and C_Item.IsEquippedItem) or IsEquippedItem
+    -- 12.1.5 removed the shim behind the bare IsEquippedItem; the namespace is all that is left.
+    local f = C_Item and C_Item.IsEquippedItem
     return (pin and f and f(pin)) and true or false
   end
   return false
@@ -2497,7 +2507,8 @@ function ns.PinIlvl(pin, t)
   local k = ns.ItemKey(pin)
   local lvl = k and t and t.wornIlvl and t.wornIlvl[k]
   if lvl then return lvl end
-  local f = (C_Item and C_Item.GetDetailedItemLevelInfo) or GetDetailedItemLevelInfo
+  -- The bare GetDetailedItemLevelInfo went with 12.1.5; the namespace is all that is left.
+  local f = C_Item and C_Item.GetDetailedItemLevelInfo
   local arg = ns.PinArg(pin)
   if not (f and arg) then return nil end
   local ok, v = pcall(f, arg)

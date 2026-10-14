@@ -581,7 +581,7 @@ function View:Build()
 
   local money = Theme:Label(f, 16, "text")
   Theme:Money(money)
-  money:SetPoint("BOTTOMRIGHT", -(PAD + FOOT_RIGHT), 7)
+  money:SetPoint("BOTTOMRIGHT", -(PAD + ns.FootInset(FOOT_RIGHT)), 7)
   self.money = money
   ns.AttachGoldTooltip(money, f, function() return self:CellSize() end)
 
@@ -2968,7 +2968,15 @@ function View:UpdateFooter()
       -- wiped purse reads nil so the footer draws a dash rather than the viewer's own money.
       sum = ns.Vault:CharGold(ns.Vault:ViewKey("bank"))
     end
-    self.money:SetText(sum and ns.FormatMoney(sum, nil, Theme:IsLight()) or "—")
+    -- The inset follows the money setting (ns.FootInset in Bags.lua: gold only, or gold only with letters,
+    -- sits the line closer to the window's edge), and the setting can be flipped while the window is up,
+    -- so the line is re-anchored where it is written and not only where it is built.
+    self.money:ClearAllPoints()
+    self.money:SetPoint("BOTTOMRIGHT", -(PAD + ns.FootInset(FOOT_RIGHT)), 7)
+    -- The face the footer is written in goes with the amount: the coin in it is sized off that face (see
+    -- coinSet in Bags.lua), so a bank footer whose font ever changes keeps the coin on the digits.
+    local face = select(2, self.money:GetFont())
+    self.money:SetText(sum and ns.FormatMoney(sum, nil, Theme:IsLight(), nil, face) or "—")
     self.moneyCaption:SetText(ns.L[warband and "WARBAND BANK" or "ON HAND"])
   end
 

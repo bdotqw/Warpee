@@ -331,6 +331,9 @@ local STRINGS = {
     "Как разделяются разряды в суммах. Краткий формат сокращает тысячи до «к», миллионы — до «кк».",
   ["Show gold only, hide silver and copper."] = "Показывать только золото, без серебра и меди.",
   ["On = g/s/c letters. Off = coin icons."] = "Вкл. — буквы з/с/м вместо иконок монет.",
+  ["Blizzard icons"] = "Иконки Blizzard",
+  ["The coin on the money line and in the guild bank. On = the client's own coin icons. Off = Warpee's own coin."] = "Монета в строке денег и в банке гильдии. Вкл. — родные иконки игры, выкл. — своя монета Warpee.",
+  ["The coin on the money line, when the letters above are off. On = the client's own coin icons. Off = Warpee's own coin. Native game tooltips keep the client's coin either way."] = "Монета в строке денег, пока выключены буквы выше. Вкл. — иконки из самой игры, выкл. — своя монета Warpee. Во встроенных подсказках игры монета всегда родная.",
   ["Empty the search box when the window closes, so it opens unfiltered next time."] =
     "Очищать поле поиска при закрытии окна, чтобы в следующий раз оно открылось без фильтра.",
   ["While both windows are open, typing in either box searches both at once."] =
@@ -366,6 +369,7 @@ local STRINGS = {
   ["Drag an item onto a category in the grouped view to pin it there. Hold Alt pins only while Alt is held, so an ordinary drag never leaves a surprise pin. Off leaves pinning to the editor. A drop on the category the rules already choose unpins instead."] =
     "Перетащите предмет на категорию в виде по категориям, чтобы прикрепить его туда. «С зажатым Alt» прикрепляет только при зажатом Alt, так что обычное перетаскивание не оставит случайного прикрепления. «Выкл» оставляет прикрепление только редактору. Сброс на категорию, куда предмет и так попадает по правилам, наоборот открепляет.",
   ["Hide reagents"] = "Скрыть реагенты",
+  ["Show reagents"] = "Показать реагенты",
   ["Reverse slot order"] = "Обратный порядок слотов",
   ["Keep new items apart"] = "Новые предметы отдельно",
   ["Grid order"] = "Порядок сетки",

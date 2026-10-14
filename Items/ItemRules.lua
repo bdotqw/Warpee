@@ -121,7 +121,8 @@ local function scanRequirements(link, data)
 end
 
 local function equippable(link)
-  local eq = C_Item.IsEquippableItem or IsEquippableItem
+  -- 12.1.5 removed the shim behind the bare IsEquippableItem; the namespace is all that is left.
+  local eq = C_Item.IsEquippableItem
   return eq and eq(link) and true or false
 end
 

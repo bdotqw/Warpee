@@ -275,6 +275,9 @@ local STRINGS = {
     "Wie die Ziffern in Beträgen gruppiert werden. »Kurz« kürzt Tausender zu k und Millionen zu Mio.",
   ["Show gold only, hide silver and copper."] = "Nur Gold anzeigen, Silber und Kupfer ausblenden.",
   ["On = g/s/c letters. Off = coin icons."] = "Ein: Buchstaben G/S/K. Aus: Münzsymbole.",
+  ["Blizzard icons"] = "Blizzard-Symbole",
+  ["The coin on the money line and in the guild bank. On = the client's own coin icons. Off = Warpee's own coin."] = "Die Münze in der Geldzeile und in der Gildenbank. Ein: die Münzsymbole des Clients, aus: Warpees eigene Münze.",
+  ["The coin on the money line, when the letters above are off. On = the client's own coin icons. Off = Warpee's own coin. Native game tooltips keep the client's coin either way."] = "Die Münze in der Geldzeile, solange die Buchstaben darüber aus sind. Ein: die Münzsymbole des Clients, aus: Warpees eigene Münze. Die Hinweise des Spiels zeigen so oder so die Münze des Clients.",
   ["Empty the search box when the window closes, so it opens unfiltered next time."] =
     "Leert das Suchfeld beim Schließen des Fensters, damit es beim nächsten Öffnen ungefiltert ist.",
   ["While both windows are open, typing in either box searches both at once."] =
@@ -310,6 +313,7 @@ local STRINGS = {
   ["Drag an item onto a category in the grouped view to pin it there. Hold Alt pins only while Alt is held, so an ordinary drag never leaves a surprise pin. Off leaves pinning to the editor. A drop on the category the rules already choose unpins instead."] =
     "Zieht einen Gegenstand in der gruppierten Ansicht auf eine Kategorie, um ihn dort anzuheften. „Alt gedrückt halten“ heftet nur bei gedrückter Alt-Taste an, sodass ein normales Ziehen keine versehentliche Anheftung hinterlässt. „Aus“ überlässt das Anheften dem Editor. Ein Ablegen auf der Kategorie, die die Regeln ohnehin wählen, löst die Anheftung stattdessen.",
   ["Hide reagents"] = "Reagenzien ausblenden",
+  ["Show reagents"] = "Reagenzien einblenden",
   ["Reverse slot order"] = "Taschenplätze umkehren",
   ["Keep new items apart"] = "Neue Gegenstände getrennt halten",
   ["Grid order"] = "Rasterreihenfolge",

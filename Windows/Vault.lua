@@ -507,12 +507,15 @@ function Vault:ItemCounts(itemID)
   local list, total, wb = {}, 0, 0
   if v then
     local ownKey = self:Owner()
-    local live = GetItemCount and GetItemCount(itemID) or nil
+    -- C_Item.GetItemCount, never the bare global: 12.1.5 removed the shim behind GetItemCount, and a nil
+    -- here would send every character -- the own one included -- back to its stored copy, which is the
+    -- staleness this live read exists to avoid.
+    local live = C_Item and C_Item.GetItemCount and C_Item.GetItemCount(itemID) or nil
     local seen = false
     for key, c in pairs(v.chars) do
       if type(c) == "table" then
         -- The live count stands in for our own bags, so their stored copy is not read: the
-        -- walk over it was thrown away every time this ran with GetItemCount available.
+        -- walk over it was thrown away every time this ran with C_Item.GetItemCount available.
         local own = (key == ownKey)
         local bags = (own and live ~= nil) and live or countIn(c.inv, itemID)
         local bank = countIn(c.bank, itemID)

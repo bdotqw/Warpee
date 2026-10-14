@@ -677,10 +677,6 @@ function Pocket:Build()
     smallFont = FONT - 3,
     onCommit = function(id) Pocket:AddByText(id) end,
   })
-  field.box:SetScript("OnEditFocusLost", function(s)
-    s:SetText("")
-    field:Preview()
-  end)
   self.idField = field
 
   w:Hide()

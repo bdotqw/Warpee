@@ -397,7 +397,8 @@ if type(HandleModifiedItemClick) == "function" then
 end
 
 local function hasUse(link)
-  local get = C_Item.GetItemSpell or GetItemSpell
+  -- The bare GetItemSpell went with 12.1.5; C_Item is the only reader left.
+  local get = C_Item.GetItemSpell
   if not get then return false end
   return get(link) ~= nil
 end
@@ -423,7 +424,8 @@ local function slotIlvl(bag, slot, link)
     local lvl = C_Item.GetCurrentItemLevel(loc)
     if lvl and lvl > 0 then return lvl end
   end
-  local get = C_Item.GetDetailedItemLevelInfo or GetDetailedItemLevelInfo
+  -- Same for the bare GetDetailedItemLevelInfo: gone in 12.1.5, namespace only.
+  local get = C_Item.GetDetailedItemLevelInfo
   local lvl = get and get(link)
   if lvl and lvl > 0 then return lvl end
   return nil

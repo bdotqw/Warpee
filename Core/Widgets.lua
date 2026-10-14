@@ -1663,6 +1663,9 @@ function ns.CreateIdField(parent, opts)
   f:EnableMouse(true)
   f:SetScript("OnEnter", function(s) s.wpeHot = true; paint(s) end)
   f:SetScript("OnLeave", function(s) s.wpeHot = nil; paint(s) end)
+  -- The number box is only as wide as the digits need, so a click anywhere else on the field
+  -- would land on the frame and never reach it: hand the focus over instead.
+  f:SetScript("OnMouseDown", function(s, btn) if btn == "LeftButton" then s.box:SetFocus() end end)
 
   -- Left: the number box, borderless — the frame is the field, this is only where the digits land. Numeric,
   -- so a stray letter never sits in a field that means an item id, and the preview never eats the width the
@@ -1675,7 +1678,7 @@ function ns.CreateIdField(parent, opts)
   box:SetTextColor(Theme:C("text"))
   box:SetAutoFocus(false)
   box:SetNumeric(true)
-  box:SetMaxLetters(12)
+  box:SetMaxLetters(6)
   f.box = box
 
   -- One empty-state hint that names the way in, spanning the field so a long translation has room: it owns
@@ -1724,8 +1727,24 @@ function ns.CreateIdField(parent, opts)
   ok:Hide()
   f.ok = ok
 
+  -- Hidden ruler in the number's own font: the box grows with the typed digits, so the first
+  -- ones never scroll out of sight while the preview still owns the width beside it.
+  local measure = Theme:Label(f, numSize, "text")
+  measure:Hide()
+
+  local function fitBox()
+    measure:SetText(box:GetText() or "")
+    local want = measure:GetStringWidth() + 14
+    local room = (f:GetWidth() or 0) - 110
+    if room < boxW then room = boxW end
+    if want < boxW then want = boxW end
+    if want > room then want = room end
+    box:SetWidth(want)
+  end
+
   local function preview()
     local text = box:GetText() or ""
+    fitBox()
     local id = tonumber(text)
     if not id and text ~= "" then id = C_Item.GetItemInfoInstant(text) end
     local empty = text == ""
@@ -1766,8 +1785,10 @@ function ns.CreateIdField(parent, opts)
     numSize, small = num or numSize, sm or small
     local fp = path or ns.Fonts:Current()
     box:SetFont(fp, numSize, ns.OutlineFlags())
+    measure:SetFont(fp, numSize, ns.OutlineFlags())
     ph:SetFont(fp, small, ns.OutlineFlags())
     name:SetFont(fp, small, ns.OutlineFlags())
+    fitBox()
   end
   -- The box height again, for a caller whose density moves: the pocket's panel is laid out on every paint
   -- and its step changes with the pocket's size, so the frame and the preview icon follow the box.

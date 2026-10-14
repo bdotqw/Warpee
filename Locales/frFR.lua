@@ -273,6 +273,9 @@ local STRINGS = {
     "Séparateur des milliers dans les sommes affichées. « Court » abrège en k et M.",
   ["Show gold only, hide silver and copper."] = "N'afficher que l'or, sans l'argent ni le cuivre.",
   ["On = g/s/c letters. Off = coin icons."] = "Activé : lettres o/a/c. Désactivé : icônes des pièces.",
+  ["Blizzard icons"] = "Icônes Blizzard",
+  ["The coin on the money line and in the guild bank. On = the client's own coin icons. Off = Warpee's own coin."] = "La pièce de la ligne d'argent et de la Banque de guilde. Activé : les icônes du client, désactivé : la pièce de Warpee.",
+  ["The coin on the money line, when the letters above are off. On = the client's own coin icons. Off = Warpee's own coin. Native game tooltips keep the client's coin either way."] = "La pièce de la ligne d'argent, quand les lettres ci-dessus sont coupées. Activé : les icônes du client, désactivé : la pièce de Warpee. Les infobulles du jeu gardent dans tous les cas la pièce du client.",
   ["Empty the search box when the window closes, so it opens unfiltered next time."] =
     "Vide le champ de recherche à la fermeture de la fenêtre, pour qu'elle s'ouvre sans filtre la fois suivante.",
   ["While both windows are open, typing in either box searches both at once."] =
@@ -308,6 +311,7 @@ local STRINGS = {
   ["Drag an item onto a category in the grouped view to pin it there. Hold Alt pins only while Alt is held, so an ordinary drag never leaves a surprise pin. Off leaves pinning to the editor. A drop on the category the rules already choose unpins instead."] =
     "Glissez un objet sur une catégorie dans la vue groupée pour l'y épingler. « Maintenir Alt » n'épingle que si la touche Alt est enfoncée, ainsi un glissement ordinaire ne laisse jamais d'épingle inattendue. « Désactivé » laisse l'épinglage à l'éditeur. Un dépôt sur la catégorie que les règles choisissent déjà désépingle au contraire.",
   ["Hide reagents"] = "Masquer les composants",
+  ["Show reagents"] = "Afficher les composants",
   ["Reverse slot order"] = "Emplacements inversés",
   ["Keep new items apart"] = "Garder les nouveaux objets à part",
   ["Grid order"] = "Ordre de la grille",

@@ -244,6 +244,9 @@ local STRINGS = {
   ["Grouping for printed amounts. Short abbreviates to K and M."] = "数字的分隔方式。简短会把数字缩写成万和亿。",
   ["Show gold only, hide silver and copper."] = "只显示金币，隐藏银币和铜币。",
   ["On = g/s/c letters. Off = coin icons."] = "开 = 显示金/银/铜文字；关 = 显示硬币图标。",
+  ["Blizzard icons"] = "暴雪图标",
+  ["The coin on the money line and in the guild bank. On = the client's own coin icons. Off = Warpee's own coin."] = "金额与公会银行中的硬币。开启：客户端图标；关闭：Warpee 自己的硬币。",
+  ["The coin on the money line, when the letters above are off. On = the client's own coin icons. Off = Warpee's own coin. Native game tooltips keep the client's coin either way."] = "上方字母关闭时，金额行里用的硬币。开启：客户端图标；关闭：Warpee 自己的硬币。游戏自带提示里的硬币不受这个开关影响。",
   ["Empty the search box when the window closes, so it opens unfiltered next time."] = "关闭窗口时清空搜索框，下次打开时不带过滤。",
   ["While both windows are open, typing in either box searches both at once."] = "两个窗口都打开时，在任意一边输入都会同时搜索两边。",
   ["The bags open together with these windows and close with them again."] = "打开这些窗口时背包会一起打开，关闭时也一起关闭。",
@@ -280,6 +283,7 @@ local STRINGS = {
   ["Drag an item onto a category in the grouped view to pin it there. Hold Alt pins only while Alt is held, so an ordinary drag never leaves a surprise pin. Off leaves pinning to the editor. A drop on the category the rules already choose unpins instead."] =
     "在分组视图中把物品拖到某个分类即可固定到该分类。“按住 Alt”仅在按住 Alt 时固定，因此普通拖动不会留下意外的固定。“关闭”则把固定交给编辑器。放到规则本来就会选中的分类上，反而会取消固定。",
   ["Hide reagents"] = "隐藏材料",
+  ["Show reagents"] = "显示材料",
   ["Reverse slot order"] = "反转格子顺序",
   ["Keep new items apart"] = "新物品单独放置",
   ["Grid order"] = "格子排列顺序",

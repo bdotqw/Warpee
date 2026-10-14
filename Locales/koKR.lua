@@ -233,6 +233,9 @@ local STRINGS = {
   ["Grouping for printed amounts. Short abbreviates to K and M."] = "숫자 표기 방식. 짧게는 만과 억으로 줄여 씁니다.",
   ["Show gold only, hide silver and copper."] = "골드만 보여주고 실버와 코퍼는 숨깁니다.",
   ["On = g/s/c letters. Off = coin icons."] = "켬 = 골/실/코 문자, 끔 = 동전 아이콘.",
+  ["Blizzard icons"] = "블리자드 아이콘",
+  ["The coin on the money line and in the guild bank. On = the client's own coin icons. Off = Warpee's own coin."] = "금액 표기와 길드 은행의 동전입니다. 켬 = 클라이언트 아이콘, 끔 = Warpee의 동전.",
+  ["The coin on the money line, when the letters above are off. On = the client's own coin icons. Off = Warpee's own coin. Native game tooltips keep the client's coin either way."] = "위쪽 문자 표시가 꺼져 있을 때 금액 표기에 나가는 동전입니다. 켬 = 클라이언트 아이콘, 끔 = Warpee의 동전. 게임 기본 설명창의 동전은 이 설정과 상관없이 클라이언트 아이콘입니다.",
   ["Empty the search box when the window closes, so it opens unfiltered next time."] = "창을 닫을 때 검색창을 비워서 다음엔 필터 없이 열리게 합니다.",
   ["While both windows are open, typing in either box searches both at once."] = "두 창이 다 열려 있을 때 어느 쪽에 입력해도 양쪽을 함께 검색합니다.",
   ["The bags open together with these windows and close with them again."] = "이 창들이 열릴 때 가방도 함께 열리고 닫힐 때 함께 닫힙니다.",
@@ -267,6 +270,7 @@ local STRINGS = {
   ["Drag an item onto a category in the grouped view to pin it there. Hold Alt pins only while Alt is held, so an ordinary drag never leaves a surprise pin. Off leaves pinning to the editor. A drop on the category the rules already choose unpins instead."] =
     "묶음 보기에서 아이템을 분류로 끌어다 놓으면 그 분류에 고정합니다. 'Alt 누른 채'는 Alt를 누른 동안에만 고정하므로 일반적인 끌기로는 뜻밖의 고정이 생기지 않습니다. '끄기'는 고정을 편집기에만 맡깁니다. 규칙이 이미 정하는 분류에 놓으면 반대로 고정이 해제됩니다.",
   ["Hide reagents"] = "재료 숨기기",
+  ["Show reagents"] = "재료 표시하기",
   ["Reverse slot order"] = "칸 순서 뒤집기",
   ["Keep new items apart"] = "새 아이템 따로 두기",
   ["Grid order"] = "격자 순서",

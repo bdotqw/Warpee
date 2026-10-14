@@ -1,8 +1,8 @@
-## Interface: 120100
+## Interface: 120105
 ## Title: Warpee
-## Notes: Bags for farmers and alt collectors
+## Notes: One-bag inventory with categories, snapshots and smart selling
 ## Author: Naavo
-## Version: 11.7
+## Version: 12.0
 ## SavedVariables: WarpeeDB
 ## X-Category: Inventory
 ## IconTexture: Interface\AddOns\Warpee\Media\Icons\logo.tga
