@@ -125,6 +125,18 @@ local function wbSizeSet(v) ns.BumpCellSize(); wbIconSizeSet(v) end
 local function anchorKeys() return ANCHORS end
 local function anchorLabel(k) return ANCHOR_LABELS[k] or k end
 
+-- The way the bags' currency row grows, on the list under the reagent block since it names a band of
+-- the window the same way. Left to right is the plain walk; right to left mirrors it; from the middle
+-- centres each line. Stored on the profile and re-read on the next layout.
+local CUR_DIRS = { "ltr", "rtl", "center" }
+local CUR_DIR_LABELS = { ltr = "Left to right", rtl = "Right to left", center = "From the middle" }
+local function curDirGet() return (WarpeeDB and WarpeeDB.curDir) or "center" end
+local function curDirSet(v)
+  WarpeeDB.curDir = v
+  if ns.Cur and ns.Cur.Apply then ns.Cur:Apply(true) end
+  relayout()
+end
+
 local aucGet, aucSet   = autoField("auction")
 local bankGet, bankSet = autoField("bank")
 local gbGet, gbSet     = autoField("guildbank")
@@ -488,6 +500,23 @@ local GRID_PAGE = {
       { type = "toggle", name = "Reagents on top",
         get = flow.topGet, set = flow.topSet, disabled = function() return flow.offGet() or flow.catGet() end,
         desc = "Draw the reagent bag above the main bags instead of below them." },
+      -- The currency row, on its own list after the reagents: it is a band of the window's own making
+      -- that stands under the grid the way the reagent block stands over it. The direction sits beside
+      -- the switch, since it only says anything once the row is on.
+      { type = "header", name = "Currencies" },
+      { type = "toggle", name = "Hide currencies", col = 1, of = 2,
+        get = function() return Bags.curStrip == false end,
+        set = function(v)
+          Bags.curStrip = not v
+          WarpeeDB.curStrip = Bags.curStrip
+          if ns.Cur and ns.Cur.Apply then ns.Cur:Apply() end
+          relayout()
+        end,
+        desc = "A row of the currencies the game itself tracks, drawn inside the bags under the grid, below a hairline divider: icon and count per currency, in the game's own order, wrapped to the window's width. A click on a cell opens the currency panel, Shift-click stops tracking one, and dragging a cell reorders them. The ticks in that panel track and untrack in the character panel too." },
+      { type = "select", name = "Currencies direction", col = 2, of = 2,
+        get = curDirGet, set = curDirSet,
+        keys = function() return CUR_DIRS end, label = function(k) return CUR_DIR_LABELS[k] or k end,
+        desc = "The way the currency row grows. Left to right fills from the left edge; Right to left mirrors it, starting from the right edge; From the middle centres each line." },
     } },
     -- The bank's own numbers, apart from the bags: each of its two tab sets keeps its own width and its own
     -- icon size, since the character bank and the Warband bank hold different counts and are looked at at

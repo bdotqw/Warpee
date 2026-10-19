@@ -1614,8 +1614,12 @@ do
       bagPending = false
     else
       -- Any container change opens the pending window; BAG_UPDATE_DELAYED closes it. The ceiling covers a
-      -- bank event that the client does not follow with a delayed sweep.
+      -- bank event that the client does not follow with a delayed sweep. The same change drops the
+      -- transfer chips' kept counts: the bags have moved, so a number walked for them is out of date and
+      -- the next arm walks again.
       bagPending, bagPendingUntil = true, GetTime() + 2.0
+      if ns.Bags then ns.Bags.armQ = nil end
+      if ns.Bank then ns.Bank.armQ = nil end
     end
   end)
 end
@@ -1802,11 +1806,11 @@ function Cats:MoveSlots(slots, send, alive, warband, done)
     -- batch lays both split views out again, so a piece landing shows as the one before it leaves.
     if sent > 0 and st.pace then st.moved, st.polls = moved, 0 end
     if sent > 0 then
-      -- The transfer chips are armed once per batch, not once per poll. Arming them is a walk of the bags
-      -- and of the whole open bank (the count the chip wears is what the search claims and what the bank
-      -- will take), and a batch is the only thing that moves that number -- a poll that sent nothing has
-      -- nothing new to say. The run's own end arms them once more (finish).
-      if ns.ArmTransferChips then ns.ArmTransferChips() end
+      -- The transfer chips are armed once per batch, not once per poll, and the arm is forced: a batch is
+      -- the one thing that moves the number, and the kept answer for the query must be walked again for
+      -- the pieces that just left. A poll that sent nothing has nothing new to say. The run's own end
+      -- arms them once more (finish), cheaply, off whatever the last batch walked.
+      if ns.ArmTransferChips then ns.ArmTransferChips(true) end
       if ns.RelayoutForSplit then ns.RelayoutForSplit() end
     end
     local left = false
@@ -1827,10 +1831,11 @@ end
 
 -- Arm both transfer chips: the count and the stop state follow the run itself instead of waiting for
 -- the next layout, since the last pieces land after the windows have already been redrawn by their own
--- events. Called after every batch and once at the end of a run.
-function ns.ArmTransferChips()
-  if ns.Bags and ns.Bags.ArmTransfer then ns.Bags:ArmTransfer() end
-  if ns.Bank and ns.Bank.ArmTransfer then ns.Bank:ArmTransfer() end
+-- events. Called after every batch (forced: the count must fall with the pieces) and once at the end
+-- of a run (not: the last batch's walk already answered for the query).
+function ns.ArmTransferChips(force)
+  if ns.Bags and ns.Bags.ArmTransfer then ns.Bags:ArmTransfer(force) end
+  if ns.Bank and ns.Bank.ArmTransfer then ns.Bank:ArmTransfer(force) end
 end
 
 -- Whether a transfer is in flight. The chip reads this to keep standing (and to offer the stop) while

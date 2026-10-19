@@ -240,6 +240,101 @@ function ns.ScrollThumb(thumb, tex, sf, scrollTo, span)
   end)
 end
 
+-- side-fit:begin
+-- Where a side panel stands, as arithmetic only, so a harness can drive it: the rect a panel of `w` x `h`
+-- takes beside the window rect `win` on one side, whether that rect is apart from the other panel's rect,
+-- and which of the four answers is taken -- the wanted side, the flipped side, over `other`, under it.
+-- `side` is "left"/"right" (which edge of the window the panel shares), `align` "top"/"bottom".
+local PANEL_GAP = 6
+
+local function sideRect(win, side, align, w, h, gap)
+  local l = (side == "left") and (win.l - gap - w) or (win.r + gap)
+  local t = (align == "bottom") and (win.b + h) or win.t
+  return { l = l, r = l + w, t = t, b = t - h }
+end
+
+local function apart(a, b)
+  return a.r <= b.l or b.r <= a.l or a.t <= b.b or b.t <= a.b
+end
+
+local function onScreen(r, sw, sh)
+  return r.l >= 0 and r.r <= sw and r.b >= 0 and r.t <= sh
+end
+
+-- The wanted side if it is free, else the other one, else over the other panel, else under it. Free
+-- means two things at once: wholly on the screen (a side that hangs off the edge would be pushed back
+-- onto the window by the clamp) and clear of the panel already standing there. A stacked answer also
+-- names the edge the two panels share -- "right" when the other one stands left of the window, "left"
+-- when it stands right -- so the pair reads as one column beside the window.
+function ns.SideFit(win, side, align, w, h, other, sw, sh, gap)
+  gap = gap or PANEL_GAP
+  local flip = (side == "left") and "right" or "left"
+  local function free(s)
+    local r = sideRect(win, s, align, w, h, gap)
+    return onScreen(r, sw, sh) and not (other and not apart(r, other))
+  end
+  if free(side) then return side, align end
+  if free(flip) then return flip, align end
+  if other then
+    -- Stacked in the other panel's column, sharing the edge that faces the window. Two panels of
+    -- different widths lined up by their far edge leave the narrower one stranded out in the empty
+    -- screen -- the character picker standing a whole panel's width away from the window it belongs to --
+    -- so the near edge is the one they have in common.
+    -- The flank the pair is standing on says which edge faces the window: a left-side panel keeps its
+    -- right edge, a right-side one its left. The other panel's own x cannot say it -- with a window that
+    -- spans the screen there is no "left of the window" to measure.
+    local share = (side == "left") and "right" or "left"
+    local l = (share == "right") and (other.r - w) or other.l
+    local over  = { l = l, r = l + w, t = other.t + gap + h, b = other.t + gap }
+    local under = { l = l, r = l + w, t = other.b - gap,     b = other.b - gap - h }
+    local up, down = onScreen(over, sw, sh), onScreen(under, sw, sh)
+    -- The roomier half wins: a panel goes where the window is not already crowding the screen's edge.
+    if up and (not down or other.t >= sh - other.b) then return "above", align, share end
+    if down then return "below", align, share end
+    if up then return "above", align, share end
+  end
+  -- A window wider than both margins leaves nowhere to stand: the wanted side, and the screen clamp is
+  -- the last word. Nothing else can be done without closing one of the two panels.
+  return side, align
+end
+-- side-fit:end
+
+-- Places `panel` by the answer above and returns which answer it took. Both pickers go through this, so
+-- whichever is placed last is the one that steps aside: two panels cannot be left standing on one another
+-- however the window is dragged, resized, or re-scaled by a density step.
+function ns.SidePlace(panel, win, side, align, other, gap)
+  if not (panel and win and win.GetLeft) then return nil end
+  local wl, wr, wt, wb = win:GetLeft(), win:GetRight(), win:GetTop(), win:GetBottom()
+  local pw, ph = panel:GetWidth(), panel:GetHeight()
+  if not (wl and wr and wt and wb and pw and ph) then return nil end
+  local orc
+  if other and other.IsShown and other:IsShown() then
+    local l, r, t, b = other:GetLeft(), other:GetRight(), other:GetTop(), other:GetBottom()
+    if l and r and t and b then orc = { l = l, r = r, t = t, b = b } end
+  end
+  local sw = (UIParent and UIParent:GetWidth()) or 0
+  local sh = (UIParent and UIParent:GetHeight()) or 0
+  local place, useAlign, share = ns.SideFit({ l = wl, r = wr, t = wt, b = wb }, side or "left", align or "top",
+                                            pw, ph, orc, sw, sh, gap)
+  panel:ClearAllPoints()
+  -- A stacked panel shares the other's window-facing edge, the same edge SideFit measured with.
+  local nearRight = (share == "right")
+  if place == "above" then
+    if nearRight then panel:SetPoint("BOTTOMRIGHT", other, "TOPRIGHT", 0, PANEL_GAP)
+    else panel:SetPoint("BOTTOMLEFT", other, "TOPLEFT", 0, PANEL_GAP) end
+  elseif place == "below" then
+    if nearRight then panel:SetPoint("TOPRIGHT", other, "BOTTOMRIGHT", 0, -PANEL_GAP)
+    else panel:SetPoint("TOPLEFT", other, "BOTTOMLEFT", 0, -PANEL_GAP) end
+  elseif place == "left" then
+    if useAlign == "bottom" then panel:SetPoint("BOTTOMRIGHT", win, "BOTTOMLEFT", -PANEL_GAP, 0)
+    else panel:SetPoint("TOPRIGHT", win, "TOPLEFT", -PANEL_GAP, 0) end
+  else
+    if useAlign == "bottom" then panel:SetPoint("BOTTOMLEFT", win, "BOTTOMRIGHT", PANEL_GAP, 0)
+    else panel:SetPoint("TOPLEFT", win, "TOPRIGHT", PANEL_GAP, 0) end
+  end
+  return place
+end
+
 local function barField(bar, apply)
   local e = CreateFrame("EditBox", nil, bar, "BackdropTemplate")
   ns.SnapBox(e, 40, 16)

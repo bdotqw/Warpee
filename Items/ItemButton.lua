@@ -20,6 +20,16 @@ function ns.ItemStubID(pin)
   return tonumber(pin:match("item:(%d+)"))
 end
 
+-- Whether the cell wearing this link carries the mark named by key. A mark names gear by its folded item
+-- string and everything else by its bare id (see Vendor's sellKey), so this is that rule read backwards;
+-- it is what lets a changed mark paint the few cells that item sits in instead of a whole window.
+function ns.MarkCarries(link, key)
+  if not (link and key) then return false end
+  local id = tonumber(key)
+  if id then return ns.ItemStubID(link) == id end
+  return ns.ItemKey(link) == key
+end
+
 -- Two copies of one item share an itemID, so a cell that keys on the id alone binds to
 -- the wrong ring, the unenchanted one or the lower track. The durable part of the item
 -- string is the id, the enchant, the gems, the suffix and the bonus ids; the level, the
@@ -302,23 +312,22 @@ function ns.SyncQuestMark(b)
   return ns.QuestMarked(b) ~= was
 end
 
-local SEARCH_BADGE_DIM = 0.30
-function ns.SearchBadgeAlpha(b)
-  return (b and (b.searchMiss or b.bagMiss)) and SEARCH_BADGE_DIM or 1
-end
-local function paintBadgeAlpha(b, o, key)
-  if not (o and o.SetAlpha) then return end
-  if key and not ns.Badge(key).on then o:SetAlpha(0); return end
-  o:SetAlpha(ns.SearchBadgeAlpha(b))
-end
+-- The search dim used to live here, as an alpha painted on the ring and on every badge on top of the
+-- cell's own (SEARCH_BADGE_DIM, 0.30, with a walk over seventeen of them per cell and a cache of the
+-- badge settings to feed it). All of that is gone: a frame's alpha multiplies into everything inside it,
+-- so ONE number on the cell dims the icon, the ring's textures and every badge together. The dim is now
+-- SEARCH_DIM, next to the pass that writes it -- and the badge shade on top of it is back as ns.BADGE_DIM
+-- beside it, hung in the same pass by PaintBadgeDim, on the cells the picture moved on and no others.
 
 function ns.MarkNewItem(b, bagID, slot, quality)
   local nt, bp = b.NewItemTexture, b.BattlepayItemTexture
   if not (nt or bp) then return end
   -- The new-item glow is the one badge that can turn on or off without a paint (SyncNewItem), and the
   -- search pass reaches for it by name. Dropping the record here makes the next pass dress the cell again
-  -- instead of trusting a picture this glow has just moved under.
-  b.wpeSearchSet = nil
+  -- instead of trusting a picture this glow has just moved under. What was PAINTED goes with it, or the
+  -- next pass would read the old picture as still standing (see ApplySearchToButton): this is one of the
+  -- two edges after which a texture on the cell can move.
+  b.wpeSearchSet, b.wpeSearchPainted = nil, nil
   if b.wpeNoNew then
     if nt then nt:Hide() end
     if bp then bp:Hide() end
@@ -333,7 +342,7 @@ function ns.MarkNewItem(b, bagID, slot, quality)
   local store = C_Container.IsBattlePayItem and C_Container.IsBattlePayItem(bagID, slot)
   if store then
     if nt then nt:Hide() end
-    if bp then fitToIcon(bp, iconOf(b)); bp:SetAlpha(ns.SearchBadgeAlpha(b)); bp:Show() end
+    if bp then fitToIcon(bp, iconOf(b)); bp:SetAlpha((b.searchMiss or b.bagMiss) and ns.BADGE_DIM or 1); bp:Show() end
     return
   end
   if bp then bp:Hide() end
@@ -346,7 +355,7 @@ function ns.MarkNewItem(b, bagID, slot, quality)
              or (NEW_ITEM_ATLAS_BY_QUALITY and quality and NEW_ITEM_ATLAS_BY_QUALITY[quality])
   nt:SetAtlas(atlas or "bags-glow-white")
   fitToIcon(nt, iconOf(b))
-  nt:SetAlpha(ns.SearchBadgeAlpha(b))
+  nt:SetAlpha((b.searchMiss or b.bagMiss) and ns.BADGE_DIM or 1)
   nt:Show()
 end
 
@@ -416,7 +425,7 @@ local function tierTake(b, src)
   end
   t:ClearAllPoints()
   t:SetPoint("TOPLEFT", b, "TOPLEFT", -3 * k, 2 * k)
-  t:SetAlpha(ns.SearchBadgeAlpha(b))
+  t:SetAlpha((b.searchMiss or b.bagMiss) and ns.BADGE_DIM or 1)
   t:Show()
   src:Hide()
 end
@@ -503,7 +512,10 @@ function ns.SetRarityRing(b, r, g, bl, a)
   a = a or 1
   ringTextures(b)
   ringWidth(b)
-  local ra = (b.searchMiss or b.bagMiss) and SEARCH_BADGE_DIM or a
+  -- The ring carries its own alpha on top of the cell's: a dimmed cell dims these four textures through
+  -- its own alpha, and the shade here doubles it down to the old double dim, so the ring is not the one
+  -- bright thing left on the cell.
+  local ra = (b.searchMiss or b.bagMiss) and ns.BADGE_DIM or a
   -- Every ring gets the keyline, and there is no argument about which kind of ring it is: the
   -- quality colours, the quest yellow and the reagent tint need the same separator the red does,
   -- and a cell is repainted with a different ring colour all the time, so the line belongs to the
@@ -728,6 +740,85 @@ function ns.CreateVaultButton(parent)
   end)
   return b
 end
+-- A cell for a slot the container answers nothing for. An empty slot holds no item, so it needs nothing
+-- the template exists for: no secure click handler to use one, no cooldown to time it, no quest mark, no
+-- count, no badge, no flash -- and none of the regions, texts and animations that carry them. What is left
+-- of a slot's look is ours: the fill, the base under the tiles, four lines of edge. The mouseover
+-- highlight is not the template's either -- it belongs to the client's own ItemButton widget, which every
+-- cell here is built from -- so a bare cell lights up on hover, and presses down, with the same pictures a
+-- heavy one does.
+--
+-- Nothing may hand this cell a slot that holds something. Which kind draws a slot is the pass's choice (see
+-- Acquire in Bank.lua, which reads the slot once and sends the plan entry to one pool or the other), and
+-- every path that repaints a single cell in place asks for a pass instead when the cell it found is bare:
+-- an item has arrived in that slot and this cell has no way to draw it.
+local bareCount = 0
+local function bareLine(bf)
+  return borderLine(bf, 2, "ARTWORK")
+end
+
+-- What an empty slot answers, since no template answers for it. The game's own cell handles both gestures in
+-- ContainerFrameItemButton_OnClick, and this is that behaviour narrowed to what an empty slot can mean: a
+-- left click with a piece held -- and equally a drag released over the cell, which the template routes
+-- through that same handler -- is a "set it here", so it goes to the View's exact-slot placement
+-- (PlaceInSlot: the same forward the grouped view gives a release over a live cell, so a grid drop and a
+-- grouped drop land alike), while a click with nothing held has nothing to pick up and a right click on an
+-- empty slot means nothing at all. Shared by every cell of the pool, so a cold open pays no closure per cell.
+local function bareDrop(cell)
+  ns.Bank:PlaceInSlot(cell.wpeBag, cell.wpeSlot)
+end
+local function bareClick(cell, button)
+  if button == "LeftButton" then bareDrop(cell) end
+end
+
+function ns.CreateBareCell(parent)
+  bareCount = bareCount + 1
+  local holder = CreateFrame("Frame", nil, parent)
+  holder:SetSize(37, 37)
+  local b = CreateFrame("ItemButton", nil, holder)
+  b:SetAllPoints(holder)
+  b.holder = holder
+  b.wpeBare = true
+  b.bg = b:CreateTexture(nil, "BACKGROUND", nil, -1)
+  b.bg:SetAllPoints(b)
+  b.bgBase = b:CreateTexture(nil, "BACKGROUND", nil, -2)
+  b.bgBase:SetAllPoints(b)
+  local nt = b:GetNormalTexture()
+  if nt then nt:SetAlpha(0) end
+  -- The widget's own watermark for an empty slot, switched off the way the heavy factory switches it off:
+  -- the fill under it is the picture of a slot, and a second picture over the same square is neither one.
+  -- The icon is left alone rather than cleared -- nothing here ever writes it.
+  b.emptyBackgroundAtlas = nil
+  local ic = b.icon or _G[(b:GetName() or "") .. "IconTexture"]
+  if ic then ic:ClearAllPoints(); ic:SetAllPoints(b) end
+  -- The four lines of the empty look, on the cell itself. A heavy cell hangs them on a ring frame of its
+  -- own, since the ring of a rarity and its keyline live there too; an empty slot wears no ring, so that
+  -- frame would hold these four and nothing else, and every frame of the pool is paid for on a cold open.
+  -- The shared highlight and the drop wash both reach for ringFrame, so the cell answers for that frame.
+  b.ringFrame = b
+  b.bT = bareLine(b); b.bT:SetPoint("TOPLEFT");    b.bT:SetPoint("TOPRIGHT");    ns.PixelLine(b.bT, 1)
+  b.bB = bareLine(b); b.bB:SetPoint("BOTTOMLEFT"); b.bB:SetPoint("BOTTOMRIGHT"); ns.PixelLine(b.bB, 1)
+  b.bL = bareLine(b); b.bL:SetPoint("TOPLEFT");    b.bL:SetPoint("BOTTOMLEFT");  ns.PixelLine(b.bL, 1, "w")
+  b.bR = bareLine(b); b.bR:SetPoint("TOPRIGHT");   b.bR:SetPoint("BOTTOMRIGHT"); ns.PixelLine(b.bR, 1, "w")
+  b:RegisterForClicks(unpack(ns.CLICKS_SLOT))
+  b.wpeClicks = ns.CLICKS_SLOT
+  b:RegisterForDrag("LeftButton")
+  -- The two gestures an empty slot owes a live cell, in place of the template's: a release and a left click
+  -- both mean "set it here" (bareDrop above), and the right click keeps meaning nothing.
+  b:SetScript("OnReceiveDrag", bareDrop)
+  b:SetScript("OnClick", bareClick)
+  return b
+end
+
+-- The whole picture of an empty slot: the two calls the heavy cell's own empty branch makes, and the same
+-- colours it makes them in. No guard and no record -- the edge carries its own colour guard on the cell,
+-- and a bare cell is painted only by a pass that reached it at all.
+function ns.PaintBareCell(b)
+  ns.PaintSlotBg(b)
+  ns.SetSlotBorder(b, Theme:C("emptyLine"))
+  if b:GetAlpha() ~= 1 then b:SetAlpha(1) end
+end
+
 -- The cell the badge numbers below are written for, and the one every window scales away
 -- from. It is not the bags' own default size (DEFAULTS.iconSize): that one is a setting a
 -- player can move, and a reference that moved with it would drag every other window along
@@ -1050,7 +1141,13 @@ function ns.ApplyBadge(b, key)
   local px, py = ns.BadgeOffset(g.x, k), ns.BadgeOffset(g.y, k)
   o:ClearAllPoints()
   o:SetPoint(ns.BadgePoint(g), b, g.c, px, py)
-  o:SetAlpha(g.on and ns.SearchBadgeAlpha(b) or 0)
+  -- Dim-aware for free: this call is paid by every dress anyway, so the value it carries follows the
+  -- cell's dim and a badge dressed onto a dimmed cell lands dimmed. The record rides along, so the
+  -- search pass (PaintBadgeDim) does not re-hang what the dress just hung; the coin shadow below mirrors
+  -- the coin's own alpha and follows it with no call of its own.
+  local dimDress = (b.searchMiss or b.bagMiss) and true or false
+  o:SetAlpha(g.on and (dimDress and ns.BADGE_DIM or 1) or 0)
+  b.wpeBadgeDim, b.wpeBadgeDimGen = dimDress, (ns.BlockGen or 0)
   -- The black copy under a coin badge: the mark lands on the item's own art, and on a bright icon the rim
   -- struck in the bake is not enough to hold it off the picture, so the same art is painted black
   -- underneath, one whole physical pixel proud on every side. A whole pixel and not a share of the badge:
@@ -1132,6 +1229,7 @@ function ns.FitOverlays(b)
   -- gives its own quality badge.
   local function fit(t)
     if not t then return end
+    local da = (b.searchMiss or b.bagMiss) and ns.BADGE_DIM or 1
     if tierAtlas(t) then
       local art = t:GetAtlas()
       local h = b:GetHeight() or 37
@@ -1141,11 +1239,11 @@ function ns.FitOverlays(b)
       t:SetAtlas(art, true)
       local w0, h0 = t:GetWidth() or 0, t:GetHeight() or 0
       if w0 > 0 and h0 > 0 then t:SetSize(math.max(1, w0 * k), math.max(1, h0 * k)) end
-      t:SetAlpha(ns.SearchBadgeAlpha(b))
+      t:SetAlpha(da)
       return
     end
     fitToIcon(t, ic)
-    t:SetAlpha(ns.SearchBadgeAlpha(b))
+    t:SetAlpha(da)
   end
   fit(b.IconOverlay or _G[nm .. "IconOverlay"])
   fit(b.IconOverlay2 or _G[nm .. "IconOverlay2"])
@@ -1221,7 +1319,16 @@ function ns.FitCount(b, count)
   -- number straight onto the string, which is the size for the reference cell and not for the
   -- cell in front of them, and whichever of the two passes ran last is what the player saw.
   ns.SetOutlined(c, ns.BadgeSize("count", cellOf(b)))
-  if not ns.Badge("count").on then c:SetText("") end
+  if not ns.Badge("count").on then c:SetText(""); return end
+  -- A count past a stack can only come from a fold or a watched amount, and the game writes such a
+  -- number with its own abbreviator: the suffix is the client's and the rounding is its own. Ours is
+  -- the cell's own writing (see ns.ShortCount): exact up to four digits (a fold of 1500 says 1500),
+  -- folded to a one-letter token from ten thousand, never past three digits, so however big a fold
+  -- grows the corner holds it -- the exact figure stays with the stacks themselves. A plain stack
+  -- stays exactly as the game wrote it -- it never passes a thousand.
+  if (b.wpeForce or b.wpeTotal) and (tonumber(count) or 0) > 1000 then
+    c:SetText(ns.ShortCount(count))
+  end
 end
 
 function ns.FitIlvl(b, lvl)
@@ -1633,9 +1740,9 @@ function ns.MarkSell(b, itemID, link)
   ns.ApplyBadge(b, "sell")
   if state == "lock" then
     showCoin(b.sell, b.sellBg, false)
-    -- The lock is one texture now, so its dim rides its own alpha (SearchBadgeAlpha) the way the coin's
-    -- does; the per-layout pass keeps it in step on a search change.
-    b.sellLock:SetAlpha(ns.SearchBadgeAlpha(b))
+    -- The lock is one texture now, and its dim rides the sell shade the late pass hangs: dressed here
+    -- dim-aware for free, like the coin's, instead of trusting the cell's alpha alone.
+    b.sellLock:SetAlpha((b.searchMiss or b.bagMiss) and ns.BADGE_DIM or 1)
     b.sellLock:Show()
   else
     b.sellLock:Hide()
@@ -1747,8 +1854,9 @@ function ns.UpdateItemButton(b)
   -- The cell is about to be drawn, so what the search pass applied to it no longer describes it: a paint
   -- can move or clear any badge its alphas reach for, and its meta is rewritten below. The record is
   -- dropped here, where the paint is committed, so the next search pass runs in full (see
-  -- ApplySearchToButton, which skips a cell still carrying the exact state it was given).
-  b.wpeSearchSet = nil
+  -- ApplySearchToButton, which skips a cell still carrying the exact state it was given and whose picture
+  -- the new pass would leave alone).
+  b.wpeSearchSet, b.wpeSearchPainted = nil, nil
   if not info then
     -- An empty slot hands the game no link at all, so the cell keeps no craft-tier identity either.
     b.wpeQualityLink, b.wpeTierShown = nil, nil
@@ -1873,7 +1981,13 @@ function ns.UpdateItemButton(b)
   elseif ns.Bags.unusableBorder and hl and ns.IsItemUnusable(bagID, slot, hl) then
     local R = RED_FONT_COLOR
     ns.SetRarityRing(b, R.r, R.g, R.b, 1)
-  elseif ns.Bags.qualityBorder and qi and (qi.questID or qi.isQuestItem) then
+  elseif ns.Bags.qualityBorder
+         -- A quest item ranks above its quality, and it is named as one two ways: the container says so for
+         -- a live slot (qi), and the item's own class says so wherever the container cannot be asked. Only
+         -- the container query was read here, so a class-Questitem piece whose slot the API answers nothing
+         -- for (a bank slot, a pocket cell, an item the client has not described yet) fell through to the
+         -- quality ring -- yellow in the vault, where the class is the test, and a quality colour here.
+         and ((qi and (qi.questID or qi.isQuestItem)) or iClassID == Enum.ItemClass.Questitem) then
     ns.SetRarityRing(b, QUEST_YELLOW[1], QUEST_YELLOW[2], QUEST_YELLOW[3], 1)
   elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q]
          and not decorated(b.IconOverlay) and not decorated(b.IconOverlay2) then
@@ -2063,8 +2177,39 @@ function ns.PaintVaultButton(b, d, bagID, forceCount)
   return b.itemName
 end
 
+-- The search dim, in one number: the alpha a cell wears when the query does not match it (a bag hover
+-- greys a cell the same way). Nothing else in the pass carries a dim of its own -- the note inside
+-- ApplySearchToButton says why the badges and the ring ride this one -- so raised or lowered, it is raised
+-- or lowered here and nowhere else. It sat at 0.20 while the badges were painted separately at 0.30 on top;
+-- riding the children cut it to 0.12 so a dimmed cell read as one flat ghost, and that turned out too deep:
+-- at 0.12 a miss looked like an empty slot, the icon all but gone (raised 17.10). 0.25 keeps the picture
+-- plainly there under the grey, and the badges' own shade on top still flattens the cell.
+local SEARCH_DIM = 0.25
+
+-- The badge shade the misses wear on top of the cell's own: the old double dim, back by demand. It is
+-- hung in the same pass that moves the cell -- PaintBadgeDim, called from the moved-cell block of the
+-- search walk -- so the shade lands with the dim and nothing catches up behind it. Only the movers are
+-- reached for: a pass that leaves a cell the same colour never touches its badges. On ns. and not
+-- file-local so the dress path, which sits hundreds of lines ahead, reads the same number without a
+-- forward declaration.
+ns.BADGE_DIM = 0.30
+
 function ns.ApplySearchToButton(b, filters, blocked)
   if not b then return end
+  -- A bare cell has nothing to walk: no icon to desaturate, no ring, no badge, and the one thing the walk
+  -- below is for -- the cell's own alpha -- is written here from the same answer. The filters are still
+  -- asked, through the same match, so an empty slot dims exactly when it always did: a slot with no meta
+  -- matches a query never, and an empty query matches everything. The record is one boolean, since the dim
+  -- is the whole of what this cell's picture turns on.
+  if b.wpeBare then
+    local miss = (blocked or (filters and not ns.MatchSearch(nil, filters))) and true or false
+    local dim = (miss or b.bagMiss) and true or false
+    if b.wpeBareDim ~= dim then
+      b.wpeBareDim = dim
+      b:SetAlpha(dim and SEARCH_DIM or 1)
+    end
+    return
+  end
   -- Everything this pass does is a function of the five things below: the filters it was handed, whether
   -- the caller blocked the cell, the meta the match reads, the slot's own lock and the bag-hover flag. A
   -- cell still carrying all five has the picture it would be given, so the walk over the badges below is
@@ -2077,19 +2222,45 @@ function ns.ApplySearchToButton(b, filters, blocked)
      and b.wpeSearchBag == b.bagMiss then
     return
   end
-  b.wpeSearchSet = true
-  b.wpeSearchMeta, b.wpeSearchFilters = b.meta, filters
-  b.wpeSearchBlocked, b.wpeSearchLock, b.wpeSearchBag = blocked, b.wpeItemLocked, b.bagMiss
   local miss = (blocked or (filters and not ns.MatchSearch(b.meta, filters))) and true or false
   b.searchMiss = miss
   -- A bag hover dims the same way: bagMiss rides along without touching the search flag, so a
   -- search and a hover combine and the leave pass restores whichever is still on.
   local dim = miss or b.bagMiss
-  b:SetAlpha(dim and 0.20 or 1)
+  -- Typing hands in a fresh filter table on every keystroke, so the record above never spares a cell: the
+  -- match has to be asked again. What does NOT have to be asked again is the drawing, and the drawing is a
+  -- function of the dim and the one flag it greys with. A keystroke that leaves this cell the same colour
+  -- therefore costs one match and nothing else, which is what makes a query typed into a window of three
+  -- hundred cells cheap: narrowing "w" to "wri" flips a handful of cells, not all of them. What is left
+  -- for a cell that DOES move is six client calls for the cell's own face: its alpha, one desaturation for
+  -- the icon, and the ring's four -- desaturation is the one thing a frame's alpha cannot carry, which is
+  -- why the ring is written by hand and why this block is not three calls shorter. Everything else on the
+  -- cell follows the alpha: the ring's textures, the addon's badges and the game's own (the stack count,
+  -- the new-item glow, the quest mark) all dim with the cell and come back with it. The badges' own shade
+  -- on top of that -- the old double dim -- is hung right here, in the same pass, and only for this mover:
+  -- PaintBadgeDim at the bottom of the block is the keystroke's whole badge bill, and the cells it did
+  -- not move pay nothing. A badge dressed while the cell is dimmed needs nothing from this pass at all:
+  -- ApplyBadge writes the dim into the value it was paying for anyway.
+  --
+  -- The generation ns.RefreshBagDim moves stays part of the record: a badge switched on or off, or a cell
+  -- whose blockedness moved, re-dresses rather than leaving a picture drawn before the setting moved.
+  local gen = ns.BlockGen or 0
+  if b.wpeSearchPainted and b.wpeSearchDim == dim and b.wpeSearchGen == gen
+     and b.wpeSearchPaintLock == b.wpeItemLocked and b.wpeSearchPaintBag == b.bagMiss then
+    b.wpeSearchSet, b.wpeSearchMeta, b.wpeSearchFilters = true, b.meta, filters
+    b.wpeSearchBlocked, b.wpeSearchLock, b.wpeSearchBag = blocked, b.wpeItemLocked, b.bagMiss
+    return
+  end
+  b.wpeSearchSet, b.wpeSearchMeta, b.wpeSearchFilters = true, b.meta, filters
+  b.wpeSearchBlocked, b.wpeSearchLock, b.wpeSearchBag = blocked, b.wpeItemLocked, b.bagMiss
+  b.wpeSearchPainted = true
+  b.wpeSearchDim, b.wpeSearchGen = dim, gen
+  b.wpeSearchPaintLock, b.wpeSearchPaintBag = b.wpeItemLocked, b.bagMiss
+  b:SetAlpha(dim and SEARCH_DIM or 1)
   -- A locked slot (a move in flight) greys the same as a search miss, so the two are ORed: this pass runs
   -- right after every layout, and setting desaturation from the miss alone would wipe the lock grey that
-  -- UpdateItemButton/UpdateItemLock just set. The lock does not dim the whole cell (no alpha 0.20), only
-  -- greys the art, so a locked-but-matching cell stays readable while it shows it is busy.
+  -- UpdateItemButton/UpdateItemLock just set. The lock does not dim the whole cell (no alpha from
+  -- SEARCH_DIM), only greys the art, so a locked-but-matching cell stays readable while it shows it is busy.
   local grey = dim or (b.wpeItemLocked and true or false)
   SetItemButtonDesaturated(b, grey)
   -- Desaturation reaches the icon alone, so the quality ring kept its hue on a dimmed
@@ -2098,29 +2269,68 @@ function ns.ApplySearchToButton(b, filters, blocked)
   if b.iT then
     b.iT:SetDesaturated(dim); b.iB:SetDesaturated(dim)
     b.iL:SetDesaturated(dim); b.iR:SetDesaturated(dim)
-    local ra = dim and SEARCH_BADGE_DIM or (b.ringA or 1)
-    b.iT:SetAlpha(ra); b.iB:SetAlpha(ra); b.iL:SetAlpha(ra); b.iR:SetAlpha(ra)
   end
-  paintBadgeAlpha(b, b.Count or _G[(b:GetName() or "") .. "Count"], "count")
-  paintBadgeAlpha(b, b.ilvl, "ilvl")
-  paintBadgeAlpha(b, b.bind, "bind")
-  paintBadgeAlpha(b, b.outfit, "outfit")
-  paintBadgeAlpha(b, b.junk, "junk")
-  paintBadgeAlpha(b, b.junkBg, "junk")
-  paintBadgeAlpha(b, b.sell, "sell")
-  paintBadgeAlpha(b, b.sellBg, "sell")
-  -- The lock is a texture on the same badge, so it dims through the same path as the coin; which face
-  -- shows is the carousel's Show/Hide, not this alpha.
-  paintBadgeAlpha(b, b.sellLock, "sell")
-  paintBadgeAlpha(b, questTex(b))
-  paintBadgeAlpha(b, b.wpeTier)
-  paintBadgeAlpha(b, b.NewItemTexture)
-  paintBadgeAlpha(b, b.BattlepayItemTexture)
-  paintBadgeAlpha(b, b.cdText)
-  local nm = b:GetName() or ""
-  paintBadgeAlpha(b, b.IconOverlay or _G[nm .. "IconOverlay"])
-  paintBadgeAlpha(b, b.IconOverlay2 or _G[nm .. "IconOverlay2"])
-  paintBadgeAlpha(b, b.ProfessionQualityOverlay or _G[nm .. "ProfessionQualityOverlay"])
+  -- The cell moved, so its badges want their shade re-hung -- and they get it now, in this same pass,
+  -- for this mover only: the pass already knows the picture changed here, so the shade costs one
+  -- guarded walk over the badges of the moved cell and nothing anywhere else.
+  ns.PaintBadgeDim(b)
+end
+
+-- The badge shade, hung in the same pass as the cell that moved (this is ApplySearchToButton's only
+-- caller): one guarded pass over the addon's own badge objects, the count (the game's
+-- own string, held by field or by name), the two coin shadows that mirror their coin, the lock that rides
+-- the sell badge, and the game's own extras the old walk hung -- the quest mark, the taken tier mirror,
+-- the new-item glow in both faces, the cooldown digits, and the three quality overlays (the white outline
+-- among them). The game's other marks (new-item glow visibility, quest mark show) ride Show/Hide and want
+-- nothing here. The lookups are badgeObj's lines, inlined: the lag harness lifts this slice without those
+-- file-locals.
+local DIMKEYS = { "count", "ilvl", "bind", "outfit", "sell", "junk" }
+local DIMEXTRA = { "wpeTier", "NewItemTexture", "BattlepayItemTexture", "cdText",
+                   "IconOverlay", "IconOverlay2", "ProfessionQualityOverlay" }
+function ns.PaintBadgeDim(b)
+  if not b then return false end
+  local dim = (b.searchMiss or b.bagMiss) and true or false
+  local gen = ns.BlockGen or 0
+  if b.wpeBadgeDim == dim and b.wpeBadgeDimGen == gen then return false end
+  b.wpeBadgeDim, b.wpeBadgeDimGen = dim, gen
+  local shade = dim and ns.BADGE_DIM or 1
+  -- The ring's own alpha, the way the old double dim hung it: the parent's shade alone leaves the one
+  -- colored thing on a dimmed cell brighter than everything around it.
+  if b.iT then
+    b.iT:SetAlpha(shade); b.iB:SetAlpha(shade); b.iL:SetAlpha(shade); b.iR:SetAlpha(shade)
+  end
+  for i = 1, #DIMKEYS do
+    local key = DIMKEYS[i]
+    local o
+    if key == "count" then
+      o = b.Count or (b.GetName and _G[(b:GetName() or "") .. "Count"])
+    else
+      o = b[key]
+    end
+    if o then
+      local g = ns.Badge(key)
+      local a = (g and g.on) and shade or 0
+      o:SetAlpha(a)
+      local bg = nil
+      if key == "sell" then bg = b.sellBg elseif key == "junk" then bg = b.junkBg end
+      if bg then bg:SetAlpha(a) end
+    end
+  end
+  -- The lock rides the sell badge's shade; which face shows is Show/Hide, not this alpha.
+  if b.sellLock then b.sellLock:SetAlpha(shade) end
+  local q = b.wpeQuest
+  if q then q:SetAlpha(shade) end
+  local nm = nil
+  for i = 1, #DIMEXTRA do
+    local key = DIMEXTRA[i]
+    local o = b[key]
+    if not o then
+      if nm == nil then nm = (b.GetName and b:GetName()) or "" end
+      o = _G[nm .. key]
+    end
+    if o then o:SetAlpha(shade) end
+  end
+  return true
 end
 
 function ns.UpdateItemLock(b)

@@ -1,6 +1,7 @@
 local addonName, ns = ...
 local Theme = ns.Theme
 
+
 -- The bags a character item may be set down in, the reagent bag deliberately absent: it is the one
 -- container that refuses anything but its own kind, so a piece off the body can never land there and
 -- StowFromCursor walks this list alone.
@@ -25,6 +26,8 @@ ns.CapRoom = CAP_ROOM
 local COLS_DEFAULT, GAP_DEFAULT = 14, 4
 local HEADER, FOOTER = 66, 28
 local DIV = 22
+local CUR_SEAM = 16    -- the band under the grid: air, the hairline dividing the currency row off, the row
+local CUR_MID = 8      -- how far the hairline drops below the grid's foot, in the middle of that band
 local HB = 26
 local ROW1_Y = 4
 -- The purse line's inset from the window's right edge, over PAD. It used to stand at PAD + 4 and the
@@ -362,6 +365,7 @@ function Bags:AnchorHeader()
   sizeGlyph(self.gearBtn, HB)
   sizeGlyph(self.bagsToggle, HB)
   sizeGlyph(self.reagentBtn, HB)
+  sizeGlyph(self.curBtn, HB)
   sizeGlyph(self.bankBtn, HB)
   sizeGlyph(self.pocketBtn, HB)
   sizeGlyph(self.sellBtn, HB)
@@ -425,6 +429,11 @@ function Bags:Build()
       self.money = money
       ns.AttachGoldTooltip(money, f, function() return self.iconSize end)
     end
+    -- The currency row: the currencies the client itself tracks, drawn inside the window's own content
+    -- under the grid (see CurrencyMeasure / CurrencyPlace below). It is built here so a window already
+    -- standing when the module loads (a reload with the bags open) gets it too, exactly as the money
+    -- line above does.
+    ns.Cur:Attach(f)
     if not self.reagentLabel then
       local rlabel = Theme:Label(self.content, FONT - 4, "reagent")
       ns.LocalText(rlabel, "REAGENTS")
@@ -473,12 +482,26 @@ function Bags:Build()
     Bags.catMemory, Bags.catHold, Bags.catCache = nil, nil, nil
     ns.ClearSearch(Bags.search)
     if ns.CharPicker then ns.CharPicker:Close() end
+    -- The currency panel belongs to the rail, and the rail goes with the window: a panel left standing
+    -- over an empty screen would be an editor for something that is not there.
+    if ns.CurPicker then ns.CurPicker:Close() end
     if Bags.bagWindow then Bags.bagWindow:Hide() end
     if ns.Pocket and not ns.Pocket.solo then ns.Pocket:Close(true) end
     if ns.Vault:SetView("bags", nil) then
       Bags.snap = nil
       Bags:UpdateCharTag()
     end
+    -- The pool sleeps with the window. A cell left shown under a hidden frame is still the game's to lay
+    -- out when the frame is shown again, and for a full grid that is the whole of a re-open's Show (~0.17
+    -- ms a cell, ~40 ms over 208); the pass that follows shows each claimed cell itself (place calls
+    -- holder:Show()), so nothing is lost by hiding them here. The snapshot pool and the two live rows go
+    -- the same way: each is re-applied by the pass that draws it.
+    local pool = Bags.pool
+    if pool then for i = 1, #pool do pool[i].holder:Hide() end end
+    pool = Bags.vpool
+    if pool then for i = 1, #pool do pool[i].holder:Hide() end end
+    if ns.Recent and ns.Recent.Hide then ns.Recent:Hide() end
+    if ns.Fav and ns.Fav.Hide then ns.Fav:Hide() end
   end)
   self.frame = f
   self.content = CreateFrame("Frame", nil, f)
@@ -654,7 +677,57 @@ function Bags:Build()
   self.reagentBtn = reags
   Bags:PaintReagents(reags)
 
-  slots:SetPoint("LEFT", reags, "RIGHT", 10, 0)
+  -- Currencies, right of the reagent switch: this window's own currency row on the left button, and the
+  -- switch the settings row already carries ("Hide currencies") on the right. It stands on the tag side of
+  -- the header, beside the slot count, because the row it gates is a band of the window just as the
+  -- reagent block is -- a count of what is tracked, next to the count of what is held. This is the only
+  -- way into the picker now that the row's add door is gone; the row itself hides when nothing is tracked.
+  local cur = ns.CreateGlyphButton(f, "", HB, "icon")
+  cur:SetPoint("LEFT", reags, "RIGHT", 4, 0)
+  cur:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  cur:SetScript("OnClick", function(_, button)
+    if button == "RightButton" then
+      -- An empty track list has no row to show or hide: the right button opens the picker and arms the
+      -- row, so the first currency ticked appears at once instead of flipping a flag nobody can see.
+      if Bags:CurrenciesEmpty() then
+        if Bags:CurrenciesHidden() then Bags:ToggleCurrencies() end
+        if ns.CurPicker then ns.CurPicker:Toggle(f) end
+        return
+      end
+      Bags:ToggleCurrencies(); return
+    end
+    if ns.CurPicker then ns.CurPicker:Toggle(f) end
+  end)
+  -- Two steps, one line each, the way the bag switch and the pocket name theirs: the left walks into the
+  -- picker, the right shows or hides the row. The right line is read live as a closure, so it offers the
+  -- step the click will take and can never contradict the shape standing beside it.
+  addTip(cur, "LMB: Opens your currencies", function()
+    if Bags:CurrenciesEmpty() then
+      return { { text = "RMB: Pick currencies", color = "dim" } }
+    end
+    return { { text = Bags:CurrenciesHidden() and "RMB: Show currencies" or "RMB: Hide currencies", color = "dim" } }
+  end)
+  -- Warpee's own currencies mark: two coins, the mark that means "money" doubled into the several kinds of
+  -- money a row of currencies holds. White art with the shape in the alpha, so the row's paint tints it
+  -- like every other mark. The state is the SHAPE, not the brightness: the pair filled while the row
+  -- stands, the same pair as an outline while it is left out -- the reagent switch's own trick, told by
+  -- the fill. Both files are centred so the mark does not jump on the swap. PaintCurrencies does the swap
+  -- and the ink; IconSilhouette gives it the row's 1px dark ground.
+  cur.iconShown  = [[Interface\AddOns\Warpee\Media\Icons\currency-shown.tga]]
+  cur.iconHidden = [[Interface\AddOns\Warpee\Media\Icons\currency-hidden.tga]]
+  local curIcon = cur:CreateTexture(nil, "ARTWORK")
+  curIcon:SetTexture(cur.iconShown)
+  curIcon:SetPoint("CENTER")
+  cur.icon = curIcon
+  -- The two coins fill the texture nearly edge to edge (bbox ~86% x 84%), so 80 lands their mass with the
+  -- bag and the reagent pentagon in the row.
+  cur.iconPct = 80
+  cur.wpeIconPaint = function(s) Bags:PaintCurrencies(s) end
+  ns.IconSilhouette(cur, curIcon)
+  self.curBtn = cur
+  Bags:PaintCurrencies(cur)
+
+  slots:SetPoint("LEFT", cur, "RIGHT", 10, 0)
 
   local bank = ns.CreateGlyphButton(f, "", HB, "icon")
   bank:SetScript("OnClick", function() if ns.ToggleBank then ns.ToggleBank() end end)
@@ -790,6 +863,17 @@ function Bags:Build()
 
   local search = ns.CreateSearchBox(f, function(text)
     self.query = (text or ""):lower()
+    -- The chip's count waits for the typing to settle (see Bags:ArmTransfer). The query is marked as
+    -- still being typed and one timer per burst clears the mark, so only the word's final state is ever
+    -- counted; a later keystroke bumps the sequence and the older timer bails on its own check.
+    self.armDefer, self.armSeq = self.query, (self.armSeq or 0) + 1
+    local armSeq = self.armSeq
+    C_Timer.After(0.25, function()
+      if self.armSeq == armSeq then
+        self.armDefer = nil
+        ns.ArmTransferChips()
+      end
+    end)
     self.filters = ns.ParseSearch(self.query)
     -- The dim on a miss is instant either way, it only repaints cells in place. Category view is not
     -- narrowed by the query: the sections stay where the player put them and only the misses dim, so
@@ -836,6 +920,10 @@ function Bags:Build()
   self.money = money
   ns.AttachGoldTooltip(money, f, function() return self.iconSize end)
 
+  -- The currency row lives inside the content: the layout measures it (CurrencyMeasure) and seats it
+  -- (CurrencyPlace) under the grid.
+  ns.Cur:Attach(f)
+
   local rlabel = Theme:Label(content, FONT - 4, "reagent")
   ns.LocalText(rlabel, "REAGENTS")
   rlabel:Hide()
@@ -869,7 +957,9 @@ function Bags:BuildBagWindow()
 
   local title = Theme:Title(w, FONT - 1, "accent")
   title:SetPoint("TOPLEFT", BPAD, -8)
-  ns.LocalText(title, "BAGS")
+  -- The window shows the bag slots, and it says so: the game's own name for them (BAGSLOTTEXT) in
+  -- every language the addon draws, so the panel is not one more thing called "Bags".
+  ns.LocalText(title, "Bag Slots")
   self.bagTitle = title
 
   local wclose = ns.CreateGlyphButton(w, "×")
@@ -996,12 +1086,71 @@ function Bags:ToggleReagents()
   if ns.Options and ns.Options.Refresh then ns.Options:Refresh() end
 end
 
+function Bags:CurrenciesHidden() return self.curStrip == false end
+
+-- Nothing tracked means the row cannot stand whatever curStrip says (Cur:Measure answers 0), so the
+-- switch's right button has nothing to flip and takes the door to the picker instead (see the header).
+function Bags:CurrenciesEmpty()
+  local CI = C_CurrencyInfo
+  return not (CI and CI.GetBackpackCurrencyInfo and CI.GetBackpackCurrencyInfo(1))
+end
+
+-- The currency switch carries its state the way the reagent switch does: two coins filled while the row
+-- stands in the window, the same two as an outline while it is left out -- the fill and not the colour,
+-- so the mark stays the grey of the gear and the bag beside it. The ink is the row's own quiet paint:
+-- dim at rest, the text ink under the pointer. Called from the button's own Repaint, so a theme or a
+-- profile change arrives here without the header having to know, and flipped by the toggle below for the
+-- change that is not a repaint at all.
+function Bags:PaintCurrencies(b)
+  b = b or self.curBtn
+  if not (b and b.icon) then return end
+  local hidden = self:CurrenciesHidden()
+  local icon = b.icon
+  -- The picture first: two states, two textures, and the swap is guarded so a hover repaint does not
+  -- re-ask the file for art it already shows. The grown-black ground copies whichever shape is up through
+  -- FitIconShadow below, so the dark ring follows the swap.
+  local want = hidden and b.iconHidden or b.iconShown
+  if b.wpeCurTex ~= want then
+    b.wpeCurTex = want
+    icon:SetTexture(want)
+    if b.wpeIconShadow then b.wpeIconShadow:SetTexture(want) end
+  end
+  -- Then the ink, exactly the row's: text under the pointer, dim at rest. IconSilhouette's wrapper
+  -- re-fits the ground after this on every paint.
+  local hot = b.wpeHot and not b.offDuty
+  icon:SetVertexColor(Theme:C(hot and "text" or "dim"))
+end
+
+-- The same key the settings row writes ("Hide currencies"), from the other end of the window. The window
+-- measures curStrip on every layout, so a forced Apply reseats or removes the row at once. The mark is
+-- repainted here either way -- the state lives in its shape, and the shape must flip even with the
+-- window closed, when there is no layout to carry the change.
+function Bags:ToggleCurrencies()
+  -- curStrip == false is the one hidden spelling (Core's default is true, and the settings row writes the
+  -- same key); flip it and write it back through the profile so a reload keeps the choice.
+  self.curStrip = (self.curStrip == false)
+  if WarpeeDB then WarpeeDB.curStrip = self.curStrip end
+  if ns.Cur and ns.Cur.Apply then ns.Cur:Apply(true) end
+  -- The flip is answered by the mark itself, not only by the layout: with the window away there is no
+  -- layout to run, and with it up the pass is free to return early on a frame that is not ready. The
+  -- state lives in the shape, and the shape must follow the click either way.
+  self:PaintCurrencies()
+  -- The button is pressed with the pointer on it, so its tip is still up and still offering the step that
+  -- has just been taken. Re-worded here rather than left to the next hover, the way the reagent switch and
+  -- the settings row are.
+  if ns.RefreshTip then ns.RefreshTip(self.curBtn) end
+  if ns.Options and ns.Options.Refresh then ns.Options:Refresh() end
+end
+
 function Bags:Acquire(i)
+  -- The second return says the cell was made here and not off the pool: the grid's pass reads it, so the
+  -- line can say how many of its cells were built rather than moved (see the pass at the end of Layout).
   if self.snap then
     local b = self.vpool[i]
     if not b then
       b = ns.CreateVaultButton(self.content)
       self.vpool[i] = b
+      return b, true
     end
     return b
   end
@@ -1010,6 +1159,7 @@ function Bags:Acquire(i)
     if InCombatLockdown() then self.cold = true; return nil end
     b = ns.CreateItemButton(self.content, 0, 1)
     self.pool[i] = b
+    return b, true
   end
   return b
 end
@@ -1024,7 +1174,9 @@ function Bags:Warm()
   if n == 0 then return end
   for i = 1, n do
     if not self.pool[i] then
-      self.pool[i] = ns.CreateItemButton(self.content, 0, 1)
+      local b = ns.CreateItemButton(self.content, 0, 1)
+      b.holder:Hide()
+      self.pool[i] = b
     end
   end
   self.warmed, self.cold = true, nil
@@ -1032,6 +1184,42 @@ end
 
 function Bags:Pool()
   return self.snap and self.vpool or self.pool
+end
+
+-- The cells that hold one of these links, and no others: a verdict read late (the unusable ring) is the
+-- only thing that changed about them, so they alone are painted. A live cell is painted off its container;
+-- a snapshot cell off the record the window captured, and only while that record still carries the link it
+-- holds -- a snapshot cell has no container to read, and painting one from a live read would draw the
+-- player's own bag in another character's window. The link is dropped first because the ring is part of the
+-- recipe the guard compares, and a cell whose ring the verdict would leave as it stands answers the paint
+-- with "nothing moved" and is not counted (see ns.PaintVerdicts). Hidden cells are left alone: they are
+-- not in a pass and get their ring from the next one that draws them.
+function Bags:RepaintLinks(links)
+  local painted = 0
+  local live, snap = self.pool, self.vpool or {}
+  for i = 1, #live do
+    local b = live[i]
+    local link = b.link
+    if link and links[link] and b.holder and b.holder:IsShown() then
+      b.link = nil
+      if (select(2, ns.UpdateItemButton(b))) then painted = painted + 1 end
+      ns.ApplySearchToButton(b, self.filters)
+    end
+  end
+  for i = 1, #snap do
+    local b = snap[i]
+    local link = b.link
+    if link and links[link] and b.holder and b.holder:IsShown() then
+      local rec = ns.Vault and ns.Vault:Slot("bags", b.wpeBag, b.wpeSlot)
+      if rec and rec.l == link then
+        b.link = nil
+        ns.PaintVaultButton(b, rec, b.wpeBag, b.wpeForce)
+        ns.ApplySearchToButton(b, self.filters)
+        painted = painted + 1
+      end
+    end
+  end
+  return painted
 end
 
 function Bags:Slots(bag)
@@ -1132,7 +1320,9 @@ function Bags:Layout(capture, light)
   local cols = self.cols
   -- The header stands still under a geometry change; the transfer chip it arms is repainted by the
   -- trailing full pass.
-  if not light then self:AnchorHeader() end
+  if not light then
+    self:AnchorHeader()
+  end
   -- New-on-top keeps new pieces physically at the far end of their bag, so the plain grid draws them there
   -- with no display remap. The move pump is kicked here too, so opening the window tidies any arrivals that
   -- landed while it was shut. In the grouped view the sections own the order, so it does not run there.
@@ -1186,14 +1376,12 @@ function Bags:Layout(capture, light)
   -- Read once for the pass: every cell is dressed for this one view, so the flag is compared against the
   -- cell's own below rather than asked per cell.
   local cat = self:CatMode()
+
   local function place(bag, slot, x, y, forceCount)
     i = i + 1
     local b = self:Acquire(i)
     if not b then return end
     local h = b.holder
-    -- Same memo the bank window keeps: the anchor parent is made once and never
-    -- recreated, so a cell that has not moved does not need its id, its size or its
-    -- point written again. Only the content is repainted either way.
     local rebound = (b.wpeBag ~= bag or b.wpeSlot ~= slot)
     if rebound then
       if not self.snap then
@@ -1261,6 +1449,9 @@ function Bags:Layout(capture, light)
     end
   end
 
+  -- The grid itself, both views: every cell's turn -- its slot, its point and its picture -- is in here,
+  -- and the eight-millisecond slice of a cold read is not, because the reads go to their own queue
+  -- (Items/ItemRules.lua).
   local contentH
   if self:CatMode() then
     self.reagentLabel:Hide()
@@ -1365,7 +1556,9 @@ function Bags:Layout(capture, light)
       -- the label it has always had. A captioned block widens its own gap to hold the caption.
       local capText = (showNames and blk.bag ~= nil) and bagCaption(blk.bag, not self.snap) or nil
       -- The room a caption needs is only owed where one is actually drawn: with the names off the blocks
-      -- stand exactly the slider's gap apart, and the reagent caption of the unsplit grid keeps the
+      -- stand the slider's gap apart but never closer than the slot spacing, so a grid whose cells are
+      -- spread on the slot-spacing slider keeps the same air between one bag's block and the next instead
+      -- of letting the two blocks meet edge to edge; the reagent caption of the unsplit grid keeps the
       -- standing section break it has always had.
       local reagName = blk.reagent and not splitEach
       -- The caption is built before its block is placed so its height is known: the first block opens the
@@ -1384,7 +1577,7 @@ function Bags:Layout(capture, light)
         capH = math.ceil(self.reagentLabel:GetStringHeight() or 0)
         if capH <= 0 then capH = FONT end
       end
-      local blockGap = (capText or reagName) and math.max(gapBlocks, CAP_ROOM) or gapBlocks
+      local blockGap = (capText or reagName) and math.max(gapBlocks, CAP_ROOM) or math.max(gapBlocks, gap)
       local above = blockGap
       if bi == 1 then above = (capText or reagName) and (capH + 8) or 0 end
       y = y + above
@@ -1432,6 +1625,12 @@ function Bags:Layout(capture, light)
     end
   end
 
+  -- The currencies stand under the grid, seamed off by their own hairline: measured before the window is
+  -- sized, seated once it is (a light pass seats positions only, the trailing full pass paints too).
+  local gridH = contentH
+  local curH = self:CurrencyMeasure(size, gap, cols)
+  if curH > 0 then contentH = contentH + curH end
+
   local active, idle = self:Pool(), (self.snap and self.pool or self.vpool)
   for j = i + 1, #active do active[j].holder:Hide() end
   for _, b in ipairs(idle) do if b.holder:IsShown() then b.holder:Hide() end end
@@ -1440,6 +1639,7 @@ function Bags:Layout(capture, light)
     -- trailing full pass.
     self.shown, self.used, self.total = i, used, total
     self:Resize(contentH)
+    self:CurrencyPlace(size, gap, gridH, true)
     return
   end
   -- The clean-up button acts on the live grid slots (sort + stack merge) whatever view is shown. In the
@@ -1447,6 +1647,11 @@ function Bags:Layout(capture, light)
   -- next switch back. Only a snapshot has no live container to act on, so it alone hides the button.
   if self.sortBtn then self.sortBtn:SetShown(not self.snap) end
   if self.reagentBtn then self:PaintReagents() end
+  -- The currency switch carries the row's state in its fill, and a layout is what follows a flip from
+  -- either end: the settings row and the currency panel's own tick both land here through Cur:Apply.
+  -- Painting it with the reagent switch keeps the two header marks in step with the same pass that
+  -- reseats or removes the row under them.
+  if self.curBtn then self:PaintCurrencies() end
   -- The pocket button opens the pocket and nothing else now, so a pocket that is switched off takes the
   -- button off the row with it -- the row chains through the shown buttons only, so nothing is left
   -- standing in its place. The view switch it used to fall back on lives on the bags button.
@@ -1461,6 +1666,7 @@ function Bags:Layout(capture, light)
   self:BrowseState()
   self.shown, self.used, self.total = i, used, total
   self:Resize(contentH)
+  self:CurrencyPlace(size, gap, gridH)
   if self.bagWindow and self.bagWindow:IsShown() then self:LayoutBagWindow() end
   self:UpdateMeta()
   self:ApplySearch()
@@ -1912,7 +2118,7 @@ end
 -- (through ApplySearch) and after each batch of a run, so the count falls as the pieces land. The chip
 -- stands the whole time a banker is open, since that is the only thing its click needs; it only dims
 -- while the search has nothing to move.
-function Bags:ArmTransfer()
+function Bags:ArmTransfer(force)
   local tx = self.txBtn
   if not (tx and self.frame) then return end
   local live = (not self.snap) and ns.Bank and ns.Bank.bankerOpen and true or false
@@ -1922,8 +2128,23 @@ function Bags:ArmTransfer()
   -- will really move (ns.BankTakes is the account bank's own refusal, asked before anything is sent).
   local n, room = 0, nil
   if live and typed then
-    n = ns.Categories:Count(self.query, self:TransferBags(), ns.BankTakes)
-    room = ns.BankRoom()
+    -- The number waits for the typing to stop, and a walk already paid for this query is not paid
+    -- again. Counting walks every slot and rebuilds a meta apiece (measured ~6 ms a pass); so a query
+    -- still being typed shows the last settled count and the walk runs a quarter second after the
+    -- keystrokes stop (the timer the search box armed). Past that, the answer is kept under the query
+    -- it was walked for and a layout that follows reuses it -- the count for one query does not change
+    -- unless the bags do, and every container event drops the record (the bank's watcher) -- so a
+    -- layout after the settle costs nothing. A batch forces (`true`): the number must fall as pieces
+    -- land, and only the batch moved them.
+    if not force and (self.armDefer == self.query or self.armQ == self.query) then
+      n, room = self.armN or 0, self.armRoom
+    else
+      -- The kept record carries the bound-piece count as well, so the chip's tooltip can read the
+      -- walk back instead of paying for a second one under the pointer.
+      n, self.armStays = ns.Categories:Count(self.query, self:TransferBags(), ns.BankTakes)
+      room = ns.BankRoom()
+      self.armN, self.armRoom, self.armQ = n, room, self.query
+    end
   end
   local show = live or busy
   if show ~= tx:IsShown() then
@@ -1944,10 +2165,14 @@ function Bags:ArmTransfer()
   ns.SetButtonEnabled(tx, busy or armed)
 end
 
--- The chip's tooltip: the count on the head, the action and any reason it is dim below it.
+-- The chip's tooltip: the count on the head, the action and any reason it is dim below it. The count
+-- comes from the kept record whenever one stands for the query (the same number the chip shows), so a
+-- hover costs nothing; only a query dropped by a container event is walked here.
 function Bags:TransferHead()
-  if not ((self.query or ""):find("%S")) then return ns.L["Transfer"] end
-  return ns.LN("%d items", ns.Categories:Count(self.query, self:TransferBags(), ns.BankTakes))
+  local q = self.query
+  if not ((q or ""):find("%S")) then return ns.L["Transfer"] end
+  if self.armDefer == q or self.armQ == q then return ns.LN("%d items", self.armN or 0) end
+  return ns.LN("%d items", ns.Categories:Count(q, self:TransferBags(), ns.BankTakes))
 end
 
 function Bags:TransferHint()
@@ -1957,11 +2182,21 @@ function Bags:TransferHint()
   if not ns.Categories:Free() then
     return { { text = ns.L["Wait for combat to end and empty the cursor"], color = "dim" } }
   end
-  if not ((self.query or ""):find("%S")) then
+  local q = self.query
+  if not ((q or ""):find("%S")) then
     return { { text = ns.L["Type a search, then click to move what it finds into the bank"], color = "dim" } }
   end
-  local n, stays = ns.Categories:Count(self.query, self:TransferBags(), ns.BankTakes)
-  local room = ns.BankRoom()
+  -- Same kept answer as the head: the walk belongs to the chip, and the room is only asked for when
+  -- the count would use it.
+  local kept = (self.armDefer == q or self.armQ == q)
+  local n, stays
+  if kept then
+    n, stays = self.armN or 0, self.armStays or 0
+  else
+    n, stays = ns.Categories:Count(q, self:TransferBags(), ns.BankTakes)
+  end
+  local room
+  if n > 0 then room = kept and self.armRoom or ns.BankRoom() end
   local rows = {}
   if n > 0 then
     rows[#rows + 1] = { text = ns.L["Move what the search found into the bank"], color = "dim" }
@@ -2620,6 +2855,49 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
   return contentH, used, total
 end
 
+-- The hairline that seams the currency row off from the grid: the same line the category sections wear,
+-- so the band reads as a part of the window without a word over it. Made once and placed on every layout.
+function Bags:CurrencyLine()
+  if not self.curLine then
+    local t = Theme:Rect(self.content, "strokeSoft", "ARTWORK")
+    ns.PixelLine(t, 1)
+    self.curLine = t
+  end
+  return self.curLine
+end
+
+-- The currency band's height for this layout: the air over it, the hairline, and the row itself. Zero
+-- when the row is off or when a foreign snapshot is up (the rows above the grid are hidden for it, and
+-- this row stands with them). The window adds the whole band to its content, so the row is a real row of
+-- the window now.
+function Bags:CurrencyMeasure(size, gap, cols)
+  if not ns.Cur then return 0 end
+  if self.snap then ns.Cur:Hide(); self.curH = 0; return 0 end
+  local h = ns.Cur:Measure(size, gap, gridWidth(size, cols, gap), cols)
+  if (h or 0) <= 0 then
+    self.curH = 0
+    return 0
+  end
+  self.curH = h
+  return CUR_SEAM + h
+end
+
+-- The hairline and the row itself, seated under the grid. `gridH` is the height the grid took, so the
+-- band falls at its foot: the line a step into the air, the cells one seam below the grid.
+function Bags:CurrencyPlace(size, gap, gridH, light)
+  if (self.curH or 0) <= 0 then
+    if self.curLine then self.curLine:Hide() end
+    if ns.Cur then ns.Cur:Hide() end
+    return
+  end
+  local line = self:CurrencyLine()
+  line:ClearAllPoints()
+  ns.SnapPoint(line, "TOPLEFT", self.content, "TOPLEFT", 0, -(gridH + CUR_MID))
+  ns.SnapPoint(line, "TOPRIGHT", self.content, "TOPRIGHT", 0, -(gridH + CUR_MID))
+  line:Show()
+  ns.Cur:Place(self.frame, PAD, self:TopOffset() + gridH + CUR_SEAM, size, gap, light)
+end
+
 function Bags:Resize(contentH)
   local seam = ns.SeamWatch(self.frame)
   local gw = gridWidth(self.pxSize or self.iconSize, self.cols, self.pxGap or self.gap)
@@ -2641,29 +2919,12 @@ local function groupNumber(n, sep)
   return out
 end
 
-local function shortNumber(n)
-  n = math.floor(n or 0)
-  if n < 1000 then return tostring(n) end
-  local form = ns.ShortForm()
-  local units = form.units
-  for i, u in ipairs(units) do
-    local scale, suf = u[1], u[2]
-    if n >= scale then
-      local r = math.floor(n / scale * 10 + 1e-9) / 10
-      if r >= 1000 and i > 1 then
-        scale, suf = units[i - 1][1], units[i - 1][2]
-        r = math.floor(n / scale * 10 + 1e-9) / 10
-      end
-      if r == math.floor(r) then return string.format("%d%s", r, suf) end
-      return (string.format("%.1f", r):gsub("%.", form.dec)) .. suf
-    end
-  end
-  return tostring(n)
-end
-
+-- The short form itself lives in Core/Locale.lua (ns.ShortNumber) and the units are locale data; the
+-- cell badges fold through their own, tighter token there (ns.ShortCount). The coin line keeps its
+-- own setting here.
 function ns.FormatNumber(n)
   local mode = WarpeeDB and WarpeeDB.goldFormat or "commas"
-  if mode == "short" then return shortNumber(n) end
+  if mode == "short" then return ns.ShortNumber(n) end
   local sep = (mode == "dots" and ".") or (mode == "spaces" and " ") or ","
   return groupNumber(n, sep)
 end
@@ -3129,19 +3390,28 @@ function Bags:FitHeader()
   self.search:Show()
   -- The reagent switch hides the reagent block, which is a grid-only idea: cat-view always groups
   -- the full inventory, so the button has nothing to gate there. It comes off the header in
-  -- cat-view and the count slides back onto the tag where the button used to sit.
+  -- cat-view and the currency switch slides left into its place; the count then hangs off the
+  -- currency switch, which is always up (only the row it gates can go away).
   if self.reagentBtn and self.slotText and self.charTag then
     local catMode = self:CatMode()
     self.reagentBtn:SetShown(not catMode)
-    self.slotText:ClearAllPoints()
-    self.slotText:SetPoint("LEFT", catMode and self.charTag or self.reagentBtn, "RIGHT", 10, 0)
+    local left = catMode and self.charTag or self.reagentBtn
+    if self.curBtn then
+      self.curBtn:ClearAllPoints()
+      self.curBtn:SetPoint("LEFT", left, "RIGHT", 4, 0)
+      self.slotText:ClearAllPoints()
+      self.slotText:SetPoint("LEFT", self.curBtn, "RIGHT", 10, 0)
+    else
+      self.slotText:ClearAllPoints()
+      self.slotText:SetPoint("LEFT", left, "RIGHT", 10, 0)
+    end
   end
   if self.slotText and self.charTag then
     local edge = self.headEdge and self.headEdge:GetLeft()
-    -- The count reads after the reagent switch now, so that is the edge it has to clear. The tag
-    -- is the fallback for a frame built before that button existed, and for cat-view where the
-    -- switch is hidden.
-    local anchor = (self.reagentBtn and self.reagentBtn:IsShown()) and self.reagentBtn or self.charTag
+    -- The count reads after the currency switch now, so that is the edge it has to clear. The reagent
+    -- switch (or the tag) is the fallback for a frame built before the currency switch existed.
+    local anchor = self.curBtn
+      or ((self.reagentBtn and self.reagentBtn:IsShown()) and self.reagentBtn or self.charTag)
     local from = anchor:GetRight()
     local show = true
     if edge and from then
@@ -4512,8 +4782,8 @@ function Bags:UpdateDirty(force)
           end
         end
         self.dirty = {}
-        self:ArmTransfer()
-      end
+  self:ArmTransfer()
+end
     end
     return
   end

@@ -1,19 +1,23 @@
 # Warpee
 
-## 12.1
+## 12.2
 
 ENG
 
-- A split-off stack dropped on the bags, the bank or the warbank window lands in a new slot instead of merging back — in both the grid and the category view.
-- In the category view, group bands fold only on the caret and the name, not on the whole row.
-- Id fields in the pocket's Popular and in categories keep the typed text on focus loss, limited to 6 digits.
-- Coin letters always stand a space off the number, in every gold format.
-- The sale mark's tip says the junk coin sits in the same spot.
+- search is much faster with the bank open and both windows searched at once: 300 ms per word down to about 20 ms
+- the first bank opening after login or /reload is faster: 250 ms down to about 120 ms
+- currencies can now be tracked
+- the bag slots window is now called Bag Slots
+- fixed: Alt+click on the ghost item no longer tries to sell an item and no longer throws a Lua error
+- hovering a bank or warband tab highlights that tab's cells and dims the rest, just like hovering a bag
+- minor tooltip fixes
 
 RU
 
-- Если поделить стак и бросить его на пустое место, предмет ляжет в новый пустой слот. Работает и в виде категорий, и в виде сетки.
-- В виде категорий группы сворачиваются только по каретке и названию, а не по всей строке.
-- Поля ввода id в Популярном кармана и в категориях не стирают набранное при потере фокуса, ограничено 6 цифрами.
-- Буквы монет теперь всегда отделяются от числа пробелом, в любом формате золота, а не только в сокращённом.
-- Подсказка метки продажи говорит, что монета хлама стоит на том же месте.
+- поиск с открытым банком и одновременным поиском по сумкам и банку ускорен: с 300 мс на слово до ~20 мс
+- первое открытие банка после входа в игру или /reload ускорено: с 250 мс до ~120 мс
+- добавлена возможность отслеживать валюты
+- окно слотов сумок переименовано из BAGS в Bag Slots
+- исправлено: Alt+ЛКМ по призраку предмета больше не запускает продажу и не вызывает ошибку Lua
+- при наведении на вкладки банка и варбанка подсвечиваются ячейки этого раздела, а остальные приглушаются, как при наведении на сумку
+- мелкие исправления подсказок

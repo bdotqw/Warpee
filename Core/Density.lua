@@ -7,6 +7,8 @@ local STEPS = {
     pocketPad = 10, pocketBand = 22, pocketNudge = 20, pocketGap = 7, arrow = 14, moveH = 14,
     pickSize = 32, pickGap = 7, pickPad = 10, pickMinW = 150,
     pickerPad = 6, pickerRow = 25, pickerHdr = 20, pickerHead = 29, pickerMinW = 235, pickerRows = 8,
+    curPad = 8, curRow = 23, curHdr = 18, curTitle = 24, curSearch = 22,
+    curW = 300, curRows = 8, curFont = 13,
     font = 14 },
   { max = 43,
     pad = 10, header = 66, footer = 28, div = 22, hb = 26, row1y = 4, searchH = 22, headerBand = 32,
@@ -14,6 +16,8 @@ local STEPS = {
     pocketPad = 12, pocketBand = 26, pocketNudge = 24, pocketGap = 8, arrow = 16, moveH = 16,
     pickSize = 36, pickGap = 8, pickPad = 12, pickMinW = 176,
     pickerPad = 8, pickerRow = 27, pickerHdr = 22, pickerHead = 32, pickerMinW = 265, pickerRows = 10,
+    curPad = 10, curRow = 24, curHdr = 20, curTitle = 26, curSearch = 24,
+    curW = 330, curRows = 10, curFont = 14,
     font = 15 },
   { max = 56,
     pad = 12, header = 71, footer = 29, div = 24, hb = 28, row1y = 5, searchH = 24, headerBand = 34,
@@ -21,6 +25,8 @@ local STEPS = {
     pocketPad = 14, pocketBand = 30, pocketNudge = 28, pocketGap = 9, arrow = 22, moveH = 20,
     pickSize = 40, pickGap = 9, pickPad = 14, pickMinW = 200,
     pickerPad = 10, pickerRow = 30, pickerHdr = 24, pickerHead = 36, pickerMinW = 300, pickerRows = 14,
+    curPad = 12, curRow = 28, curHdr = 23, curTitle = 30, curSearch = 27,
+    curW = 372, curRows = 14, curFont = 16,
     font = 16 },
 }
 

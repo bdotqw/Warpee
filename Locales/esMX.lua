@@ -36,9 +36,9 @@ local STRINGS = {
   ["Type a search, then click to move what it finds back into your bags"] = "Escribe una búsqueda y con clic izquierdo mueve lo encontrado a las bolsas",
   ["Move what the search found back into your bags"] = "Mover lo encontrado de vuelta a las bolsas",
   ["Make room in your bags first"] = "Haz sitio en las bolsas primero",
-  ["ALT-click to mark it for sale"] = "ALT + clic izquierdo marca el objeto para la venta",
-  ["Marked for sale. ALT-click to lock it from sale"] = "Marcado para vender. ALT + clic izquierdo bloquea la venta",
-  ["Locked from sale. ALT-click to clear it"] = "Bloqueado para la venta. ALT + clic izquierdo lo desbloquea",
+  ["Alt + LMB to mark it for sale"] = "Alt + CI marca el objeto para la venta",
+  ["Marked for sale. Alt + LMB to lock it from sale"] = "Marcado para vender. Alt + CI bloquea la venta",
+  ["Locked from sale. Alt + LMB to clear it"] = "Bloqueado para la venta. Alt + CI lo desbloquea",
   ["Sale mark"] = "Marca de venta",
   ["A coin on the items you marked for sale."] = "Una moneda en los objetos marcados para vender.",
   ["A coin on the items you marked for sale. The junk coin sits in the same spot."] = "Una moneda en los objetos marcados para vender. La moneda de basura está en el mismo sitio.",
@@ -94,6 +94,8 @@ local STRINGS = {
   ["Drop an item here to pin it, or type its id. Pins beat rules, so a pinned item always lands in this category."] = "Arrastra un objeto aquí para fijarlo, o escribe su id. Lo fijado manda sobre las reglas, así que un objeto fijado siempre cae en esta categoría.",
   ["Which section claims an item that more than one rule matches: the higher priority wins, whatever the order in the list. Left at 0, the section higher in the list wins, as before."] = "Qué sección se queda con un objeto que encaja con más de una regla: gana la prioridad más alta, sin importar el orden en la lista. Si la dejas en 0, se lo queda la sección de más arriba, como antes.",
   ["Which windows this category shows in. Unchecked windows drop its items through to the next matching category."] = "En qué ventanas aparece esta categoría. Las ventanas sin marcar dejan pasar sus objetos a la siguiente categoría que encaje.",
+  ["Transferable currencies only"] = "Solo monedas transferibles",
+  ["Open the transfer window"] = "Abre la ventana de transferencia",
 }
 
 ns.AddLocale("esMX", "Spanish (Mexico)", {

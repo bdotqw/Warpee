@@ -1,6 +1,16 @@
 local addonName, ns = ...
 local Theme = ns.Theme
 
+-- The colour of every line we append to the game's tooltip rides in the text itself. On the ru/zh/ko
+-- clients a colour handed to AddLine does not survive: the first show is right, and every later one
+-- leaves our line white, while the game's own lines keep theirs. An inline code is part of the string,
+-- so no later show can wash it out. The call sites still pass their colour, to dress the first show
+-- exactly as before.
+function ns.TipInk(text, r, g, b)
+  local function hex(v) return math.floor(v * 255 + 0.5) end
+  return ("|cff%02x%02x%02x%s|r"):format(hex(r), hex(g), hex(b), text)
+end
+
 local tipFrame
 local TIP_MAXW, TIP_PADT, TIP_TEXT = 340, 9, 13
 

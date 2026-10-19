@@ -29,6 +29,7 @@ local function relayout()
   Bags:Refont()
   if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
   if ns.Bank and ns.Bank.Refresh then ns.Bank:Refresh() end
+  if ns.Cur and ns.Cur.Apply then ns.Cur:Apply() end
   if ns.Pocket and ns.Pocket.Apply then ns.Pocket:Apply() end
   if ns.GuildBankSkin and ns.GuildBankSkin.Restyle then ns.GuildBankSkin:Restyle() end
   local P = ns.CharPicker
@@ -88,6 +89,14 @@ function ns.LayoutLite(scope)
     liteDirty.bags, liteDirty.bank = nil, nil
     if bank then trailBank() end
     if bags then trailBags() end
+    -- Neither picker is a bag or bank cell, but both are sized from the same knobs the lite rows move
+    -- (icon size above all), so the trailing pass has to re-read them or an open panel keeps the old
+    -- density until something else repaints it.
+    if bags or bank then
+      if ns.CurPicker then ns.CurPicker:Refresh() end
+      local P = ns.CharPicker
+      if P and P.frame and P.frame:IsShown() and P.Paint then P:Paint(true) end
+    end
   end)
 end
 
@@ -2723,7 +2732,7 @@ function factories.catlist(parent, spec)
       if s.wpeId then
         GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
         GameTooltip:SetItemByID(s.wpeId)
-        GameTooltip:AddLine(ns.L["Click the × to remove"], 0.6, 0.6, 0.6)
+        GameTooltip:AddLine(ns.TipInk(ns.L["Click the × to remove"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9)
         GameTooltip:Show()
       end
     end)

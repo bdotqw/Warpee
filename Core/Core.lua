@@ -66,6 +66,15 @@ local DEFAULTS = {
   -- goldBlizzard: the money line's coin is Warpee's own unless this says otherwise (the client's icons
   -- are the ones the rest of the game writes, kept for anyone who wants the window to match them).
   goldFormat = "short", goldLetters = false, goldOnly = false, goldBlizzard = false,
+  -- curStrip: the row of the currencies the client itself tracks, drawn inside the bags under the grid
+  -- behind a seam. On by default: it answers "how much of it do I have" without opening the character
+  -- panel, and a tick in the panel behind it is the character panel's own pin, both ways.
+  -- Features/Currencies.lua reads the flag off Bags.
+  curStrip = true,
+  -- curOrder: the row's own display order -- watched ids in the player's arrangement. Cells are
+  curOrder = {},
+  -- curDir: the row grows from the middle out of the box; "ltr" and "rtl" are the player's other picks.
+  curDir = "center",
   vendorIlvl = 100, vendorIlvlMin = 10, vendorConsum = false, vendorAuto = false,
   vendorTokens = false, vendorTokenExp = {},
   vendorKeepBoE = true, vendorKeepWarbound = true, vendorKeepGems = true,
@@ -198,6 +207,7 @@ function ns.PushConfig()
   Bags.goldLetters = WarpeeDB.goldLetters
   Bags.goldOnly = WarpeeDB.goldOnly
   Bags.goldBlizzard = WarpeeDB.goldBlizzard
+  Bags.curStrip = WarpeeDB.curStrip ~= false
   Bags.font = WarpeeDB.font
   Bags.showGauge = WarpeeDB.showGauge
   Bags.badge = WarpeeDB.badge
@@ -264,18 +274,37 @@ function ns.ApplyAll()
   if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
 end
 
--- A pass that paints a whole bank is not a fixed number of cells, and a cell nobody has seen
--- before costs a tooltip read on top of its paint, so the budget is time and not a count. A
--- pass records the moment it started, and every caller that can afford to stop asks before
--- it takes on more: the cost of a cell is whatever the moment makes it, so a count that
--- fits one machine starves another.
-local BUDGET = 0.1
+-- Two clocks, because there are two kinds of work and they cost very different things.
+--
+-- The read: a cell nobody has seen before pays a tooltip call, and a full bank is hundreds of them.
+-- That is the work the client stops a pass for, so it keeps a slice of one frame's worth of work (time
+-- and not a count: what a cell costs is whatever the moment makes it, so a count that fits one machine
+-- starves another). It was a tenth of a second before this -- a slice that big ran 100 ms of read per
+-- frame and the opening bank read as one ~130 ms hitch followed by two more -- and 8 ms is the
+-- single-digit number the passes that chunk this way aim for.
+--
+-- The drawing: a texture set, a count, a ring, a string. Ours, cheap, and never sliced anywhere else in
+-- the addon -- the bags paint their whole grid in one call, in and out of combat, and always have. So a
+-- pass that draws runs its whole plan in one call and the window arrives drawn, which is the shape a
+-- window should have: a bank that filled itself in cell by cell read as a stutter, not as an opening.
+-- The ceiling below is not a slice but the way out of a plan too big for one frame at all (a snapshot of
+-- a thousand slots); past it the pass yields and the next frame carries on.
+local BUDGET = 0.008
+local FILL_CEILING = 0.5
 local lastEntry = GetTimePreciseSec()
 function ns.ReportEntry()
   lastEntry = GetTimePreciseSec()
 end
 function ns.OutOfTime()
   return (GetTimePreciseSec() - lastEntry) > BUDGET
+end
+function ns.FillOutOfTime()
+  -- In combat the client's own watchdog is far stricter than the peace-time ceiling: a fill that ran to
+  -- half a second there was logged as "script ran too long" inside a texture write, and the same was
+  -- reported for a tab switch in the snapshot. The ceiling drops to the read slice while the player is in
+  -- combat, so every frame of a fill stays tiny; out of combat the window still arrives whole.
+  local cap = InCombatLockdown() and BUDGET or FILL_CEILING
+  return (GetTimePreciseSec() - lastEntry) > cap
 end
 
 local function repaintItems()
@@ -302,6 +331,29 @@ local function repaintSoon()
     repaintQ = nil
     repaintItems()
   end)
+end
+
+-- A late verdict is the one thing that arrives after the pass that asked for it, and what it changes is
+-- one thing on the cells that hold the link: the red ring the unusable read draws. Those cells are painted
+-- and nothing else is. The windows walk their own pools (Bags:RepaintLinks, View:RepaintLinks) and answer
+-- with how many cells they really repainted; a cell whose picture the verdict leaves alone keeps it, since
+-- the guard inside ns.UpdateItemButton compares everything the ring is a function of.
+function ns.PaintVerdicts(links)
+  if not links then return 0 end
+  local painted = 0
+  local bags = Bags
+  if bags and bags.frame and bags.frame:IsShown() and bags.RepaintLinks then
+    painted = painted + (bags:RepaintLinks(links) or 0)
+  end
+  local bank = ns.Bank
+  if bank and bank.frame and bank.frame:IsShown() and bank.RepaintLinks then
+    painted = painted + (bank:RepaintLinks(links) or 0)
+  end
+  -- The guild bank draws the same rings off the same verdicts, and the repaint that used to follow the
+  -- queue reached it too: it has no pool of cells to hand a link to, so it repaints the slots it shows.
+  local gb, f = ns.GuildBankSkin, _G.GuildBankFrame
+  if gb and gb.PaintSlots and f and f:IsShown() then ns.Guard("guild bank paint", gb.PaintSlots, gb) end
+  return painted
 end
 
 ns.RepaintSoon = repaintSoon
@@ -752,6 +804,10 @@ local function onLogin()
   HookBagToggles()
   WarpeeDB.bankTabSel = WarpeeDB.bankTabSel or {}
   if ns.Bank then ns.Bank:HideBlizzard() end
+  -- The bank's own pool is warmed a few seconds after login rather than here: a live cell cannot be built
+  -- in combat, so the pool has to be waiting before the fight, but its frames are the same a normal open
+  -- builds and must not be paid for on the login path or in front of the player. See View:Warm in Bank.lua.
+  if ns.Bank and ns.Bank.Warm then C_Timer.After(3, function() ns.Bank:Warm() end) end
   if ns.ApplyLocaleText then ns.ApplyLocaleText() end
   if ns.ApplyMinimapIcon then ns.ApplyMinimapIcon() end
   if C_CVar and C_CVar.SetCVarBitfield then
@@ -1019,33 +1075,15 @@ local function markCleared(tt)
   tt:HookScript("OnTooltipCleared", function(s) s.wpeCounted = nil end)
 end
 
-local function tipFont()
-  local fs = _G.GameTooltipTextLeft1
-  if fs and fs.GetFont then
-    local p = fs:GetFont()
-    if p then return p end
-  end
-  return nil
-end
-
-local function TT(s)
-  local need = ns.Fonts:Need()
-  if need then
-    local p = tipFont()
-    if p and not ns.Fonts:Covers(need, p) then return s end
-  end
-  return L[s]
-end
-
 local function countLine(e, withBank)
   local bank = withBank and e.bank or 0
   local total = e.bags + bank
   if e.bags > 0 and bank > 0 then
-    return (TT("%d  (%d bags, %d bank)")):format(total, e.bags, bank)
+    return (L["%d  (%d bags, %d bank)"]):format(total, e.bags, bank)
   elseif bank > 0 then
-    return (TT("%d  (bank)")):format(bank)
+    return (L["%d  (bank)"]):format(bank)
   end
-  return (TT("%d  (bags)")):format(e.bags)
+  return (L["%d  (bags)"]):format(e.bags)
 end
 
 local function countRows(tt, id)
@@ -1064,17 +1102,17 @@ local function countRows(tt, id)
   total = total + wb
   if total <= 0 then return false end
   tt:AddLine(" ")
-  tt:AddLine(TT("Inventory"), 1, 0.82, 0)
+  tt:AddLine(ns.TipInk(L["Inventory"], 1, 0.82, 0), 1, 0.82, 0)
   for _, e in ipairs(rows) do
     local col = e.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
-    tt:AddDoubleLine(e.name, countLine(e, withBank),
-      col and col.r or 1, col and col.g or 1, col and col.b or 1, 1, 1, 1)
+    local r, g, b = col and col.r or 1, col and col.g or 1, col and col.b or 1
+    tt:AddDoubleLine(ns.TipInk(e.name, r, g, b), countLine(e, withBank), r, g, b, 1, 1, 1)
   end
   if wb > 0 then
     local r, g, b = ns.Theme:C("azure")
-    tt:AddDoubleLine(TT("Warband bank"), tostring(wb), r, g, b, 1, 1, 1)
+    tt:AddDoubleLine(ns.TipInk(L["Warband bank"], r, g, b), tostring(wb), r, g, b, 1, 1, 1)
   end
-  tt:AddDoubleLine(TT("Total"), tostring(total), 1, 0.82, 0, 1, 1, 1)
+  tt:AddDoubleLine(ns.TipInk(L["Total"], 1, 0.82, 0), tostring(total), 1, 0.82, 0, 1, 1, 1)
   return true
 end
 
@@ -1099,22 +1137,27 @@ local function itemTooltip(tt, data)
   if not (WarpeeDB and WarpeeDB.tipCounts == false) then drew = countRows(tt, id) end
   if pinSlot(tt) then
     if not drew then tt:AddLine(" ") end
+    -- A pin is moved by dragging it to another cell, and that line stands above the clear line:
+    -- the two actions a pinned cell offers are moving it and emptying it. The sale hint is left to
+    -- the bag and bank cells, so the pin's own tooltip spends its lines on those two alone (an
+    -- Alt-click on a pin still cycles the sale mark, it is just not promised here).
+    tt:AddLine(ns.TipInk(L["Drag to reorder"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9)
     -- The key alone when there is one: it is the binding the player chose, and the middle
     -- click keeps working under it whether or not this line names it. With no key bound the
     -- middle click is the whole story, and it steps aside only if the player bound it.
     local name = ns.PinKeyName()
     local msg
     if name then
-      msg = TT("%s clears the slot"):format(name)
+      msg = L["%s clears the slot"]:format(name)
     elseif (GetBindingAction("BUTTON3") or "") == "" then
-      msg = TT("Middle-click to clear the slot")
+      msg = L["Middle-click to clear the slot"]
     else
-      msg = TT("Bind a key to clear the slot")
+      msg = L["Bind a key to clear the slot"]
     end
-    tt:AddLine(msg, 0.6, 0.6, 0.6)
+      tt:AddLine(ns.TipInk(msg, 0.9, 0.9, 0.9), 0.9, 0.9, 0.9)
     drew = true
   end
-  if ownSlot(tt) then
+  if ownSlot(tt) and not pinSlot(tt) then
     local V = ns.Vendor
     -- The line is a promise, so it is made only where the alt-click would keep it: Vendor:Markable is the
     -- click's own question, the hard vetoes and the player's keep settings included, so the two answer
@@ -1128,19 +1171,16 @@ local function itemTooltip(tt, data)
     if not link and tt.GetItem then local _, l = tt:GetItem(); link = l end
     local state = (V and V.SellState) and V:SellState(id, link) or nil
     if state or (V and V.Markable and V:Markable(bag, bag and o:GetID(), id, link, info)) then
-      local r, g, b = 0.5, 0.5, 0.5
       local msg
       if state == "lock" then
-        msg = "Locked from sale. ALT-click to clear it"
-        if V.IsOpen and V:IsOpen() then r, g, b = 1, 0.4, 0.4 end
+        msg = "Locked from sale. Alt + LMB to clear it"
       elseif state == "mark" then
-        msg = "Marked for sale. ALT-click to lock it from sale"
-        r, g, b = 1, 0.82, 0
+        msg = "Marked for sale. Alt + LMB to lock it from sale"
       else
-        msg = "ALT-click to mark it for sale"
+        msg = "Alt + LMB to mark it for sale"
       end
       if not drew then tt:AddLine(" ") end
-      tt:AddLine(TT(msg), r, g, b)
+      tt:AddLine(ns.TipInk(L[msg], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9)
       drew = true
     end
   end

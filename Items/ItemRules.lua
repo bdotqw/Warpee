@@ -50,7 +50,7 @@ end
 -- or a vault is hundreds of them inside one script, which is more than the client sits
 -- through before it stops the pass with "script ran too long". So a pass only scans while it
 -- has time left, the rest of the links wait their turn, and the answer arrives over the next
--- few frames with a single repaint once the queue is empty.
+-- few frames, when the cells that hold those links are painted (see ns.PaintVerdicts).
 local queue, queued, armed = {}, {}, false
 
 local drain
@@ -73,14 +73,16 @@ end
 drain = function()
   armed = false
   ns.ReportEntry()
-  local hit, done = false, 0
+  local hit, done, hits = false, 0, nil
   while done < #queue and not ns.OutOfTime() do
     done = done + 1
     local e = queue[done]
     local bad
     if e.bag then bad = ns.IsItemUnusable(e.bag, e.slot, e.link)
     else bad = ns.IsLinkUnusable(e.link) end
-    if bad then hit = true end
+    -- The links that came back bad are kept, not just the fact that one did: the ring they earn is
+    -- drawn on the cells that hold them, and those cells are the whole of what has to paint.
+    if bad then hit = true; hits = hits or {}; hits[e.link] = true end
     queued[e.link] = nil
   end
   if done > 0 then
@@ -91,8 +93,15 @@ drain = function()
   if #queue > 0 then
     armed = true
     C_Timer.After(0, drain)
-  elseif hit and ns.RepaintSoon then
-    ns.RepaintSoon()
+    return
+  end
+  if hit then
+    -- A verdict that lands after the pass that asked for it changes one thing on one cell: the red ring of
+    -- the unusable read. Painting the windows for it -- every cell of the bags and of the bank -- is what a
+    -- bank open paid a second time once the queue emptied, a beat after the window was up, and it read as a
+    -- second wave of cells arriving. The cells that hold the links are painted instead, and only those.
+    if ns.PaintVerdicts then ns.PaintVerdicts(hits)
+    elseif ns.RepaintSoon then ns.RepaintSoon() end
   end
 end
 

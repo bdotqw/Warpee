@@ -2,7 +2,7 @@
 ## Title: Warpee
 ## Notes: One-bag inventory with categories, snapshots and smart selling
 ## Author: Naavo
-## Version: 12.1
+## Version: 12.2
 ## SavedVariables: WarpeeDB
 ## X-Category: Inventory
 ## IconTexture: Interface\AddOns\Warpee\Media\Icons\logo.tga
@@ -29,6 +29,8 @@ Core\Theme.lua
 Core\Density.lua
 Core\Widgets.lua
 Core\Tooltip.lua
+Features\Currencies.lua
+Features\CurrencyPicker.lua
 Items\ItemRules.lua
 Items\ItemButton.lua
 Windows\Bags.lua

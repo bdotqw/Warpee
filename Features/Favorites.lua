@@ -158,12 +158,13 @@ local function tipFor(c, index)
         GameTooltip:SetItemByID(pin)
       end
       if worn(pin) then
-        GameTooltip:AddLine(ns.L["Equipped"], 0.6, 0.6, 0.6, true)
+        GameTooltip:AddLine(ns.TipInk(ns.L["Equipped"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9, true)
       end
     end
   else
     GameTooltip:SetText(ns.L["Favorites"])
-    GameTooltip:AddLine(ns.L["Drag an item here to keep it one click away"], 0.6, 0.6, 0.6, true)
+    GameTooltip:AddLine(ns.TipInk(ns.L["Drag an item here for quick access"], 0.9, 0.9, 0.9),
+      0.9, 0.9, 0.9, true)
   end
   GameTooltip:Show()
 end

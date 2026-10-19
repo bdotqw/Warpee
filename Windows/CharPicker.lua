@@ -78,6 +78,11 @@ function Picker:Build()
   local close = ns.CreateGlyphButton(m, "×", 23)
   close:SetPoint("TOPRIGHT", -PAD, -PAD)
   close:SetScript("OnClick", function() m:Hide() end)
+  -- Quiet at rest, up to the white text ink under the pointer, the way the bags' header marks read.
+  close.wpeIconPaint = function(s)
+    ns.TintMarkX(s, (s.wpeHot and not s.offDuty) and "text" or "dim")
+  end
+  close.wpeIconPaint(close)
   self.close = close
   ns.AddTip(close, "Close", "bottom")
 
@@ -281,6 +286,11 @@ function Picker:Paint(keepScroll)
   local span = math.max(0, y - bodyH)
   self.sf:SetVerticalScroll(math.min(span, math.max(0, scroll)))
   self:PaintBar()
+  -- This one takes its side of the window. The two side panels are mutually exclusive (Toggle takes the
+  -- other down), so no sibling frame is handed to the helper -- anchoring to it is what built the cycle.
+  if self.win then
+    ns.SidePlace(self.frame, self.win, self.side or "left", "top")
+  end
 end
 
 function Picker:UpdateHiddenBorder()
@@ -307,6 +317,9 @@ function Picker:Toggle(anchor, side, onSelect, currentKey, mode, size)
   applyDensity(self.size)
   local m = self:Build()
   if m:IsShown() and self.anchor == anchor then m:Hide(); return end
+  -- The two side panels never stand together: this one takes the currency panel down, so the pair can
+  -- never crowd one flank or stack a second panel past the screen's own edge.
+  if ns.CurPicker then ns.CurPicker:Close() end
   self.anchor, self.onSelect, self.currentKey = anchor, onSelect, currentKey
   self.mode = mode
   self.query, self.showHidden = nil, false
@@ -321,14 +334,20 @@ function Picker:Toggle(anchor, side, onSelect, currentKey, mode, size)
   else
     self.capH = nil
   end
-  self:Paint()
   if not win then return end
-  m:ClearAllPoints()
-  if side == "right" then
-    m:SetPoint("TOPLEFT", win, "TOPRIGHT", 6, 0)
-  else
-    m:SetPoint("TOPRIGHT", win, "TOPLEFT", -6, 0)
+  -- The list belongs to the window that opened it: when that window goes away, so does the list. The bags
+  -- close the picker by hand in their own OnHide, but the bank does not -- so a picker opened there used to
+  -- outlive it and stay standing beside a window that was no longer on the screen, a whole column away
+  -- from the bags that happened to be open. Hooking the owner covers every window, present and future, and
+  -- is done once per frame: a second toggle on the same window must not stack hooks.
+  if win.HookScript and not win.wpePickerOwner then
+    win.wpePickerOwner = true
+    win:HookScript("OnHide", function() Picker:Close() end)
   end
+  -- The wanted side is a preference, not an anchor: Paint places the panel through ns.SidePlace, which
+  -- moves it to the other flank when the wanted one would run off the screen.
+  self.win, self.side = win, side
+  self:Paint()
   m:Show()
 end
 

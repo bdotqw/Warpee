@@ -16,6 +16,13 @@ local SHARED = {
   faint      = { 0.392, 0.427, 0.482, 1.00 },
   azure      = { 0.435, 0.706, 0.831, 1.00 },
   reagent    = { 0.353, 0.804, 0.616, 1.00 },
+  -- The currency row's own ink: one colour for every tracked currency, so a ring on that row never reads as
+  -- an item quality (the grid's language two rows above), as the reagent mint (a meaning of its own), as
+  -- the hover accent or as the danger red. A muted steel-blue, measured against the whole kit: its nearest
+  -- chromatic quality colour is 0.45 away, its nearest accent hue (nord's cyan) 0.39 -- the closest the
+  -- palette lets anything get -- and the black keyline inside the ring keeps the line readable on a pale
+  -- coin icon. It is shared on purpose: fourteen hand-tuned values would drift apart.
+  coin       = { 0.460, 0.530, 0.660, 1.00 },
   gaugeHi    = { 0.878, 0.451, 0.420, 1.00 },
   -- The one red in the kit: the colour the rule chips paint "Not" with (|cffe64d4d), shared so the
   -- category/divider delete cross can read as the same "this removes/negates" red in every theme.

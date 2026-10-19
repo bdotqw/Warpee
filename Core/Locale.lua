@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
-local TABLES, COINS, SHORTS, WORDS, ALIAS, WORDMAP, PRIMARY = {}, {}, {}, {}, {}, {}, {}
+local TABLES, COINS, SHORTS, COUNTS, WORDS, ALIAS, WORDMAP, PRIMARY = {}, {}, {}, {}, {}, {}, {}, {}
 local PLURAL = {}
 local order
 local FALLBACK = { esMX = "esES" }
@@ -75,6 +75,12 @@ ns.LOCALE_LABELS = { enUS = "English" }
 COINS.enUS = { g = "g", s = "s", c = "c" }
 SHORTS.enUS = { dec = ".", units = { { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } } }
 
+-- The unit ladder a cell badge folds through (see ns.ShortCount): one letter, base ten, no fractions.
+-- Every Latin and Cyrillic locale rides this same Latin ladder on purpose -- a count badge reads the
+-- same in all of them, and the width of the text never moves with the language. The Han and Korean
+-- locales name their own ladders in their files, where counting runs in ten-thousands, not thousands.
+COUNTS.enUS = { { 1e12, "t" }, { 1e9, "b" }, { 1e6, "m" }, { 1e3, "k" } }
+
 -- English carries its own plural on the count phrases where the noun rides the number: "1 item" against
 -- "5 items". Count phrases whose noun does not attach to the number ("catches 5 in bags") stay plain keys
 -- with no list. English keeps no full strings table, so this holds only the keys that bend; a key absent
@@ -102,6 +108,7 @@ function ns.AddLocale(code, label, def)
   TABLES[code] = def.strings
   COINS[code] = def.coin
   SHORTS[code] = def.short
+  COUNTS[code] = def.count
   if def.plural then PLURAL[code] = def.plural end
   if def.words then WORDS[#WORDS + 1] = def.words; WORDMAP[code] = def.words end
   -- The words the language names its things by, folded once here: a language takes several spellings for
@@ -279,6 +286,57 @@ end
 function ns.ShortForm()
   local code = ns.LocalePick()
   return SHORTS[code] or SHORTS[FALLBACK[code]] or SHORTS.enUS
+end
+
+-- The short form of a number in the player's own units, the same tables the coin line is written with
+-- (see ns.FormatNumber): an amount folds into the language's own units. The value is floored to the
+-- shown decimal, never rounded up -- "4.9K" for 4875 would claim more than is owned. A count badge
+-- does not ride this form: it folds through ns.ShortCount below, which is built to fit a corner.
+function ns.ShortNumber(n)
+  n = math.floor(n or 0)
+  if n < 1000 then return tostring(n) end
+  local form = ns.ShortForm()
+  local units = form.units
+  for i, u in ipairs(units) do
+    local scale, suf = u[1], u[2]
+    if n >= scale then
+      local r = math.floor(n / scale * 10 + 1e-9) / 10
+      if r >= 1000 and i > 1 then
+        scale, suf = units[i - 1][1], units[i - 1][2]
+        r = math.floor(n / scale * 10 + 1e-9) / 10
+      end
+      if r == math.floor(r) then return string.format("%d%s", r, suf) end
+      return (string.format("%.1f", r):gsub("%.", form.dec)) .. suf
+    end
+  end
+  return tostring(n)
+end
+
+-- A count as a cell badge shows it: up to four digits the figure is written out exactly (a badge
+-- holding 1500 says 1500, not "2k" -- a token that close to the player's own amount, rounded, would
+-- claim something visibly wrong), and from ten thousand it folds: one letter, no space, no fraction,
+-- never past three digits, so the badge cannot outgrow its corner. The token is rounded to the whole
+-- unit (the owner's ask -- the exact figure stays with the stacks themselves) and steps up only where
+-- the rounded number would spill a digit: 999,500 reads "1m", 999,499 stays "999k". Ten thousand is
+-- the Han and Korean ladders' own line (万 is ten thousand), so the fold point is one rule for every
+-- language; above it their half-filled next unit is left alone (5000万), only a full ten thousand up.
+function ns.ShortCount(n)
+  n = math.floor(n or 0)
+  if n < 10000 then return tostring(n) end
+  local code = ns.LocalePick()
+  local units = COUNTS[code] or COUNTS[FALLBACK[code]] or COUNTS.enUS
+  for i, u in ipairs(units) do
+    local scale, suf = u[1], u[2]
+    if n >= scale then
+      local r = math.floor(n / scale + 0.5)
+      if r >= 1000 and i > 1 and r * scale >= units[i - 1][1] then
+        scale, suf = units[i - 1][1], units[i - 1][2]
+        r = math.floor(n / scale + 0.5)
+      end
+      return string.format("%d%s", r, suf)
+    end
+  end
+  return tostring(n)
 end
 
 local function foldByte(ch)

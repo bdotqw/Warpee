@@ -149,14 +149,21 @@ local function questItem(bag, slot)
   return (qi and (qi.isQuestItem or qi.questID)) and true or false
 end
 
-local function sellRepaint()
+-- key names the one item whose mark changed, when a single cell was clicked; the batch paths (a run of
+-- sales, the login fold) name none and repaint whole. With a key the bank paints only the cells that item
+-- sits in (View:RepaintMark): it draws far more cells than the bags, and an alt-click beside the open bank
+-- used to re-lay every one of them out for a single badge.
+local function sellRepaint(key)
   ns.ClearItemPaint()
   local B = ns.Bags
   if B and B.frame and B.frame:IsShown() then B:Layout() end
   -- A mark or a lock changed what the scan would take, so the header coin re-reads the bags: marking a
   -- kept piece lights it, locking the last sellable one darkens it.
   if B and B.RefreshSellCoin then B:RefreshSellCoin() end
-  if ns.Bank then ns.Bank:Repaint() end
+  local Bank = ns.Bank
+  if Bank then
+    if key and Bank.RepaintMark then Bank:RepaintMark(key) else Bank:Repaint() end
+  end
   if ns.Pocket then ns.Pocket:Soon() end
   local O = ns.Options
   if O and O.ReflowPages and O.frame and O.frame:IsShown() then O:ReflowPages() end
@@ -309,7 +316,7 @@ function Vendor:CycleSell(id, link, name, icon)
   else
     e.l = true
   end
-  sellRepaint()
+  sellRepaint(k)
 end
 
 -- Take marks off by key with one repaint at the end: a batch of sales lands together, and a repaint
@@ -475,7 +482,10 @@ function Vendor:Sellable(bag, slot, id, link)
   if info and info.itemID ~= id then info = nil end
   if not self:CanLock(info, link) then return false end
   if bag and slot and (questItem(bag, slot) or refundable(bag, slot)) then return false end
-  local _, _, _, _, _, classID = C_Item.GetItemInfoInstant(link)
+  -- The class comes off whatever the id has: a ghost in the pocket or the favorites row is pinned by id
+  -- alone, and GetItemInfoInstant takes an itemID as readily as a link -- a nil link here was a hard error
+  -- on every alt-click of such a ghost.
+  local _, _, _, _, _, classID = C_Item.GetItemInfoInstant(link or id)
   if classID == Enum.ItemClass.Battlepet then return false end
   if banned(id) then return false end
   return true
@@ -487,6 +497,10 @@ end
 -- keep settings refuse the click itself, not only the line that advertised it.
 function Vendor:Markable(bag, slot, id, link, info)
   if self:SellState(id, link) ~= nil then return true end
+  -- Nothing to remember a piece by is nothing to offer: sellKey is the gate CycleSell itself obeys, and a
+  -- "yes" here where that key is nil would promise a click that quietly does nothing. Gear with no item
+  -- string in hand is the case this catches; ids and links both sail through.
+  if not sellKey(id, link) then return false end
   if not self:Sellable(bag, slot, id, link) then return false end
   -- The tooltip hands in the record it already read; a click has none, so it reads the cell's own.
   if not info then

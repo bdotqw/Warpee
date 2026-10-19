@@ -223,12 +223,13 @@ local function tipFor(c, index)
         GameTooltip:SetItemByID(pin)
       end
       if worn(pin) then
-        GameTooltip:AddLine(ns.L["Equipped"], 0.6, 0.6, 0.6, true)
+        GameTooltip:AddLine(ns.TipInk(ns.L["Equipped"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9, true)
       end
     end
   else
     GameTooltip:SetText(ns.L["Pocket"])
-    GameTooltip:AddLine(ns.L["Drag an item here to keep it one click away"], 0.6, 0.6, 0.6, true)
+    GameTooltip:AddLine(ns.TipInk(ns.L["Drag an item here for quick access"], 0.9, 0.9, 0.9),
+      0.9, 0.9, 0.9, true)
   end
   GameTooltip:Show()
 end
@@ -527,7 +528,9 @@ function Pocket:Build()
   -- share the bags and the bank give the same 16px cog.
   local gear = ns.CreateGlyphButton(w, "")
   gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
-  ns.AddTip(gear, ns.L["Settings"], "top")
+  -- The key, not ns.L[key]: the tip resolves it on every show, so a language switch reaches it
+  -- without a reload (a pre-resolved word would freeze in the language it was built in).
+  ns.AddTip(gear, "Settings", "top")
   local gearIcon = gear:CreateTexture(nil, "ARTWORK")
   gearIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\gear.tga]])
   gearIcon:SetPoint("CENTER")
@@ -544,7 +547,7 @@ function Pocket:Build()
 
   local plus = ns.CreateGlyphButton(w, "+")
   plus:SetScript("OnClick", function() Pocket:TogglePicks() end)
-  ns.AddTip(plus, ns.L["Popular"], "top")
+  ns.AddTip(plus, "Popular", "top")
   plus.wpeMarkW = 2
   plus.wpeIconPaint = function(s)
     local hot = s.wpeHot and not s.offDuty
@@ -632,7 +635,7 @@ function Pocket:Build()
       if s.wpeID then
         GameTooltip:SetItemByID(s.wpeID)
         if s.wpePinned then
-          GameTooltip:AddLine(ns.L["Already in the pocket"], 0.6, 0.6, 0.6, true)
+          GameTooltip:AddLine(ns.TipInk(ns.L["Already in the pocket"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9, true)
         end
       end
       GameTooltip:Show()
