@@ -512,7 +512,7 @@ local GRID_PAGE = {
           if ns.Cur and ns.Cur.Apply then ns.Cur:Apply() end
           relayout()
         end,
-        desc = "A row of the currencies the game itself tracks, drawn inside the bags under the grid, below a hairline divider: icon and count per currency, in the game's own order, wrapped to the window's width. A click on a cell opens the currency panel, Shift-click stops tracking one, and dragging a cell reorders them. The ticks in that panel track and untrack in the character panel too." },
+        desc = "A row of the currencies the game itself tracks, drawn inside the bags under the grid, below a hairline divider: icon and count per currency, in the game's own order, wrapped to the window's width. The plus past the last coin, and the switch in the header, open the currency panel; Shift-click stops tracking one, and dragging a cell reorders them. The ticks in that panel track and untrack in the character panel too." },
       { type = "select", name = "Currencies direction", col = 2, of = 2,
         get = curDirGet, set = curDirSet,
         keys = function() return CUR_DIRS end, label = function(k) return CUR_DIR_LABELS[k] or k end,

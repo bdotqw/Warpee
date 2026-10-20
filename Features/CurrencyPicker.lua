@@ -282,8 +282,7 @@ end
 -- every currency under the section it came in -- the client's own "Unused" one included, so it reads
 -- like any other section -- and everything a query does not match left out with them. A currency never
 -- met stays out: with no tick it would take and no door to open, it is a line nothing can be done with.
--- Pure on purpose -- the walk needs the game, the filtering needs only the rows, so the harness drives
--- this directly.
+-- Pure on purpose -- the walk needs the game, the filtering needs only the rows.
 function Pick.Filter(rows, query, onlyTransfer)
   local out = {}
   local q = query and query:lower()
@@ -501,8 +500,11 @@ function Pick:Paint(keepScroll)
   -- switch. The two side panels are mutually exclusive, so no sibling frame is handed to the helper:
   -- anchoring one panel to the other is exactly what built the anchor cycle the client refused. The
   -- helper still guards the wanted side off the edge.
-  local align = "top"
-  if self.win and self.win.GetTop and self.win.GetBottom and UIParent and UIParent.GetHeight then
+  -- The row's add door asks for the window's foot, the header's switch for its head; only the head's own
+  -- choice falls back to the foot when the window stands too low for the panel, or the list would run off
+  -- the screen. `self.place` is the door's own word -- "bottom" -- and is taken as it stands.
+  local align = self.place or "top"
+  if not self.place and self.win and self.win.GetTop and self.win.GetBottom and UIParent and UIParent.GetHeight then
     local top, bottom = self.win:GetTop(), self.win:GetBottom()
     local sh = UIParent:GetHeight() or 0
     if top and bottom and sh > 0 then
@@ -605,7 +607,7 @@ end
 ------------------------------------------------------------------------------
 -- The window
 ------------------------------------------------------------------------------
--- The scrollbar's own arithmetic, pure so the harness drives it: how tall the thumb stands and how far down
+-- The scrollbar's own arithmetic, pure: how tall the thumb stands and how far down
 -- it sits for a list `childH` tall in a window `view` tall, scrolled to `scroll` of a `span` that is left to
 -- travel. The thumb never falls under sixteen points -- a smaller one is a mark nobody can grab -- and never
 -- outstays the track. Nil means "no bar at all": the list fits.
@@ -794,28 +796,38 @@ end
 
 -- Opens beside the window that asked: the panel hangs off the roomy side -- the half of the screen
 -- the window's middle stands away from -- and stands level with the bags' own head, near the currency
--- switch that summoned it. The character picker uses the same top line, and the two never stand
--- together. Only a window too low for the panel's height falls back to the foot, so the list stays on
--- the screen instead of hanging below it.
-function Pick:Toggle(anchor)
+-- switch that summoned it. The row's add door names the other line instead: "bottom" puts the panel at
+-- the window's lower-left corner, by the row the door belongs to. The character picker uses the same top
+-- line, and the two never stand together. Only a window too low for the panel's height falls back to the
+-- foot, so the list stays on the screen instead of hanging below it.
+function Pick:Toggle(anchor, place)
   applyDensity()
   local w = self:Build()
-  if w:IsShown() and self.anchor == anchor then w:Hide(); return end
+  -- The two doors are one toggle each: the same door pressed twice takes the panel down, while a press
+  -- on the other door moves it to that door's line rather than closing what the player asked to see.
+  if w:IsShown() and self.anchor == anchor and self.place == place then w:Hide(); return end
   -- The two side panels never stand together: this one takes the character picker down, so the pair can
   -- never crowd one flank or stack a second panel past the screen's own edge.
   if ns.CharPicker then ns.CharPicker:Close() end
   self.anchor = anchor
+  self.place = place
   self.query = nil
   if self.filter then self.filter:SetText("") end
   -- The window, not the bar: the bar hangs a full strip-height under the bags, and feet pinned to it
   -- land the panel lower than the bags' own bottom.
   local win = (anchor and anchor.frame) or anchor
   self.win = win
-  -- The side the room is on: the half of the screen the window's middle stands away from. Taken as the
-  -- first choice only -- the placement in Paint flips it when the character picker already stands there.
-  local cx = win and win.GetCenter and win:GetCenter()
-  local sw = UIParent and UIParent:GetWidth() or 0
-  self.side = (cx and sw > 0 and cx < sw / 2) and "right" or "left"
+  if place == "bottom" then
+    -- The add door stands at the foot of the bags, so its panel opens there, on the left flank the row
+    -- runs from. The helper still guards that side off the screen.
+    self.side = "left"
+  else
+    -- The side the room is on: the half of the screen the window's middle stands away from. Taken as the
+    -- first choice only -- the placement in Paint flips it when the character picker already stands there.
+    local cx = win and win.GetCenter and win:GetCenter()
+    local sw = UIParent and UIParent:GetWidth() or 0
+    self.side = (cx and sw > 0 and cx < sw / 2) and "right" or "left"
+  end
   if not win then
     w:ClearAllPoints()
     w:SetPoint("CENTER")

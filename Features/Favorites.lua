@@ -121,29 +121,6 @@ local function makeGhost(parent)
 end
 ns.SlotGhost = makeGhost
 
-local dragIcon
-
-local function dragArt()
-  if dragIcon then return dragIcon end
-  local f = CreateFrame("Frame", nil, UIParent)
-  f:SetFrameStrata("TOOLTIP")
-  f:SetSize(32, 32)
-  f:SetAlpha(0.85)
-  f:Hide()
-  local t = f:CreateTexture(nil, "OVERLAY")
-  t:SetAllPoints()
-  t:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-  f.icon = t
-  f:SetScript("OnUpdate", function(s)
-    if not IsMouseButtonDown("LeftButton") then Fav:Drop(); return end
-    local x, y = GetCursorPosition()
-    local k = UIParent:GetEffectiveScale()
-    s:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x / k, y / k)
-  end)
-  dragIcon = f
-  return f
-end
-
 local function tipFor(c, index)
   local pin = Fav:List()[index]
   GameTooltip:SetOwner(c, "ANCHOR_RIGHT")
@@ -307,28 +284,63 @@ function Fav:Lock(index)
 end
 
 function Fav:Lift(index)
+  -- A drag always starts clean: OnDragStop is what clears these, and a drag that ended without one
+  -- would otherwise leave the next drop, an item dragged in from the bags, looking like our own move.
+  self.lifted, self.liftFrom = nil, nil
   local pin = self:List()[index]
   if not pin then return end
   self.moving = index
   local b = self.slots[index]
+  local live = (b and b.favBag) and true or false
   if b then ns.SetSlotHighlight(b, true) end
   favSound("pickup", b and b.favBag, b and b.favSlot)
-  local f = dragArt()
-  local sz = math.max(16, (b and b:GetWidth()) or 0)
-  f:SetSize(sz, sz)
-  f.icon:SetTexture(ns.PinIcon(ns.ItemStubID(pin)))
-  f:Show()
+  -- The cell is an overlay over a slot it only mirrors, so the game picks nothing up by itself: the
+  -- item behind the pin goes on the cursor by hand, and from there the drag is the game's own -- the
+  -- bar's drop handler writes the item action, a bag slot moves the piece -- with the cursor art the
+  -- game draws, so there is no art of this row's to follow the pointer. A live cell names the exact
+  -- bag slot, and the container reader takes that copy. A ghost has no slot, so the client resolves
+  -- its link on its own -- that is the drag worth keeping: the bar takes it and the pointer gets the
+  -- game's art -- and the drag is taken as ours whatever the client answers, because rebuilding the
+  -- pin from the cursor's link is exactly what used to lose the enchant. The answer can also come a
+  -- beat late, so an empty cursor here is no failure: the pickup is left as it is, the game's drag
+  -- shows when it shows, and the pin still moves by our own bookkeeping.
+  self.liftFrom = nil
+  if live then
+    if not GetCursorInfo() and ns.PinPickup(pin, b.favBag, b.favSlot) then
+      -- The seat it came from, kept past Drop: OnDragStop may run before the receiver that answers
+      -- the drop, so the move cannot look the source up in self.moving -- that one is gone by then.
+      self.lifted, self.liftFrom = true, index
+    end
+  elseif not GetCursorInfo() then
+    ns.PinPickup(pin)
+    self.lifted, self.liftFrom = true, index
+  end
   GameTooltip:Hide()
 end
 
 function Fav:Drop()
   local from = self.moving
   self.moving = nil
-  if dragIcon then dragIcon:Hide() end
   if not from then return end
   local b = self.slots[from]
   if b then ns.SetSlotHighlight(b, false) end
   favSound("drop", b and b.favBag, b and b.favSlot)
+  -- A lifted item belongs to the game now: over a cell PinFromCursor takes it, over the bar
+  -- PlaceAction writes the action, over a bag slot the container moves it. The pins are references,
+  -- so whatever is still held once those handlers have run was dropped on empty UI and goes back
+  -- where it came from -- a frame later, because this may run before the receiver.
+  if self.lifted then
+    -- The flags survive the frame on purpose: PinFromCursor reads the source seat and may be called
+    -- after this. By the next frame the receiver has had its say, so anything still on the cursor
+    -- was dropped on empty UI, or on a bar that would not take it, and goes back to its slot.
+    C_Timer.After(0, function()
+      if CursorHasItem() then ClearCursor() end
+      Fav.lifted, Fav.liftFrom = nil, nil
+      locsDirty = true
+      later()
+    end)
+    return
+  end
   local list = self:List()
   for i = 1, (self.max or 0) do
     local c = self.catchers[i]
@@ -341,6 +353,22 @@ function Fav:Drop()
 end
 
 function Fav:PinFromCursor(index)
+  -- A drop of a pin this row itself lifted is a move, not a new pin: the two seats trade the pins
+  -- they already hold, untouched. Rebuilding the pin from the cursor's link would normalise it -- a
+  -- gear copy loses the enchant, the gems and the upgrade ids it was pinned by, a plain id comes back
+  -- as a full stub whose key no longer matches the one stored -- and the rebuilt pin would then stand
+  -- beside the stored one on the same id, one of the two with no slot behind it, a ghost.
+  local from = self.liftFrom
+  if from then
+    if GetCursorInfo() then ClearCursor() end
+    if from ~= index then
+      local list = self:List()
+      list[from], list[index] = list[index], list[from]
+      locsDirty = true
+      later(true)
+    end
+    return
+  end
   local kind, a, link = GetCursorInfo()
   if kind ~= "item" then return end
   local id = tonumber(a)
@@ -349,7 +377,68 @@ function Fav:PinFromCursor(index)
   ClearCursor()
   local pin = ns.PinFor(id, link)
   favSound("drop", locate(pin))
-  self:Set(index, pin)
+  -- A pin lifted out of this row comes back as an item on the cursor, so this is also where a drag
+  -- across the row reorders when the lift could not say where it started; the item is matched by
+  -- key and the two seats trade places, instead of the drop overwriting the neighbour.
+  local list, src, key = self:List(), nil, ns.ItemKey(pin)
+  if key then
+    for i = 1, (self.max or 0) do
+      if i ~= index and list[i] and ns.ItemKey(list[i]) == key then src = i break end
+    end
+  end
+  -- The same copy can come back as a different link: the bonus ids move on an upgrade, and a bound
+  -- piece carries its owner's guid in a tail the key never sees. The stem tells that apart from
+  -- another enchant, another gem or another suffix, so a drop of the same stem moves the stored pin
+  -- instead of standing beside it -- the stored one is the spelling the owner pinned.
+  local plainMove = false
+  if not src and type(pin) ~= "number" then
+    local stem = ns.ItemStem(pin)
+    if stem then
+      for i = 1, (self.max or 0) do
+        local own = list[i]
+        if i ~= index and own and ns.ItemStem(own) == stem then
+          src, plainMove = i, true
+          break
+        end
+      end
+    end
+  end
+  -- A pin that is a bare id means "any copy of this item", so a drop of that id is that pin and moves
+  -- it, whatever the cursor's link spells -- a typed-in id against a full stub, or a stub whose
+  -- upgrade ids moved under it. An exact pin is a different matter: it names one copy, and a link
+  -- that does not match it is another copy the drop is pinning in its place, so it is left alone --
+  -- unless the link names no copy at all. Every enchant, gem and bonus id in it is then zero, which
+  -- is what the client hands back for a worn piece it cannot take exactly, and taking that link as
+  -- the new pin would flatten an enchanted ring to its bare id. The exact pin is moved instead.
+  if not src and type(pin) == "number" then
+    for i = 1, (self.max or 0) do
+      local own = list[i]
+      if i ~= index and own and ns.ItemStubID(own) == pin then src = i break end
+    end
+  elseif not src and ns.ItemPlain(pin) then
+    local want = ns.ItemStubID(pin)
+    for i = 1, (self.max or 0) do
+      local own = list[i]
+      if i ~= index and own and ns.ItemStubID(own) == want and not ns.ItemPlain(own) then
+        src, plainMove = i, true
+        break
+      end
+    end
+  end
+  if src then
+    if plainMove then
+      list[index], list[src] = list[src], nil
+    else
+      list[src], list[index] = list[index], list[src]
+    end
+    locsDirty = true
+    later(true)
+  elseif not (type(pin) == "number" and ns.GearID(pin)) then
+    -- A bare id is the whole pin for a stackable, but it names no copy of gear -- the same rule
+    -- refuses a typed id. A drop that could not carry a link, the client answering a worn copy by
+    -- id alone, must not flatten the pin it was lifted from into an id: nothing is pinned at all.
+    self:Set(index, pin)
+  end
 end
 
 -- IsShown is only about the cell itself, and a cell in a closed window is still shown, so
@@ -421,6 +510,13 @@ function Fav:Apply(bags, x, top, size, gap)
   local frame = bags.frame
   local d = ns.Density(size)
   self.args = { bags = bags, x = x, top = top, size = size, gap = gap }
+  -- Our own drag holds the item itself, and pickup fires BAG_UPDATE_DELAYED at once: a scan taken
+  -- then reads the bags without it and paints the pin's cell as a ghost for the rest of the drag.
+  -- The item is not gone, it is on the cursor. The drop clears the cursor and asks again -- the
+  -- frame-late pass in Drop, and PinFromCursor for a drop on a cell -- so waiting loses nothing.
+  if self.lifted and CursorHasItem() then
+    return d.labelH + d.labelGap + size + 6
+  end
   if not self:Enabled() then
     self:Hide()
     return 0

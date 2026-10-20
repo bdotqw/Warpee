@@ -1,23 +1,15 @@
 # Warpee
 
-## 12.2
+## 12.3
 
 ENG
 
-- search is much faster with the bank open and both windows searched at once: 300 ms per word down to about 20 ms
-- the first bank opening after login or /reload is faster: 250 ms down to about 120 ms
-- currencies can now be tracked
-- the bag slots window is now called Bag Slots
-- fixed: Alt+click on the ghost item no longer tries to sell an item and no longer throws a Lua error
-- hovering a bank or warband tab highlights that tab's cells and dims the rest, just like hovering a bag
-- minor tooltip fixes
+- Items can now be dragged from Pocket and pins directly to the command bar, and moved between Pocket and pins in either direction, just like items in your bags.
+- Added a + button at the bottom of the bags to open the currency picker. It only appears when hovering over the currency area.
+- The currency button in the header now works like the reagent button next to it. Left-click toggles currency visibility, while right-click opens the currency list.
 
 RU
 
-- поиск с открытым банком и одновременным поиском по сумкам и банку ускорен: с 300 мс на слово до ~20 мс
-- первое открытие банка после входа в игру или /reload ускорено: с 250 мс до ~120 мс
-- добавлена возможность отслеживать валюты
-- окно слотов сумок переименовано из BAGS в Bag Slots
-- исправлено: Alt+ЛКМ по призраку предмета больше не запускает продажу и не вызывает ошибку Lua
-- при наведении на вкладки банка и варбанка подсвечиваются ячейки этого раздела, а остальные приглушаются, как при наведении на сумку
-- мелкие исправления подсказок
+- Предметы теперь можно перетаскивать из кармана и закрепленных предметов прямо на панель команд, а также перемещать между карманом и закрепленными предметами в обоих направлениях, как и предметы из сумок.
+- В нижней части сумок появилась кнопка + для открытия списка валют. Она отображается только при наведении на область валют.
+- Кнопка валют в заголовке теперь работает так же, как соседняя кнопка реагентов. ЛКМ включает или скрывает валюты, а ПКМ открывает список валют.

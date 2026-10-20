@@ -491,17 +491,15 @@ function Bags:Build()
       Bags.snap = nil
       Bags:UpdateCharTag()
     end
-    -- The pool sleeps with the window. A cell left shown under a hidden frame is still the game's to lay
-    -- out when the frame is shown again, and for a full grid that is the whole of a re-open's Show (~0.17
-    -- ms a cell, ~40 ms over 208); the pass that follows shows each claimed cell itself (place calls
-    -- holder:Show()), so nothing is lost by hiding them here. The snapshot pool and the two live rows go
-    -- the same way: each is re-applied by the pass that draws it.
-    local pool = Bags.pool
-    if pool then for i = 1, #pool do pool[i].holder:Hide() end end
-    pool = Bags.vpool
-    if pool then for i = 1, #pool do pool[i].holder:Hide() end end
-    if ns.Recent and ns.Recent.Hide then ns.Recent:Hide() end
-    if ns.Fav and ns.Fav.Hide then ns.Fav:Hide() end
+    -- The pool does not sleep with the window any more: hiding it here only moved a re-open's cost from
+    -- the window's Show to the cells' (~0.18 ms a cell, thirty-six milliseconds over two hundred), and it
+    -- made every open re-show the whole grid. A cell that is never hidden is shown again for nothing, and
+    -- a cell drawn under a hidden window is not drawn -- the client skips the subtree. The pass that
+    -- follows still hides every cell it does not claim, so the pool ends up as small as the window needs.
+    -- The two live rows stay shown for the same reason: a warm open shows the window and nothing else
+    -- (Bags:Resume), so a row hidden here has no pass left to bring it back. Their cells travel with the
+    -- frame's own Show like the grid's, and a row that really changed while the window was shut is
+    -- repainted by that open.
   end)
   self.frame = f
   self.content = CreateFrame("Frame", nil, f)
@@ -678,34 +676,34 @@ function Bags:Build()
   Bags:PaintReagents(reags)
 
   -- Currencies, right of the reagent switch: this window's own currency row on the left button, and the
-  -- switch the settings row already carries ("Hide currencies") on the right. It stands on the tag side of
-  -- the header, beside the slot count, because the row it gates is a band of the window just as the
-  -- reagent block is -- a count of what is tracked, next to the count of what is held. This is the only
-  -- way into the picker now that the row's add door is gone; the row itself hides when nothing is tracked.
+  -- picker on the right. It stands on the tag side of the header, beside the slot count, because the row
+  -- it gates is a band of the window just as the reagent block is -- a count of what is tracked, next to
+  -- the count of what is held. This switch opens the picker at the head of the window; the row's own add
+  -- door opens the same panel at its foot, by the row itself, and this switch stays the only way in while
+  -- nothing is tracked.
   local cur = ns.CreateGlyphButton(f, "", HB, "icon")
   cur:SetPoint("LEFT", reags, "RIGHT", 4, 0)
   cur:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   cur:SetScript("OnClick", function(_, button)
     if button == "RightButton" then
-      -- An empty track list has no row to show or hide: the right button opens the picker and arms the
-      -- row, so the first currency ticked appears at once instead of flipping a flag nobody can see.
-      if Bags:CurrenciesEmpty() then
-        if Bags:CurrenciesHidden() then Bags:ToggleCurrencies() end
-        if ns.CurPicker then ns.CurPicker:Toggle(f) end
-        return
-      end
-      Bags:ToggleCurrencies(); return
+      -- An empty track list has no row to show or hide: opening the picker arms the row, so the first
+      -- currency ticked appears at once instead of flipping a flag nobody can see.
+      if Bags:CurrenciesEmpty() and Bags:CurrenciesHidden() then Bags:ToggleCurrencies() end
+      if ns.CurPicker then ns.CurPicker:Toggle(f) end
+      return
     end
-    if ns.CurPicker then ns.CurPicker:Toggle(f) end
+    Bags:ToggleCurrencies()
   end)
-  -- Two steps, one line each, the way the bag switch and the pocket name theirs: the left walks into the
-  -- picker, the right shows or hides the row. The right line is read live as a closure, so it offers the
+  -- Two steps, one line each, the way the bag switch and the pocket name theirs: the left shows or hides
+  -- the row, the right walks into the picker. Both lines are read live as closures, so they offer the
   -- step the click will take and can never contradict the shape standing beside it.
-  addTip(cur, "LMB: Opens your currencies", function()
+  addTip(cur, function()
+    return Bags:CurrenciesHidden() and "LMB: Show currencies" or "LMB: Hide currencies"
+  end, function()
     if Bags:CurrenciesEmpty() then
       return { { text = "RMB: Pick currencies", color = "dim" } }
     end
-    return { { text = Bags:CurrenciesHidden() and "RMB: Show currencies" or "RMB: Hide currencies", color = "dim" } }
+    return { { text = "RMB: Opens your currencies", color = "dim" } }
   end)
   -- Warpee's own currencies mark: two coins, the mark that means "money" doubled into the several kinds of
   -- money a row of currencies holds. White art with the shape in the alpha, so the row's paint tints it
@@ -1089,7 +1087,8 @@ end
 function Bags:CurrenciesHidden() return self.curStrip == false end
 
 -- Nothing tracked means the row cannot stand whatever curStrip says (Cur:Measure answers 0), so the
--- switch's right button has nothing to flip and takes the door to the picker instead (see the header).
+-- left button has nothing to flip; the right button's picker arms the row for the first tick (see the
+-- header).
 function Bags:CurrenciesEmpty()
   local CI = C_CurrencyInfo
   return not (CI and CI.GetBackpackCurrencyInfo and CI.GetBackpackCurrencyInfo(1))
@@ -1671,6 +1670,133 @@ function Bags:Layout(capture, light)
   self:UpdateMeta()
   self:ApplySearch()
   if ns.Pocket then ns.Pocket:Refresh() end
+  -- What the next open compares against. A light pass returned above: it moved points, not the picture.
+  -- A full pass repaints everything it deferred while the window was shut, so every deferred flag is
+  -- answered by it.
+  self.openSig = self:LayoutSig()
+  self.openPaint, self.openNew, self.openQuests, self.openCool, self.openLocks = nil, nil, nil, nil, nil
+end
+
+-- Everything a full pass owns that a repaint cannot express: the paint generation (theme, font, badges,
+-- markers), the face, the geometry, the view, the rows' own height and the pixel scale. A setter that
+-- changes one of these calls Layout by itself while the window is up; the signature is what catches a
+-- change made while it was shut, when there was no pass to carry it.
+function Bags:LayoutSig()
+  return table.concat({
+    tostring(self.styleGen or 0), tostring(self.fontPath),
+    tostring(self.iconSize), tostring(self.gap), tostring(self.cols),
+    tostring(self.bagView), tostring(self.snap and true or false),
+    tostring(self.splitBags and true or false), tostring(self.splitGapBags),
+    tostring(self.nameBags and true or false), tostring(self.mergeReagents and true or false),
+    tostring(self.hideReagents and true or false), tostring(self.reagentTop and true or false),
+    tostring(self.revFill and true or false), tostring(self.fillUp and true or false),
+    tostring(self.newOnTop and true or false), tostring(self.showGauge and true or false),
+    tostring(ns.Fav and ns.Fav:Enabled() and true or false),
+    tostring(ns.Recent and ns.Recent:BagsOn() and true or false),
+    tostring(self.curStrip ~= false),
+    tostring(WarpeeDB and WarpeeDB.curDir or "center"),
+    tostring(self.frame and self.frame:GetEffectiveScale() or 0),
+  }, ":")
+end
+
+-- A bag that grew or shrank while the window was shut re-flows every cell after it, which only the full
+-- pass can do. The read is the container's own slot count -- the same call the pass makes.
+function Bags:SlotsMoved()
+  local have = self.bagSlots or {}
+  for _, bag in ipairs(ns.playerBags) do
+    if (have[bag] or 0) ~= (C_Container.GetContainerNumSlots(bag) or 0) then return true end
+  end
+  return (have[ns.reagentBag] or 0) ~= (C_Container.GetContainerNumSlots(ns.reagentBag) or 0)
+end
+
+-- Whether the open needs the full pass. The first open of a session always does; after that only a change
+-- the last full pass could not have carried does: style, face, geometry, view, a slot count, a snapshot.
+function Bags:NeedsLayout()
+  if not (self.byKey and self.openSig) then return true end
+  -- A pool warmed in combat refused its cells: the last pass drew only what it could, and a warm open
+  -- must not keep that half-grid. The old full pass on every open healed it; the decision does now.
+  if self.cold or not self.warmed then return true end
+  if self.snap then return true end
+  if self:CatMode() then return true end
+  if self.openSig ~= self:LayoutSig() then return true end
+  if self:SlotsMoved() then return true end
+  return false
+end
+
+-- The warm open: every cell still holds the picture the last pass gave it and no point moved. What is
+-- left is what changed while the window was shut -- the dirty set the update pass keeps aside now -- and
+-- the status the header reads off the world. A cell is repainted where it stands, exactly as the
+-- incremental pass does while the window is up; nothing is re-placed and no slot is re-read in bulk.
+function Bags:Resume()
+  -- A row that was cold (built in combat, when the cell factory refuses) has nothing to show, and the
+  -- open is its first chance to build out of combat. A row that exists and did not change needs nothing.
+  if (ns.Recent and ns.Recent.cold) or (ns.Fav and ns.Fav.cold) then
+    if ns.Recent and ns.Recent.Refresh then ns.Recent:Refresh() end
+    if ns.Fav and ns.Fav.Refresh then ns.Fav:Refresh() end
+  end
+  -- Cell state that changes without the bags changing: quest rings, the new-item glow, cooldowns, the
+  -- lock greying and the paint a late verdict or an item-cache change drops. Each was skipped while the
+  -- window was shut, so the open answers for it here instead of leaving a stale ring until the next pass.
+  if self.openNew then self.openNew = nil; self:RefreshNewItems() end
+  if self.openQuests then self.openQuests = nil; self:RefreshQuests() end
+  if self.openCool then self.openCool = nil; self:RefreshCooldowns() end
+  if self.openLocks then
+    for key in pairs(self.openLocks) do
+      local b = self.byKey and self.byKey[key]
+      if b then ns.UpdateItemLock(b) end
+    end
+    self.openLocks = nil
+  end
+  if self.openPaint then
+    self.openPaint = nil
+    -- The verdict path asks for a repaint without dropping links; this is the drop it needs, and the walk
+    -- below is the same one a shown repaint makes. The rows and the pocket are painted off the same cells.
+    if ns.ClearItemPaint then ns.ClearItemPaint() end
+    for i = 1, (self.shown or 0) do
+      local b = self.pool and self.pool[i]
+      if b then ns.UpdateItemButton(b); self:ApplyToButton(b) end
+    end
+    if ns.Recent and ns.Recent.Refresh then ns.Recent:Refresh() end
+    if ns.Fav and ns.Fav.Refresh then ns.Fav:Refresh() end
+    if ns.Pocket then ns.Pocket:Refresh() end
+  end
+  local dirty = self.dirty
+  if next(dirty) ~= nil then
+    -- New-on-top first: it moves a fresh piece to its bag's far end, and the repaint below should show
+    -- where it landed. The move answers with bag events, which come back through the shown pass.
+    if self.newOnTop and not self.snap then self:ArrangeNew() end
+    for bag in pairs(dirty) do
+      local num = C_Container.GetContainerNumSlots(bag) or 0
+      for slot = 1, num do
+        local b = self.byKey and self.byKey[bag * 1000 + slot]
+        if b then ns.UpdateItemButton(b); self:ApplyToButton(b) end
+      end
+    end
+    if ns.Vault then ns.Vault:Capture("bags", dirty) end
+    self.dirty = {}
+    -- The counters read the bags, not the cells: a move changes the used count, and gold can have been
+    -- earned with the window shut.
+    local used = 0
+    for _, bag in ipairs(ns.playerBags) do used = used + self:Taken(bag) end
+    if (C_Container.GetContainerNumSlots(ns.reagentBag) or 0) > 0 then
+      used = used + self:Taken(ns.reagentBag)
+    end
+    self.used = used
+    -- The rows locate their pins by bag and slot: a move is theirs to re-read. They ask for the full pass
+    -- themselves when the change moved their height.
+    if ns.Recent and ns.Recent.Refresh then ns.Recent:Refresh() end
+    if ns.Fav and ns.Fav.Refresh then ns.Fav:Refresh() end
+    if ns.Pocket then ns.Pocket:Refresh() end
+  end
+  -- The header marks follow the world as well (merchant, banker, the pocket switch): a context edge that
+  -- changed them ran while there was no window to paint, so the open asks again. VendorState carries the
+  -- blocked-cell repaint and the sell coin with it.
+  if self.sortBtn then self.sortBtn:SetShown(not self.snap) end
+  if self.reagentBtn then self:PaintReagents() end
+  if self.curBtn then self:PaintCurrencies() end
+  if self.pocketBtn then self.pocketBtn:SetShown(ns.Pocket and ns.Pocket:Enabled() and true or false) end
+  self:VendorState()
+  self:UpdateMeta()
 end
 
 -- Taint: the category view makes no cell of its own. It reuses the same pooled buttons the grid
@@ -2866,6 +2992,35 @@ function Bags:CurrencyLine()
   return self.curLine
 end
 
+-- The band's hover plate: one motion-only frame over the whole strip -- the full width of the window and
+-- the seam plus every wrapped line of the row. The cells stand a few pixels apart, and without it a
+-- pointer crossing a gap left one cell before entering the next, so the add door blinked once per gap.
+-- The plate answers its own rectangle, so the row's door (Features/Currencies.lua, LightDoor) can ask one
+-- question instead of reading the frame under the hand. Clicks are left off: the plate must not take a
+-- carry, a drop or the window's own drag away from the body under it.
+function Bags:CurrencyHover()
+  if self.curHover then return self.curHover end
+  local p = CreateFrame("Frame", nil, self.frame)
+  p:SetFrameLevel((self.frame:GetFrameLevel() or 1) + 1)
+  p:EnableMouse(true)
+  if p.SetMouseClickEnabled then
+    p:SetMouseClickEnabled(false)
+  else
+    -- A client without the split cannot ask for motion alone, and a plate that took clicks would be
+    -- worse than a door that blinks in the gaps: it stays inert, and the cells keep their own handlers.
+    p:EnableMouse(false)
+  end
+  p:SetScript("OnEnter", function()
+    if ns.Cur then ns.Cur:LightDoor(true) end
+  end)
+  p:SetScript("OnLeave", function(s)
+    -- A leave onto a cell is still inside the band: the plate's rectangle answers, not the topmost frame.
+    if ns.Cur and not s:IsMouseOver() then ns.Cur:LightDoor(false) end
+  end)
+  self.curHover = p
+  return p
+end
+
 -- The currency band's height for this layout: the air over it, the hairline, and the row itself. Zero
 -- when the row is off or when a foreign snapshot is up (the rows above the grid are hidden for it, and
 -- this row stands with them). The window adds the whole band to its content, so the row is a real row of
@@ -2887,6 +3042,7 @@ end
 function Bags:CurrencyPlace(size, gap, gridH, light)
   if (self.curH or 0) <= 0 then
     if self.curLine then self.curLine:Hide() end
+    if self.curHover then self.curHover:Hide() end
     if ns.Cur then ns.Cur:Hide() end
     return
   end
@@ -2895,6 +3051,15 @@ function Bags:CurrencyPlace(size, gap, gridH, light)
   ns.SnapPoint(line, "TOPLEFT", self.content, "TOPLEFT", 0, -(gridH + CUR_MID))
   ns.SnapPoint(line, "TOPRIGHT", self.content, "TOPRIGHT", 0, -(gridH + CUR_MID))
   line:Show()
+  -- The hover plate takes the seam and the whole wrapped row, from the window's left edge to its right:
+  -- the bare pixels beside the cells belong to the band, and a second line grows the strip with the row.
+  local hover = self:CurrencyHover()
+  hover:ClearAllPoints()
+  ns.SnapPoint(hover, "TOPLEFT", self.content, "TOPLEFT", -PAD, -gridH)
+  ns.SnapPoint(hover, "TOPRIGHT", self.content, "TOPRIGHT", PAD, -gridH)
+  hover:SetHeight(CUR_SEAM + (self.curH or 0))
+  hover:Show()
+  ns.Cur.hover = hover
   ns.Cur:Place(self.frame, PAD, self:TopOffset() + gridH + CUR_SEAM, size, gap, light)
 end
 
@@ -4679,7 +4844,8 @@ function Bags:ApplySearch()
 end
 
 function Bags:RefreshNewItems()
-  if self.snap or not (self.frame and self.frame:IsShown() and self.pool) then return end
+  if self.snap then return end
+  if not (self.frame and self.frame:IsShown() and self.pool) then self.openNew = true; return end
   for i = 1, (self.shown or 0) do
     local btn = self.pool[i]
     if btn then ns.SyncNewItem(btn) end
@@ -4687,7 +4853,8 @@ function Bags:RefreshNewItems()
 end
 
 function Bags:RefreshQuests()
-  if self.snap or not (self.frame and self.frame:IsShown() and self.pool) then return end
+  if self.snap then return end
+  if not (self.frame and self.frame:IsShown() and self.pool) then self.openQuests = true; return end
   for i = 1, (self.shown or 0) do
     local btn = self.pool[i]
     if btn and ns.SyncQuestMark(btn) then
@@ -4699,7 +4866,8 @@ function Bags:RefreshQuests()
 end
 
 function Bags:RefreshCooldowns()
-  if self.snap or not (self.frame and self.frame:IsShown() and self.pool) then return end
+  if self.snap then return end
+  if not (self.frame and self.frame:IsShown() and self.pool) then self.openCool = true; return end
   for i = 1, (self.shown or 0) do
     local b = self.pool[i]
     if b and b.link then ns.UpdateCooldown(b) end
@@ -4734,7 +4902,10 @@ function Bags:ApplyToButton(b)
 end
 
 function Bags:UpdateDirty(force)
-  if not (self.frame and self.frame:IsShown()) then self.dirty = {}; return end
+  -- While the window is shut nothing can be drawn, but the bags still changed: the dirty set is kept for
+  -- the next open (Bags:Resume), which is what lets that open skip the full pass. It used to be dropped
+  -- here, and the open paid for it by re-reading and re-laying out every slot.
+  if not (self.frame and self.frame:IsShown()) then return end
   self:Build()
   if not (self.content and self.gaugeBg and self.gaugeFill and self.gridBg
           and self.money and self.reagentLabel) then

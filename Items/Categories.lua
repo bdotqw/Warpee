@@ -534,7 +534,7 @@ function Cats:PinnedTo(itemID)
 end
 
 -- Restore the shipped list in full, not a blank save: Reset means "give me the defaults back",
--- so the save holds the seven named categories again and the editor and dump both read clean.
+-- so the save holds the seven named categories again and the editor reads them clean.
 function Cats:Reset()
   if WarpeeDB then
     WarpeeDB.categories = seed()

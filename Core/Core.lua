@@ -309,7 +309,10 @@ end
 
 local function repaintItems()
   ns.ClearItemPaint()
-  if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
+  -- A verdict or an item-cache change that lands while the window is shut has no cells to walk: the links
+  -- are dropped here anyway, and the open repaints them (Bags:Resume) instead of waiting for a change in
+  -- the bags that will never come.
+  if Bags.frame and Bags.frame:IsShown() then Bags:Layout() else Bags.openPaint = true end
   if ns.Bank then ns.Bank:Repaint() end
   -- The guild bank paints the same rings off the same verdicts, and it is the one window the two
   -- passes above cannot reach: an item whose scan had to wait got its border only the next time
@@ -342,8 +345,14 @@ function ns.PaintVerdicts(links)
   if not links then return 0 end
   local painted = 0
   local bags = Bags
-  if bags and bags.frame and bags.frame:IsShown() and bags.RepaintLinks then
-    painted = painted + (bags:RepaintLinks(links) or 0)
+  if bags and bags.frame then
+    if bags.frame:IsShown() and bags.RepaintLinks then
+      painted = painted + (bags:RepaintLinks(links) or 0)
+    else
+      -- The cells are not there to repaint, and the link this verdict belongs to is still on them: the
+      -- open drops the links and repaints them (Bags:Resume).
+      bags.openPaint = true
+    end
   end
   local bank = ns.Bank
   if bank and bank.frame and bank.frame:IsShown() and bank.RepaintLinks then
@@ -373,9 +382,20 @@ function ns.Toggle(show)
   if show == nil then show = not f:IsShown() end
   if show then
     Bags:RestorePos()
-    f:Show()
+    -- Raised while still hidden. A strata change re-sorts the client's render list, and doing it with the
+    -- grid already on screen re-sorts every cell for nothing; raising first is free either way.
     ns.Theme:Raise(f)
-    Bags:Layout(true)
+    f:Show()
+    -- A warm open shows what the last pass drew and repaints only the bags that moved while the window
+    -- was shut (Bags:Resume, fed by the dirty set UpdateDirty keeps while hidden). The full pass is for
+    -- the first open and for a change it could not carry: style, face, geometry, view, a slot count, a
+    -- snapshot. Its capture is the full one; the warm path captures only the bags that moved.
+    if Bags:NeedsLayout() then
+      Bags:Layout(true)
+      Bags.dirty = {}
+    else
+      Bags:Resume()
+    end
     -- The pocket follows the bags on a hand press only. An auto open from the auction
     -- house, the mail or a merchant has just pushed the pocket aside, and opening the
     -- bags on top would undo that; ns.autoOpened is set before this runs, so it marks
@@ -827,7 +847,10 @@ end
 
 local function onBagChanged(_, a1)
   if not Bags.warmed then Bags:Warm() end
-  if ns.IsPlayerBag(a1) then
+  -- The reagent bag is its own container (bag id 5, outside ns.playerBags), and its cells are drawn in the
+  -- same grid: a piece moved in or out of it is a dirty bag like any other. It used to be left out, and
+  -- the full pass on open was the only thing that ever re-read it.
+  if ns.IsPlayerBag(a1) or a1 == ns.reagentBag then
     Bags.dirty[a1] = true
     -- The counts in the tooltip read our own bags live but are cached per character, and
     -- with the window shut nothing captures, so the own row kept the number it was filled
@@ -864,6 +887,12 @@ local function onSlotLocked(_, a1, a2)
     if b then ns.UpdateItemLock(b) end
   end
   if a2 then
+    -- A lock that started or ended while the window was shut has nothing to grey: the slot waits for the
+    -- open (Bags:Resume), which asks the client again instead of trusting the last desaturation.
+    if not (Bags.frame and Bags.frame:IsShown()) then
+      Bags.openLocks = Bags.openLocks or {}
+      Bags.openLocks[a1 * 1000 + a2] = true
+    end
     if ns.Bank and ns.Bank.RefreshLock then ns.Bank:RefreshLock(a1, a2) end
     if ns.Recent and ns.Recent.RefreshLock then ns.Recent:RefreshLock(a1, a2) end
     if ns.Fav and ns.Fav.RefreshLock then ns.Fav:RefreshLock(a1, a2) end

@@ -241,7 +241,7 @@ function ns.ScrollThumb(thumb, tex, sf, scrollTo, span)
 end
 
 -- side-fit:begin
--- Where a side panel stands, as arithmetic only, so a harness can drive it: the rect a panel of `w` x `h`
+-- Where a side panel stands, as arithmetic only: the rect a panel of `w` x `h`
 -- takes beside the window rect `win` on one side, whether that rect is apart from the other panel's rect,
 -- and which of the four answers is taken -- the wanted side, the flipped side, over `other`, under it.
 -- `side` is "left"/"right" (which edge of the window the panel shares), `align` "top"/"bottom".

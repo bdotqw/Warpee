@@ -284,6 +284,11 @@ local function readable(mode)
 end
 
 local scanLoc
+-- The character level the records standing in the save were built at. A slot record is handed on from one
+-- capture to the next (see packSlot), and the one thing about a piece of gear that moves without its link
+-- moving is the level an heirloom reads at: a level gained since the last capture makes every saved record
+-- suspect, so one capture builds them afresh and the ones after it reuse again.
+local capLevel
 local function gearFacts(bag, slot, bound)
   if not scanLoc then
     scanLoc = ItemLocation:CreateFromBagAndSlot(bag, slot)
@@ -305,7 +310,18 @@ local function isGear(link)
   return hit
 end
 
-local function packSlot(bag, slot, info)
+local function packSlot(bag, slot, info, prev)
+  -- A slot the last capture read and this one reads the same way keeps the record it already has. What
+  -- a fresh record costs is the item level, asked of the client once per piece of gear -- the capture's
+  -- only per-piece call that is not a field off the container info -- and a window opened, closed and
+  -- opened again asks for the very slots it read a moment ago. The four fields below are everything the
+  -- rest of a record is a function of, so a link that did not move, a stack that did not grow, a quality
+  -- that did not change and a bind that did not happen mean the rest of it stands too. The record is not
+  -- written to after it is built (the readers take it as it lies), so the saved one can be handed on.
+  if prev and prev.l == info.hyperlink and prev.c == info.stackCount and prev.q == info.quality
+     and (prev.b or false) == (info.isBound and true or false) then
+    return prev
+  end
   local d = { c = info.stackCount, q = info.quality, l = info.hyperlink }
   if info.isBound then d.b = true end
   -- The warbound flag is written for every piece of gear, false included. "No w at all" has
@@ -343,14 +359,18 @@ local function bagID(bag)
   return nil
 end
 
-local function scanBag(bag)
+local function scanBag(bag, prev)
   local num = C_Container.GetContainerNumSlots(bag) or 0
   if num <= 0 then return nil end
   local slots, used = {}, 0
+  -- The records of the same slots from the last capture of this bag, and only while the bag answers the
+  -- same size: a slot number means a different place in a bag that grew or shrank, so nothing in the old
+  -- record can be trusted for it.
+  local old = (prev and prev.n == num) and prev.slots or nil
   for slot = 1, num do
     local info = C_Container.GetContainerItemInfo(bag, slot)
     if info then
-      slots[slot] = packSlot(bag, slot, info)
+      slots[slot] = packSlot(bag, slot, info, old and old[slot])
       used = used + 1
     end
   end
@@ -585,6 +605,9 @@ end
 
 function Vault:Capture(mode, only)
   if not (WarpeeDB and readable(mode) and self:Keeps(mode)) then return false end
+  local lvl = UnitLevel and UnitLevel("player")
+  local keep = (lvl == capLevel)
+  if not keep then capLevel = lvl end
   local box = only and self:OwnerBox(mode) or nil
   if only and not (box and box.bags) then only = nil end
 
@@ -596,7 +619,7 @@ function Vault:Capture(mode, only)
     local touched = false
     for bag in pairs(only) do
       if allow[bag] then
-        local entry = scanBag(bag)
+        local entry = scanBag(bag, keep and box.bags[bag] or nil)
         if entry then box.bags[bag] = entry; touched = true end
       end
     end
@@ -608,10 +631,15 @@ function Vault:Capture(mode, only)
     return true
   end
 
+  -- The save the last capture left, read for the slot records it can hand on (see packSlot). Owned slots
+  -- only, and only the ones this pass reads again: a box that never held a bag of this size answers
+  -- nothing and every slot is built fresh, exactly as before.
+  local old = keep and self:OwnerBox(mode) or nil
+  local oldBags = old and old.bags
   local bags, any = {}, false
   for _, sec in ipairs(self:Sections(mode)) do
     for _, bag in ipairs(sec.ids) do
-      local entry = scanBag(bag)
+      local entry = scanBag(bag, oldBags and oldBags[bag])
       if entry then bags[bag] = entry; any = true end
     end
   end

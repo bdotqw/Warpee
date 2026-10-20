@@ -66,6 +66,31 @@ function ns.ItemKey(pin)
   return k
 end
 
+-- A key with nothing after the id names no copy: no enchant, no gem, no suffix, no bonus ids.
+-- That is what an item link spells when the client resolved the item by its bare id alone -- the
+-- way it answers a pickup of an equipped copy it cannot take exactly -- and it is the one key that
+-- must never replace a pin naming a particular copy: an enchanted ring would come back bare.
+function ns.ItemPlain(pin)
+  local k = ns.ItemKey(pin)
+  if not k then return false end
+  local f = {}
+  for v in (k .. ":"):gmatch("([^:]*):") do f[#f + 1] = v end
+  for i = 2, 7 do
+    local v = f[i]
+    if v and v ~= "" and v ~= "0" then return false end
+  end
+  return (f[8] or "") == ""
+end
+
+-- The stem of a key is that key without its bonus ids: the id, the enchant, the gems and the suffix,
+-- the parts the owner chose by hand. Two links that differ in the bonus list alone -- an upgrade, a
+-- recraft, or the "...:Player-..." tail some bound items carry -- name the same copy, so a drag of
+-- either has to find the pin of the other instead of standing beside it as a second pin.
+function ns.ItemStem(pin)
+  local k = ns.ItemKey(pin)
+  return (type(k) == "string" and k:match("^(.*):")) or nil
+end
+
 local SLOT_STYLES = {
   flat  = function() return 0, 0, 0, 0 end,
   plate = function() return Theme:C("panelHi") end,
@@ -2282,8 +2307,7 @@ end
 -- the sell badge, and the game's own extras the old walk hung -- the quest mark, the taken tier mirror,
 -- the new-item glow in both faces, the cooldown digits, and the three quality overlays (the white outline
 -- among them). The game's other marks (new-item glow visibility, quest mark show) ride Show/Hide and want
--- nothing here. The lookups are badgeObj's lines, inlined: the lag harness lifts this slice without those
--- file-locals.
+-- nothing here.
 local DIMKEYS = { "count", "ilvl", "bind", "outfit", "sell", "junk" }
 local DIMEXTRA = { "wpeTier", "NewItemTexture", "BattlepayItemTexture", "cdText",
                    "IconOverlay", "IconOverlay2", "ProfessionQualityOverlay" }
@@ -2557,6 +2581,30 @@ function ns.PinFor(id, link)
   if not (id and stub) then return id end
   if ns.GearID(id) then return stub end
   return id
+end
+
+-- Put the item a pin names on the cursor, so the game's own drop targets take it the way they take a
+-- bag item: a cell of the bar writes its item action (ActionButton's OnReceiveDrag calls PlaceAction on
+-- whatever the cursor holds), a bag slot moves the piece itself, another pin takes the reference. The
+-- pin is a reference and stays in its seat either way, so this is a copy in the only sense that
+-- matters. A live cell knows the bag and the slot the pin is bound to, and the container reader takes
+-- exactly that copy; C_Item.PickupItem reads a link and may resolve it by id alone, which is the wrong
+-- ring when two share one and the wrong stack when two do. That reader stays for a pin with no slot
+-- behind it -- a ghost has only its id or its stub to go by. Both stay inside a pcall because an id
+-- the client has never seen answers with an error rather than an empty cursor; false means nothing
+-- was picked up and the caller keeps its own drag.
+function ns.PinPickup(pin, bag, slot)
+  local held = C_Container and C_Container.PickupContainerItem
+  if bag and slot and held then
+    pcall(held, bag, slot)
+    if CursorHasItem() then return true end
+  end
+  local pick = C_Item and C_Item.PickupItem
+  if not (pick and pin) then return false end
+  local info = ns.ItemStub(pin) or ns.ItemStubID(pin)
+  if not info then return false end
+  pcall(pick, info)
+  return CursorHasItem()
 end
 
 function ns.PinIcon(id)

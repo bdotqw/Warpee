@@ -37,7 +37,7 @@ local MAX_WATCH = 40   -- the read stops at the first empty slot; this is only t
 local pending
 
 ------------------------------------------------------------------------------
--- Reading (pure: the API table is handed in, so the harness can drive it)
+-- Reading (pure: the API table is handed in)
 ------------------------------------------------------------------------------
 -- The client's own tracking list, in its own order: the entry GetBackpackCurrencyInfo answers with.
 -- Stops at the first slot the client leaves empty (it returns nothing past its list).
@@ -581,10 +581,12 @@ local function cursorAt(row)
   return cx / s - l, t - cy / s
 end
 
--- The cell count, wrapped: just the chips. The add door this used to count is gone -- the header's own
--- currency switch (Windows/Bags.lua) is the way into the picker now -- so every seat is a tracked column.
+-- The cell count, wrapped: the tracked chips and the add door. The door always holds the seat past the
+-- last coin, so it follows the row's growth like one more cell -- rightmost on a plain walk, leftmost
+-- when mirrored, the right end of the block when the row grows from the middle. Without a currency the
+-- row is no row at all (Measure answers zero), so the door never stands alone.
 local function seats(row)
-  return #(row.rows or {})
+  return #(row.rows or {}) + (row.plus and 1 or 0)
 end
 
 -- How many seats one wrapped line carries: a full `cols` until the last line, which holds the remainder.
@@ -885,6 +887,87 @@ hotEdge = function(s)
   paintRing(s, r, g, b)
 end
 
+-- The door's one switch. Every hover on the band lands here: a cell, the door itself, or the bare seam
+-- between them are one target to the eye, so the plus stands while the pointer is anywhere on the strip.
+-- The band's own plate (Windows/Bags.lua) is the rectangle of record -- a few pixels of gap between two
+-- cells are still the row, and asking a topmost frame per cell would make the door blink in every gap.
+function Cur:LightDoor(on)
+  if self.plus then self.plus:SetAlpha(on and 1 or 0) end
+  local band = self.hover
+  if not band then return end
+  if on then
+    -- A layout can slide the band out from under a still hand without sending the leave, and a cell that
+    -- is hidden or reseated under the pointer sends none either. While the door is lit, ask the band's
+    -- own rectangle once a frame: the first answer of no puts it out and stops the watch. It runs only
+    -- while lit, so a row at rest costs nothing.
+    if not band.wpeWatch then
+      band.wpeWatch = true
+      band:SetScript("OnUpdate", function(s)
+        if not s:IsMouseOver() then
+          s.wpeWatch = nil
+          s:SetScript("OnUpdate", nil)
+          Cur:LightDoor(false)
+        end
+      end)
+    end
+  elseif band.wpeWatch then
+    band.wpeWatch = nil
+    band:SetScript("OnUpdate", nil)
+  end
+end
+
+-- Whether a frame that just lost the pointer was the band's last bit. A cell's leave is often not the
+-- row's: the next thing under the hand can be the gap to the next coin, and the plate under the whole
+-- band still answers its own rectangle there. Only a leave that stands outside it puts the door out.
+local function unlight(row)
+  local band = row.hover
+  if not (band and band:IsMouseOver()) then row:LightDoor(false) end
+end
+
+-- The tip over one coin: the client's own currency lines where it has them, then the row's two hints.
+-- Kept in one place because a shift-untrack rebuilds the row under the pointer: the same physical cell
+-- can come back carrying another currency, and the tip has to be re-owned for it without a new enter.
+local function coinTip(c)
+  if not (c and c.wpeID) then return end
+  GameTooltip:SetOwner(c, "ANCHOR_TOP")
+  if GameTooltip.SetCurrencyByID then
+    GameTooltip:SetCurrencyByID(c.wpeID)
+  else
+    GameTooltip:SetText(c.wpeName or "")
+  end
+  GameTooltip:AddLine(ns.TipInk(ns.L["Drag to reorder"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9, true)
+  if Cur.Transferable(c.wpeID) and not (InCombatLockdown and InCombatLockdown()) then
+    GameTooltip:AddLine(ns.TipInk(ns.L["Ctrl + LMB to transfer currency from another character"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9, true)
+  end
+  GameTooltip:AddLine(ns.TipInk(ns.L["Shift + LMB to stop tracking"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9, true)
+  -- Which coin this seat's tip was last built for: a rebuild that hands the seat another coin is the
+  -- only time the hover's transfer want has to move with it.
+  c.wpeTipID = c.wpeID
+  GameTooltip:Show()
+end
+
+-- A shift-untrack rebuilds the row under a still hand: the seat under the pointer is repainted with the
+-- next coin -- or hidden, at the tail -- and no enter fires, so the old coin's tip would hang over the new
+-- one. After the rebuild, re-own the tip for the coin the seat carries now, or put it away when the seat
+-- is gone. A tip owned by any other frame is none of the row's business. The hover's transfer want is
+-- re-bound too: a Ctrl press without moving must serve the coin under the hand, not the one just removed.
+function Cur:RefreshTip()
+  local tip = GameTooltip
+  if not (tip and tip.GetOwner and tip.IsShown and tip:IsShown()) then return end
+  local owner = tip:GetOwner()
+  local c
+  for i = 1, #(self.chips or {}) do
+    if self.chips[i] == owner then c = owner; break end
+  end
+  if not c then return end
+  if not (c:IsShown() and c:IsMouseOver() and c.wpeID) then tip:Hide(); return end
+  if c.wpeTipID ~= c.wpeID then
+    Cur:DisarmTransfer(c, true)
+    if Cur.Transferable(c.wpeID) then Cur:WantTransfer(c, c.wpeID) end
+  end
+  coinTip(c)
+end
+
 -- One cell: the icon itself, edged in the cell's language -- outer line, one ring, keyline.
 local function chip(row, i)
   row.chips = row.chips or {}
@@ -918,8 +1001,9 @@ local function chip(row, i)
   c:SetScript("OnDragStart", function(s) beginDrag(row, s) end)
   c:SetScript("OnDragStop", function(s) endDrag(row, s) end)
   -- A press released on its own cell says one thing: a shift takes the currency off the track. A press that
-  -- became a carry says nothing -- the drop already landed it. The cell is not a door of its own: the panel
-  -- opens from the header's own currency switch (Windows/Bags.lua), so a plain click has nothing to answer.
+  -- became a carry says nothing -- the drop already landed it. The cell is not a door of its own: the row's
+  -- add door past the last coin (and the header's currency switch) opens the panel, so a plain click has
+  -- nothing to answer.
   c:SetScript("OnMouseDown", function(s, button)
     if button == "LeftButton" then s.pressed = true end
   end)
@@ -944,6 +1028,8 @@ local function chip(row, i)
   end)
   c:SetScript("OnEnter", function(s)
     hotEdge(s)
+    -- The row is one target: a pointer anywhere on the band lights the add door at its tail.
+    row:LightDoor(true)
     -- A ghost lifts toward the eye under the pointer, the way a pocket ghost does.
     if s.wpeGhost and row.dragId ~= s.wpeID then s.icon:SetAlpha(0.85) end
     if not s.wpeID then return end
@@ -951,27 +1037,48 @@ local function chip(row, i)
     -- wants it on every hover, and the key going down (see Cur:WantTransfer) is where the arm is made, so
     -- a player who presses Ctrl after hovering is served the same one-press menu.
     if Cur.Transferable(s.wpeID) then Cur:WantTransfer(s, s.wpeID) end
-    GameTooltip:SetOwner(s, "ANCHOR_TOP")
-    if GameTooltip.SetCurrencyByID then
-      GameTooltip:SetCurrencyByID(s.wpeID)
-    else
-      GameTooltip:SetText(s.wpeName or "")
-    end
-    GameTooltip:AddLine(ns.TipInk(ns.L["Drag to reorder"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9, true)
-    if Cur.Transferable(s.wpeID) and not (InCombatLockdown and InCombatLockdown()) then
-      GameTooltip:AddLine(ns.TipInk(ns.L["Ctrl + LMB to transfer currency from another character"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9, true)
-    end
-    GameTooltip:AddLine(ns.TipInk(ns.L["Shift + LMB to stop tracking"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9, true)
-    GameTooltip:Show()
+    coinTip(s)
   end)
   c:SetScript("OnLeave", function(s)
     restEdge(s)
     Cur:DisarmTransfer(s, true)
     if not row.dragId then s.icon:SetAlpha(s.wpeGhost and 0.55 or 1) end
+    -- Moving off a coin does not by itself mean the row is left: the next coin, the door or the bare
+    -- seam between two cells is still the same band, and the plate knows its own rectangle. Only a leave
+    -- that carries the pointer out of it puts the door out.
+    unlight(row)
     GameTooltip:Hide()
   end)
   row.chips[i] = c
   return c
+end
+
+-- The add door: one empty cell past the last tracked currency, the same size as a cell, carrying a plus.
+-- It is the row's own way into the currency panel -- the header's currency switch (Windows/Bags.lua) stays
+-- the other, and the only one while nothing is tracked. The door rests at alpha 0: a plus lit all the time
+-- read as one more currency, and the row is meant to be a run of the player's own coins. A pointer anywhere
+-- on the band -- a cell, the door, or the seam and gaps around them -- lights it; only leaving the band's
+-- rectangle puts it out again (see Cur:LightDoor and Cur.hover). It is built on the window frame and
+-- seated by Place, the way a cell is.
+local function door(row)
+  local d = row.plus
+  if d then return d end
+  d = ns.CreateGlyphButton(row.frame, "+", row.size or 30)
+  d:SetFrameLevel((row.frame:GetFrameLevel() or 1) + 2)
+  d:SetAlpha(0)
+  d:SetScript("OnClick", function()
+    local bags = ns.Bags
+    -- The foot of the bags window: the panel stands at its lower-left corner, the way the row that holds
+    -- this door sits at the window's foot. The header's switch keeps the head (see Pick:Toggle).
+    if ns.CurPicker then ns.CurPicker:Toggle((bags and bags.frame) or row.frame, "bottom") end
+  end)
+  -- The door reveals itself the moment the pointer finds it, even from outside the row: it stands a full
+  -- cell past the last coin, and a player who knows it is there must not have to cross a cell to see it.
+  d:HookScript("OnEnter", function() row:LightDoor(true) end)
+  d:HookScript("OnLeave", function() unlight(row) end)
+  ns.AddTip(d, "Opens your currencies", "top")
+  row.plus = d
+  return d
 end
 
 -- Paints one cell for its tracked currency: icon, the row's one ring, count. Kept apart from seating so
@@ -1014,9 +1121,9 @@ local function paintCell(row, c, r, sz)
   c.text:SetTextColor(zr, zg, zb)
 end
 
--- How tall the row stands for a given cell size and grid width, in pixels: every tracked currency,
--- wrapped onto the grid's columns. 0 when the row is switched off, and 0 when nothing is tracked -- with
--- the add door gone an empty row is no row at all, and the header's currency switch is what brings one
+-- How tall the row stands for a given cell size and grid width, in pixels: every tracked currency and the
+-- add door at their tail, wrapped onto the grid's columns. 0 when the row is switched off, and 0 when
+-- nothing is tracked -- an empty row is no row at all, and the header's currency switch is what brings one
 -- back. Reads the client's tracking list and remembers it, so the Place that follows a Measure needs no
 -- second read.
 function Cur:Measure(size, gap, gridW, cols)
@@ -1039,7 +1146,9 @@ function Cur:Measure(size, gap, gridW, cols)
     return 0
   end
   local step = size + gap
-  self.nRows = math.ceil(#rows / self.cols)
+  -- The door takes the seat after the last coin; when that seat is the first of a new line the row grows
+  -- by it, so the empty cell never hangs off the band.
+  self.nRows = math.ceil((#rows + 1) / self.cols)
   return self.nRows * step - gap
 end
 
@@ -1050,8 +1159,12 @@ end
 function Cur:Place(frame, x, top, size, gap, light)
   self.frame = frame
   self.x0, self.top = x, top
+  self.size, self.gap = size, gap
   self.lefts, self.tops = {}, {}
   local rows = self.rows or {}
+  -- Built before the first seat is asked for: the door is one of the row's seats, and the centred and
+  -- mirrored walks measure their blocks with it in the count.
+  local plus = door(self)
   for i = 1, #rows do
     local c = chip(self, i)
     if not light then paintCell(self, c, rows[i], size) end
@@ -1064,6 +1177,31 @@ function Cur:Place(frame, x, top, size, gap, light)
     ns.SnapSize(c, size, size)
     c:Show()
     self.lefts[i], self.tops[i] = ns.SnapValue(frame, px), ns.SnapValue(frame, py)
+  end
+  -- The door holds the seat past the last coin, or goes away with a row that carries none: a lone plus
+  -- would be a row of its own, and the header's switch already stands for an empty track list.
+  if #rows > 0 then
+    local px, py = seatAt(self, #rows)
+    plus:ClearAllPoints()
+    ns.SnapPoint(plus, "TOPLEFT", frame, "TOPLEFT", px, -py)
+    ns.SnapSize(plus, size, size)
+    plus:Show()
+    -- A row laid out under the pointer keeps the door lit only if the pointer really stands on the band:
+    -- a window that closed while the hand was over the door never sees its leave, so the next layout
+    -- asks instead of trusting the last enter. The plate knows the whole rectangle; the cells are its
+    -- fallback for a layout that ran before the window made one.
+    local hot = (self.hover and self.hover:IsMouseOver()) and true or false
+    if not hot then
+      hot = plus:IsMouseOver()
+      for i = 1, #rows do
+        if hot then break end
+        local c = self.chips[i]
+        hot = (c and c:IsMouseOver()) and true or false
+      end
+    end
+    self:LightDoor(hot)
+  else
+    plus:Hide()
   end
   for i = #rows + 1, #(self.chips or {}) do self.chips[i]:Hide() end
   self.placed = true
@@ -1101,6 +1239,9 @@ function Cur:Hide()
   -- not on screen should still be able to ask for a transfer.
   Cur:DisarmTransfer()
   for i = 1, #(self.chips or {}) do if self.chips[i] then self.chips[i]:Hide() end end
+  -- The door goes with the row and comes back at rest: a layout that hid it under the pointer must not
+  -- leave a lit plus waiting for the next time the row opens. The switch also stops the lit watch.
+  if self.plus then self.plus:Hide(); self:LightDoor(false) end
   if self.dropMark then self.dropMark:Hide() end
   self.placed = nil
 end
@@ -1136,14 +1277,20 @@ function Cur:Apply(force)
   if B and B.frame and B.frame:IsShown() then
     local fresh = Cur.ReadWatched(C_CurrencyInfo, {})
     -- Only a change in how many are tracked moves the row's height, so only that asks the window to
-    -- rebuild. A count or a re-order paints the seated cells where they stand.
-    if force or #fresh ~= (self.sig or -1) or not self.placed then
+    -- rebuild. A hidden row (curStrip off) has no height to move: it stays a repaint even though its
+    -- count reads as nil, which used to ask for a full layout on every open through the OnShow request.
+    local on = B.curStrip ~= false
+    if force or (on and (#fresh ~= (self.sig or -1) or not self.placed)) then
       B:Layout()
     else
       self.rows = fresh
       Cur.Sort(self.rows)
       self:Repaint()
     end
+    -- A repaint may have handed the seat under a still pointer another coin (a shift-untrack moves the
+    -- whole tail down a seat) or a new count: re-own its tip for what it carries now, so the removed
+    -- coin's lines cannot hang over the next currency.
+    Cur:RefreshTip()
   end
   if ns.CurPicker then ns.CurPicker:Refresh() end
 end
