@@ -376,8 +376,8 @@ local function bankCell(mode)
   return ns.DEFAULT_CELL
 end
 local function pocketCell()
-  -- The pocket's own size, through the one call that reads it: it used to fall back to the bags'
-  -- here as well, so the badges of that window scaled with a size the pocket was not drawn at.
+  -- The pocket's own size, through the one call that reads it: falling back to the bags' size here
+  -- would scale that window's badges with a size the pocket is not drawn at.
   return (ns.PocketIconSize and ns.PocketIconSize()) or ns.DEFAULT_CELL
 end
 
@@ -480,8 +480,7 @@ local function sectionOpen(key)
     end
     -- DEFAULTS.optSections carries every section key and the login path writes them all, so
     -- this is only reached by a key it does not know, and a section nobody has an opinion
-    -- about starts open. The table that used to answer here said the opposite of DEFAULTS for
-    -- four of the seven keys and was never read.
+    -- about starts open.
     return true
   end
   return v and true or false
@@ -2561,8 +2560,8 @@ function factories.catlist(parent, spec)
   -- The structural actions do not debounce: one click, one immediate rebuild and relayout. Blur
   -- first so a field mid-edit commits and drops focus before the pool is rebound underneath it.
   -- A mutator hands back the index of the row it created, and that row is then scrolled into view and
-  -- flashed. A row added at the bottom of a long list is invisible from the top of it, and that is why
-  -- pressing these buttons used to feel like nothing had happened at all.
+  -- flashed: a row added at the bottom of a long list is invisible from the top of it, and the click
+  -- would read as if nothing had happened at all.
   local function act(fn)
     blur()
     cancelPending()
@@ -3180,8 +3179,8 @@ function factories.catlist(parent, spec)
     -- Adding a condition is the same "+" plate the pin rack leads with: one control for "add one of these",
     -- and no sentence standing on the row for the player to guess at.
     -- A 3px arm sits centred only on an odd-sized plate: FitMarkPlus ties arm thickness to the plate's
-    -- parity (snapParity), so an even plate (26) only ever yields an even arm -- the 4px it used to be --
-    -- and forcing 3 on an even plate splits it, one sleeve a pixel longer than the other. So this one
+    -- parity (snapParity), so an even plate (26) only ever yields an even arm, and forcing 3 on an even
+    -- plate splits it, one sleeve a pixel longer than the other. So this one
     -- plate is drawn odd (25) and the arm asked for 3: the same reason the favorites cell comes out even,
     -- read the other way. ADD_COND_W stays the wrap reserve; only the drawn plate loses 1px.
     local addCond = makePlusSlot(p, ADD_COND_W - 1, COND_H - 1)
@@ -3217,9 +3216,9 @@ function factories.catlist(parent, spec)
     local rawToggle = CreateFrame("Button", nil, p, "BackdropTemplate")
     ns.SnapBox(rawToggle, 22, 22, true)
     ns.PixelBackdrop(rawToggle)
-    -- The face of the toggle is drawn, not typed. It used to carry a letter -- "T", for text -- and a
-    -- letter says nothing at all in the languages whose alphabet is another one: this panel is read in
-    -- Chinese and Korean too, where that shape is a shape and no word. The caret is the one mark that
+    -- The face of the toggle is drawn, not typed: a letter says nothing at all in the languages whose
+    -- alphabet is another one, and this panel is read in Chinese and Korean too, where that shape is a
+    -- shape and no word. The caret is the one mark that
     -- means "text" without being a word in any language: it is the pointer every system shows over a
     -- piece of editable text, and drawn it follows the theme, the density and the ink of its state the
     -- way the X and the plus already do.
@@ -4377,7 +4376,7 @@ function factories.catlist(parent, spec)
     local width = math.max(fit, math.min(HELP_MAXW, math.ceil(wide) + pad * 2 + SCROLL_W + 20))
     width = math.max(HELP_MINW, math.min(HELP_MAXW, width,
                                      math.floor((UIParent:GetWidth() or 1000) * 0.7)))
-    -- The text ends 12 short of the bar, not 4: wrapped lines no longer sit against it,
+    -- The text ends 12 short of the bar, not 4, so wrapped lines do not sit against it,
     -- and the scrolling title stays clear of the close button on its way past.
     local innerW = width - pad * 2 - SCROLL_W - 12
     m.child:SetWidth(innerW)
@@ -4658,8 +4657,7 @@ function factories.catlist(parent, spec)
   row.presets = {}
   local presetCap = Theme:Label(row, BASE_FONT - 2, "faint")
   -- Localized through the watcher, not a bare SetText: a language change repaints every watched label
-  -- and reflows the page, and this caption is the one preset-strip label that used to miss that pass and
-  -- keep its old-language text until a reload. Its siblings (New group/divider/category) already do this.
+  -- and reflows the page, so this caption follows it like its siblings (New group/divider/category).
   ns.LocalText(presetCap, "Add a category")
   row.presetCap = presetCap
 
@@ -5013,8 +5011,8 @@ function factories.catlist(parent, spec)
         -- collapses a row the player chose to close.
         local canPin = (not isEmpty) and (not isOther)
         local forced = row.openPins[e.id]
-        -- Default closed even with pins: the collapsed row shows a pin dot, so a rack no longer needs the
-        -- panel forced open to be known. Only an explicit open (the "+") shows the editor.
+        -- Default closed even with pins: the collapsed row shows a pin dot, so the rack does not need
+        -- the panel forced open to be known. Only an explicit open (the "+") shows the editor.
         local wantOpen = (forced == true)
         local panelOpen = canPin and wantOpen and not row.dragging
         r.wpePanelOpen = panelOpen
@@ -5096,7 +5094,7 @@ function factories.catlist(parent, spec)
     -- click and its result are never more than a row apart.
     -- Each is sized from its own label rather than from a fixed box: the English words fit 120, and every
     -- longer translation ran out of it, Russian "Новый разделитель" first. When the makers and the reset
-    -- no longer fit side by side, the reset drops to a line of its own, still on the right, rather than
+    -- do not fit side by side, the reset drops to a line of its own, still on the right, rather than
     -- overlapping them or being clipped.
     y = y + 12
     local GAPW, SIDEPAD = 8, 22
