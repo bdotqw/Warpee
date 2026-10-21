@@ -64,10 +64,9 @@ end
 
 -- The row is drawn in two windows out of the one list, and each window has its own switch.
 -- The key is written at login; a read that happens before that falls back to the old single
--- switch, which meant the same thing for both windows. This file used to carry one Enabled
--- for the pair, and that one value was doing two jobs: it hid the rows and it stopped the
--- collection. The two are separated here on purpose, because hiding the row in one window
--- must not stop the list the other window is still showing.
+-- switch, which meant the same thing for both windows. Hiding a row and collecting an item are
+-- separate on purpose: hiding the row in one window must not stop the list the other window is
+-- still showing.
 local function flag(key)
   local db = WarpeeDB
   if not db then return true end
@@ -78,8 +77,8 @@ end
 function Rec:BagsOn() return flag("recentBags") end
 function Rec:PocketOn() return flag("recentPocket") end
 
--- What the collection itself watches. With both switches off this is the old "off": the list
--- keeps its cells but takes nothing new, exactly as it did before the split.
+-- What the collection itself watches. With both switches off the list keeps its cells but takes
+-- nothing new.
 function Rec:Live() return self:BagsOn() or self:PocketOn() end
 
 local FREEZE
@@ -386,12 +385,10 @@ end
 -- template the grid draws with, registered for the same two buttons and the same drag, so a
 -- left click lifts the item, a drag lifts it too, a right click uses it, and shift, ctrl and
 -- alt reach the container handler's own modified-click branch with no line of ours in the way.
--- The row used to keep the left button on an overlay above the cell so that nothing could be
--- picked up off it, and what that bought was a re-implementation of the two gestures it had
--- just taken away from the template. The overlay is gone and so is the mouthful of guards that
--- came with it, including the link check: a cell whose item moved on stays on the row for a
--- few updates by design, and acting on the new occupant of that slot is what a right click on
--- the row has always done anyway.
+-- An overlay above the cell would only re-implement the two gestures it takes away from the
+-- template, so there is none, and no link check either: a cell whose item moved on stays on
+-- the row for a few updates by design, and acting on the new occupant of that slot is what a
+-- right click on the row has always done anyway.
 --
 -- The list is drawn in two windows and each keeps its own pool of cells, so the two field
 -- names that answer for a cell come in from the row that owns it. Everything above is the

@@ -878,8 +878,8 @@ restEdge = function(s)
   paintRing(s, r, g, b)
 end
 
--- The same outline under the hand or in it: both lines take the accent, since the ring is no longer a
--- quality that stays put. A hover runs no layout, so the pointer's own handler has to paint the ring too
+-- The same outline under the hand or in it: both lines take the accent, since the ring is an accent, not
+-- a quality that stays put. A hover runs no layout, so the pointer's own handler has to paint the ring too
 -- -- painting only the edge would leave the coin ink standing next to an accent edge.
 hotEdge = function(s)
   local r, g, b = Theme:C("accent")
@@ -1278,7 +1278,7 @@ function Cur:Apply(force)
     local fresh = Cur.ReadWatched(C_CurrencyInfo, {})
     -- Only a change in how many are tracked moves the row's height, so only that asks the window to
     -- rebuild. A hidden row (curStrip off) has no height to move: it stays a repaint even though its
-    -- count reads as nil, which used to ask for a full layout on every open through the OnShow request.
+    -- count reads as nil, rather than asking for a full layout on every open through the OnShow request.
     local on = B.curStrip ~= false
     if force or (on and (#fresh ~= (self.sig or -1) or not self.placed)) then
       B:Layout()

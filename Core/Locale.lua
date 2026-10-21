@@ -139,10 +139,9 @@ end
 
 function ns.LocalText(obj, key)
   if not obj then return obj end
-  -- One watcher per object, kept on it. The list below is never pruned, so an object that
-  -- registers again, as a reused label does on every paint of its page, used to add a fresh
-  -- entry for the whole session and paint the same string once per entry on every language
-  -- change.
+  -- One watcher per object, kept on it. The list below is never pruned, so without this a
+  -- reused label that registers on every paint of its page would add a fresh entry for the
+  -- whole session and paint the same string once per entry on every language change.
   local w = obj.wpeLocal
   if w then
     w.key = key

@@ -335,11 +335,11 @@ function Picker:Toggle(anchor, side, onSelect, currentKey, mode, size)
     self.capH = nil
   end
   if not win then return end
-  -- The list belongs to the window that opened it: when that window goes away, so does the list. The bags
-  -- close the picker by hand in their own OnHide, but the bank does not -- so a picker opened there used to
-  -- outlive it and stay standing beside a window that was no longer on the screen, a whole column away
-  -- from the bags that happened to be open. Hooking the owner covers every window, present and future, and
-  -- is done once per frame: a second toggle on the same window must not stack hooks.
+  -- The list belongs to the window that opened it: when that window goes away, so does the list. The bank
+  -- does not close the picker itself, so without the owner hook the list would stay standing beside a
+  -- window that is no longer on screen, a whole column away from the bags that happened to be open.
+  -- Hooking the owner covers every window, present and future, and is done once per frame: a second
+  -- toggle on the same window must not stack hooks.
   if win.HookScript and not win.wpePickerOwner then
     win.wpePickerOwner = true
     win:HookScript("OnHide", function() Picker:Close() end)

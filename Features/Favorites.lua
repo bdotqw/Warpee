@@ -301,7 +301,7 @@ function Fav:Lift(index)
   -- bag slot, and the container reader takes that copy. A ghost has no slot, so the client resolves
   -- its link on its own -- that is the drag worth keeping: the bar takes it and the pointer gets the
   -- game's art -- and the drag is taken as ours whatever the client answers, because rebuilding the
-  -- pin from the cursor's link is exactly what used to lose the enchant. The answer can also come a
+  -- pin from the cursor's link is exactly what loses the enchant. The answer can also come a
   -- beat late, so an empty cursor here is no failure: the pickup is left as it is, the game's drag
   -- shows when it shows, and the pin still moves by our own bookkeeping.
   self.liftFrom = nil

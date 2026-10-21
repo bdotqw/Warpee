@@ -253,9 +253,9 @@ function P:Export(name)
     if not EXPORT_SKIP[k] then out[k] = ns.CopyDeep(v) end
   end
   local body = packPayload({ _v = SCHEMA, _n = name, d = out })
-  -- A codec that refuses is not a profile that came out empty. Both used to answer with the
-  -- prefix and nothing after it, which reads as a code and fails on the other end as a
-  -- damaged one; the empty string is what the panel already takes as "nothing to copy".
+  -- A codec that refuses is not a profile that came out empty. Answering with the prefix and
+  -- nothing after it reads as a code and fails on the other end as a damaged one; the empty
+  -- string is what the panel already takes as "nothing to copy".
   if body == "" then return "" end
   return PREFIX .. body
 end
