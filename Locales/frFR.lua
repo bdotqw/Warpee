@@ -621,8 +621,6 @@ local STRINGS = {
     "La poche est une petite fenêtre de cases-repères à côté des sacs. Ouvrez-la avec le bouton en grille de l'en-tête, ou assignez une touche dans les options.",
   ["No gold recorded yet"] = "Aucun or enregistré pour l'instant",
   ["Delete mode"] = "Mode suppression",
-  ["Alt-click an item in your bags while this tab is open."] =
-    "Alt + clic gauche sur un objet de vos sacs pendant que cette page est ouverte.",
   ["Profiles"] = "Profils",
   ["Default"] = "Par défaut",
   ["New profile name"] = "Nouveau nom du profil",

@@ -605,8 +605,6 @@ local STRINGS = {
     "O bolso é uma pequena janela de células de atalho ao lado das bolsas. Abra-o com o botão de grade no cabeçalho ou defina uma tecla nas opções.",
   ["No gold recorded yet"] = "Nenhum ouro registrado ainda",
   ["Delete mode"] = "Modo de exclusão",
-  ["Alt-click an item in your bags while this tab is open."] =
-    "Alt + clique em um item nas bolsas enquanto esta aba estiver aberta.",
   ["Profiles"] = "Perfis",
   ["Default"] = "Padrão",
   ["New profile name"] = "Novo nome do perfil",

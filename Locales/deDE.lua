@@ -621,8 +621,6 @@ local STRINGS = {
     "Die Ablage ist ein kleines Fenster mit Merkfeldern neben den Taschen. Öffne sie über die Gitterschaltfläche in der Kopfzeile oder lege eine Taste in den Einstellungen fest.",
   ["No gold recorded yet"] = "Noch kein Gold erfasst",
   ["Delete mode"] = "Löschmodus",
-  ["Alt-click an item in your bags while this tab is open."] =
-    "Alt + Linksklick auf einen Gegenstand in den Taschen, während diese Seite offen ist.",
   ["Profiles"] = "Profile",
   ["Default"] = "Standard",
   ["New profile name"] = "Neuer Profilname",

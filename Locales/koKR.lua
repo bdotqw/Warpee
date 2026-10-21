@@ -526,7 +526,6 @@ local STRINGS = {
   ["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."] = "주머니는 가방 옆 작은 북마크 창입니다. 상단의 격자 버튼으로 열거나 설정에서 키를 지정하세요.",
   ["No gold recorded yet"] = "기록된 골드 없음",
   ["Delete mode"] = "삭제 모드",
-  ["Alt-click an item in your bags while this tab is open."] = "이 탭이 열려 있을 때 가방의 아이템을 ALT+좌클릭하세요.",
   ["Profiles"] = "프로필",
   ["Default"] = "기본",
   ["New profile name"] = "새 프로필 이름",

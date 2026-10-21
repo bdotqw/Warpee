@@ -614,8 +614,6 @@ local STRINGS = {
     "El bolsillo es una pequeña ventana de casillas marcadas junto a las bolsas. Ábrelo con el botón de rejilla de la cabecera o asigna una tecla en los ajustes.",
   ["No gold recorded yet"] = "Todavía no hay datos de oro",
   ["Delete mode"] = "Modo de borrado",
-  ["Alt-click an item in your bags while this tab is open."] =
-    "Alt + clic izquierdo en un objeto de tus bolsas mientras esta página está abierta.",
   ["Profiles"] = "Perfiles",
   ["Default"] = "Predeterminado",
   ["New profile name"] = "Nuevo nombre del perfil",

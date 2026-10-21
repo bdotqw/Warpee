@@ -522,7 +522,6 @@ local STRINGS = {
   ["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."] = "口袋是背包旁邊的一個收藏小視窗。點標題欄上的網格按鈕開啟，或者在設定裡綁定一個按鍵。",
   ["No gold recorded yet"] = "還沒有記錄金幣",
   ["Delete mode"] = "刪除模式",
-  ["Alt-click an item in your bags while this tab is open."] = "在這個標籤頁開啟時，ALT+左鍵點擊背包裡的物品。",
   ["Profiles"] = "設定檔",
   ["Default"] = "預設",
   ["New profile name"] = "新設定檔名稱",

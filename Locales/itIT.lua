@@ -606,8 +606,6 @@ local STRINGS = {
     "La tasca è una piccola finestra di celle-segnalibro accanto alle borse. Aprila con il pulsante a griglia nell'intestazione oppure assegna un tasto nelle opzioni.",
   ["No gold recorded yet"] = "Nessun oro registrato",
   ["Delete mode"] = "Modalità eliminazione",
-  ["Alt-click an item in your bags while this tab is open."] =
-    "Alt + clic su un oggetto nelle borse mentre questa scheda è aperta.",
   ["Profiles"] = "Profili",
   ["Default"] = "Predefinito",
   ["New profile name"] = "Nuovo nome del profilo",

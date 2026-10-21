@@ -13,7 +13,7 @@ Bag and bank windows for World of Warcraft (Midnight, 12.x). Grid or categories,
 - **Pocket window** on a hotkey: a small grid of tracked items for when the full bags are overkill, with ghosts that stay behind to rebuy what ran out.
 - **Recent loot row** in the bags and the pocket, toggled on its own.
 - **Marks on the slots**, placed where you want them: item level, stack count, binding (BoE, WuE, BoA), gear set, a coin on junk and a sale mark with a padlock for locked items, each with its own corner, offset, size and growth direction, plus a countdown on anything on cooldown.
-- **Vendor sell** in one click: item level range in the options, grey junk, old consumables and raid loot optional, with guards for old runes, alchemist stones and fishing gear; BoE, warbound, enchanted and socketed gear stay in the bags. Alt-click marks an item for the next visit, alt-click again locks it.
+- **Vendor sell** in one click: item level range in the options, grey junk, old consumables and raid loot optional, with guards for old runes, alchemist stones and fishing gear; BoE, warbound, enchanted and socketed gear stay in the bags. Alt + LMB marks an item for the next visit, and the same again locks it.
 - **Item counts across every character** inside the Blizzard tooltip (bags / bank / Warband / total).
 - **Search filters** by quality, slot, item type, expansion and item level, in every interface language below.
 - **Gold formats** (commas, dots, spaces, K/M), coin letters or coin icons, and a gold tooltip listing characters, with the WoW Token price in the bags.
