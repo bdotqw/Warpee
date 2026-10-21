@@ -47,6 +47,7 @@ Windows\CharPicker.lua
 Windows\Bank.lua
 Windows\GuildBank.lua
 Features\Options.lua
+Features\CatListHeader.lua
 Features\OptionsPages.lua
 Features\Welcome.lua
 Core\Profiles.lua
