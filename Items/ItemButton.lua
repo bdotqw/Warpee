@@ -311,7 +311,7 @@ function ns.QuestMarked(b)
 end
 
 -- The quest ring colour, on ns so GuildBank can read the same value: a file-local would be invisible
--- there (every .lua is its own chunk), and GuildBank's paintRing used to index a nonexistent global.
+-- there (every .lua is its own chunk), and GuildBank's paintRing reads this one directly.
 ns.QUEST_YELLOW = { 1, 0.82, 0 }
 local QUEST_YELLOW = ns.QUEST_YELLOW
 
@@ -337,12 +337,10 @@ function ns.SyncQuestMark(b)
   return ns.QuestMarked(b) ~= was
 end
 
--- The search dim used to live here, as an alpha painted on the ring and on every badge on top of the
--- cell's own (SEARCH_BADGE_DIM, 0.30, with a walk over seventeen of them per cell and a cache of the
--- badge settings to feed it). All of that is gone: a frame's alpha multiplies into everything inside it,
--- so ONE number on the cell dims the icon, the ring's textures and every badge together. The dim is now
--- SEARCH_DIM, next to the pass that writes it -- and the badge shade on top of it is back as ns.BADGE_DIM
--- beside it, hung in the same pass by PaintBadgeDim, on the cells the picture moved on and no others.
+-- The search dim is one alpha on the cell, not a value per ring or badge: a frame's alpha multiplies
+-- into everything inside it, so SEARCH_DIM dims the icon, the ring's textures and every badge together.
+-- The badge shade on top is ns.BADGE_DIM, hung in the same pass by PaintBadgeDim, on the cells the
+-- picture moved on and no others.
 
 function ns.MarkNewItem(b, bagID, slot, quality)
   local nt, bp = b.NewItemTexture, b.BattlepayItemTexture
@@ -907,16 +905,15 @@ local function cellOf(b)
          or ns.Bags.pxSize or ns.Bags.iconSize or DEFAULT_CELL
 end
 
--- The placement and the size columns here are the factory values themselves, not a second
--- opinion about them: Core.lua builds DEFAULTS.badge out of ns.BadgeDefaults(), the panel
--- draws its preview from the same rows, and ns.BadgeMigrate back-fills a partial saved
--- table from them. They used to be a copy that had drifted, so a profile created before a
--- badge key existed got one placement for that key and a freshly installed profile got
--- another for the same badge. Change a number here and every one of those paths moves.
--- The text rows carry two more columns than they used to. m is the smallest size the badge
--- may be drawn at, the same kind of floor the two textures below already had, and ref is the
--- cell their s, x and y are written against. Read the pair together: s is pixels at a cell
--- of ref, and ns.BadgeSize turns that into pixels at the cell the badge actually lands in.
+-- The placement and size columns here are the factory values themselves, not a second opinion
+-- about them: Core.lua builds DEFAULTS.badge out of ns.BadgeDefaults(), the panel draws its
+-- preview from the same rows, and ns.BadgeMigrate back-fills a partial saved table from them.
+-- Change a number here and every one of those paths moves together, so a profile created before
+-- a badge key existed lands on the same placement as a freshly installed one.
+-- m is the smallest size the badge may be drawn at, the same kind of floor the two textures
+-- below already had, and ref is the cell their s, x and y are written against. Read the pair
+-- together: s is pixels at a cell of ref, and ns.BadgeSize turns that into pixels at the cell
+-- the badge actually lands in.
 local BADGES = {
   -- The two numbers ship as they are worn on the default cells: 12px, centred on the bottom-right
   -- corner of the cell, eighteen pixels in and one pixel up. a = "center" is what makes the number
@@ -1328,8 +1325,8 @@ function ns.FitOverlays(b)
   elseif b.wpeTier then
     local t, src = b.wpeTier, b.wpeTier.wpeSrc
     -- The mirror belongs to the piece it was taken for. The game leaves its own atlas sitting on its
-    -- texture when the cell moves to another item, so asking the source alone kept a tier the new item
-    -- never had, and kept the tier of the piece that used to be here on whatever the cell draws now.
+    -- texture when the cell moves to another item, so the source alone is not enough: without the link
+    -- check the cell can keep a tier the new item never had.
     if b.wpeQualityLink and t:IsShown() and t.wpeW0 and src and tierAtlas(src)
        and t.wpeLink == b.wpeQualityLink then
       tierFit(b)
@@ -1378,9 +1375,9 @@ end
 function ns.FitCount(b, count)
   local c = b.Count or _G[(b:GetName() or "") .. "Count"]
   if not c then return end
-  -- Size through the same call the badge is placed by. These three used to set the stored
-  -- number straight onto the string, which is the size for the reference cell and not for the
-  -- cell in front of them, and whichever of the two passes ran last is what the player saw.
+  -- Size through the same call the badge is placed by. Writing the stored number straight onto
+  -- the string would be the size for the reference cell, not the cell in front of them, and
+  -- whichever of the two passes ran last is what the player saw.
   ns.SetOutlined(c, ns.BadgeSize("count", cellOf(b)))
   if not ns.Badge("count").on then c:SetText(""); return end
   -- A count past a stack can only come from a fold or a watched amount, and the game writes such a
@@ -1682,8 +1679,8 @@ end
 -- flat literal and not a theme key: these sit on item icons, not themed chrome, and the three must match
 -- each other exactly rather than the window ink.
 -- The game's own money gold -- GOLD_COLOR in Blizzard's constants, the |cffffd100 every gold amount in
--- the UI is written in. The earlier 0.98/0.80/0.28 carried a blue channel, which washed the coin out to
--- a pale cream next to the client's own gold; the blue has to be zero for it to read as gold at all.
+-- the UI is written in. The blue channel must be zero: any blue washes the coin to a pale cream next
+-- to the client's own gold, and it stops reading as gold.
 local COIN_GOLD = { 1.0, 0.82, 0.0 }
 -- Exported so the header's sell coin can wear the very same gold as the two marks on the items: a second
 -- literal in Bags.lua would drift from this one on the next tweak.
@@ -1696,10 +1693,8 @@ ns.COIN_GOLD_HOT = { 1, 0.92, 0.30 }
 -- written in, and the same copper the addon's money text is painted with (ns.COIN_HEX.c, spelled out here
 -- because Bags.lua loads after this file; the two must be changed together). It says what the mark means:
 -- a piece the RULES would sell is worth coppers, one the player marked by hand is worth gold -- and at
--- badge size a copper coin and a gold coin are told apart at a glance, which the deeper gold this first
--- wore was not. Silver (c7c7cf) was the other candidate and was left: it is a near-grey, so on the grey
--- items a junk coin sits on it reads as a dead mark rather than a cheap one. The mark itself is unchanged
--- -- it is still the one coin; only its metal says which of the two triggers put it there.
+-- badge size a copper coin and a gold coin are told apart at a glance; a deeper gold is not distinct
+-- enough. The mark is one coin; its metal says which of the two triggers put it there.
 local COIN_COPPER = { 0.929, 0.647, 0.373 }
 ns.COIN_COPPER = COIN_COPPER
 
@@ -1892,8 +1887,8 @@ function ns.UpdateItemButton(b)
   end
   local mark = keystoneMark(link)
   -- The quest marker is read before the guard rather than after it. The bags rebuild every
-  -- cell on a layout, but the bank repaints one only when its plan moved, so a quest taken
-  -- or dropped while the bank was shut used to keep the marker the cell already had.
+  -- cell on a layout, but the bank repaints one only when its plan moved, so reading it after
+  -- the guard would leave a quest taken or dropped while the bank was shut on the old marker.
   local qi
   if (ns.Bags.qualityBorder or ns.Bags.questMarks)
      and C_Container.GetContainerItemQuestInfo then
@@ -2243,16 +2238,15 @@ end
 -- The search dim, in one number: the alpha a cell wears when the query does not match it (a bag hover
 -- greys a cell the same way). Nothing else in the pass carries a dim of its own -- the note inside
 -- ApplySearchToButton says why the badges and the ring ride this one -- so raised or lowered, it is raised
--- or lowered here and nowhere else. It sat at 0.20 while the badges were painted separately at 0.30 on top;
--- riding the children cut it to 0.12 so a dimmed cell read as one flat ghost, and that turned out too deep:
--- at 0.12 a miss looked like an empty slot, the icon all but gone (raised 17.10). 0.25 keeps the picture
--- plainly there under the grey, and the badges' own shade on top still flattens the cell.
+-- or lowered here and nowhere else. Too low a value makes a miss look like an empty slot, the icon all
+-- but gone; 0.25 keeps the picture plainly there under the grey, and the badges' own shade on top still
+-- flattens the cell.
 local SEARCH_DIM = 0.25
 
--- The badge shade the misses wear on top of the cell's own: the old double dim, back by demand. It is
--- hung in the same pass that moves the cell -- PaintBadgeDim, called from the moved-cell block of the
--- search walk -- so the shade lands with the dim and nothing catches up behind it. Only the movers are
--- reached for: a pass that leaves a cell the same colour never touches its badges. On ns. and not
+-- The badge shade the misses wear on top of the cell's own: it is hung in the same pass that moves the
+-- cell -- PaintBadgeDim, called from the moved-cell block of the search walk -- so the shade lands with
+-- the dim and nothing catches up behind it. Only the movers are reached for: a pass that leaves a cell
+-- the same colour never touches its badges. On ns. and not
 -- file-local so the dress path, which sits hundreds of lines ahead, reads the same number without a
 -- forward declaration.
 ns.BADGE_DIM = 0.30
@@ -2646,10 +2640,9 @@ function ns.PinPickup(pin, bag, slot)
 end
 
 function ns.PinIcon(id)
-  -- C_Item.GetItemIconByID is the only reader left: 12.1.5 removed the shim behind the bare GetItemIcon,
-  -- which used to stand here as the second try. The call stays inside a pcall because an id the client
-  -- has never seen answers with an error rather than nil, and the default icon is the last answer either
-  -- way.
+  -- C_Item.GetItemIconByID is the only reader: 12.1.5 removed the shim behind the bare GetItemIcon.
+  -- The call stays inside a pcall because an id the client has never seen answers with an error rather
+  -- than nil, and the default icon is the last answer either way.
   if C_Item and C_Item.GetItemIconByID then
     local ok, tex = pcall(C_Item.GetItemIconByID, id)
     if ok and tex then return tex end
