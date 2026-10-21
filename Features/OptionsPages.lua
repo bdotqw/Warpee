@@ -752,7 +752,7 @@ local VENDOR_PAGE = {
   { type = "header", name = "Marked for sale", key = "sellmarks",
     state = function() return ns.LN("%d items", (ns.Vendor and ns.Vendor:SellCount()) or 0) end },
   { type = "description", section = "sellmarks",
-    name = "ALT-click an item to mark it for sale: a coin appears, and it is sold at the next merchant who buys wares. A second click locks it from sale, a third clears it. Works in the bags, the bank, the favorites row and the pocket." },
+    name = "Alt + LMB to mark it for sale: a coin appears, and it is sold at the next merchant who buys wares. A second Alt + LMB locks it from sale, a third clears it. Works in the bags, the bank, the favorites row and the pocket." },
   { type = "selllist", section = "sellmarks" },
 }
 

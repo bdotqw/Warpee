@@ -535,7 +535,7 @@ local STRINGS = {
   ["Marked for sale"] = "Segnati per la vendita",
   ["Badge order"] = "Ordine dei contrassegni",
   ["The badge at the top of the list draws over the ones below it. The stack count always stays at the bottom."] = "Il contrassegno in cima all'elenco viene disegnato sopra quelli sotto. La quantità della pila resta sempre in basso.",
-  ["ALT-click an item to mark it for sale: a coin appears, and it is sold at the next merchant who buys wares. A second click locks it from sale, a third clears it. Works in the bags, the bank, the favorites row and the pocket."] = "ALT + clic sinistro su un oggetto lo segna per la vendita: appare una moneta e viene venduto al prossimo mercante che compra oggetti. Un secondo ALT + clic sinistro lo protegge dalla vendita, un terzo toglie il segno. Funziona nelle borse, nella banca, nella riga dei preferiti e nella tasca.",
+  ["Alt + LMB to mark it for sale: a coin appears, and it is sold at the next merchant who buys wares. A second Alt + LMB locks it from sale, a third clears it. Works in the bags, the bank, the favorites row and the pocket."] = "ALT + clic sinistro su un oggetto lo segna per la vendita: appare una moneta e viene venduto al prossimo mercante che compra oggetti. Un secondo ALT + clic sinistro lo protegge dalla vendita, un terzo toglie il segno. Funziona nelle borse, nella banca, nella riga dei preferiti e nella tasca.",
   ["Alt-click an item in your bags to mark it for sale."] = "ALT + clic sinistro su un oggetto nelle borse lo segna per la vendita.",
   ["%d items could not be sold and stayed in the bags"] = {
     "%d oggetto non è stato venduto ed è rimasto nelle borse",

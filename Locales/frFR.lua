@@ -550,7 +550,7 @@ local STRINGS = {
   ["Marked for sale"] = "Marqués pour la vente",
   ["Badge order"] = "Ordre des badges",
   ["The badge at the top of the list draws over the ones below it. The stack count always stays at the bottom."] = "Le badge en haut de la liste est dessiné par-dessus ceux du dessous. Le nombre de piles reste toujours en bas.",
-  ["ALT-click an item to mark it for sale: a coin appears, and it is sold at the next merchant who buys wares. A second click locks it from sale, a third clears it. Works in the bags, the bank, the favorites row and the pocket."] = "ALT + clic gauche sur un objet le marque pour la vente : une pièce apparaît, et il est vendu au prochain marchand qui achète des objets. Un deuxième ALT + clic gauche le bloque pour la vente, un troisième retire la marque. Fonctionne dans les sacs, la banque, la ligne des favoris et la poche.",
+  ["Alt + LMB to mark it for sale: a coin appears, and it is sold at the next merchant who buys wares. A second Alt + LMB locks it from sale, a third clears it. Works in the bags, the bank, the favorites row and the pocket."] = "ALT + clic gauche sur un objet le marque pour la vente : une pièce apparaît, et il est vendu au prochain marchand qui achète des objets. Un deuxième ALT + clic gauche le bloque pour la vente, un troisième retire la marque. Fonctionne dans les sacs, la banque, la ligne des favoris et la poche.",
   ["Alt-click an item in your bags to mark it for sale."] = "ALT + clic gauche sur un objet dans les sacs le marque pour la vente.",
   ["%d items could not be sold and stayed in the bags"] = {
     "%d objet n'a pas pu être vendu et est resté dans les sacs",
