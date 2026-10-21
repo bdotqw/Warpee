@@ -127,8 +127,8 @@ function Pocket:SetRows(value) setRows(tonumber(value) or 5) end
 function Pocket:SetCols(value) setCols(tonumber(value) or 6) end
 function Pocket:SetIconSize(value) setSize(tonumber(value) or ns.PocketIconSize()) end
 
--- The lock button used to lay the window out on its own; it now takes the same pass the options row does,
--- which also repaints the picks list when it is open -- the lock changes what those cells may drag.
+-- The lock button takes the same pass the options row does, which also repaints the picks list when it
+-- is open -- the lock changes what those cells may drag.
 function Pocket:ToggleLock()
   self:SetLock(not self:Locked())
 end
@@ -386,7 +386,7 @@ function Pocket:Lift(index)
   -- exact bag slot, and the container reader takes that copy. A ghost has no slot, so the client
   -- resolves its link on its own -- that is the drag worth keeping: the bar takes it and the pointer
   -- gets the game's art -- and the drag is taken as ours whatever the client answers, because
-  -- rebuilding the pin from the cursor's link is exactly what used to lose the enchant. The answer
+  -- rebuilding the pin from the cursor's link is exactly what loses the enchant. The answer
   -- can also come a beat late, so an empty cursor here is no failure: the pickup is left as it is,
   -- the game's drag shows when it shows, and the pin still moves by our own bookkeeping.
   self.liftFrom = nil
@@ -756,10 +756,9 @@ function Pocket:Build()
   -- The same id field the category editor's pin entry uses (Core/Widgets.lua): a number box that takes
   -- nothing but digits, with a live preview of the item that id names beside it, so what was typed is seen
   -- to resolve before it lands in the pocket — the icon and the name, exactly as the pins panel shows
-  -- them. Enter adds it and the "+" does the same; a shift-clicked link arrives as its bare id. It used to
-  -- be the plain search box, which took any text and gave nothing back until the item showed up in the
-  -- grid. Losing focus still empties it, the way the old field did, so nothing typed is left standing when
-  -- the panel closes.
+  -- them. Enter adds it and the "+" does the same; a shift-clicked link arrives as its bare id. The
+  -- preview gives feedback before the item lands in the grid. Losing focus still empties it, so nothing
+  -- typed is left standing when the panel closes.
   local field = ns.CreateIdField(picks, {
     hint = "Add ID",
     height = BOX_H,
@@ -1025,8 +1024,8 @@ function Pocket:Layout()
   self.max = n
   self:Cooldowns()
   -- The band under the arrows is reserved whether they are up or not. Locking a window is not
-  -- a resize: the pocket used to shrink by the band the moment it was pinned, so pinning it
-  -- moved everything in it. Only the arrows themselves come and go.
+  -- a resize, so dropping the band would move everything in it; only the arrows themselves come
+  -- and go.
   local editable = not self:Locked()
   if self.nudge then self.nudge:SetShown(editable) end
   local foot = gridTop + (rows - 1) * step + size + BOX_GAP
@@ -1217,8 +1216,8 @@ function WarpeePocketToggle()
   if ns.Pocket then ns.Pocket:Hotkey() end
 end
 
--- The pocket used to take F7 outright. It takes the first free key of a short ladder now,
--- and the one line it says on the way is built from the key it actually got.
+-- The pocket takes the first free key of a short ladder, and the one line it says on the way is
+-- built from the key it actually got.
 local function defaultKey()
   if not WarpeeDB or WarpeeDB.pocketBind then return end
   if InCombatLockdown() then return end
