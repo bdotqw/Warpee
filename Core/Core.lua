@@ -31,12 +31,11 @@ local DEFAULTS = {
   nameBags = true, nameBank = true, nameWb = true,
   pocketShow = true, pocketWithBags = false, pocketRows = 4, pocketCols = 6,
   pocketSnap = true,
-  -- A size of the pocket's own. It used to be NONE -- "no number of its own, read the bags' size on
-  -- every pass" -- which is how a save that predated the setting kept working. Left that way it
-  -- never stopped: resizing the bags dragged the pocket along, a settings reset cleared the key and
-  -- put it back to following, and a profile never carried the size at all, since only keys with a
-  -- default are copied into one. A save with no number takes the bags' size once, at login or where
-  -- the key is first read (ns.PocketIconSize), and from then on it is a setting like any other.
+  -- A size of the pocket's own. NONE -- "no number of its own, read the bags' size on every pass" --
+  -- would make resizing the bags drag the pocket along, and a profile would never carry the size,
+  -- since only keys with a default are copied into one. A save with no number takes the bags' size
+  -- once, at login or where the key is first read (ns.PocketIconSize), and from then on it is a
+  -- setting like any other.
   pocketIconSize = 37,
   -- NONE, not false: nil here means the pocket has never been given a lock of its own, and
   -- the login block seeds it from the lock that used to cover it. Filling it with a default
@@ -169,8 +168,8 @@ local function fillComputed(db)
   -- The coin's scale field narrowed to 0.4-0.6: below 0.4 it was only ever a coin small enough that the
   -- art stopped reading, above 0.6 the mark covered the item it sat on. A stored value outside that band is
   -- brought in here, once, rather than clamped in the field's getter -- a getter that answers something
-  -- other than what it holds fights the slider, and the window losing that fight on every frame is what
-  -- used to lag. Written only when it is actually out of band, so nothing is rewritten twice. The junk
+  -- other than what it holds fights the slider and lags the window on every frame. Written only when it
+  -- is actually out of band, so nothing is rewritten twice. The junk
   -- coin needs no entry: it is sized by the sale mark's record and has no scale of its own.
   local sellRec = db.badge and db.badge.sell
   if type(sellRec) == "table" then
@@ -358,8 +357,8 @@ function ns.PaintVerdicts(links)
   if bank and bank.frame and bank.frame:IsShown() and bank.RepaintLinks then
     painted = painted + (bank:RepaintLinks(links) or 0)
   end
-  -- The guild bank draws the same rings off the same verdicts, and the repaint that used to follow the
-  -- queue reached it too: it has no pool of cells to hand a link to, so it repaints the slots it shows.
+  -- The guild bank draws the same rings off the same verdicts: it has no pool of cells to hand a link
+  -- to, so it repaints the slots it shows.
   local gb, f = ns.GuildBankSkin, _G.GuildBankFrame
   if gb and gb.PaintSlots and f and f:IsShown() then ns.Guard("guild bank paint", gb.PaintSlots, gb) end
   return painted
@@ -654,13 +653,10 @@ end
 local SCALE_CVARS = { uiscale = true, useuiscale = true }
 
 -- The event handler is one function per group of events plus a table that says which event goes where.
--- It used to be a single if/elseif chain of 340 lines written into the frame's script: readable top to
--- bottom, but every new event had to be threaded into the chain by hand, and two branches answering the
--- same event read as two answers when only the first one could ever run. A table cannot hold two answers
--- for one key, so where an event goes is a lookup rather than the order of the lines above it. Nothing
--- else changed: each body is the branch that stood there, comments and all, and a branch that used to
--- tell its events apart -- money, whose two events answer differently, and the quest log, which reacts
--- only to the player's own -- still reads the event it was handed.
+-- A table cannot hold two answers for one key, so where an event goes is a lookup, and every new event
+-- is a row in it rather than another branch threaded through a chain. A body whose events answer
+-- differently -- money, whose two events answer differently, and the quest log, which reacts only to
+-- the player's own -- reads the event it was handed.
 local on = {}
 
 local function onScale()
@@ -848,8 +844,8 @@ end
 local function onBagChanged(_, a1)
   if not Bags.warmed then Bags:Warm() end
   -- The reagent bag is its own container (bag id 5, outside ns.playerBags), and its cells are drawn in the
-  -- same grid: a piece moved in or out of it is a dirty bag like any other. It used to be left out, and
-  -- the full pass on open was the only thing that ever re-read it.
+  -- same grid: a piece moved in or out of it is a dirty bag like any other, so the pass re-reads it
+  -- instead of waiting for the next open.
   if ns.IsPlayerBag(a1) or a1 == ns.reagentBag then
     Bags.dirty[a1] = true
     -- The counts in the tooltip read our own bags live but are cached per character, and
