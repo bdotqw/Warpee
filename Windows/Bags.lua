@@ -30,9 +30,9 @@ local CUR_SEAM = 16    -- the band under the grid: air, the hairline dividing th
 local CUR_MID = 8      -- how far the hairline drops below the grid's foot, in the middle of that band
 local HB = 26
 local ROW1_Y = 4
--- The purse line's inset from the window's right edge, over PAD. It used to stand at PAD + 4 and the
--- amount ran onto the right border (owner), so it keeps a further eight clear of it. Height is the
--- density's own and is not touched here: the line sits in the footer band it always sat in.
+-- The purse line's inset from the window's right edge, over PAD. At PAD + 4 the amount ran onto the
+-- right border (owner), so 12 keeps a further eight clear of it. Height is the density's own and is not
+-- touched here: the line sits in the footer band.
 local FOOT_RIGHT = 12
 -- AND THE SHORTER THE LINE, THE CLOSER IT SITS. A line of one metal is a shorter thing than a line of
 -- three, and letters sit tighter than coins. Gold only drops eight, letters alone drop eight, and gold
@@ -83,10 +83,10 @@ local sizeGlyph = ns.SizeGlyph
 
 -- Flip the bags between the plain grid and the category view: the same switch the Category view row in
 -- Grid > Layout runs, reached through ns.Options -- Options itself is local to its own file, so a bare
--- read here would be nil and the click would do nothing at all. It rides the BAGS button now (right
--- click): what it changes is the bags' own picture, and it used to sit on the pocket button, where a
--- right click read as if the pocket were the thing being switched. Being here also means the switch is
--- still at hand when the pocket is switched off and its button has left the row.
+-- read here would be nil and the click would do nothing at all. It rides the BAGS button (right click):
+-- what it changes is the bags' own picture, and on the pocket button a right click read as if the pocket
+-- were the thing being switched. Being here also means the switch is still at hand when the pocket is
+-- switched off and its button has left the row.
 local function switchView()
   local h = ns.Options and ns.Options.helpers
   local fl = h and h.flow
@@ -583,7 +583,7 @@ function Bags:Build()
   bagsToggle:SetPoint("TOPRIGHT", gear, "TOPLEFT", -4, 0)
   -- Two actions on the one button: LMB opens or closes the bag bar, RMB flips the view between the plain
   -- grid and the category view (switchView, top of the file). Both are named in the tooltip, one line
-  -- each, the way the pocket's used to be named.
+  -- each, the way the pocket names its two actions.
   bagsToggle:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   bagsToggle:SetScript("OnClick", function(s, button)
     if button == "RightButton" then switchView(); return end
@@ -1588,8 +1588,8 @@ function Bags:Layout(capture, light)
     -- A grid with no block at all takes the height of one row: a snapshot of a character with no slots is
     -- the only way there, and a content frame sized to nothing would take the window down with it.
     contentH = #blocks > 0 and y or size
-    -- With the split on, the reagent block is captioned out of the same pool as every other block, so the
-    -- label it used to carry stands down rather than double it up.
+    -- With the split on, the reagent block is captioned out of the same pool as every other block, so its
+    -- own label stands down rather than double it up.
     if rTop and not splitEach then
       self.reagentLabel:ClearAllPoints()
       self.reagentLabel:SetPoint("TOPLEFT", self.content, "TOPLEFT", 2, -rTop)
@@ -1626,9 +1626,9 @@ function Bags:Layout(capture, light)
   -- Painting it with the reagent switch keeps the two header marks in step with the same pass that
   -- reseats or removes the row under them.
   if self.curBtn then self:PaintCurrencies() end
-  -- The pocket button opens the pocket and nothing else now, so a pocket that is switched off takes the
+  -- The pocket button opens the pocket and nothing else, so a pocket that is switched off takes the
   -- button off the row with it -- the row chains through the shown buttons only, so nothing is left
-  -- standing in its place. The view switch it used to fall back on lives on the bags button.
+  -- standing in its place. The view switch lives on the bags button.
   if self.pocketBtn then
     self.pocketBtn:SetShown(ns.Pocket and ns.Pocket:Enabled() and true or false)
   end
@@ -2427,9 +2427,9 @@ function Bags:EmptyTile(i)
     -- is the unfile.
     -- The faint plate. Its low alpha is baked into the vertex colour and re-applied through the theme
     -- hook, not set once with SetAlpha: a plain SetAlpha is not re-run on a theme change, while the
-    -- Rect's own recolour hook re-runs SetVertexColor to full alpha, so the plate used to flare to full
-    -- brightness the moment the theme changed and only a reload cleared it. Painting colour and alpha
-    -- together in one tracked call keeps it faint across every theme change.
+    -- Rect's own recolour hook re-runs SetVertexColor to full alpha, so a plate painted with SetAlpha
+    -- alone flares to full brightness on a theme change and only a reload clears it. Painting colour and
+    -- alpha together in one tracked call keeps it faint across every theme change.
     local bg = t:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(t)
     local function paintBg(x) local r, g, b = Theme:C("faint"); x:SetColorTexture(r, g, b, 0.12) end
@@ -2960,8 +2960,8 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
     shelfH = math.max(shelfH, secH)
   end
   end
-  -- The bottom of the last shelf, plus the trailing gap. The Empty section now sits on that shelf, so
-  -- the footer that used to be measured on its own is folded into this one number.
+  -- The bottom of the last shelf, plus the trailing gap. The Empty section sits on that shelf, so the
+  -- footer is folded into this one number.
   local contentH = shelfY + shelfH + d.labelGap
   if self.catFree then self.catFree:Hide() end
   self:HideCatLabels(si)
@@ -3065,8 +3065,8 @@ function Bags:Resize(contentH)
   self.frame:SetSize(PAD * 2 + gw, self:TopOffset() + contentH + FOOTER)
   -- The plate is the extra surface the items stand on, over the window's own background, and it runs
   -- the whole window: header, grid and footer are covered alike, and only a skin's own header band is
-  -- left alone (Theme:FitPlate). It used to be the one band the grid sat in, which left the window's
-  -- background showing around it as a second tone.
+  -- left alone (Theme:FitPlate). A plate that stopped at the grid would leave the window's background
+  -- showing around it as a second tone.
   Theme:FitPlate(self.gridBg, self.frame)
   ns.Rebase(self.frame, "pos")
   ns.SeamHeal(seam)
@@ -3940,9 +3940,9 @@ end
 --   !  NOT   (exclude the next word or group)   ! junk   or   !junk
 --   ( ) group, for nesting               reagent & (ore | metal)
 -- A "word-run" is a maximal stretch of plain words with no operator between them; its words merge into
--- one filter exactly as they always did, so same-axis words union (weapon shield = weapon OR shield
--- slot) and cross-axis words AND (cloth rare = cloth AND rare). Operators only ever sit BETWEEN runs
--- and groups, so every rule written before operators existed parses to the one flat filter it used to.
+-- one filter, so same-axis words union (weapon shield = weapon OR shield slot) and cross-axis words AND
+-- (cloth rare = cloth AND rare). Operators only ever sit BETWEEN runs and groups, so a rule with no
+-- operators parses to the same flat filter as a plain word search.
 -- The tree the parser builds is read by MatchSearch: a leaf (flat fields + its own nots), an { ors= }
 -- node (any side), an { ands= } node (all parts), and a not-leaf ({ text={}, nots={ node } }).
 local SEARCH_OPS = { ["|"] = true, ["&"] = true, ["!"] = true, ["("] = true, [")"] = true }
@@ -4237,9 +4237,8 @@ end
 -- An expansion's name in the ADDON's language, which is not the same thing as the client's: the locale
 -- file's own title where it carries one (the Chinese and Korean files write Blizzard's translated titles
 -- down), and only then the game's own global (EXPANSION_NAME0..N, in the client's language, so English on
--- an English client whatever the addon reads). The global used to be read first, which is how English
--- titles landed in a Chinese or Korean vendor page. nil when neither answers, so a caller can fall back to
--- a bare number.
+-- an English client whatever the addon reads). Reading the global first lands English titles in a Chinese
+-- or Korean vendor page. nil when neither answers, so a caller can fall back to a bare number.
 function ns.ExpansionName(i)
   i = tonumber(i)
   if not i then return nil end
@@ -4898,8 +4897,8 @@ end
 
 function Bags:UpdateDirty(force)
   -- While the window is shut nothing can be drawn, but the bags still changed: the dirty set is kept for
-  -- the next open (Bags:Resume), which is what lets that open skip the full pass. It used to be dropped
-  -- here, and the open paid for it by re-reading and re-laying out every slot.
+  -- the next open (Bags:Resume), which is what lets that open skip the full pass. Dropping it here would
+  -- make the open pay by re-reading and re-laying out every slot.
   if not (self.frame and self.frame:IsShown()) then return end
   self:Build()
   if not (self.content and self.gaugeBg and self.gaugeFill and self.gridBg
