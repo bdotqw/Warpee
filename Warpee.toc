@@ -51,6 +51,7 @@ Features\CatListHeader.lua
 Features\CatListRow.lua
 Features\CatListChips.lua
 Features\CatListRule.lua
+Features\CatListPanel.lua
 Features\CatListHelp.lua
 Features\OptionsPages.lua
 Features\Welcome.lua
