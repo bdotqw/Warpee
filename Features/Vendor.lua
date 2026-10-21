@@ -151,8 +151,8 @@ end
 
 -- key names the one item whose mark changed, when a single cell was clicked; the batch paths (a run of
 -- sales, the login fold) name none and repaint whole. With a key the bank paints only the cells that item
--- sits in (View:RepaintMark): it draws far more cells than the bags, and an alt-click beside the open bank
--- used to re-lay every one of them out for a single badge.
+-- sits in (View:RepaintMark): it draws far more cells than the bags, and without it an alt-click beside the
+-- open bank would re-lay every one of them out for a single badge.
 local function sellRepaint(key)
   ns.ClearItemPaint()
   local B = ns.Bags
