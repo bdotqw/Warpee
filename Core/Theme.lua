@@ -195,8 +195,8 @@ refreshPhys()
 
 -- The one place a failure in the addon's own code can be said out loud. A pcall keeps one broken paint
 -- from taking the window with it, but an error nobody ever sees is a bug nobody can fix, and the passes
--- that used to swallow theirs are the ones a theme or a profile change runs -- the hardest to reproduce
--- by hand. The label names the pass, the message goes to the chat frame, and it is said once per label
+-- that swallow theirs are the ones a theme or a profile change runs -- the hardest to reproduce by
+-- hand. The label names the pass, the message goes to the chat frame, and it is said once per label
 -- and message: a paint that breaks on every frame must not fill the chat frame with the same line, while
 -- a *different* failure under the same label still earns its own line. `label` may be nil, in which case
 -- the callee names itself -- which is what the guild bank's try() helper relies on, since it is handed
@@ -717,9 +717,8 @@ end
 
 -- The scale is watched by events alone. UI_SCALE_CHANGED and DISPLAY_SIZE_CHANGED are
 -- registered in Core.lua, a scale cvar arrives by CVAR_UPDATE, and the two hooks below
--- catch an addon that sets the scale straight. An OnUpdate poll used to sit here as a
--- fourth path to the same two numbers; the events cover it, and a watch that never stops
--- was paying every frame for a case it could not name.
+-- catch an addon that sets the scale straight. The events cover every path to the same two
+-- numbers; a poll that never stops would pay every frame for a case it could not name.
 local pending = false
 local lastRun = 0
 
@@ -729,7 +728,7 @@ local function runRefresh()
   ns.Guard("pixel refresh", ns.RefreshPixels)
   -- RefreshPixels restores the art once, at the end of its own run. The frames it
   -- restyled are laid out again a frame or two later, so a second restore goes out
-  -- behind them. This is what the three OnUpdate passes used to do.
+  -- behind them, covering both waves.
   if C_Timer and C_Timer.After then
     C_Timer.After(0.1, restoreAll)
   else
@@ -1622,10 +1621,10 @@ function ns.Fonts:Covers(script, path)
   return hasScript(script, path) and true or false
 end
 
--- The list used to be cut by the glyph probe. A font that has not been loaded yet cannot be
--- measured, and that came back as a refusal, so a font another addon registered could drop
--- out of the list for the rest of the session. Only the coverage our own fonts declare leaves
--- one out now, and every other font is offered as it is.
+-- The list is not cut by the glyph probe: a font that has not been loaded yet cannot be
+-- measured, and that reads as a refusal, so a font another addon registered could drop out
+-- of the list for the rest of the session. Only the coverage our own fonts declare leaves one
+-- out, and every other font is offered as it is.
 needFilter = function(names)
   local need = ns.Fonts:Need()
   if not need then return names end
