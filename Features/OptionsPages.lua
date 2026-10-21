@@ -46,49 +46,42 @@ fav.recentPocketSet = function(v)
   WarpeeDB.recentPocket = v and true or false
   relayout()
 end
-fav.pkGet = function() return ns.Pocket and ns.Pocket:Enabled() end
-fav.pkSet = function(v)
-  WarpeeDB.pocketShow = v and true or false
+-- The pocket keys whose redraw belongs to this page are declared here through the same writer; the rest
+-- are written by the window (Windows/Pocket.lua), where their redraw lives. Snapping is only stored: no
+-- window draws it until the next open. No row below stores a pocket key itself, so each key has one writer
+-- and no surface can forget the pass behind it.
+local setPocketShow = ns.Setting("pocketShow", function(v)
   if ns.Pocket then
     if v and WarpeeDB.pocketOpen then ns.Pocket:Open()
     else ns.Pocket:Apply() end
   end
   relayout()
-end
-fav.pkWithGet = function() return WarpeeDB.pocketWithBags ~= false end
-fav.snapGet = function() return WarpeeDB.pocketSnap ~= false end
-fav.snapSet = function(v) WarpeeDB.pocketSnap = v and true or false end
-fav.pkWithSet = function(v)
-  WarpeeDB.pocketWithBags = v and true or false
+end)
+local setPocketWithBags = ns.Setting("pocketWithBags", function(v)
   if v and ns.Pocket and ns.Bags and ns.Bags.frame and ns.Bags.frame:IsShown()
      and not (ns.Pocket.frame and ns.Pocket.frame:IsShown()) then
     ns.Pocket:Open()
   end
   relayout()
-end
+end)
+local setPocketSnap = ns.Setting("pocketSnap")
+
+fav.pkGet = function() return ns.Pocket and ns.Pocket:Enabled() end
+fav.pkSet = function(v) setPocketShow(v and true or false) end
+fav.pkWithGet = function() return WarpeeDB.pocketWithBags ~= false end
+fav.snapGet = function() return WarpeeDB.pocketSnap ~= false end
+fav.snapSet = function(v) setPocketSnap(v and true or false) end
+fav.pkWithSet = function(v) setPocketWithBags(v and true or false) end
 fav.pkLockGet = function() return ns.Pocket and ns.Pocket:Locked() end
-fav.pkLockSet = function(v)
-  WarpeeDB.pocketLock = v and true or false
-  if ns.Pocket then ns.Pocket:Apply() end
-end
+fav.pkLockSet = function(v) if ns.Pocket then ns.Pocket:SetLock(v) end end
 fav.pkRowsGet = function() return ns.Pocket and ns.Pocket:Rows() or 5 end
-fav.pkRowsSet = function(v)
-  WarpeeDB.pocketRows = tonumber(v) or 5
-  if ns.Pocket then ns.Pocket:Refresh() end
-end
+fav.pkRowsSet = function(v) if ns.Pocket then ns.Pocket:SetRows(v) end end
 fav.pkColsGet = function() return ns.Pocket and ns.Pocket:Cols() or 6 end
-fav.pkColsSet = function(v)
-  WarpeeDB.pocketCols = tonumber(v) or 6
-  if ns.Pocket then ns.Pocket:Refresh() end
-end
+fav.pkColsSet = function(v) if ns.Pocket then ns.Pocket:SetCols(v) end end
 fav.pkSizeGet = function()
   return ns.PocketIconSize()
 end
-fav.pkSizeSet = function(v)
-  WarpeeDB.pocketIconSize = tonumber(v) or ns.PocketIconSize()
-  ns.BumpCellSize()
-  if ns.Pocket then ns.Pocket:Refresh() end
-end
+fav.pkSizeSet = function(v) if ns.Pocket then ns.Pocket:SetIconSize(v) end end
 local lettersGet, lettersSet = field("goldLetters")
 local onlyGet, onlySet       = field("goldOnly")
 local blizzGet, blizzSet     = field("goldBlizzard")
@@ -511,8 +504,8 @@ local GRID_PAGE = {
       { type = "toggle", name = "Hide currencies", col = 1, of = 2,
         get = function() return Bags.curStrip == false end,
         set = function(v)
-          Bags.curStrip = not v
-          WarpeeDB.curStrip = Bags.curStrip
+          -- The header switch writes the same key; the store lives on the window.
+          Bags:SetCurrenciesShown(not v)
           if ns.Cur and ns.Cur.Apply then ns.Cur:Apply() end
           relayout()
         end,
@@ -582,12 +575,17 @@ local function tipGoldSet(v) WarpeeDB.tipGold = v and true or false end
 local function tipOff() return not tipOnGet() end
 
 local snap = {}
+-- The three keep-open switches share one redraw; declared through the settings layer so the store and the
+-- layout pass behind it cannot come apart.
+local setKeepBags = ns.Setting("keepBags", relayout)
+local setKeepBank = ns.Setting("keepBank", relayout)
+local setKeepWb = ns.Setting("keepWarband", relayout)
 snap.bagsGet = function() return WarpeeDB.keepBags ~= false end
-snap.bagsSet = function(v) WarpeeDB.keepBags = v and true or false; relayout() end
+snap.bagsSet = function(v) setKeepBags(v and true or false) end
 snap.bankGet = function() return WarpeeDB.keepBank ~= false end
-snap.bankSet = function(v) WarpeeDB.keepBank = v and true or false; relayout() end
+snap.bankSet = function(v) setKeepBank(v and true or false) end
 snap.wbGet = function() return WarpeeDB.keepWarband ~= false end
-snap.wbSet = function(v) WarpeeDB.keepWarband = v and true or false; relayout() end
+snap.wbSet = function(v) setKeepWb(v and true or false) end
 
 local CHARS_PAGE = {
   { type = "header", name = "Tooltips",
@@ -791,6 +789,8 @@ end
 -- What the grouped view does and how tight it stands, ahead of the editor: the switch that turns the view
 -- on stays in Grid > Layout with the rest of how a window is drawn, and everything the view then does is
 -- settled here, beside the categories it acts on.
+local setCatGapX = ns.Setting("catGapX", function() ns.LayoutLite("both") end, Bags)
+local setCatGapY = ns.Setting("catGapY", function() ns.LayoutLite("both") end, Bags)
 local CATS_PAGE = {
   -- The same name the switch carries over in Grid, where the row that turns the view on stands, so the
   -- player who met the feature there meets the same words here.
@@ -812,12 +812,12 @@ local CATS_PAGE = {
   -- Each spacing reads the density gap while unset, so the slider opens on the value already in use.
   { type = "range", name = "Category spacing X", min = 0, max = 40, step = 1,
     get = function() return Bags.catGapX or ns.Density(Bags.iconSize).div end,
-    set = function(v) Bags.catGapX = v; WarpeeDB.catGapX = v; ns.LayoutLite("both") end,
+    set = setCatGapX,
     disabled = flow.noCat, half = "left",
     desc = "Horizontal gap between categories on a shelf, in the category view." },
   { type = "range", name = "Category spacing Y", min = 0, max = 40, step = 1,
     get = function() return Bags.catGapY or ns.Density(Bags.iconSize).div end,
-    set = function(v) Bags.catGapY = v; WarpeeDB.catGapY = v; ns.LayoutLite("both") end,
+    set = setCatGapY,
     disabled = flow.noCat, half = "right",
     desc = "Vertical gap between category rows, in the category view." },
   { type = "header", name = "Categories", key = "categories" },

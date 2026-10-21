@@ -110,9 +110,27 @@ function Pocket:Locked()
   return (WarpeeDB and WarpeeDB.pocketLock) and true or false
 end
 
+-- The pocket's own settings: each is declared here, beside the window that has to be redrawn, so the
+-- options page and the lock button go through one setter and neither can save a value without the pass
+-- behind it. What the window only reads is not a setting and stays out of this block: `pocket` is the pin
+-- list, `pocketOpen` is session state, `pocketBind` records a one-time key assignment.
+local setLock = ns.Setting("pocketLock", function() Pocket:Refresh() end)
+local setRows = ns.Setting("pocketRows", function() Pocket:Refresh() end)
+local setCols = ns.Setting("pocketCols", function() Pocket:Refresh() end)
+local setSize = ns.Setting("pocketIconSize", function()
+  ns.BumpCellSize()
+  Pocket:Refresh()
+end)
+
+function Pocket:SetLock(value) setLock(value and true or false) end
+function Pocket:SetRows(value) setRows(tonumber(value) or 5) end
+function Pocket:SetCols(value) setCols(tonumber(value) or 6) end
+function Pocket:SetIconSize(value) setSize(tonumber(value) or ns.PocketIconSize()) end
+
+-- The lock button used to lay the window out on its own; it now takes the same pass the options row does,
+-- which also repaints the picks list when it is open -- the lock changes what those cells may drag.
 function Pocket:ToggleLock()
-  if WarpeeDB then WarpeeDB.pocketLock = not self:Locked() end
-  self:Layout()
+  self:SetLock(not self:Locked())
 end
 
 function Pocket:Cols()

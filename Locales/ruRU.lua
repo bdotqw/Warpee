@@ -363,7 +363,7 @@ local STRINGS = {
   ["Always"] = "Всегда",
   ["Hide reagents"] = "Скрыть реагенты",
   ["Show reagents"] = "Показать реагенты",
-  ["Reverse slot order"] = "Обратный порядок слотов",
+  ["Reverse slot order"] = "Обратный порядок ячеек",
   ["Keep new items apart"] = "Новые предметы отдельно",
   ["Grid order"] = "Порядок сетки",
   ["Fill grid upwards"] = "Ряды снизу вверх",
@@ -388,7 +388,7 @@ local STRINGS = {
   ["Leave the reagent bag out of the window. Its slots still count in the header, and reagents still go into it."] =
     "Сумка реагентов не рисуется в окне. Её ячейки по-прежнему учитываются в шапке, и реагенты всё так же попадают в неё.",
   ["The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in."] =
-    "Слоты сумок идут в обратном порядке: последний слот последней сумки попадает в первую ячейку. В самих сумках ничего не двигается, меняется только порядок отрисовки.",
+    "Ячейки сумок идут в обратном порядке: последняя ячейка последней сумки встаёт на первое место. В самих сумках ничего не двигается, меняется только порядок отрисовки.",
   ["The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top."] =
     "Ряды ячеек выстраиваются от нижнего края сетки вверх. Неполный последний ряд оказывается сверху.",
   ["New items stay apart from the rest of the bag so you can see what just arrived. Using an item or sorting restores the usual order; nothing moves in your bags."] = "Новые предметы стоят отдельно от остального содержимого сумки, чтобы сразу было видно, что пришло. Использование предмета или сортировка возвращают обычный порядок; внутри сумок ничего не двигается.",

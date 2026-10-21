@@ -949,6 +949,8 @@ function View:SelectTab(bag)
   self.tabSel = self.tabSel or {}
   if self.tabSel[mode] == bag then return end
   self.tabSel[mode] = bag or nil
+  -- The tab is view state, not a setting: it records where the player was last looking, is read back when
+  -- the window is built, and redraws nothing. So it is stored here, not through ns.Setting.
   if WarpeeDB then
     WarpeeDB.bankTabSel = WarpeeDB.bankTabSel or {}
     WarpeeDB.bankTabSel[mode] = bag or nil

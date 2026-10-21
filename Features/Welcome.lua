@@ -40,9 +40,10 @@ end
 -- The choice is made: set both the bags and the bank to the picked view (one press decides both, as the
 -- reference does), relayout an open bank, and finish. WarpeeDB carries the view so it survives a reload.
 function Welcome:Commit(mode)
-  Bags.bagView = mode
-  WarpeeDB.bagView = mode
-  WarpeeDB.bankView = mode
+  -- Both views go through the same setters the settings page uses, so the first-run pick and a later
+  -- change write the same keys and the same module copy.
+  Bags:SetView(mode)
+  ns.Options:SetBankView(mode)
   self.committed = mode
   if Bags.frame and Bags.frame:IsShown() then Bags:Layout(true) end
   if ns.Bank and ns.Bank.Refresh then ns.Bank:Refresh() end

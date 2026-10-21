@@ -702,15 +702,12 @@ function Bags:Build()
     return { { text = "Visit a banker to record this bank", color = "dim" } }
   end)
   -- Warpee's own bank: a stack of three gold bars (bullion), two on the floor with one on top. Each bar
-  -- is an ingot and not a block -- a low, wide front face with a deep sheared lid above it -- so the mark
-  -- reads as slabs lying flat. A front face as tall as it is wide is a cube, and a cube stack reads as a
-  -- sugar bowl or a blocky figure (owner, in game), which is what the first bake of this art did.
-  -- The bake is two-channel like the coin: bright lid, slightly deeper front face, black contour struck in
-  -- the texel, so the quiet paint below still tints the whole mark to the row's ink (it is NOT coloured
-  -- gold -- the colour is the header's, like every mark here) while the lid/front split and the contour
-  -- keep their own tones at any size. Chosen over the temple building, a chest, a sack, coins, a padlock
-  -- and a piggy bank: every other mark in the row is a hand-held object, so a monument broke the family,
-  -- and every soft round container rhymed with the bag and the pocket.
+  -- is an ingot, not a block -- a low, wide front face under a deep sheared lid -- or the stack stops
+  -- reading as slabs lying flat. Two channels like the coin: bright lid, deeper front face, and a black
+  -- contour struck into the texel, so the quiet paint below tints the mark to the row's ink (it is not
+  -- gold-coloured; the header's colour is) while the split and the contour hold their tones at any size.
+  -- A hand-held object, like every other mark in the row: a monument or a round container would break the
+  -- family, which is why a chest, a sack or a piggy bank was not used.
   local bankIcon = bank:CreateTexture(nil, "ARTWORK")
   bankIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\bank.tga]])
   bankIcon:SetPoint("CENTER")
@@ -1038,12 +1035,23 @@ function Bags:PaintReagents(b)
   icon:SetVertexColor(Theme:C(b.offDuty and "faint" or (hot and "text" or "dim")))
 end
 
+-- The bags' switches with two ends: the header buttons and the settings rows. The store and the module
+-- copy live here so both ends write the same pair; the pass stays with the caller, since the header
+-- redraws a different slice of the window than the page does. (`bagView` has a third caller, the first-run
+-- pick in Welcome, which stores the same pair through SetView.)
+local setReagents = ns.Setting("hideReagents", nil, Bags)
+local setCurStrip = ns.Setting("curStrip", nil, Bags)
+local setBagView = ns.Setting("bagView", nil, Bags)
+
+function Bags:SetReagentsHidden(value) setReagents(value and true or false) end
+function Bags:SetCurrenciesShown(shown) setCurStrip(shown and true or false) end
+function Bags:SetView(mode) setBagView(mode) end
+
 -- The same key the settings row writes, from the other end of the window. Layout is the whole
 -- of it: nothing outside the bag grid reads this, and the pocket and the bank keep their own.
 function Bags:ToggleReagents()
   local v = not self:ReagentsHidden()
-  self.hideReagents = v
-  if WarpeeDB then WarpeeDB.hideReagents = v end
+  self:SetReagentsHidden(v)
   if self.frame and self.frame:IsShown() then self:Layout() else self:PaintReagents() end
   -- The button is pressed with the pointer on it, so its tip is still up and still offering the step that
   -- has just been taken. Re-worded here rather than left to the next hover: the words promise an action,
@@ -1094,9 +1102,8 @@ end
 -- window closed, when there is no layout to carry the change.
 function Bags:ToggleCurrencies()
   -- curStrip == false is the one hidden spelling (Core's default is true, and the settings row writes the
-  -- same key); flip it and write it back through the profile so a reload keeps the choice.
-  self.curStrip = (self.curStrip == false)
-  if WarpeeDB then WarpeeDB.curStrip = self.curStrip end
+  -- same key); flip it through the window's setter so the store and the module copy move together.
+  self:SetCurrenciesShown(self.curStrip == false)
   if ns.Cur and ns.Cur.Apply then ns.Cur:Apply(true) end
   -- The flip is answered by the mark itself, not only by the layout: with the window away there is no
   -- layout to run, and with it up the pass is free to return early on a frame that is not ready. The

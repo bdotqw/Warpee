@@ -103,41 +103,35 @@ end
 -- The live layout every slider row goes through; discrete clicks feel nothing.
 local relayoutLive = throttled(relayout)
 
+-- Every row that stores a value goes through ns.Setting: the store, the module copy the layouts read
+-- (Bags here) and one redraw. The four factories below differ only in which copy and which redraw.
 local function field(name)
-  local get = function() return Bags[name] end
-  local set = function(v) Bags[name] = v; WarpeeDB[name] = v; relayoutLive() end
-  return get, set
+  return function() return Bags[name] end, ns.Setting(name, relayoutLive, Bags)
 end
 
 -- Store-only rows: the lite path lays out, so the setter fires no full pass.
 local function liteField(name, scope)
-  local get = function() return Bags[name] end
-  local set = function(v) Bags[name] = v; WarpeeDB[name] = v; ns.LayoutLite(scope) end
-  return get, set
+  local set = ns.Setting(name, function() ns.LayoutLite(scope) end, Bags)
+  return function() return Bags[name] end, set
 end
 
 local function styleField(name)
-  local get = function() return Bags[name] end
-  local set = function(v)
-    Bags[name] = v; WarpeeDB[name] = v
+  local set = ns.Setting(name, function()
     Bags.styleGen = (Bags.styleGen or 0) + 1
     relayoutLive()
-  end
-  return get, set
+  end, Bags)
+  return function() return Bags[name] end, set
 end
 
--- Options.lua loads before Core.lua, so the factory table cannot be captured here: it is
--- looked up when the getter runs. The literal left in each call is only a last resort, and
--- the numbers the panel shows are the numbers DEFAULTS ships.
+-- Options.lua loads before Core.lua, so the defaults table cannot be captured here: it is looked up when
+-- the getter runs. The literal left in each call is only a last resort, and the numbers the panel shows
+-- are the numbers DEFAULTS ships.
 local function dbField(name, default)
   local get = function()
     return WarpeeDB[name] or (ns.DEFAULTS and ns.DEFAULTS[name]) or default
   end
   -- Bank-only rows (widths, icon sizes), paced and scoped to the bank.
-  local set = function(v)
-    WarpeeDB[name] = v
-    ns.LayoutLite("bank")
-  end
+  local set = ns.Setting(name, function() ns.LayoutLite("bank") end)
   return get, set
 end
 
@@ -230,6 +224,9 @@ end
 local THEME_KEYS = {}
 for i, k in ipairs(Theme.THEME_ORDER) do if Theme.LIGHT[k] then THEME_KEYS[#THEME_KEYS + 1] = k end end
 for i, k in ipairs(Theme.THEME_ORDER) do if not Theme.LIGHT[k] then THEME_KEYS[#THEME_KEYS + 1] = k end end
+-- Theme names stay in English in every language, the way font families do: they are what players see in
+-- guides and screenshots, and the saved key is English too. So the row label is the name itself, with no
+-- key behind it. "Class color" is named for what the accent follows; it is still a name, not a label.
 local function themeLabel(k)
   return THEME_LABELS[k] or k
 end
@@ -2409,17 +2406,19 @@ local edgeGet, edgeSet       = styleField("borderWidth")
 local mergeGet, mergeSet     = field("mergeReagents")
 local flow = {}
 flow.topGet, flow.topSet = field("reagentTop")
-flow.hideGet, flow.hideSet = field("hideReagents")
+flow.hideGet = function() return Bags.hideReagents end
+-- The header's reagent switch writes the same key, so the store lives on the window (Bags:SetReagentsHidden)
+-- and the page adds its own pass on top of it.
+flow.hideSet = function(v) Bags:SetReagentsHidden(v); relayoutLive() end
 flow.offGet = function() return mergeGet() or flow.hideGet() end
 -- One flag for the bags, one for both bank sets behind their mode pick.
 -- Split releases a merged reagent bag, so the merge row greys out.
 flow.splitGet = function() return Bags.splitBags end
-flow.splitSet = function(v)
-  Bags.splitBags = v and true or false
-  WarpeeDB.splitBags = Bags.splitBags
-  if Bags.splitBags and Bags.mergeReagents then mergeSet(false) end
+local setSplitBags = ns.Setting("splitBags", function(value)
+  if value and Bags.mergeReagents then mergeSet(false) end
   relayout()
-end
+end, Bags)
+flow.splitSet = function(v) setSplitBags(v and true or false) end
 flow.noMerge = function() return flow.hideGet() or flow.splitGet() end
 flow.splitBankGet, flow.splitBankSet = field("splitBank")
 flow.splitWbGet, flow.splitWbSet     = field("splitWb")
@@ -2433,22 +2432,13 @@ local function gapFloor(v, named)
   v = tonumber(v) or 12
   return v < room and room or v
 end
--- Through field(), so the number lands on the table the layouts read.
-local function gapBagsSet(v)
-  v = gapFloor(v, splitNamedBags)
-  Bags.splitGapBags, WarpeeDB.splitGapBags = v, v
-  ns.LayoutLite("bags")
-end
-local function gapBankSet(v)
-  v = gapFloor(v, splitNamedBank)
-  Bags.splitGapBank, WarpeeDB.splitGapBank = v, v
-  ns.LayoutLite("bank")
-end
-local function gapWbSet(v)
-  v = gapFloor(v, splitNamedWb)
-  Bags.splitGapWb, WarpeeDB.splitGapWb = v, v
-  ns.LayoutLite("bank")
-end
+-- Through the settings layer, so the number lands on the table the layouts read.
+local setSplitGapBags = ns.Setting("splitGapBags", function() ns.LayoutLite("bags") end, Bags)
+local setSplitGapBank = ns.Setting("splitGapBank", function() ns.LayoutLite("bank") end, Bags)
+local setSplitGapWb = ns.Setting("splitGapWb", function() ns.LayoutLite("bank") end, Bags)
+local function gapBagsSet(v) setSplitGapBags(gapFloor(v, splitNamedBags)) end
+local function gapBankSet(v) setSplitGapBank(gapFloor(v, splitNamedBank)) end
+local function gapWbSet(v) setSplitGapWb(gapFloor(v, splitNamedWb)) end
 flow.splitGapBagsGet = function() return Bags.splitGapBags end
 flow.splitGapBagsSet = gapBagsSet
 flow.splitGapBankGet = function() return Bags.splitGapBank end
@@ -2466,14 +2456,13 @@ flow.revGet, flow.revSet = field("revFill")
 flow.upGet, flow.upSet   = field("fillUp")
 -- New-on-top is bags-only and means nothing in the grouped view, so it greys there.
 flow.newTopGet = function() return Bags.newOnTop end
-flow.newTopSet = function(v)
-  Bags.newOnTop = v
-  WarpeeDB.newOnTop = v
+local setNewOnTop = ns.Setting("newOnTop", function(value)
   -- Turning it on kicks the pump so any items that arrived while it was off move to the far end at once;
   -- turning it off leaves the bags exactly as they are (the new pieces simply stop being kept apart).
-  if v and Bags.ArrangeNew then Bags:ArrangeNew() end
+  if value and Bags.ArrangeNew then Bags:ArrangeNew() end
   relayout()
-end
+end, Bags)
+flow.newTopSet = function(v) setNewOnTop(v) end
 -- The view is a string on disk, the row a toggle, so the pair maps bool to "grid"/"cat".
 flow.catGet = function() return Bags.bagView == "cat" end
 -- The inverse gate, the mirror of the reagent rows' catGet: true while the bags are still a plain grid.
@@ -2485,16 +2474,19 @@ flow.bankCatGet = function() return WarpeeDB and WarpeeDB.bankView == "cat" end
 flow.gridGone = function() return flow.catGet() and flow.bankCatGet() end
 -- Category spacing drives the grouped view of both, live while either is grouped.
 flow.noCat = function() return not (flow.catGet() or flow.bankCatGet()) end
+-- Both view keys have a second writer in Features/Welcome.lua, the first-run pick that sets the bags and
+-- the bank at once. The stores live here and on Bags (SetView), so the two surfaces write the same pair;
+-- the passes stay with each caller, since the first-run path lays the window out before it is shown.
+local setBankView = ns.Setting("bankView")
+function Options:SetBankView(mode) setBankView(mode) end
 flow.bankCatSet = function(v)
-  WarpeeDB.bankView = v and "cat" or "grid"
+  Options:SetBankView(v and "cat" or "grid")
   if ns.Bank and ns.Bank.Refresh then ns.Bank:Refresh() end
   -- A row pass, not a reflow: a reflow would rebuild the page under the open menu.
   if Options.RefreshSoon then Options:RefreshSoon() end
 end
 flow.catSet = function(v)
-  local mode = v and "cat" or "grid"
-  Bags.bagView = mode
-  WarpeeDB.bagView = mode
+  Bags:SetView(v and "cat" or "grid")
   relayout()
   -- The reagent rows answer to the view; one row pass updates their state.
   if Options.RefreshSoon then Options:RefreshSoon() end

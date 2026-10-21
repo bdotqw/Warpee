@@ -99,7 +99,9 @@ Theme.THEMES = {
     text = { 0.949, 0.945, 0.937, 1 }, dim = { 0.741, 0.733, 0.714, 1 },
     faint = { 0.525, 0.518, 0.498, 1 }, emptyLine = { 0.278, 0.271, 0.255, 1 },
     azure = { 0.478, 0.729, 0.906, 1 }, reagent = { 0.353, 0.804, 0.616, 1 } },
-  flatdark = { label = "Class", classAccent = true,
+  -- Named for what the accent does rather than for a place: it follows the player's class. Still a name,
+  -- not a label: theme names stay in English in every language (see themeLabel in Options.lua).
+  flatdark = { label = "Class color", classAccent = true,
     bg = { 0.060, 0.060, 0.060, 0.940 }, panel = { 0.100, 0.100, 0.100, 1.000 },
     panelHi = { 0.160, 0.160, 0.160, 1.000 }, slot = { 0.100, 0.100, 0.100, 1.000 },
     stroke = { 0.330, 0.330, 0.330, 1.000 }, strokeSoft = { 0.220, 0.220, 0.220, 1.000 },

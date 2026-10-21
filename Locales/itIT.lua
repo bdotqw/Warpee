@@ -303,7 +303,7 @@ local STRINGS = {
   ["See-through windows. Settings stay solid."] = "Finestre traslucide. Le impostazioni restano opache.",
   ["Bank slots per row"] = "Scomparti per riga (banca)",
   ["Warband slots per row"] = "Scomparti per riga (Brigata)",
-  ["Guild bank slots per row"] = "Caselle per riga (banca di gilda)",
+  ["Guild bank slots per row"] = "Scomparti per riga (banca di gilda)",
   ["How wide the guild bank grid runs. Its icon size follows the bank slot size above."] = "Quanto è larga la griglia della banca di gilda. La dimensione delle icone segue quella della banca sopra.",
   ["Size of one slot in the bags."] = "Dimensione di uno scomparto nelle borse.",
   ["How wide the bag window grows."] = "Determina la larghezza della finestra delle borse.",
@@ -482,7 +482,7 @@ local STRINGS = {
   ["Bags of another character"] = "Borse di un altro personaggio",
   ["REAGENTS"] = "REAGENTI",
   ["BAGS"] = "BORSE",
-  ["Bag Slots"] = "Scomparti per sacche",
+  ["Bag Slots"] = "Scomparti per borse",
   ["WARBAND BANK"] = "BANCA DELLA BRIGATA",
   ["ON HAND"] = "CONTANTI",
   ["(min)"] = "(min)",
@@ -565,7 +565,7 @@ local STRINGS = {
   ["RMB: grid/cat"] = "CD: griglia/cat",
   ["Pocket rows"] = "Righe della tasca",
   ["Pocket size"] = "Dimensioni della tasca",
-  ["Pocket slot size"] = "Dimensione celle della tasca",
+  ["Pocket slot size"] = "Dimensione scomparti della tasca",
   ["Pocket slots per row"] = "Scomparti per riga (tasca)",
   ["Open with bags"] = "Apri con le borse",
   ["The pocket opens together with the bags. A window that opens the bags on its own, the auction house or the mail, pushes the pocket aside until you open it yourself."] =
@@ -577,7 +577,7 @@ local STRINGS = {
     "Quante righe di celle contiene la finestra della tasca.",
   ["How wide the pocket window grows."] =
     "Determina la larghezza della finestra della tasca.",
-  ["A size of its own; a pocket without one follows the bag slot size."] = "Una dimensione propria; una tasca senza segue la dimensione delle celle delle borse.",
+  ["A size of its own; a pocket without one follows the bag slot size."] = "Una dimensione propria; una tasca senza segue la dimensione degli scomparti delle borse.",
   ["The key that opens and closes the pocket. Click, then press a key, mouse button or wheel, with Shift, Ctrl or Alt; right-click clears, Escape cancels."] = "Il tasto che apre e chiude la tasca. Fai clic, poi premi un tasto, un pulsante del mouse o la rotella, con Shift, Ctrl o Alt; il clic destro lo cancella, Esc annulla.",
   ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] =
     "L'equipaggiamento si fissa trascinandolo o incollandone il collegamento; un semplice ID non distingue una copia dall'altra.",

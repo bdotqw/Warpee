@@ -29,6 +29,7 @@ Core\Theme.lua
 Core\Density.lua
 Core\Widgets.lua
 Core\Tooltip.lua
+Core\Settings.lua
 Features\Currencies.lua
 Features\CurrencyPicker.lua
 Items\ItemRules.lua
