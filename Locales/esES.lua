@@ -544,7 +544,7 @@ local STRINGS = {
   ["Badge order"] = "Orden de los distintivos",
   ["The badge at the top of the list draws over the ones below it. The stack count always stays at the bottom."] = "El distintivo de arriba de la lista se dibuja sobre los de abajo. La cantidad de la pila siempre queda abajo.",
   ["Alt + LMB to mark it for sale: a coin appears, and it is sold at the next merchant who buys wares. A second Alt + LMB locks it from sale, a third clears it. Works in the bags, the bank, the favorites row and the pocket."] = "Alt + CI en un objeto lo marca para la venta: aparece una moneda, y se vende al siguiente mercader que compre objetos. Un segundo Alt + CI lo bloquea para la venta, un tercero quita la marca. Funciona en las bolsas, el banco, la fila de favoritos y el bolsillo.",
-  ["Alt-click an item in your bags to mark it for sale."] = "ALT + clic izquierdo en un objeto de las bolsas lo marca para la venta.",
+  ["Alt + LMB on an item in your bags to mark it for sale."] = "Alt + CI en un objeto de las bolsas lo marca para la venta.",
   ["%d items could not be sold and stayed in the bags"] = {
     "%d objeto no se pudo vender y sigue en las bolsas",
     "%d objetos no se pudieron vender y siguen en las bolsas",

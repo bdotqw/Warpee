@@ -551,7 +551,7 @@ local STRINGS = {
   ["Badge order"] = "Reihenfolge der Abzeichen",
   ["The badge at the top of the list draws over the ones below it. The stack count always stays at the bottom."] = "Das Abzeichen oben in der Liste wird über die darunter gezeichnet. Die Stapelzahl bleibt immer unten.",
   ["Alt + LMB to mark it for sale: a coin appears, and it is sold at the next merchant who buys wares. A second Alt + LMB locks it from sale, a third clears it. Works in the bags, the bank, the favorites row and the pocket."] = "Alt + LM markiert einen Gegenstand für den Verkauf: eine Münze erscheint, und er wird beim nächsten Händler verkauft, der Waren ankauft. Ein zweiter Alt + LM sperrt ihn vom Verkauf, ein dritter löscht die Markierung. Funktioniert in den Taschen, der Bank, der Favoritenzeile und der Ablage.",
-  ["Alt-click an item in your bags to mark it for sale."] = "ALT + Linksklick auf einen Gegenstand in den Taschen markiert ihn für den Verkauf.",
+  ["Alt + LMB on an item in your bags to mark it for sale."] = "Alt + LM auf einen Gegenstand in den Taschen markiert ihn für den Verkauf.",
   ["%d items could not be sold and stayed in the bags"] = {
     "%d Gegenstand ließ sich nicht verkaufen und blieb in den Taschen",
     "%d Gegenstände ließen sich nicht verkaufen und blieben in den Taschen",

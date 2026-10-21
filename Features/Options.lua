@@ -1711,8 +1711,8 @@ function factories.selllist(parent, spec)
   empty:SetPoint("TOPLEFT")
   empty:SetWidth(CONTENT_W)
   empty:SetJustifyH("LEFT")
-  empty:SetText(L["Alt-click an item in your bags to mark it for sale."])
-  ns.LocalText(empty, "Alt-click an item in your bags to mark it for sale.")
+  empty:SetText(L["Alt + LMB on an item in your bags to mark it for sale."])
+  ns.LocalText(empty, "Alt + LMB on an item in your bags to mark it for sale.")
   row.empty = empty
   row.Rebuild = function()
     local list = ns.Vendor and ns.Vendor:SellList() or {}

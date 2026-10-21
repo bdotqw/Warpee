@@ -607,7 +607,7 @@ local STRINGS = {
   ["Badge order"] = "Порядок значков",
   ["The badge at the top of the list draws over the ones below it. The stack count always stays at the bottom."] = "Значок сверху списка рисуется поверх нижних. Цифра стака всегда остаётся внизу.",
   ["Alt + LMB to mark it for sale: a coin appears, and it is sold at the next merchant who buys wares. A second Alt + LMB locks it from sale, a third clears it. Works in the bags, the bank, the favorites row and the pocket."] = "Alt + ЛКМ по предмету отмечает его на продажу: появляется монета, и предмет продаётся при следующем открытии торговца, который скупает вещи. Второй Alt + ЛКМ запрещает продажу, третий снимает метку. Работает в сумках, банке, ряду избранного и кармане.",
-  ["Alt-click an item in your bags to mark it for sale."] = "ALT + ЛКМ по предмету в сумках отмечает его на продажу.",
+  ["Alt + LMB on an item in your bags to mark it for sale."] = "Alt + ЛКМ по предмету в сумках отмечает его на продажу.",
   ["%d items could not be sold and stayed in the bags"] = {
     "Не удалось продать %d предмет, он остался в сумках",
     "Не удалось продать %d предмета, они остались в сумках",
