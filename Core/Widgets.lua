@@ -949,10 +949,9 @@ function ns.FitMarkPlus(host)
   local span = w * 0.45
   local want = ns.PX(host, host.wpeMarkW or 3)
   -- Each bar is measured on both axes: its length runs along one and its thickness across the
-  -- other, and each of the two wants the parity of the box on the axis it reads (see snapParity).
-  -- The thickness is asked the same question as the length, and that is the half of it the mark
-  -- went without: a bar 2px thick on a box whose centre sits between two pixels has one edge
-  -- rounding out and the other in, which is the 2px/4px the arms used to come out as.
+  -- other, and each wants the parity of the box on the axis it reads (see snapParity). Asking the
+  -- thickness the same question as the length keeps a 2px bar from rounding one edge out and the
+  -- other in on a box whose centre sits between two pixels.
   local lenX, lenY = snapParity(host, span, "x"), snapParity(host, span, "y")
   local thX, thY = snapParity(host, want, "x"), snapParity(host, want, "y")
   local u = ns.PX(host, 1)
@@ -1194,13 +1193,12 @@ function ns.FitMarkLock(host)
   end
 end
 
--- Drawn text caret: a bar with a serif at each end, which is the shape the pointer takes over a
--- piece of editable text in every system there is. Drawn for the same reason the X, the plus and the
--- lock are -- but for one more of its own: the toggle it faces used to carry a letter, and a letter
--- says nothing at all where the alphabet is another one (the rule editor is read in Chinese and
--- Korean too, where a "T" is a shape and nothing else). The caret is furniture rather than a word:
--- nobody reads it as text in one language and as something else in another, and three rectangles of
--- the furniture this file already has are the whole of it.
+-- Drawn text caret: a bar with a serif at each end, the shape the pointer takes over editable text in
+-- every system there is. It is drawn for the same reason the X, the plus and the lock are, and for
+-- one more: a letter says nothing where the alphabet is another one (the rule editor is read in
+-- Chinese and Korean too, where a "T" is a shape and nothing else). The caret is furniture rather
+-- than a word: nobody reads it as text in one language and as something else in another, and three
+-- rectangles of the furniture this file already has are the whole of it.
 function ns.MarkCaret(host, shadow)
   local mark = host.wpeMarkCaret
   if not mark then
@@ -1280,11 +1278,9 @@ end
 -- comes down under its right one, two steps bring the tail back to the centre column, and the dot sits
 -- below the whole of it with a gap of its own. Corner-to-corner is how a pixel font draws a curve, and
 -- it works there because every cell of the glyph is flat ink; here each part stands on its own pixel of
--- ground, so a mark whose parts met at corners reads as a row of separate blocks -- the shape this one
--- was drawn badly as the first time. The bowl is four strokes wide and the leg stands two strokes
--- deep, which is what leaves an opening inside it rather than a slot: the earlier mark carried its bar
--- over the whole five-stroke width of the glyph, and a bar that wide over a bowl that narrow is a
--- plate with a hole in it, not a hook.
+-- ground, so a mark whose parts met at corners would read as a row of separate blocks. The bowl is four
+-- strokes wide and the leg stands two strokes deep, which leaves an opening inside it rather than a
+-- slot: a bar over the whole five-stroke width would make a plate with a hole in it, not a hook.
 function ns.MarkHelp(host, shadow)
   local mark = host.wpeMarkHelp
   if not mark then
