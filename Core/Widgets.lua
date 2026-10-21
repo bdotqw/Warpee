@@ -1695,13 +1695,12 @@ end
 
 local linkBoxes = {}
 
--- Link insertion rides the game's dispatcher. Since the chat frame rework the item
--- modified click goes through ChatFrameUtil.InsertLink, which hands the link to
--- whichever frame it knows about: the macro editor, the professions search, the
--- communities chat, the chat itself, the auction house. The old global
--- ChatEdit_InsertLink is no longer called on that path, so the hook sits on the new
--- one and keeps the old global as a fallback. Both are hooksecurefunc: the game's
--- function runs first and untouched, ours only reads its argument afterwards.
+-- Link insertion rides the game's dispatcher. The item modified click goes through
+-- ChatFrameUtil.InsertLink, which hands the link to whichever frame it knows about: the macro
+-- editor, the professions search, the communities chat, the chat itself, the auction house. The
+-- hook sits on that dispatcher and keeps the older ChatEdit_InsertLink global as a fallback. Both
+-- are hooksecurefunc: the game's function runs first and untouched, ours only reads its argument
+-- afterwards.
 local function linkInto(text)
   if type(text) ~= "string" then return false end
   for _, box in ipairs(linkBoxes) do

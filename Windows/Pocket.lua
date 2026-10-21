@@ -17,9 +17,8 @@ local FONT, PICK_MINW = 15, 176
 
 -- The pocket's cell size, and the one place it is read: the layout, the picks list and the
 -- settings page all come through here. A pocket that has no number of its own takes the bags' size
--- once, where it is first asked -- the one-time move the key was added for -- and keeps it. Reading
--- the bags' size on every pass instead is what the key shipped as, and it is why resizing the bags
--- carried the pocket along and why a settings reset put it back to following them.
+-- once, where it is first asked, and keeps it. Following the bags on every pass would carry the
+-- pocket along when the bags are resized, and a settings reset would put it back to following.
 function ns.PocketIconSize()
   local n = WarpeeDB and tonumber(WarpeeDB.pocketIconSize)
   if n then return n end
