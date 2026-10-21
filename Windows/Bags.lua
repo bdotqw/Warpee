@@ -576,39 +576,7 @@ function Bags:Build()
   ns.IconSilhouette(sort, sortIcon)
   self.sortBtn = sort
 
-  -- The gear was the one header mark riding in the button's text as a texture escape (|T...|t), and
-  -- a texture inside a string has no shadow to be given: the art sat flat on the band while every
-  -- mark around it carried its own. As a texture on the icon path it takes the same ground as the
-  -- rest of the row. The art is Warpee's own white-on-transparent cog, so it tints with the theme
-  -- the way the drawn marks do, and iconPct sizes it off the header box like every other icon. A
-  -- round solid body reads heavier than the thin-stroked lock, so it is held to half the box rather
-  -- than the lock's 60% -- at that size the two marks weigh the same instead of the cog shouting.
-  local gear = ns.CreateGlyphButton(f, "", HB, "icon")
-  gear:SetPoint("TOPRIGHT", close, "TOPLEFT", -4, 0)
-  gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
-  addTip(gear, "Settings")
-  local gearIcon = gear:CreateTexture(nil, "ARTWORK")
-  gearIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\gear.tga]])
-  gearIcon:SetPoint("CENTER")
-  gear.icon = gearIcon
-  -- The cog is authored on the grid it is shown on: 16 pixels of art, hard alpha, at 62% of the box.
-  -- A 128px drawing blurred down to the thirteen a half-box asked for left four fifths of the mark in
-  -- half-tones -- a grey smudge in a row of 2px strokes -- so the art is drawn at the size the header
-  -- shows it, every edge on a whole pixel. Sixteen is also the power of two a TGA wants, and the square
-  -- 4px bore is the same care: the ground IconSilhouette draws grows the art by a pixel on every side,
-  -- and a round bore came back at its corners as black notches.
-  gear.iconPct = 62
-  -- The cog takes the pointer-state ink the drawn marks take, not a flat IconTint: dim at rest, the
-  -- way the pocket padlock sits when it is open, and up to the text ink under the pointer. A fixed
-  -- tint left it full white at rest, louder than every mark beside it. The button's own repaint
-  -- (Theme:Track in CreateButton) re-runs this on a theme change, so the icon needs no tracker of its own.
-  gear.wpeIconPaint = function(s)
-    if not s.icon then return end
-    local hot = s.wpeHot and not s.offDuty
-    s.icon:SetVertexColor(Theme:C(hot and "text" or "dim"))
-  end
-  gear.wpeIconPaint(gear)
-  ns.IconSilhouette(gear, gearIcon)
+  local gear = ns.GearButton(f, close, HB)
   self.gearBtn = gear
 
   local bagsToggle = ns.CreateGlyphButton(f, "", HB, "icon")
@@ -1675,6 +1643,7 @@ function Bags:Layout(capture, light)
   -- answered by it.
   self.openSig = self:LayoutSig()
   self.openPaint, self.openNew, self.openQuests, self.openCool, self.openLocks = nil, nil, nil, nil, nil
+  self:RefreshHoverTip()
 end
 
 -- Everything a full pass owns that a repaint cannot express: the paint generation (theme, font, badges,
@@ -1797,6 +1766,7 @@ function Bags:Resume()
   if self.pocketBtn then self.pocketBtn:SetShown(ns.Pocket and ns.Pocket:Enabled() and true or false) end
   self:VendorState()
   self:UpdateMeta()
+  self:RefreshHoverTip()
 end
 
 -- Taint: the category view makes no cell of its own. It reuses the same pooled buttons the grid
@@ -1935,25 +1905,7 @@ function Bags:CatGroupHead(i)
   self.catGHeads = self.catGHeads or {}
   local b = self.catGHeads[i]
   if not b then
-    b = CreateFrame("Button", nil, self.content)
-    b:RegisterForClicks("LeftButtonUp")
-    b:SetScript("OnClick", function(s)
-      if not s.wpeEntry then return end
-      if IsShiftKeyDown() then
-        ns.Categories:SetAllFolded(not ns.Categories:Folded(s.wpeEntry))
-      else
-        ns.Categories:ToggleFold(s.wpeEntry)
-      end
-      self:Layout()
-    end)
-    b:SetScript("OnEnter", function(s)
-      if s.wpeCaret then s.wpeCaret:SetTint("accent") end
-      if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("accentInk")) end
-    end)
-    b:SetScript("OnLeave", function(s)
-      if s.wpeCaret then s.wpeCaret:SetTint("dim") end
-      if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("azure")) end
-    end)
+    b = ns.CreateSectionHead(self.content, function() self:Layout() end)
     self.catGHeads[i] = b
   end
   return b
@@ -2127,18 +2079,46 @@ function Bags:CellUnderCursor()
   return nil
 end
 
+-- The section target under the cursor, if any. The zones cover the cells for the whole drag, so their
+-- own mouseover cannot answer once the cursor is already inside one when Alt is pressed; the tick in
+-- TrackDropHighlight tests each active zone's rectangle instead. A zone owns no section on the Empty
+-- section (wpeId nil), which is a plain catcher rather than a pin target.
+function Bags:ZoneUnderCursor()
+  if not self.catZones then return nil end
+  local cx, cy = GetCursorPosition()
+  if not cx then return nil end
+  for _, z in ipairs(self.catZones) do
+    if z.wpeId and z:IsShown() then
+      local s = z:GetEffectiveScale()
+      local l, r, t, b = z:GetLeft(), z:GetRight(), z:GetTop(), z:GetBottom()
+      if s and s > 0 and l then
+        local px, py = cx / s, cy / s
+        if px >= l and px <= r and py >= b and py <= t then return z end
+      end
+    end
+  end
+  return nil
+end
+
+function Bags:RefreshHoverTip()
+  local _, _, b = self:CellUnderCursor()
+  ns.RefreshCellTip(self.frame, b)
+end
+
 -- The native grid lights the slot the cursor is over while a piece is held, so a drop reads as "into this
 -- cell". The grouped-view zone hides that: it covers the cells and takes the mouseover, so their own
 -- highlight never fires. This drives the same slot highlight by hand on the cell under the cursor, only
 -- when a plain drop would forward there (grouped view, item held, pinning not armed, live bags): with
--- pinning armed the section wash reads instead, and on the gaps or a snapshot nothing lights. One cell at a
--- time; the previous is cleared as the cursor moves off it.
+-- pinning armed the section wash and its name read instead, and on the gaps or a snapshot nothing lights.
+-- Read per tick rather than on mouseover: everything the answer depends on can change while the cursor
+-- stands still - Alt is pressed or let go, a pass moves a section under the piece, or the drag starts with
+-- the cursor already over a section. One cell and one section at a time; the previous is cleared as the
+-- answer moves.
 function Bags:TrackDropHighlight()
+  local shown = (self:CatMode() and self.frame and self.frame:IsShown() and CursorHasItem()) and true or false
+  local armed = shown and not self.snap and self:PinDragActive() and true or false
   local hit
-  if self:CatMode() and self.frame and self.frame:IsShown() and CursorHasItem()
-     and not self.snap and not self:PinDragActive() then
-    hit = select(3, self:CellUnderCursor())
-  end
+  if shown and not armed and not self.snap then hit = select(3, self:CellUnderCursor()) end
   if self.hlCell and self.hlCell ~= hit then
     ns.SetSlotHighlight(self.hlCell, false)
     self.hlCell = nil
@@ -2147,6 +2127,10 @@ function Bags:TrackDropHighlight()
     ns.SetSlotHighlight(hit, true)
     self.hlCell = hit
   end
+  local zone
+  if armed then zone = self:ZoneUnderCursor() end
+  if self.hlZone and self.hlZone ~= zone then self.hlZone.wpeLit(false); self.hlZone = nil end
+  if zone and self.hlZone ~= zone then zone.wpeLit(true); self.hlZone = zone end
 end
 
 -- Set the held item down when a drop lands on the window body instead of a cell. A piece from these bags
@@ -2400,10 +2384,11 @@ function Bags:CatZone(i)
       end
       z.hint:SetShown(on and true or false)
     end
-    z:SetScript("OnEnter", function(s)
-      if s.wpeId and CursorHasItem() and Bags:PinDragActive() then lit(true) end
-    end)
-    z:SetScript("OnLeave", function() lit(false) end)
+    -- The wash is painted from outside, by the tick that reads the drop point: see TrackDropHighlight.
+    -- It cannot ride the zone's own OnEnter because the answer changes while the cursor stands still:
+    -- Alt can be pressed after the cursor has already entered the section, and letting it go must take
+    -- the wash and the name back down.
+    z.wpeLit = lit
     local function drop() lit(false); self:DropToBackground(z.wpeId, z.wpeEmpty) end
     z:SetScript("OnReceiveDrag", drop)
     z:SetScript("OnClick", drop)
@@ -2597,8 +2582,11 @@ function Bags:SyncDropZones()
   end
   -- The per-cell drop highlight follows the cursor over the covered cells, so it needs to track motion,
   -- not just cursor pickups. The OnUpdate below does that and is armed only while a drag is live here.
+  -- TrackDropHighlight is asked at once as well: a pickup can happen with the cursor already over a
+  -- section, where no fresh mouseover arrives to start the wash.
+  if on then self.hlZone = nil end
   dropWatch.tracking = on and true or false
-  if not on then self:TrackDropHighlight() end
+  self:TrackDropHighlight()
 end
 
 dropWatch:RegisterEvent("CURSOR_CHANGED")
@@ -4956,6 +4944,7 @@ function Bags:UpdateDirty(force)
   self:ArmTransfer()
 end
     end
+    self:RefreshHoverTip()
     return
   end
   if next(self.dirty) then ns.Vault:Capture("bags", self.dirty) end
@@ -4992,6 +4981,7 @@ end
   end
   self.dirty = {}
   self:UpdateMeta()
+  self:RefreshHoverTip()
 end
 
 function Bags:SortBags()

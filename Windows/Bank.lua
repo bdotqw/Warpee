@@ -231,7 +231,7 @@ local function bankTarget(st, bags, alloc)
         local info = live and C_Container.GetContainerItemInfo(tab, s) or nil
         -- Free and not mid-rewrite: an empty slot that is locked has a move already in flight into it (the
         -- server has not confirmed), and firing a second move at it locks it harder and drops one. Skip it
-        -- and take the next free slot, the way the reference addon skips a locked target.
+        -- and take the next free slot instead.
         if live and not (info and (info.hyperlink or info.itemID)) and not (info and info.isLocked) then
           return tab, s, key
         end
@@ -492,25 +492,8 @@ function View:Build()
   close.wpeIconPaint(close)
   self.closeBtn = close
 
-  -- The gear as art on the icon path rather than a texture escape inside the label, the way the bags
-  -- carry theirs: only a real texture can be given the ground the drawn marks wear. The art is the same
-  -- 16px cog the bag window shows, held to the same 62% of the box (see the bags' note on the grid).
-  local gear = ns.CreateGlyphButton(f, "", HBTN, "icon")
-  gear:SetPoint("TOPRIGHT", close, "TOPLEFT", -4, 0)
-  gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
-  addTip(gear, "Settings", nil, "top")
-  local gearIcon = gear:CreateTexture(nil, "ARTWORK")
-  gearIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\gear.tga]])
-  gearIcon:SetPoint("CENTER")
-  gear.icon = gearIcon
-  gear.iconPct = 62
-  gear.wpeIconPaint = function(s)
-    if not s.icon then return end
-    local hot = s.wpeHot and not s.offDuty
-    s.icon:SetVertexColor(Theme:C(hot and "text" or "dim"))
-  end
-  gear.wpeIconPaint(gear)
-  ns.IconSilhouette(gear, gearIcon)
+  -- The same 16px cog the bag window shows, at the same share of the header box: see ns.GearButton.
+  local gear = ns.GearButton(f, close, HBTN)
   self.gearBtn = gear
 
   local sort = ns.CreateGlyphButton(f, "", HBTN, "icon")
@@ -1503,10 +1486,11 @@ end
 -- The cell for a plan entry: the one already showing this slot, or the next free cell of the pool. What a
 -- pass pays per cell is decided here: a cell handed the slot it already shows keeps its picture (the paint
 -- guard in ns.UpdateItemButton finds nothing changed and returns), a cell handed another slot repaints. So
--- cells are keyed by the slot they show, not by the place they stand in -- the reference addon does the same
--- with its item keys. The plan is a compacted list of pieces, not of places: a held hole is drawn by the pass
--- as its own crosshair and takes no plan entry, and an arriving piece takes one, so a single arrival or
--- departure moves every entry behind it one index along while the slots those entries name have not moved.
+-- cells are keyed by the slot they show, not by the place they stand in: the slot a cell names is the only
+-- thing that says whether its picture is still right. The plan is a compacted list of pieces, not of places:
+-- a held hole is drawn by the pass as its own crosshair and takes no plan entry, and an arriving piece takes
+-- one, so one arrival or departure moves every entry behind it an index along while the slots those entries
+-- name have not moved.
 -- Handing cells out by that index repainted every one of those cells with its neighbour's item -- 2057 paints
 -- against 2191 bank and 794 bag cells placed in one measured withdrawal, which from the per-cell cost is about
 -- three quarters of the bank window repainted per pass. Keyed, those cells are only moved, and the paint is
@@ -2472,7 +2456,7 @@ end
 -- `slots` is the section's own list; nil (Empty) is inert. The send closure checks the player bags have a
 -- free slot before firing: with the bags full UseContainerItem cannot land the piece (it stays locked in
 -- the bank), so a full-bags run would otherwise retry each slot to its cap for nothing. Returning false on
--- no space ends the run at once, the way the reference addon stops a transfer with nowhere to go.
+-- no space ends the run at once: a transfer with nowhere to go stops rather than retrying every piece.
 local function bagsHaveRoom()
   for _, bag in ipairs(ns.playerBags) do
     if (select(1, C_Container.GetContainerNumFreeSlots(bag)) or 0) > 0 then return true end
@@ -2643,25 +2627,7 @@ function View:CatGHead(st, i)
   st.gHeads = st.gHeads or {}
   local b = st.gHeads[i]
   if not b then
-    b = CreateFrame("Button", nil, st.content)
-    b:RegisterForClicks("LeftButtonUp")
-    b:SetScript("OnClick", function(s)
-      if not s.wpeEntry then return end
-      if IsShiftKeyDown() then
-        ns.Categories:SetAllFolded(not ns.Categories:Folded(s.wpeEntry))
-      else
-        ns.Categories:ToggleFold(s.wpeEntry)
-      end
-      self:Layout()
-    end)
-    b:SetScript("OnEnter", function(s)
-      if s.wpeCaret then s.wpeCaret:SetTint("accent") end
-      if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("accentInk")) end
-    end)
-    b:SetScript("OnLeave", function(s)
-      if s.wpeCaret then s.wpeCaret:SetTint("dim") end
-      if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("azure")) end
-    end)
+    b = ns.CreateSectionHead(st.content, function() self:Layout() end)
     st.gHeads[i] = b
   end
   return b
@@ -2920,6 +2886,7 @@ function View:Run(st, repaint)
     -- A layout asked for while this pass was filling waited for it; it runs now, on the finished plan.
     if st.relayout then st.relayout = nil; self:Layout() end
     self:ArmTransfer()
+    ns.RefreshCellTip(self.frame, select(3, self:CellUnderCursor()))
   end, token)
 end
 
@@ -3423,7 +3390,7 @@ function View:UpdateDirty()
   self:Draw(st, q, n, function(b)
     ns.UpdateItemButton(b)
     ns.ApplySearchToButton(b, self.filters)
-  end, nil, st.drawToken)
+  end, function() ns.RefreshCellTip(self.frame, select(3, self:CellUnderCursor())) end, st.drawToken)
 end
 
 -- Repaint the cells of the tabs that just changed, where they stand: no plan, no move, no paint of the

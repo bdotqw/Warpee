@@ -202,8 +202,7 @@ local STRINGS = {
   ["Grows from the center"] = "Crece desde el centro",
   ["Growth direction: which way the badge grows when the value gets longer."] =
     "Dirección de crecimiento: hacia dónde crece el distintivo cuando el valor se alarga.",
-  ["Drag a badge, or click where you want it. Left-click a name to show that badge, right-click the name to hide it."] =
-    "Arrastra un distintivo o haz clic donde lo quieras. Clic izquierdo en un nombre muestra el distintivo, clic derecho en el nombre lo oculta.",
+  ["Drag a badge onto the preview, or click the spot on it. Left-click a name to show that badge, right-click to hide it."] = "Arrastra una insignia a la vista previa o haz clic en el sitio. Clic izquierdo en un nombre muestra esa insignia, clic derecho la oculta.",
   ["Show only the selected badge"] = "Mostrar solo el distintivo elegido",
   ["Item level on gear, and a keystone's level."] =
     "El nivel de objeto del equipo y el de una piedra angular.",
@@ -214,8 +213,7 @@ local STRINGS = {
     "El conjunto de equipo al que pertenece el objeto, recortado a unas pocas letras.",
   ["A coin on gray junk items."] = "Una moneda en la basura gris.",
   ["A padlock on the items you locked."] = "Un candado en los objetos protegidos.",
-  ["In the cell above, hide every badge except the selected one."] =
-    "En la casilla de arriba, ocultar todos los distintivos menos el elegido.",
+  ["Hide every badge on the preview except the selected one."] = "Oculta en la vista previa todas las insignias menos la elegida.",
   ["Locked items"] = "Objetos protegidos",
   ["Open bags with"] = "Abrir las bolsas con",
   ["Runs on its own"] = "Automático",
@@ -265,13 +263,12 @@ local STRINGS = {
   ["Fill bar in the bags header showing how full they are."] =
     "Barra en la cabecera de las bolsas que muestra lo llenas que están.",
   ["Takes the Warpee button off the minimap."] = "Quita el botón de Warpee del minimapa.",
-  ["Grouping for printed amounts. Short abbreviates to K and M."] =
-    "Cómo se separan los millares en las cifras. «Corto» abrevia a k y M.",
+  ["How amounts are written in chat. Short turns 1200 into 1.2K."] = "Cómo se escriben los importes en el chat. Corto convierte 1200 en 1,2K.",
   ["Show gold only, hide silver and copper."] = "Mostrar solo el oro, sin plata ni cobre.",
   ["On = g/s/c letters. Off = coin icons."] = "Activado: letras o/p/c. Desactivado: iconos de las monedas.",
   ["Blizzard icons"] = "Iconos de Blizzard",
   ["The coin on the money line and in the guild bank. On = the client's own coin icons. Off = Warpee's own coin."] = "La moneda de la línea de dinero y del Banco de hermandad. Activado: los iconos del cliente, desactivado: la moneda de Warpee.",
-  ["The coin on the money line, when the letters above are off. On = the client's own coin icons. Off = Warpee's own coin. Native game tooltips keep the client's coin either way."] = "La moneda de la línea de dinero, cuando las letras de arriba están quitadas. Activado: los iconos del cliente, desactivado: la moneda de Warpee. Las ventanas del juego muestran la moneda del cliente de todos modos.",
+  ["Coin on the money line while the letters are off: the client's own icons, or Warpee's. Game tooltips keep the client's coin either way."] = "La moneda en la línea del dinero cuando las letras están desactivadas: los iconos del cliente o los propios de Warpee. Las descripciones del juego mantienen la moneda del cliente en ambos casos.",
   ["Empty the search box when the window closes, so it opens unfiltered next time."] =
     "Vacía el campo de búsqueda al cerrar la ventana, para que la próxima vez se abra sin filtro.",
   ["While both windows are open, typing in either box searches both at once."] =
@@ -296,16 +293,11 @@ local STRINGS = {
   ["Reagents on top"] = "Componentes arriba",
   ["Category spacing X"] = "Espaciado de categorías X",
   ["Category spacing Y"] = "Espaciado de categorías Y",
-  ["Horizontal gap between categories on a shelf, in the grouped view."] = "Espacio horizontal entre categorías en una fila, en la vista agrupada.",
-  ["Vertical gap between category rows, in the grouped view."] = "Espacio vertical entre filas de categorías, en la vista agrupada.",
   ["Combine stacks"] = "Combinar montones",
-  ["Show several stacks of one item as a single cell with the total. This only changes how they look; the items stay in their own bag slots. Gear, pets and keystones stay one cell each."] =
-    "Muestra varios montones de un mismo objeto como una sola casilla con el total. Solo cambia el aspecto; los objetos siguen en sus propias ranuras de la bolsa. El equipo, las mascotas y las llaves mantienen una casilla cada uno.",
+  ["Stacks of one item as a single cell with the total. Only the look changes; gear, pets and keystones stay one cell each."] = "Los montones de un objeto como una sola casilla con el total. Solo cambia el aspecto; equipo, mascotas y piedras angulares siguen con una casilla cada uno.",
   ["Drag to pin"] = "Arrastrar para fijar",
-  ["Hold Alt"] = "Mantener Alt",
+  ["Alt while dragging"] = "Alt al arrastrar",
   ["Always"] = "Siempre",
-  ["Drag an item onto a category in the grouped view to pin it there. Hold Alt pins only while Alt is held, so an ordinary drag never leaves a surprise pin. Off leaves pinning to the editor. A drop on the category the rules already choose unpins instead."] =
-    "Arrastra un objeto sobre una categoría en la vista agrupada para fijarlo ahí. «Mantener Alt» fija solo con Alt pulsado, así un arrastre normal nunca deja una fijación inesperada. «Desactivado» deja la fijación al editor. Soltar en la categoría que las reglas ya eligen, en cambio, lo desfija.",
   ["Hide reagents"] = "Ocultar los componentes",
   ["Show reagents"] = "Mostrar los componentes",
   ["Reverse slot order"] = "Orden inverso de espacios",
@@ -336,11 +328,10 @@ local STRINGS = {
     "Los espacios de las bolsas se recorren al revés: el último espacio de la última bolsa ocupa la primera casilla. Dentro de las bolsas nada se mueve, solo cambia el orden en que se dibujan.",
   ["The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top."] =
     "Las filas de casillas se apilan desde el borde inferior hacia arriba. La última fila incompleta queda arriba.",
-  ["Items that just arrived are kept apart from the rest of your bags, so you can see what is new at a glance. Using an item or pressing sort returns everything to the ordinary order. Only the drawing order changes, nothing moves inside your bags."] =
-    "Los objetos recién obtenidos se mantienen aparte del resto de las bolsas, para que veas de un vistazo lo que es nuevo. Al usar un objeto o pulsar el orden, todo vuelve a la disposición habitual. Solo cambia el orden de dibujado, dentro de las bolsas no se mueve nada.",
+  ["New items stay apart from the rest of the bag so you can see what just arrived. Using an item or sorting restores the usual order; nothing moves in your bags."] = "Los objetos nuevos quedan aparte del resto del contenido de la bolsa, para que veas lo que acaba de llegar. Usar un objeto u ordenar devuelve el orden habitual; en las bolsas no se mueve nada.",
   ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
     "Lo que hay detrás de cada icono. «Transparente» deja ver el fondo, «Aclarado» resalta un poco el espacio, «Opaco» lo cierra del todo.",
-  ["The plate the items stand on, an extra surface over the window's own background. At 0 it is invisible and the window keeps its own background; raised, it covers the window from top to bottom, except the header a skin draws for itself."] = "El fondo bajo los objetos: una superficie extra sobre el fondo propio de la ventana. En 0 es invisible y la ventana conserva su fondo; al subir cubre la ventana de arriba abajo, salvo la cabecera que dibuja el propio skin.",
+  ["The plate behind the items, over the window's own background. At 0 it is invisible; raised, it covers the window up to the header."] = "La base detrás de los objetos, sobre el fondo propio de la ventana. En 0 es invisible; más arriba cubre la ventana hasta la cabecera.",
   ["The bank keeps its own width and icon size, apart from the bags."] =
     "El banco mantiene su propio ancho y su propio tamaño de iconos, aparte de las bolsas.",
   ["One icon size for both bank tabs."] = "Un solo tamaño de iconos para las dos pestañas del banco.",
@@ -369,17 +360,13 @@ local STRINGS = {
   ["Snap to windows"] = "Ajustar a las ventanas",
   ["The corner of the screen the bag window hangs from. It grows away from that corner as your bags fill."] =
     "La esquina de la pantalla de la que cuelga la ventana de las bolsas. Crece desde esa esquina a medida que se llenan las bolsas.",
-  ["The corner of the screen the bank window hangs from, used the same way."] =
-    "La esquina de la pantalla de la que cuelga la ventana del banco; funciona igual.",
   ["The corner the pocket hangs from. Snapping it against another window sets this by itself."] =
     "La esquina de la que cuelga el bolsillo. Al ajustarlo a otra ventana se establece sola.",
-  ["Dropped close to the bags or the bank, the pocket lines up against it and holds that seam when the other window changes size. Dragging the bags never carries the pocket along."] =
-    "Al soltar el bolsillo cerca de las bolsas o del banco, se alinea con la ventana y mantiene esa unión cuando la otra ventana cambia de tamaño. Arrastrar las bolsas nunca lo arrastra consigo.",
+  ["Near the bags or the bank, the pocket lines up with it and holds that seam when the window resizes. Dragging the bags never moves the pocket."] = "Cerca de las bolsas o del banco, el bolsillo se alinea con él y mantiene esa unión al cambiar el tamaño de la ventana. Arrastrar las bolsas nunca lo mueve.",
   ["Text size"] = "Tamaño del texto",
   ["X offset"] = "Desplazamiento X",
   ["Y offset"] = "Desplazamiento Y",
-  ["A border around each item in its quality color. Items tied to a quest take the quest yellow instead, the color of the exclamation mark. The reagent and unwearable borders come first."] =
-    "Un borde alrededor de cada objeto con el color de su calidad. Los objetos ligados a una misión llevan en su lugar el amarillo del signo de exclamación. Los bordes de componentes y de equipo no equipable tienen prioridad.",
+  ["A border in the item's quality color; quest items take the quest yellow. Reagent and unwearable borders come first."] = "Un borde en el color de calidad del objeto; los objetos de misión toman el amarillo de misión. Los bordes de reagentes e inutilizables van primero.",
   ["The exclamation mark on items for quests you have not picked up yet. Not shown in the warband bank."] =
     "El signo de exclamación en los objetos de misiones que aún no has aceptado. No se muestra en el banco de banda guerrera.",
   ["Quality-colored glow on items the game still counts as new."] =
@@ -389,12 +376,9 @@ local STRINGS = {
   ["Red border around gear your character cannot wear."] =
     "Borde rojo alrededor del equipo que tu personaje no puede llevar.",
   ["Thickness of the slot border."] = "Grosor del borde de los espacios.",
-  ["A copper coin on gray junk items: the same coin the Sell button and the sale mark wear in gold, copper here because the rules would sell it, not you."] =
-    "Una moneda de cobre en los objetos grises (basura): la misma moneda que llevan en oro el botón «Vender ahora» y la marca de venta; el cobre dice aquí que la venderían las reglas, no tú.",
+  ["A copper coin on gray junk: the coin the Sell button wears in gold, copper because the rules would sell it, not you."] = "Una moneda de cobre en la basura gris: la misma que el botón Vender lleva en oro, en cobre porque las reglas la venderían, no tú.",
   ["Tint the item level number with the item's quality color."] =
     "Colorea el nivel de objeto con el color de su calidad.",
-  ["Alt-click an item to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Works in the bags, the bank, the favorites row and the pocket. Alt-click again, or the cross here, to unlock."] =
-    "Alt + clic izquierdo en un objeto lo protege: aparece un candado y el objeto ya no se puede vender, ni automáticamente ni con un clic derecho ante el mercader. Funciona en las bolsas, el banco, la fila de favoritos y el bolsillo. Otro Alt + clic izquierdo, o la cruz de esta lista, quita la protección.",
   ["ALT-click to lock it from the vendor"] = "ALT + clic izquierdo bloquea la venta",
   ["Alt + LMB to mark it for sale"] = "Alt + CI marca el objeto para la venta",
   ["Marked for sale. Alt + LMB to lock it from sale"] = "Marcado para vender. Alt + CI bloquea la venta",
@@ -579,10 +563,8 @@ local STRINGS = {
   ["Recent"] = "Recientes",
   ["Recent in bags"] = "Recientes en las bolsas",
   ["Recent in the pocket"] = "Recientes en el bolsillo",
-  ["A row above the pocket cells holding what came into your bags this session, apart from gray items. It is the same list the bag window shows, so clearing it in one window clears it in the other."] =
-    "Una fila sobre las casillas del bolsillo con lo que ha entrado en tus bolsas en esta sesión, salvo los objetos grises. Es la misma lista que muestra la ventana de bolsas, así que vaciarla en una ventana la vacía también en la otra.",
-  ["A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
-    "Una fila sobre los favoritos con lo que ha entrado en tus bolsas en esta sesión, salvo los objetos grises. Cada objeto nuevo ocupa la primera casilla libre, el más antiguo sale cuando la fila se llena, y la fila se vacía al salir o al recargar la interfaz.",
+  ["The same recent row as in the bags, above the pocket cells. Clearing it in one window clears it in the other."] = "La misma fila que en las bolsas, sobre las casillas del bolsillo. Si la vacías en una ventana, se vacía en la otra.",
+  ["A row above the favorites with what arrived this session, gray items aside. The oldest leaves when it fills; logging out or reloading clears it."] = "Una fila sobre los favoritos con lo que llegó en esta sesión, sin objetos grises. Cuando se llena sale lo más antiguo; cerrar sesión o recargar la vacía.",
   ["POCKET"] = "BOLSILLO",
   ["FANNY PACK"] = "RIÑONERA",
   ["Pocket"] = "Bolsillo",
@@ -603,10 +585,8 @@ local STRINGS = {
     "Cuántas filas de casillas tiene la ventana del bolsillo.",
   ["How wide the pocket window grows."] =
     "De esto depende el ancho de la ventana del bolsillo.",
-  ["Size of one cell in the pocket. It is a setting of its own: a pocket that has none takes the bag slot size once."] =
-    "Tamaño de una casilla del bolsillo. Es un ajuste propio: el bolsillo sin tamaño propio toma una vez el de las casillas de las bolsas.",
-  ["The key that opens and closes the pocket. Click, then press a key, a mouse button or the wheel, with Shift, Ctrl or Alt if you like; a right click clears it, Escape cancels."] =
-    "La tecla que abre y cierra el bolsillo. Haz clic y pulsa una tecla, un botón del ratón o la rueda, con Mayús, Ctrl o Alt si quieres; el clic derecho la borra, Escape cancela.",
+  ["A size of its own; a pocket without one follows the bag slot size."] = "Un tamaño propio; un bolsillo sin él sigue el tamaño de las casillas de las bolsas.",
+  ["The key that opens and closes the pocket. Click, then press a key, mouse button or wheel, with Shift, Ctrl or Alt; right-click clears, Escape cancels."] = "La tecla que abre y cierra el bolsillo. Haz clic y pulsa una tecla, un botón del ratón o la rueda, con Mayús, Ctrl o Alt; el clic derecho la borra, Escape cancela.",
   ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] =
     "El equipo se fija arrastrándolo o pegando su enlace; un id simple no distingue una copia de otra.",
   ["Add ID"] = "Añadir ID",
@@ -771,13 +751,13 @@ local STRINGS = {
   ["Window"] = "Ventana",
   ["Separate bags and tabs"] = "Separar bolsas y pestañas",
   ["Name bags and tabs"] = "Nombrar bolsas y pestañas",
-  ["Drag an item onto a category in the category view to pin it there. Hold Alt pins only while Alt is held, so an ordinary drag never leaves a surprise pin. Off leaves pinning to the editor. A drop on the category the rules already choose unpins instead."] = "Arrastra un objeto sobre una categoría en la vista por categorías para fijarlo ahí. Mantener Alt fija solo mientras Alt esté pulsada, así que un arrastre normal nunca deja un fijado inesperado. Desactivado deja el fijado al editor. Soltar sobre la categoría que las reglas ya eligen lo desfija en su lugar.",
+  ["Drag an item onto a category to pin it there. The Alt mode pins only while Alt is held; Off leaves pinning to the editor. Dropping on the category the rules already pick unpins."] = "Arrastra un objeto sobre una categoría para fijarlo ahí. El modo Alt fija solo mientras Alt esté pulsada; Desactivado deja el fijado al editor. Soltar sobre la categoría que las reglas ya eligen lo desfija.",
   ["Draw every bag and every bank tab on its own, with a gap between them, in the windows you tick. The reagent bag stands apart already and joins the row of blocks with the bags; one merged into them is separated again the moment the bags go on."] = "Dibuja cada bolsa y cada pestaña del banco por separado, con un hueco entre ellas, en las ventanas que marques. La bolsa de componentes ya está aparte y se une a la fila de bloques con las bolsas; una fusionada con ellas se separa de nuevo en cuanto se activan las bolsas.",
   ["Horizontal gap between categories on a shelf, in the category view."] = "Hueco horizontal entre categorías en un estante, en la vista por categorías.",
   ["Lay the containers out in labelled sections instead of one grid: equipment, consumables, reagents and the rest, with anything left over under Other. Tick each window you want it in."] = "Coloca los contenedores en secciones etiquetadas en lugar de una sola cuadrícula: equipo, consumibles, componentes y el resto, y lo que sobra bajo Otros. Marca cada ventana en la que lo quieras.",
   ["Name each one over its cells with the bag or tab it holds, in the windows you tick. A name needs them drawn apart: a window left as one grid has nothing to name, and its gap does the separating alone."] = "Pone el nombre de la bolsa o pestaña sobre sus casillas, en las ventanas que marques. Un nombre necesita los bloques por separado: una ventana que sigue siendo una sola cuadrícula no tiene nada que nombrar, y solo su hueco separa.",
   ["The corner of the screen the bank window hangs from. It grows away from that corner as the tabs fill."] = "La esquina de la pantalla de la que cuelga la ventana del banco. Crece desde esa esquina a medida que se llenan las pestañas.",
-  ["The space between one bag and the next. A bag that shows its name needs room for it, so the slider starts at that room rather than moving through values no block can stand at."] = "El espacio entre una bolsa y la siguiente. Una bolsa que muestra su nombre necesita sitio para él, así que el deslizador empieza en ese sitio en vez de pasar por valores en los que ningún bloque puede estar.",
+  ["Space between one bag and the next. A bag that shows its name needs room for it, so the slider starts there."] = "Espacio entre una bolsa y la siguiente. Una bolsa que muestra su nombre necesita sitio, así que el control empieza ahí.",
   ["The space between one bank tab and the next in the character bank. It starts at the room a name takes while that window draws its names."] = "El espacio entre una pestaña del banco y la siguiente en el banco del personaje. Empieza en el sitio que ocupa un nombre mientras esa ventana dibuja sus nombres.",
   ["The space between one tab and the next in the Warband bank. It starts at the room a name takes while that window draws its names."] = "El espacio entre una pestaña y la siguiente en el banco de la banda guerrera. Empieza en el sitio que ocupa un nombre mientras esa ventana dibuja sus nombres.",
   ["Vertical gap between category rows, in the category view."] = "Hueco vertical entre filas de categorías, en la vista por categorías.",
@@ -800,7 +780,7 @@ local STRINGS = {
   ["LMB: Hide currencies"] = "CI: ocultar monedas",
   ["RMB: Pick currencies"] = "CD: elegir monedas",
   ["Currencies direction"] = "Dirección de las monedas",
-  ["A row of the currencies the game itself tracks, drawn inside the bags under the grid, below a hairline divider: icon and count per currency, in the game's own order, wrapped to the window's width. The plus past the last coin, and the switch in the header, open the currency panel; Shift-click stops tracking one, and dragging a cell reorders them. The ticks in that panel track and untrack in the character panel too."] = "Una fila de las monedas que sigue el propio juego, dibujada dentro de las bolsas bajo la cuadrícula, bajo una línea fina: icono y cantidad de cada moneda, en el orden del juego, ajustada al ancho de la ventana. El signo más tras la última moneda y el botón de la cabecera abren el panel de monedas, Mayús + clic izquierdo deja de seguir una, y arrastrar una casilla las reordena. Las casillas de ese panel siguen y dejan de seguir también en la ventana de personaje.",
+  ["The currencies the game tracks, in a row under the grid. Shift-click drops one, drag to reorder. The + at the end of the row, or a right-click on the header switch, opens the picker; a left-click shows or hides the row."] = "Las monedas que sigue el propio juego, en una fila bajo la cuadrícula. Mayús + clic quita una y arrastrar las reordena. El + al final de la fila o un clic derecho en el botón de la cabecera abre el selector; el clic izquierdo muestra u oculta la fila.",
   ["The way the currency row grows. Left to right fills from the left edge; Right to left mirrors it, starting from the right edge; From the middle centres each line."] = "Cómo crece la fila de monedas. De izquierda a derecha llena desde el borde izquierdo; De derecha a izquierda la refleja, empezando por el borde derecho; Desde el centro centra cada línea.",
   ["Left to right"] = "De izquierda a derecha",
   ["Right to left"] = "De derecha a izquierda",

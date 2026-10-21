@@ -1583,8 +1583,8 @@ local CT_LOCK_WAITS = 40
 -- The account bank's batch. The warband answers a server round-trip per move, and a batch sent into moves
 -- still in flight is what left pieces server-side locked (a state a reload does not clear, only a relog) —
 -- which is what the landing wait below is for, so the size is free to be as large as that wait can cover.
--- Five: the batch the reference addon settled on, and it confirms a batch by comparing the bank's own item
--- counts, where the wait here reads the very slot each piece was aimed at, a tighter answer than that.
+-- Five: small enough that a batch lands inside the wait below, and it is confirmed the tight way, by reading
+-- the very slot each piece was aimed at, rather than by comparing the bank's whole item counts.
 Cats.WARBAND_BATCH = 5
 -- A batch sent to the account bank is given this long to land before the run sweeps again. It is not a
 -- give-up: the sweep re-reads the container, marks the pieces that did land as done, and re-sends any that
@@ -1595,9 +1595,8 @@ local CT_SETTLE, CT_SETTLE_POLLS = 0.10, 40
 
 -- The client is mid-update: a burst of container changes has fired BAG_UPDATE but not yet the settling
 -- BAG_UPDATE_DELAYED, so slots are in motion and a move issued now can land on a slot the server is still
--- rewriting and lock it. The reference addon gates its whole transfer on exactly this (its bag cache marks
--- itself pending on BAG_UPDATE and clears on BAG_UPDATE_DELAYED); WoW exposes no such flag, so it is tracked
--- here off the same two events, plus the bank-slot events that a deposit or withdraw stirs. The pump holds
+-- rewriting and lock it, and a transfer has to be gated on exactly this. WoW exposes no such flag, so it is
+-- tracked here off those same two events, plus the bank-slot events that a deposit or withdraw stirs. The pump holds
 -- until it clears, which is what makes a whole batch settle before the next goes out. A hard ceiling
 -- (bagPendingUntil) drops the flag if the settling event never arrives, so the pump can never wedge on it;
 -- it is long, because dropping it early is exactly the race that locked pieces on the warband.
@@ -1773,9 +1772,9 @@ function Cats:MoveSlots(slots, send, alive, warband, done)
     end
     -- The client is still settling a burst of container changes (BAG_UPDATE fired, BAG_UPDATE_DELAYED not
     -- yet): hold the whole run. A move issued into that window can land on a slot the server is still
-    -- rewriting and lock it, which is what left pieces stuck mid-transfer. This is the global gate the
-    -- reference addon puts at the head of every transfer step; the per-slot lock check below is not enough
-    -- on its own, since a target slot can be mid-rewrite without the source reading locked.
+    -- rewriting and lock it, which is what left pieces stuck mid-transfer. This is the global gate that
+    -- belongs at the head of every transfer step; the per-slot lock check below is not enough on its own,
+    -- since a target slot can be mid-rewrite without the source reading locked.
     if clientSettling() then
       C_Timer.After(CT_SETTLE, step)
       return

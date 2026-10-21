@@ -721,6 +721,44 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
   return b
 end
 
+-- Show the hover tip of the cell already under the pointer after a pass repaints it. A move that lands
+-- an item in the cell under a resting cursor never makes the mouse enter that cell -- it was entered
+-- while the cell was empty or bare -- so the template's OnEnter has already run and the tip stays down
+-- until the pointer leaves and comes back. A cursor holding a piece is mid drag and keeps the tip
+-- hidden, as the template does. The caller may name the cell it found under the pointer (the grouped view
+-- covers the cells with a drop zone, where mouse focus is the zone and no cell is under it); otherwise the
+-- cell is read off the mouse focus so a window lying underneath another cannot answer for it.
+function ns.RefreshCellTip(frame, cell)
+  if not (frame and frame:IsShown()) then return end
+  if CursorHasItem() then return end
+  local f = GetMouseFocus and GetMouseFocus()
+  if f then
+    local p = f
+    while p and p ~= frame do p = p:GetParent() end
+    if p ~= frame then return end
+  end
+  local b = cell
+  if not b then
+    b = f
+    while b and b ~= frame do
+      if b.wpeBagID and not b.wpeBare and b.GetID then break end
+      b = b:GetParent()
+    end
+  end
+  if not b or b == frame then return end
+  local info = C_Container.GetContainerItemInfo(b.wpeBagID, b:GetID())
+  if not (info and (info.hyperlink or info.itemID)) then return end
+  if GameTooltip:IsShown() and GameTooltip:GetOwner() == b then return end
+  local enter = b.GetScript and b:GetScript("OnEnter")
+  if enter then
+    enter(b)
+    if GameTooltip:IsShown() and GameTooltip:GetOwner() == b then return end
+  end
+  GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+  GameTooltip:SetBagItem(b.wpeBagID, b:GetID())
+  GameTooltip:Show()
+end
+
 local vaultCount = 0
 function ns.CreateVaultButton(parent)
   vaultCount = vaultCount + 1

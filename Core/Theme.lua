@@ -947,9 +947,9 @@ end
 -- UISpecialFrames: the client's handler walks that whole list on one press and hides every
 -- entry that is shown, so a single press still closes every Warpee window at once, the
 -- frame's own OnHide carrying its cleanup, the bank's included. Asking for the keyboard
--- instead was the old shape, and it is the one thing the bag addons beside us never do: a
--- keyboard enabled frame that does not propagate stops the WorldFrame from handling any
--- binding, and the call that sets that flag has been restricted for addons since 10.1.5,
+-- instead was the old shape, and it is the shape to avoid: a keyboard enabled frame that does
+-- not propagate stops the WorldFrame from handling any binding, and the call that sets that
+-- flag has been restricted for addons since 10.1.5,
 -- so a window left holding it could not give the keyboard back until the fight ended.
 function ns.EscClose(frame)
   if not frame or frame.wpeEsc then return frame end

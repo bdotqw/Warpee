@@ -265,8 +265,7 @@ local STRINGS = {
   ["Grows from the center"] = "Растёт из центра",
   ["Growth direction: which way the badge grows when the value gets longer."] =
     "Направление роста: в какую сторону растёт значок, когда значение становится длиннее.",
-  ["Drag a badge, or click where you want it. Left-click a name to show that badge, right-click the name to hide it."] =
-    "Значок можно перетащить или щёлкнуть там, где он должен стоять. ЛКМ по названию показывает значок, ПКМ по названию скрывает.",
+  ["Drag a badge onto the preview, or click the spot on it. Left-click a name to show that badge, right-click to hide it."] = "Перетащите значок на предпросмотр или щёлкните по месту. Левый клик по имени показывает значок, правый — скрывает.",
   ["Show only the selected badge"] = "Показывать только выбранный значок",
   ["Item level on gear, and a keystone's level."] =
     "Уровень предмета у снаряжения и уровень ключа.",
@@ -277,8 +276,7 @@ local STRINGS = {
     "Набор экипировки, к которому относится предмет, укороченный до нескольких букв.",
   ["A coin on gray junk items."] = "Монета на сером хламе.",
   ["A padlock on the items you locked."] = "Замок на защищённых предметах.",
-  ["In the cell above, hide every badge except the selected one."] =
-    "В квадрате выше скрывать все значки, кроме выбранного.",
+  ["Hide every badge on the preview except the selected one."] = "Скрывает на предпросмотре все значки, кроме выбранного.",
   ["Locked items"] = "Защищённые предметы",
   ["Open bags with"] = "Открывать сумки вместе с",
   ["Runs on its own"] = "Автоматически",
@@ -328,13 +326,12 @@ local STRINGS = {
   ["Fill bar in the bags header showing how full they are."] =
     "Полоса в шапке сумок, показывающая, насколько они заполнены.",
   ["Takes the Warpee button off the minimap."] = "Убирает кнопку Warpee с миникарты.",
-  ["Grouping for printed amounts. Short abbreviates to K and M."] =
-    "Как разделяются разряды в суммах. Краткий формат сокращает тысячи до «к», миллионы — до «кк».",
+  ["How amounts are written in chat. Short turns 1200 into 1.2K."] = "Как суммы пишутся в чате. Коротко превращает 1200 в 1,2K.",
   ["Show gold only, hide silver and copper."] = "Показывать только золото, без серебра и меди.",
   ["On = g/s/c letters. Off = coin icons."] = "Вкл. — буквы з/с/м вместо иконок монет.",
   ["Blizzard icons"] = "Иконки Blizzard",
   ["The coin on the money line and in the guild bank. On = the client's own coin icons. Off = Warpee's own coin."] = "Монета в строке денег и в банке гильдии. Вкл. — родные иконки игры, выкл. — своя монета Warpee.",
-  ["The coin on the money line, when the letters above are off. On = the client's own coin icons. Off = Warpee's own coin. Native game tooltips keep the client's coin either way."] = "Монета в строке денег, пока выключены буквы выше. Вкл. — иконки из самой игры, выкл. — своя монета Warpee. Во встроенных подсказках игры монета всегда родная.",
+  ["Coin on the money line while the letters are off: the client's own icons, or Warpee's. Game tooltips keep the client's coin either way."] = "Монета на строке денег, пока буквы выключены: иконки клиента или своя монета Warpee. Подсказки игры в любом случае показывают монету клиента.",
   ["Empty the search box when the window closes, so it opens unfiltered next time."] =
     "Очищать поле поиска при закрытии окна, чтобы в следующий раз оно открылось без фильтра.",
   ["While both windows are open, typing in either box searches both at once."] =
@@ -359,16 +356,11 @@ local STRINGS = {
   ["Reagents on top"] = "Реагенты сверху",
   ["Category spacing X"] = "Отступ категорий по X",
   ["Category spacing Y"] = "Отступ категорий по Y",
-  ["Horizontal gap between categories on a shelf, in the grouped view."] = "Горизонтальный отступ между категориями в ряду, в виде по категориям.",
-  ["Vertical gap between category rows, in the grouped view."] = "Вертикальный отступ между рядами категорий, в виде по категориям.",
   ["Combine stacks"] = "Объединять стопки",
-  ["Show several stacks of one item as a single cell with the total. This only changes how they look; the items stay in their own bag slots. Gear, pets and keystones stay one cell each."] =
-    "Показывать несколько стопок одного предмета одной ячейкой с общим числом. Меняет только вид: предметы остаются в своих ячейках сумки. Снаряжение, питомцы и ключи остаются каждый своей ячейкой.",
+  ["Stacks of one item as a single cell with the total. Only the look changes; gear, pets and keystones stay one cell each."] = "Стопки одного предмета — одной ячейкой с общим числом. Меняется только вид; снаряжение, питомцы и ключи остаются каждый своей ячейкой.",
   ["Drag to pin"] = "Прикреплять перетаскиванием",
-  ["Hold Alt"] = "С зажатым Alt",
+  ["Alt while dragging"] = "Alt при перетаскивании",
   ["Always"] = "Всегда",
-  ["Drag an item onto a category in the grouped view to pin it there. Hold Alt pins only while Alt is held, so an ordinary drag never leaves a surprise pin. Off leaves pinning to the editor. A drop on the category the rules already choose unpins instead."] =
-    "Перетащите предмет на категорию в виде по категориям, чтобы прикрепить его туда. «С зажатым Alt» прикрепляет только при зажатом Alt, так что обычное перетаскивание не оставит случайного прикрепления. «Выкл» оставляет прикрепление только редактору. Сброс на категорию, куда предмет и так попадает по правилам, наоборот открепляет.",
   ["Hide reagents"] = "Скрыть реагенты",
   ["Show reagents"] = "Показать реагенты",
   ["Reverse slot order"] = "Обратный порядок слотов",
@@ -399,11 +391,10 @@ local STRINGS = {
     "Слоты сумок идут в обратном порядке: последний слот последней сумки попадает в первую ячейку. В самих сумках ничего не двигается, меняется только порядок отрисовки.",
   ["The rows of cells stack from the bottom edge up, so the part-filled last row sits at the top."] =
     "Ряды ячеек выстраиваются от нижнего края сетки вверх. Неполный последний ряд оказывается сверху.",
-  ["Items that just arrived are kept apart from the rest of your bags, so you can see what is new at a glance. Using an item or pressing sort returns everything to the ordinary order. Only the drawing order changes, nothing moves inside your bags."] =
-    "Только что полученные предметы держатся отдельно от остальных сумок, чтобы сразу было видно, что нового. Использование предмета или сортировка возвращают всё в обычный порядок. Меняется только порядок отрисовки, в самих сумках ничего не двигается.",
+  ["New items stay apart from the rest of the bag so you can see what just arrived. Using an item or sorting restores the usual order; nothing moves in your bags."] = "Новые предметы стоят отдельно от остального содержимого сумки, чтобы сразу было видно, что пришло. Использование предмета или сортировка возвращают обычный порядок; внутри сумок ничего не двигается.",
   ["What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off."] =
     "Что находится за иконкой. «Прозрачный» — сквозь ячейку видна подложка, «Подсветка» — ячейка чуть светлее фона, «Заливка» — фон полностью закрыт.",
-  ["The plate the items stand on, an extra surface over the window's own background. At 0 it is invisible and the window keeps its own background; raised, it covers the window from top to bottom, except the header a skin draws for itself."] = "Подложка под предметами — дополнительный слой поверх собственного фона окна. При 0 она не видна, и окно остаётся со своим фоном; выше — накрывает окно сверху донизу, кроме шапки, которую рисует сам скин.",
+  ["The plate behind the items, over the window's own background. At 0 it is invisible; raised, it covers the window up to the header."] = "Подложка за предметами, поверх собственного фона окна. При 0 её не видно; выше она накрывает окно до шапки.",
   ["The bank keeps its own width and icon size, apart from the bags."] =
     "У банка своя ширина и свой размер иконок, отдельно от сумок.",
   ["One icon size for both bank tabs."] = "Один размер иконок для обеих вкладок банка.",
@@ -432,17 +423,13 @@ local STRINGS = {
   ["Snap to windows"] = "Прилипание к окнам",
   ["The corner of the screen the bag window hangs from. It grows away from that corner as your bags fill."] =
     "Угол экрана, от которого висит окно сумок. По мере заполнения сумок окно растёт от этого угла.",
-  ["The corner of the screen the bank window hangs from, used the same way."] =
-    "Угол экрана, от которого висит окно банка. Работает так же.",
   ["The corner the pocket hangs from. Snapping it against another window sets this by itself."] =
     "Угол, от которого висит карман. Прилипание к другому окну выставляет его само.",
-  ["Dropped close to the bags or the bank, the pocket lines up against it and holds that seam when the other window changes size. Dragging the bags never carries the pocket along."] =
-    "Брошенный рядом с сумками или банком, карман встаёт встык и держит шов при смене размера соседнего окна. Перетаскивание сумок его не везёт.",
+  ["Near the bags or the bank, the pocket lines up with it and holds that seam when the window resizes. Dragging the bags never moves the pocket."] = "Рядом с сумками или банком карман встаёт встык и держит этот стык при изменении размера окна. Перетаскивание сумок его не тянет.",
   ["Text size"] = "Размер текста",
   ["X offset"] = "Сдвиг по X",
   ["Y offset"] = "Сдвиг по Y",
-  ["A border around each item in its quality color. Items tied to a quest take the quest yellow instead, the color of the exclamation mark. The reagent and unwearable borders come first."] =
-    "Рамка вокруг каждого предмета в цвет его качества. Предметы, связанные с заданием, получают вместо неё золотой цвет восклицательного знака. Рамки реагентов и вещей, которые персонаж не может надеть, идут первыми.",
+  ["A border in the item's quality color; quest items take the quest yellow. Reagent and unwearable borders come first."] = "Рамка в цвете качества предмета; предметы для заданий берут жёлтый цвет заданий. Рамки реагентов и неподходящих предметов идут первыми.",
   ["The exclamation mark on items for quests you have not picked up yet. Not shown in the warband bank."] =
     "Восклицательный знак на предметах, дающих ещё не принятое задание. В банке отряда не показывается.",
   ["Quality-colored glow on items the game still counts as new."] =
@@ -452,12 +439,9 @@ local STRINGS = {
   ["Red border around gear your character cannot wear."] =
     "Красная рамка вокруг вещей, которые персонаж не может надеть.",
   ["Thickness of the slot border."] = "Толщина рамки ячейки.",
-  ["A copper coin on gray junk items: the same coin the Sell button and the sale mark wear in gold, copper here because the rules would sell it, not you."] =
-    "Медная монета на сером хламе: та же монета, что у кнопки «Продать сейчас» и метки продажи, только золотая; медь здесь потому, что продать её хотят правила, а не вы.",
+  ["A copper coin on gray junk: the coin the Sell button wears in gold, copper because the rules would sell it, not you."] = "Медная монета на сером хламе: та же монета, что у кнопки «Продать» золотая, здесь медная — продают его правила, а не вы.",
   ["Tint the item level number with the item's quality color."] =
     "Окрашивать уровень предмета в цвет его качества.",
-  ["Alt-click an item to lock it: a padlock appears, and the item can no longer be sold, neither automatically nor by right-clicking at a merchant. Works in the bags, the bank, the favorites row and the pocket. Alt-click again, or the cross here, to unlock."] =
-    "Alt + ЛКМ по предмету защищает его: появляется замок, и предмет больше не продать, ни автоматически, ни через ПКМ у торговца. Работает в сумках, банке, ряду избранного и в кармане. Повторный Alt + ЛКМ или крестик в этом списке снимает защиту.",
   ["ALT-click to lock it from the vendor"] = "ALT + ЛКМ, чтобы защитить от продажи",
   ["Alt + LMB to mark it for sale"] = "Alt + ЛКМ отмечает предмет на продажу",
   ["Marked for sale. Alt + LMB to lock it from sale"] = "Отмечен на продажу. Alt + ЛКМ запрещает продажу",
@@ -643,10 +627,8 @@ local STRINGS = {
   ["Recent"] = "Недавнее",
   ["Recent in bags"] = "Недавнее в сумках",
   ["Recent in the pocket"] = "Недавнее в кармане",
-  ["A row above the pocket cells holding what came into your bags this session, apart from gray items. It is the same list the bag window shows, so clearing it in one window clears it in the other."] =
-    "Ряд над ячейками кармана, в котором лежит то, что попало в сумки за эту сессию, кроме серых предметов. Это тот же список, что показывает окно сумок, поэтому очистка в одном окне очищает и в другом.",
-  ["A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload."] =
-    "Ряд над избранным, в котором лежит то, что попало в сумки за эту сессию, кроме серых предметов. Каждое поступление занимает первую свободную ячейку, при переполнении уходит самое старое, а при выходе из игры или перезагрузке интерфейса ряд очищается.",
+  ["The same recent row as in the bags, above the pocket cells. Clearing it in one window clears it in the other."] = "Та же строка, что в сумках, над ячейками кармана. Очистишь в одном окне — очистится и в другом.",
+  ["A row above the favorites with what arrived this session, gray items aside. The oldest leaves when it fills; logging out or reloading clears it."] = "Строка над избранным с тем, что пришло за эту сессию, без серых предметов. Когда она заполнена, самое старое уходит; выход из игры или перезагрузка её очищают.",
   ["POCKET"] = "КАРМАН",
   ["FANNY PACK"] = "БАРСЕТКА",
   ["Pocket"] = "Карман",
@@ -667,10 +649,8 @@ local STRINGS = {
     "Сколько рядов ячеек в окне кармана.",
   ["How wide the pocket window grows."] =
     "От этого зависит ширина окна кармана.",
-  ["Size of one cell in the pocket. It is a setting of its own: a pocket that has none takes the bag slot size once."] =
-    "Размер одной ячейки кармана. У кармана свой размер: если своего ещё нет, он один раз берёт размер ячейки сумок.",
-  ["The key that opens and closes the pocket. Click, then press a key, a mouse button or the wheel, with Shift, Ctrl or Alt if you like; a right click clears it, Escape cancels."] =
-    "Клавиша, открывающая и закрывающая карман. Клик, затем клавиша, кнопка мыши или колесо, при желании с Shift, Ctrl или Alt; ПКМ снимает бинд, Esc отменяет.",
+  ["A size of its own; a pocket without one follows the bag slot size."] = "Свой размер; карман без него берёт размер ячеек сумок.",
+  ["The key that opens and closes the pocket. Click, then press a key, mouse button or wheel, with Shift, Ctrl or Alt; right-click clears, Escape cancels."] = "Клавиша, которая открывает и закрывает карман. Нажмите её, затем клавишу, кнопку мыши или колесо, с Shift, Ctrl или Alt; правый клик очищает, Escape отменяет.",
   ["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] =
     "Снаряжение закрепляется перетаскиванием или вставкой ссылки: по голому id нельзя отличить одну копию от другой.",
   ["Add ID"] = "Впиши id",
@@ -821,13 +801,13 @@ local STRINGS = {
   ["Window"] = "Окно",
   ["Separate bags and tabs"] = "Разделить сумки и вкладки",
   ["Name bags and tabs"] = "Показывать имена сумок и вкладок",
-  ["Drag an item onto a category in the category view to pin it there. Hold Alt pins only while Alt is held, so an ordinary drag never leaves a surprise pin. Off leaves pinning to the editor. A drop on the category the rules already choose unpins instead."] = "Перетащи предмет на категорию в виде по категориям, чтобы закрепить его там. С зажатым Alt закреп держится, только пока Alt зажат, поэтому обычное перетаскивание не оставит неожиданного закрепа. Выкл. оставляет закреп редактору. Бросок на категорию, которую и так выбрали правила, наоборот снимает закреп.",
+  ["Drag an item onto a category to pin it there. The Alt mode pins only while Alt is held; Off leaves pinning to the editor. Dropping on the category the rules already pick unpins."] = "Перетащи предмет на категорию, чтобы закрепить его там. Режим Alt держит закреп только пока Alt зажат; Выкл. оставляет закреп редактору. Бросок на категорию, которую и так выбирают правила, снимает закреп.",
   ["Draw every bag and every bank tab on its own, with a gap between them, in the windows you tick. The reagent bag stands apart already and joins the row of blocks with the bags; one merged into them is separated again the moment the bags go on."] = "Рисовать каждую сумку и каждую вкладку банка отдельно, с промежутком между ними, в отмеченных окнах. Сумка реагентов и так стоит отдельно и входит в ряд блоков вместе с сумками, а слитая с ними отделяется снова, как только сумки включают.",
   ["Horizontal gap between categories on a shelf, in the category view."] = "Горизонтальный промежуток между категориями на полке, в виде по категориям.",
   ["Lay the containers out in labelled sections instead of one grid: equipment, consumables, reagents and the rest, with anything left over under Other. Tick each window you want it in."] = "Разложить сумки и банк по подписанным секциям вместо одной сетки: снаряжение, расходники, реагенты и остальное, а лишнее уходит в «Другое». Отметь окна, где это нужно.",
   ["Name each one over its cells with the bag or tab it holds, in the windows you tick. A name needs them drawn apart: a window left as one grid has nothing to name, and its gap does the separating alone."] = "Подписывать каждый блок над ячейками именем сумки или вкладки, в отмеченных окнах. Имени нужно, чтобы блоки стояли отдельно: у окна, оставленного одной сеткой, называть нечего, и разделяет только промежуток.",
   ["The corner of the screen the bank window hangs from. It grows away from that corner as the tabs fill."] = "Угол экрана, от которого висит окно банка. По мере заполнения вкладок окно растёт от этого угла.",
-  ["The space between one bag and the next. A bag that shows its name needs room for it, so the slider starts at that room rather than moving through values no block can stand at."] = "Промежуток между одной сумкой и следующей. Сумке с именем нужно под него место, поэтому ползунок начинается с этого места и не идёт через значения, на которых блок стоять не может.",
+  ["Space between one bag and the next. A bag that shows its name needs room for it, so the slider starts there."] = "Расстояние между одной сумкой и следующей. Сумке с названием нужно место, поэтому ползунок начинается оттуда.",
   ["The space between one bank tab and the next in the character bank. It starts at the room a name takes while that window draws its names."] = "Промежуток между одной вкладкой банка и следующей в банке персонажа. Начинается с места, которое занимает имя, пока окно рисует имена.",
   ["The space between one tab and the next in the Warband bank. It starts at the room a name takes while that window draws its names."] = "Промежуток между одной вкладкой и следующей в банке отряда. Начинается с места, которое занимает имя, пока окно рисует имена.",
   ["Vertical gap between category rows, in the category view."] = "Вертикальный промежуток между рядами категорий, в виде по категориям.",
@@ -858,7 +838,7 @@ local STRINGS = {
   ["LMB: Hide currencies"] = "ЛКМ: скрыть валюты",
   ["RMB: Pick currencies"] = "ПКМ: выбрать валюты",
   ["Currencies direction"] = "Направление валют",
-  ["A row of the currencies the game itself tracks, drawn inside the bags under the grid, below a hairline divider: icon and count per currency, in the game's own order, wrapped to the window's width. The plus past the last coin, and the switch in the header, open the currency panel; Shift-click stops tracking one, and dragging a cell reorders them. The ticks in that panel track and untrack in the character panel too."] = "Строка валют, которые отслеживает сама игра, внутри сумок под сеткой, под тонкой линией: иконка и количество каждой валюты, в порядке игры, переносится по ширине окна. Плюс после последней монеты и переключатель в шапке открывают панель валют, Shift+нажатие снимает отслеживание, а перетаскивание ячейки меняет их порядок. Галки в той панели ставят и снимают отслеживание и в окне персонажа.",
+  ["The currencies the game tracks, in a row under the grid. Shift-click drops one, drag to reorder. The + at the end of the row, or a right-click on the header switch, opens the picker; a left-click shows or hides the row."] = "Валюты, которые отслеживает сама игра, строкой под сеткой. Shift+клик убирает одну, перетаскивание меняет порядок. Плюс в конце строки или правый клик по переключателю в шапке открывает выбор; левый клик показывает строку или скрывает её.",
   ["The way the currency row grows. Left to right fills from the left edge; Right to left mirrors it, starting from the right edge; From the middle centres each line."] = "Как растёт строка валют. Слева направо заполняет от левого края; Справа налево зеркалит её, начиная с правого края; От середины центрирует каждую линию.",
   ["Left to right"] = "Слева направо",
   ["Right to left"] = "Справа налево",

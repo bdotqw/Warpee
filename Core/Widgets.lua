@@ -1563,6 +1563,63 @@ function ns.CreateGlyphButton(parent, glyph, size, dark)
   return b
 end
 
+-- The cog that opens the settings: the same art in all three windows, the same 62% of the header box,
+-- the same pointer ink. The bags and the bank chain it to the close button; the pocket places it in its
+-- own layout, so the anchor is optional.
+-- Why a texture and not a |T...|t escape inside the label: a texture inside a string has no shadow to be
+-- given, so the art sat flat on the band while every mark around it carried its own ground. On the icon
+-- path IconSilhouette can lay that ground.
+-- Why 62% and not the lock's 60%: a round solid body reads heavier than a thin-stroked one, and at that
+-- size the two marks weigh the same instead of the cog shouting. The art is authored on the grid it is
+-- shown on -- 16 pixels, hard alpha -- because a 128px drawing blurred down to a half-box left a grey
+-- smudge in a row of 2px strokes.
+-- The tip takes the key, not the word, so a language switch reaches it without a reload.
+function ns.GearButton(parent, close, box)
+  local gear = ns.CreateGlyphButton(parent, "", box, "icon")
+  if close then gear:SetPoint("TOPRIGHT", close, "TOPLEFT", -4, 0) end
+  gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
+  ns.AddTip(gear, "Settings", "top")
+  local icon = gear:CreateTexture(nil, "ARTWORK")
+  icon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\gear.tga]])
+  icon:SetPoint("CENTER")
+  gear.icon = icon
+  gear.iconPct = 62
+  gear.wpeIconPaint = function(s)
+    if not s.icon then return end
+    local hot = s.wpeHot and not s.offDuty
+    s.icon:SetVertexColor(Theme:C(hot and "text" or "dim"))
+  end
+  gear.wpeIconPaint(gear)
+  ns.IconSilhouette(gear, icon)
+  return gear
+end
+
+-- The heading of a category group, drawn the same way over the bags' own content and the bank's. A click
+-- folds the group; Shift folds or unfolds every group at once. `relayout` is the window's own pass, run
+-- after the fold changed, so the two windows need not share anything else about their layout.
+function ns.CreateSectionHead(parent, relayout)
+  local b = CreateFrame("Button", nil, parent)
+  b:RegisterForClicks("LeftButtonUp")
+  b:SetScript("OnClick", function(s)
+    if not s.wpeEntry then return end
+    if IsShiftKeyDown() then
+      ns.Categories:SetAllFolded(not ns.Categories:Folded(s.wpeEntry))
+    else
+      ns.Categories:ToggleFold(s.wpeEntry)
+    end
+    if relayout then relayout() end
+  end)
+  b:SetScript("OnEnter", function(s)
+    if s.wpeCaret then s.wpeCaret:SetTint("accent") end
+    if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("accentInk")) end
+  end)
+  b:SetScript("OnLeave", function(s)
+    if s.wpeCaret then s.wpeCaret:SetTint("dim") end
+    if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("azure")) end
+  end)
+  return b
+end
+
 -- A header row is chained button to button, and a hidden frame keeps its points, so a
 -- gap stays where it was. Re-chain the row through the shown ones only and hand back the
 -- last one, which is the left edge whatever is hidden.

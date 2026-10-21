@@ -108,7 +108,7 @@ local function goldFmtSet(v) WarpeeDB.goldFormat = v; relayout() end
 local PIN_DRAG_MODES = { "off", "alt", "on" }
 local PIN_DRAG_LABELS = {
   off = "Off",
-  alt = "Hold Alt",
+  alt = "Alt while dragging",
   on  = "Always",
 }
 local function pinDragGet() return WarpeeDB.catPinDrag or "alt" end
@@ -161,7 +161,7 @@ local GENERAL_PAGE = {
         desc = "What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off." },
       { type = "range", name = "Plate opacity", min = 0, max = 1, step = 0.01,
         get = gridAlphaGet, set = gridAlphaSet,
-        desc = "The plate the items stand on, an extra surface over the window's own background. At 0 it is invisible and the window keeps its own background; raised, it covers the window from top to bottom, except the header a skin draws for itself." },
+        desc = "The plate behind the items, over the window's own background. At 0 it is invisible; raised, it covers the window up to the header." },
       { type = "range", name = "Transparency", min = 0, max = 1, step = 0.01,
         get = winAlphaGet, set = winAlphaSet,
         desc = "See-through windows. Settings stay solid." },
@@ -182,7 +182,7 @@ local GENERAL_PAGE = {
       { type = "header", name = "Money" },
       { type = "select", name = "Gold format", get = goldFmtGet, set = goldFmtSet,
         keys = function() return GOLD_FORMATS end, label = function(k) return GOLD_FORMAT_LABELS[k] or k end,
-        desc = "Grouping for printed amounts. Short abbreviates to K and M." },
+        desc = "How amounts are written in chat. Short turns 1200 into 1.2K." },
       { type = "toggle", name = "Gold only", col = 1, get = onlyGet, set = onlySet,
         desc = "Show gold only, hide silver and copper." },
       { type = "toggle", name = "Coin letters", col = 2, get = lettersGet, set = lettersSet,
@@ -192,7 +192,7 @@ local GENERAL_PAGE = {
       -- because a letter outranks both coins -- with letters on there is no coin to choose.
       { type = "toggle", name = "Blizzard icons", col = 1, get = blizzGet, set = blizzSet,
         disabled = function() return lettersGet() end,
-        desc = "The coin on the money line, when the letters above are off. On = the client's own coin icons. Off = Warpee's own coin. Native game tooltips keep the client's coin either way." },
+        desc = "Coin on the money line while the letters are off: the client's own icons, or Warpee's. Game tooltips keep the client's coin either way." },
   },
 }
 
@@ -211,11 +211,11 @@ local POCKET_PAGE = {
   { type = "toggle", name = "Snap to windows", col = 2,
     get = fav.snapGet, set = fav.snapSet,
     disabled = function() return not fav.pkGet() end,
-    desc = "Dropped close to the bags or the bank, the pocket lines up against it and holds that seam when the other window changes size. Dragging the bags never carries the pocket along." },
+    desc = "Near the bags or the bank, the pocket lines up with it and holds that seam when the window resizes. Dragging the bags never moves the pocket." },
   { type = "toggle", name = "Recent in the pocket",
     get = fav.recentPocketGet, set = fav.recentPocketSet,
     disabled = function() return not fav.pkGet() end,
-    desc = "A row above the pocket cells holding what came into your bags this session, apart from gray items. It is the same list the bag window shows, so clearing it in one window clears it in the other." },
+    desc = "The same recent row as in the bags, above the pocket cells. Clearing it in one window clears it in the other." },
   { type = "select", name = "Pocket growth corner",
     get = function() return angleGet("pocketPos") end,
     set = function(v) angleSet("pocketPos", v) end,
@@ -224,7 +224,7 @@ local POCKET_PAGE = {
     desc = "The corner the pocket hangs from. Snapping it against another window sets this by itself." },
   { type = "keybind", name = "Pocket key", binding = "WARPEE_POCKET",
     disabled = function() return not fav.pkGet() end,
-    desc = "The key that opens and closes the pocket. Click, then press a key, a mouse button or the wheel, with Shift, Ctrl or Alt if you like; a right click clears it, Escape cancels." },
+    desc = "The key that opens and closes the pocket. Click, then press a key, mouse button or wheel, with Shift, Ctrl or Alt; right-click clears, Escape cancels." },
   { type = "header", name = "Pocket size", key = "pocketsize" },
   { type = "range", name = "Pocket rows", min = 1, max = 6, step = 1, half = "left",
     section = "pocketsize",
@@ -240,7 +240,7 @@ local POCKET_PAGE = {
     section = "pocketsize",
     get = fav.pkSizeGet, set = fav.pkSizeSet,
     disabled = function() return not fav.pkGet() end,
-    desc = "Size of one cell in the pocket. It is a setting of its own: a pocket that has none takes the bag slot size once." },
+    desc = "A size of its own; a pocket without one follows the bag slot size." },
 }
 
 local ITEMS_PAGE = {
@@ -256,7 +256,7 @@ local ITEMS_PAGE = {
     end,
     desc = "Tint the slots of the reagent bag and the reagent bank." },
   { type = "toggle", name = "Quality border", col = 2, get = qBorderGet, set = qBorderSet,
-    desc = "A border around each item in its quality color. Items tied to a quest take the quest yellow instead, the color of the exclamation mark. The reagent and unwearable borders come first." },
+    desc = "A border in the item's quality color; quest items take the quest yellow. Reagent and unwearable borders come first." },
   { type = "toggle", name = "Quest marker", col = 1, get = questGet, set = questSet,
     desc = "The exclamation mark on items for quests you have not picked up yet. Not shown in the warband bank." },
   { type = "toggle", name = "New item glow", col = 2, get = newGet, set = newSet,
@@ -267,17 +267,17 @@ local ITEMS_PAGE = {
   { type = "toggle", name = "Unwearable border", col = 2, get = unusableGet, set = unusableSet,
     desc = "Red border around gear your character cannot wear." },
   { type = "toggle", name = "Junk coin", col = 1, get = junkGet, set = junkSet,
-    desc = "A copper coin on gray junk items: the same coin the Sell button and the sale mark wear in gold, copper here because the rules would sell it, not you." },
+    desc = "A copper coin on gray junk: the coin the Sell button wears in gold, copper because the rules would sell it, not you." },
   { type = "range", name = "Border thickness", min = 1, max = 6, step = 1,
     get = edgeGet, set = edgeSet,
     desc = "Thickness of the slot border." },
     } },
     { name = "Badges", list = {
   { type = "badges", section = "badges",
-    desc = "Drag a badge, or click where you want it. Left-click a name to show that badge, right-click the name to hide it." },
+    desc = "Drag a badge onto the preview, or click the spot on it. Left-click a name to show that badge, right-click to hide it." },
   { type = "toggle", name = "Show only the selected badge", col = 1, section = "badges",
     get = bg.soloGet, set = bg.soloSet,
-    desc = "In the cell above, hide every badge except the selected one." },
+    desc = "Hide every badge on the preview except the selected one." },
   { type = "select", col = 2, section = "badges", get = bg.aGet, set = bg.aSet,
     keys = bg.alignKeys, label = bg.alignLabel, hidden = bg.isTex,
     desc = "Growth direction: which way the badge grows when the value gets longer." },
@@ -288,6 +288,10 @@ local ITEMS_PAGE = {
     get = bg.xGet, set = bg.xSet, half = "left" },
   { type = "range", name = "Y offset", min = -56, max = 56, step = 1, section = "badges",
     get = bg.yGet, set = bg.ySet, half = "right" },
+  -- One number, two units, on purpose: a texture badge stores a share of its reference cell (0.4-0.6),
+  -- a text badge stores pixels at the cell it was set on (6-24), and bg.sSet pins that reference when
+  -- the field is written. That is why the two sliders share the field with different ranges and only
+  -- one of them is ever shown -- this is not a duplicated binding.
   { type = "range", name = "Text size", min = 6, max = 24, step = 1, section = "badges",
     get = bg.sGet, set = bg.sSet, hidden = bg.isTex },
   { type = "range", name = "Badge scale", min = 0.4, max = 0.6, step = 0.02, section = "badges",
@@ -411,7 +415,7 @@ local GRID_PAGE = {
       { type = "range", name = "Bags gap", min = flow.splitGapBagsMin, max = 40, step = 1,
         get = flow.splitGapBagsGet, set = flow.splitGapBagsSet,
         disabled = function() return (not Bags.splitBags) or flow.catGet() end, col = 1, of = 3,
-        desc = "The space between one bag and the next. A bag that shows its name needs room for it, so the slider starts at that room rather than moving through values no block can stand at." },
+        desc = "Space between one bag and the next. A bag that shows its name needs room for it, so the slider starts there." },
       { type = "range", name = "Bank gap", min = flow.splitGapBankMin, max = 40, step = 1,
         get = flow.splitGapBankGet, set = flow.splitGapBankSet,
         disabled = function() return (not Bags.splitBank) or flow.bankCatGet() end,
@@ -471,12 +475,12 @@ local GRID_PAGE = {
       -- the heading collects it.
       { type = "toggle", name = "Keep new items apart", col = 1,
         get = flow.newTopGet, set = flow.newTopSet, disabled = flow.catGet,
-        desc = "Items that just arrived are kept apart from the rest of your bags, so you can see what is new at a glance. Using an item or pressing sort returns everything to the ordinary order. Only the drawing order changes, nothing moves inside your bags." },
+        desc = "New items stay apart from the rest of the bag so you can see what just arrived. Using an item or sorting restores the usual order; nothing moves in your bags." },
       { type = "toggle", name = "Capacity bar", col = 2, get = gaugeGet, set = gaugeSet,
         desc = "Fill bar in the bags header showing how full they are." },
       { type = "toggle", name = "Recent in bags", col = 1,
         get = fav.recentBagsGet, set = fav.recentBagsSet,
-        desc = "A row above the favorites holding what came into your bags this session, apart from gray items. Each arrival takes the first free cell, the oldest one leaves when the row is full, and the row clears on logout or a reload." },
+        desc = "A row above the favorites with what arrived this session, gray items aside. The oldest leaves when it fills; logging out or reloading clears it." },
       { type = "toggle", name = "Favorite slots", col = 2, get = fav.showGet, set = fav.showSet,
         desc = pinHint(
           "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; hovering a slot and pressing %s clears it.",
@@ -512,7 +516,7 @@ local GRID_PAGE = {
           if ns.Cur and ns.Cur.Apply then ns.Cur:Apply() end
           relayout()
         end,
-        desc = "A row of the currencies the game itself tracks, drawn inside the bags under the grid, below a hairline divider: icon and count per currency, in the game's own order, wrapped to the window's width. The plus past the last coin, and the switch in the header, open the currency panel; Shift-click stops tracking one, and dragging a cell reorders them. The ticks in that panel track and untrack in the character panel too." },
+        desc = "The currencies the game tracks, in a row under the grid. Shift-click drops one, drag to reorder. The + at the end of the row, or a right-click on the header switch, opens the picker; a left-click shows or hides the row." },
       { type = "select", name = "Currencies direction", col = 2, of = 2,
         get = curDirGet, set = curDirSet,
         keys = function() return CUR_DIRS end, label = function(k) return CUR_DIR_LABELS[k] or k end,
@@ -799,12 +803,12 @@ local CATS_PAGE = {
       relayout()
     end,
     disabled = flow.noCat,
-    desc = "Show several stacks of one item as a single cell with the total. This only changes how they look; the items stay in their own bag slots. Gear, pets and keystones stay one cell each." },
+    desc = "Stacks of one item as a single cell with the total. Only the look changes; gear, pets and keystones stay one cell each." },
   { type = "select", name = "Drag to pin",
     get = pinDragGet, set = pinDragSet,
     keys = function() return PIN_DRAG_MODES end, label = function(k) return PIN_DRAG_LABELS[k] or k end,
     disabled = flow.noCat,
-    desc = "Drag an item onto a category in the category view to pin it there. Hold Alt pins only while Alt is held, so an ordinary drag never leaves a surprise pin. Off leaves pinning to the editor. A drop on the category the rules already choose unpins instead." },
+    desc = "Drag an item onto a category to pin it there. The Alt mode pins only while Alt is held; Off leaves pinning to the editor. Dropping on the category the rules already pick unpins." },
   -- Each spacing reads the density gap while unset, so the slider opens on the value already in use.
   { type = "range", name = "Category spacing X", min = 0, max = 40, step = 1,
     get = function() return Bags.catGapX or ns.Density(Bags.iconSize).div end,

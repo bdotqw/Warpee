@@ -1,15 +1,15 @@
 # Warpee
 
-## 12.3
+## 12.4
 
 ENG
 
-- Items can now be dragged from Pocket and pins directly to the command bar, and moved between Pocket and pins in either direction, just like items in your bags.
-- Added a + button at the bottom of the bags to open the currency picker. It only appears when hovering over the currency area.
-- The currency button in the header now works like the reagent button next to it. Left-click toggles currency visibility, while right-click opens the currency list.
+- An item moved into an empty slot now shows its tooltip at once while the pointer stays on the slot it landed in.
+- In the category view, holding Alt while already over a category now lights that category and shows its name immediately, so the drop target is visible before releasing. The pin-on-drag option now reads "Alt while dragging" instead of "Hold Alt", and its description names the mode rather than the old label.
+- Settings tooltips are shorter and describe what each control actually does; the currency row's text now matches the header switch (left-click shows or hides the row, right-click opens the picker).
 
 RU
 
-- Предметы теперь можно перетаскивать из кармана и закрепленных предметов прямо на панель команд, а также перемещать между карманом и закрепленными предметами в обоих направлениях, как и предметы из сумок.
-- В нижней части сумок появилась кнопка + для открытия списка валют. Она отображается только при наведении на область валют.
-- Кнопка валют в заголовке теперь работает так же, как соседняя кнопка реагентов. ЛКМ включает или скрывает валюты, а ПКМ открывает список валют.
+- Предмет, перемещённый в пустую ячейку, теперь сразу показывает подсказку, пока курсор остаётся на ячейке, куда он попал.
+- В виде по категориям зажатый Alt над категорией теперь сразу подсвечивает её и показывает название, так что цель сброса видна до отпускания кнопки. Опция закрепа перетаскиванием теперь называется «Alt при перетаскивании» вместо «С зажатым Alt», и описание говорит о режиме, а не о старой подписи.
+- Подсказки в настройках стали короче и описывают то, что элемент действительно делает; текст про строку валют теперь совпадает с переключателем в шапке (левый клик показывает или скрывает строку, правый открывает выбор).

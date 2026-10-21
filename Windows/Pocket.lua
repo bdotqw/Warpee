@@ -610,27 +610,8 @@ function Pocket:Build()
   close.wpeIconPaint(close)
   self.closeBtn = close
 
-  -- The gear as art on the icon path rather than a texture escape inside the label, the way the bags
-  -- and the bank carry theirs: only a real texture can be given the ground the drawn marks wear, and
-  -- the layout below sizes it off the header box like every other icon: 62% of this box, the same
-  -- share the bags and the bank give the same 16px cog.
-  local gear = ns.CreateGlyphButton(w, "")
-  gear:SetScript("OnClick", function() if ns.Options then ns.Options:Toggle() end end)
-  -- The key, not ns.L[key]: the tip resolves it on every show, so a language switch reaches it
-  -- without a reload (a pre-resolved word would freeze in the language it was built in).
-  ns.AddTip(gear, "Settings", "top")
-  local gearIcon = gear:CreateTexture(nil, "ARTWORK")
-  gearIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\gear.tga]])
-  gearIcon:SetPoint("CENTER")
-  gear.icon = gearIcon
-  gear.iconPct = 62
-  gear.wpeIconPaint = function(s)
-    if not s.icon then return end
-    local hot = s.wpeHot and not s.offDuty
-    s.icon:SetVertexColor(Theme:C(hot and "text" or "dim"))
-  end
-  gear.wpeIconPaint(gear)
-  ns.IconSilhouette(gear, gearIcon)
+  -- The same cog the bags and the bank carry; the layout below sizes it off this window's header box.
+  local gear = ns.GearButton(w)
   self.gearBtn = gear
 
   local plus = ns.CreateGlyphButton(w, "+")
