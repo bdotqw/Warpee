@@ -22,7 +22,7 @@ local WARBAND   = idList({ "AccountBankTab_1", "AccountBankTab_2", "AccountBankT
 local PAD, DIV = 10, 22
 -- How often the in-place repaint between the wide-spaced passes of a run may run, at most. The passes
 -- themselves are the window-sized cost a run is spaced out of (Cats.RUN_GAP); this is the cheap look
--- between them, and 0.25 s is the cadence the passes themselves used to run at.
+-- between them, and 0.25 s keeps a burst of changes from repainting the window on every one.
 local TOUCH_GAP = 0.25
 -- Air a captioned block needs over its own cells. The split gap widens to meet it, so a tab you named
 -- tighter than the caption cannot leave the name sitting on the row above. Read off the bags' own export
@@ -52,9 +52,8 @@ local SEARCH_MIN = 80
 local function headerH(base) return math.max(34, base + 16) end
 local function footerH(base) return math.max(34, base + 16) end
 
--- The purse line's inset from the window's right edge, over PAD: it used to stand at PAD + 4 and the amount
--- ran onto the right border (owner), so it keeps a further eight clear of it (the bags' own line took the
--- same).
+-- The purse line's inset from the window's right edge, over PAD: at PAD + 4 the amount ran onto the right
+-- border, so 12 keeps a further eight clear of it; the bags' own line uses the same inset.
 local FOOT_RIGHT = 12
 
 function ns.WarbandActive()
@@ -211,8 +210,8 @@ local function bankFreeSlots(bags, out)
 end
 
 -- The next bank slot this run can aim a piece at, or nil when the bank is full. The list is walked once and
--- each candidate is confirmed with a single read, because the walk is what a move used to pay: to find the
--- next empty slot it reads every occupied slot of every open tab, and as the deposit fills the front the
+-- each candidate is confirmed with a single read, because walking for an empty slot is what a move would
+-- otherwise pay: it reads every occupied slot of every open tab, and as the deposit fills the front the
 -- empties -- and so the walk -- sit further along (4.7 ms a move, 141 ms of a 30-piece transfer). The list
 -- lives in the transfer's `alloc` and is carried across its moves; a candidate filled or locked since the
 -- walk is skipped rather than aimed at. When the list runs out it is walked once more, so a slot freed
@@ -353,8 +352,8 @@ end
 
 -- The three grid numbers come from DEFAULTS like everything else the panel shows. The
 -- literals are only there for the moment before Core.lua has loaded, and for a save that
--- somehow lost a key. They used to disagree with DEFAULTS, so the panel said 40 where the
--- grid read 36.
+-- somehow lost a key. A literal that drifts from DEFAULTS makes the panel say 40 where the
+-- grid reads 36.
 -- The icon size of one bank type. Each of the two tab sets keeps its own, so a caller laying out a
 -- particular state passes that state's mode, and one drawing the window as it stands takes the shown mode.
 function View:CellSize(mode)
@@ -1124,8 +1123,8 @@ end
 -- setter, which the game runs as the first line of its own SetTab, and the button own
 -- OnClick. Either one alone is enough. The two flags are apart on purpose, since the bank
 -- panel may not exist the first time through and one shared flag would burn that hook for
--- the session. The game lays its tab strip out again on its own, which is what tore the
--- button off our tab in an earlier attempt, so both calls that do it pin it back. Its OnEnter
+-- the session. The game lays its tab strip out again on its own, which tears the button off
+-- our tab, so both calls that do it pin it back. Its OnEnter
 -- opens a tooltip whenever it reads the label as truncated, which it is once the button is
 -- squeezed onto our tab, so the hook closes it again.
 function View:AttachBlizzTabs()
@@ -1585,10 +1584,10 @@ end
 -- warm of its own -- the bags, the favourites, the recent and the pocket each have one -- so the first time
 -- a bank or a warband was opened in combat its pools were empty, Acquire answered nil to every entry, and
 -- the window came up bare until the fight ended; onRegen returns its cells only then. Every cell warmed
--- here is one a normal open would build anyway, the same frames and no others, so the footprint of a warm
--- window is the footprint of the first open that used to pay for them. The change is only that they are
--- built out of combat, in slices, and a few seconds after login rather than in front of the player, so a
--- bank opened mid-fight draws at once instead of waiting for peace.
+-- here is one a normal open would build anyway, the same frames and no others, so a warm window has the
+-- footprint of a first open; only the timing changes. They are built out of combat, in slices, and a few
+-- seconds after login rather than in front of the player, so a bank opened mid-fight draws at once
+-- instead of waiting for peace.
 local WARM_SLICE = 0.008
 function View:Warm()
   if self.warmed then return end
@@ -2348,10 +2347,10 @@ function View:SyncCatZones()
     if on and z.wpeActive then
       -- Start each drag unlit: the wash and the name appear only once the cursor enters a section with
       -- pinning armed, so a box shown by a fresh pickup does not carry the last drag's tint. This runs on
-      -- every cursor change and at the tail of every pass, and a pass is what a pickup asks for, so the
-      -- wash painted the moment the piece was lifted used to be wiped here a tenth of a second later and
-      -- stay off until the cursor crossed a section edge again. The tracked section is let go with the
-      -- wash, and the tick below puts both back where the cursor really is.
+      -- every cursor change and at the tail of every pass, and a pass is what a pickup asks for, so a
+      -- wash painted on pickup is wiped here a tenth of a second later and stays off until the cursor
+      -- crosses a section edge again unless the tracked section is let go with it. The tick below puts
+      -- both back where the cursor really is.
       ns.SetBg(z, 0, 0, 0, 0)
       if z.hint then z.hint:Hide() end
       z:Show()
@@ -2841,9 +2840,9 @@ function View:Run(st, repaint)
       -- A folded cell (combine stacks) is counted apart: its plan entry stands for a group and names the
       -- slot that represents it, so a rebind here can mean the group's representative moved rather than a
       -- piece arriving -- a different cause with a different fix.
-      -- Only the cell's own entry is dropped: the slot it used to show is very often drawn by another cell
-      -- by now -- the two kinds swap places over one key whenever a slot fills or empties -- and clearing
-      -- the key blind would take the map away from the cell that is on screen.
+      -- Only the cell's own entry is dropped: the slot it showed before this rebind is often drawn by
+      -- another cell by now -- the two kinds swap places over one key whenever a slot fills or empties --
+      -- and clearing the key blind would take the map away from the cell that is on screen.
       if b.wpeBag then
         local was = b.wpeBag * 1000 + b.wpeSlot
         if st.byKey[was] == b then st.byKey[was] = nil end
@@ -3018,7 +3017,7 @@ function View:Layout(light)
   local t
   -- A pass is painted a slice at a time, and a pass that starts while one is still filling drops it
   -- mid-way: a fresh pass begins at the first cell, so a run of changes faster than a pass leaves the far
-  -- end of the plan drawing what used to be there and only catches up once the run stops. The transfer
+  -- end of the plan drawing the superseded state and only catches up once the run stops. The transfer
   -- re-lays the view out as it goes, which is exactly that run. Wait for the fill instead; it runs the
   -- layout it was asked for when it ends. The age check is the way out if a fill ever dies holding the
   -- flag, so a bad pass cannot leave the window unable to lay out at all.
@@ -3292,8 +3291,8 @@ end
 -- others. The shape and the rules are RepaintLinks' own (the link is dropped first, hidden cells wait for
 -- the pass that draws them, a snapshot cell paints only while its record still carries the link); only the
 -- test differs -- a mark is named by ns.MarkCarries, not by the link itself. It earns its keep because this
--- window draws far more cells than the bags, and an alt-click beside the open bank used to re-lay every one
--- of them out for a single badge.
+-- window draws far more cells than the bags, and without it an alt-click beside the open bank would re-lay
+-- every one of them out for a single badge.
 function View:RepaintMark(key)
   local painted = 0
   for _, st in pairs(self.state) do
