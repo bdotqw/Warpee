@@ -103,11 +103,11 @@ local DEFAULTS = {
   { id = "flasks",        search = "flask" },
   { id = "food",          search = "food" },
   { id = "potions",       search = "potion" },
-  -- Consumables from the current expansion, one "and" the rule editor shows as chips. The two old gadgets
-  -- this row used to name by id (Auto-hammer, Goblin Glider Kit) stay with it, but as pins: naming them in
-  -- the rule mixed an "or" into an "and", which no chip row can read back, and a rule the editor cannot draw
-  -- is a rule the player cannot edit either. Pinned, they are still guaranteed to this row, they show in its
-  -- rack like any hand-filed piece, and the rule stays one the chips read and the player can change.
+  -- Consumables from the current expansion, one "and" the rule editor shows as chips. Two old gadgets
+  -- (Auto-hammer, Goblin Glider Kit) are pinned rather than named in the rule: naming them mixed an "or"
+  -- into an "and", which no chip row can read back, and a rule the editor cannot draw is a rule the player
+  -- cannot edit either. Pinned, they are still guaranteed to this row, they show in its rack like any
+  -- hand-filed piece, and the rule stays one the chips read and the player can change.
   { id = "consumables",   search = "consumable !legacy", pins = { [132514] = true, [109076] = true } },
   { id = "gem",           search = "gem" },
   { id = "enhancement",   search = "enhancement" },
@@ -300,11 +300,9 @@ function Cats:Has(id)
 end
 
 -- The index a new category is inserted at: the tail of the list, but never after the free-space row,
--- which is the last thing in a list by design. It used to be "before whichever of Empty and Other
--- comes first", and in a save where one of those had drifted up the list that put a brand-new row
--- near the top: the list shifted under the player and the row turned up far from the button that made
--- it. Reading the tail this way lands on the same spot in a shipped list and a sane one in any other,
--- so an added row always appears at the bottom, right above the buttons that made it.
+-- which is the last thing in a list by design. Reading the tail keeps an added row at the bottom, right
+-- above the buttons that made it, in a shipped list and a reordered one alike, instead of near the top
+-- because one of the free-space rows had drifted up.
 function Cats:InsertAt(list)
   list = list or self:List()
   local last = list[#list]
@@ -1297,7 +1295,7 @@ end
 
 -- A meta built from an itemID alone, enough for the rule filters to classify it: no bag slot, so no
 -- ilvl or bound flag, but the class/subclass/slot/name/quality the search tokens read all come from
--- the item cache. Used to answer "where would this piece land by rule" without a live cell.
+-- the item cache. Answers "where would this piece land by rule" without a live cell.
 local idMeta = {}
 local function metaFromID(itemID)
   -- classID/subID/equipLoc come from GetItemInfoInstant, which is synchronous and answers off the
