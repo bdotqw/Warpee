@@ -49,6 +49,7 @@ Windows\GuildBank.lua
 Features\Options.lua
 Features\CatListHeader.lua
 Features\CatListRow.lua
+Features\CatListChips.lua
 Features\OptionsPages.lua
 Features\Welcome.lua
 Core\Profiles.lua
