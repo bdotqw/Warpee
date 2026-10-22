@@ -10,6 +10,7 @@ function factories.catlistshare(env)
   local makeBox = env.makeBox
   local tip = env.tip
   local say = env.say
+  local T = env.T
 
   return function(row)
     local exp = ns.CreateButton(row, ns.L["Export"], 120, 22)
