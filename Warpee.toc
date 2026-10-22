@@ -59,6 +59,7 @@ Features\OptionDropdown.lua
 Features\OptionControls.lua
 Features\OptionKeybind.lua
 Features\OptionFields.lua
+Features\OptionChars.lua
 Features\OptionsPages.lua
 Features\Welcome.lua
 Core\Profiles.lua
