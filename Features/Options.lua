@@ -2678,7 +2678,8 @@ function factories.catlist(parent, spec)
   -- The rule band's pieces — the chips for the words, the id field, and the placement controls — are a
   -- factory of their own (Features/CatListRule.lua). Named here, so the panel below reads as it always did.
   local condItem, itemName, paintPlus, makePlusSlot, makePinEntry,
-        makeCond, makeDropBtn, makeSortBtn, makePrioPick, makeShowBoxes, COND_H, ADD_COND_W =
+        makeCond, makeDropBtn, makeSortBtn, makePrioPick, makeShowBoxes, COND_H, ADD_COND_W,
+        pinFromCursor =
     factories.catlistrule({
       Cats = Cats,
       act = act,
@@ -3416,50 +3417,10 @@ function factories.catlist(parent, spec)
     { btn = reset,    key = "Reset categories" },
   }
 
-  -- The share line, under the buttons that make rows: one code, both directions. A code carries this
-  -- list and nothing else — no positions, no sizes, no theme — so it can be pasted to another player and
-  -- mean the same thing there. The field below serves both ways, the way the profile panel's own field
-  -- does: Export fills it, Import reads it. Import replaces the whole list, behind a confirm.
-  local shareExp = ns.CreateButton(row, ns.L["Export"], 120, 22)
-  ns.LocalText(shareExp, "Export")
-  local shareImp = ns.CreateButton(row, ns.L["Import"], 120, 22)
-  ns.LocalText(shareImp, "Import")
-  tip(shareExp, "Fills the field below with a code for this list: copy it and paste it wherever it should be applied")
-  tip(shareImp, "Reads the code in the field and replaces your list with it")
-  local share = {
-    { btn = shareExp, key = "Export" },
-    { btn = shareImp, key = "Import" },
-  }
-
-  -- A code is long, so the field is the full width of the column and the placeholder is the only thing
-  -- naming it. The 60-character default of a row's own field would cut a real code in half and a half
-  -- code is one nobody can copy, so this one takes whatever a paste hands it.
-  local codeBox = makeBox(row, "Categories code", 8192)
-  codeBox:SetScript("OnTextChanged", function(s) s.ph:SetShown(s:GetText() == "") end)
-  codeBox:SetScript("OnEditFocusLost", function(s) s.ph:SetShown(s:GetText() == "") end)
-  codeBox.ph:Show()
-  row.shareCode = codeBox
-
-  -- Empty means empty however it was typed: a field holding a few spaces is one the player means to fill.
-  local function noCode(text)
-    return type(text) ~= "string" or text:gsub("%s", "") == ""
-  end
-
-  shareExp:SetScript("OnClick", function()
-    local text = ns.Profiles:ExportCategories()
-    if text == "" then say(T("Nothing to export")) return end
-    codeBox:SetText(text)
-    codeBox:SetFocus()
-    codeBox:HighlightText()
-    say(T("Exported %s, press Ctrl and C to copy"):format(T("Categories")))
-  end)
-  shareImp:SetScript("OnClick", function()
-    local text = codeBox:GetText()
-    if noCode(text) then say(T("Nothing to import")) return end
-    -- A category import replaces the whole list. A profile code pasted here is applied like the profile
-    -- panel does; catImport reads the kind off the code either way.
-    Options.catImport(text, "replace")
-  end)
+  -- The share line — the Export and Import buttons and the field that carries the code — is a factory of
+  -- its own (Features/CatListShare.lua). It also lays itself out, because the line is the last thing on
+  -- the page and its height is what the page ends at.
+  local share = factories.catlistshare({ makeBox = makeBox, tip = tip, say = say })(row)
 
   row.Rebuild = function()
     row.builtAt = GetTime()
@@ -3694,26 +3655,10 @@ function factories.catlist(parent, spec)
     reset:ClearAllPoints()
     reset:SetPoint("TOPRIGHT", 0, stacked and -(y + 26) or -y)
     ns.SnapBox(reset, resetW, 22)
-    -- The share line, last on the page: the three buttons pack from the left like the makers and are
-    -- The share line, last on the page: the two buttons pack from the left like the makers and are
-    -- sized from their own labels, and the code field takes the width under them. It comes after the
-    -- actions because the list above is the thing being shared and this is how it leaves and comes back.
-    local shareY = y + 22 + (stacked and 26 or 0) + 14
-    local sx = 0
-    for _, e in ipairs(share) do
-      e.btn.Text:SetText(T(e.key))
-      local w = math.ceil(e.btn.Text:GetStringWidth()) + SIDEPAD
-      e.btn:ClearAllPoints()
-      e.btn:SetPoint("TOPLEFT", sx, -shareY)
-      ns.SnapBox(e.btn, w, 22)
-      e.btn:Show()
-      sx = sx + w + GAPW
-    end
-    codeBox:ClearAllPoints()
-    codeBox:SetPoint("TOPLEFT", 0, -(shareY + 28))
-    codeBox:SetPoint("TOPRIGHT", 0, -(shareY + 28))
-    codeBox:Show()
-    row:SetHeight(shareY + 28 + 22)
+    -- The share line closes the page: it comes after the actions because the list above is the thing
+    -- being shared and this is how it leaves and comes back. Its own layout takes the row the actions
+    -- took when they wrapped, and hands back the height the page ends at.
+    row:SetHeight(share.Layout(y, stacked and 26 or 0, SIDEPAD, GAPW))
   end
   -- Refresh arrives every frame of a drag; the full rebuild is capped.
   row.Refresh = function()
