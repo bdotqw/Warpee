@@ -55,6 +55,7 @@ Features\CatListRule.lua
 Features\CatListPanel.lua
 Features\CatListHelp.lua
 Features\CatListShare.lua
+Features\CatListPage.lua
 Features\OptionDropdown.lua
 Features\OptionControls.lua
 Features\OptionKeybind.lua
