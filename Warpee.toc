@@ -55,6 +55,7 @@ Features\CatListRule.lua
 Features\CatListPanel.lua
 Features\CatListHelp.lua
 Features\CatListShare.lua
+Features\OptionDropdown.lua
 Features\OptionsPages.lua
 Features\Welcome.lua
 Core\Profiles.lua
