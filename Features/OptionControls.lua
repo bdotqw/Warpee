@@ -8,6 +8,7 @@ local Theme = ns.Theme
 -- pointer — so they travel together. The values come from Options.lua, which sets them for this file at
 -- load; nothing here runs until a page asks for a row.
 local env = ns.OptionControlsEnv
+local T = env.T
 local BASE_FONT = env.baseFont
 local CONTENT_W = env.contentW
 local track = env.track

@@ -9,6 +9,7 @@ local Theme = ns.Theme
 -- The shared values come from Options.lua through ns.OptionControlsEnv, the same table the page chrome
 -- reads; the row is asked for while a page is built, after every file has loaded.
 local env = ns.OptionControlsEnv
+local T = env.T
 local BASE_FONT = env.baseFont
 local track = env.track
 local tip = env.tip

@@ -8,6 +8,7 @@ local Theme = ns.Theme
 -- nobody has reached never needs it — and a menu that is never shown costs nothing.
 -- `ensureDropdown` creates the frame once and keeps it; every later open rebinds the rows in place.
 function factories.optiondropdown(env)
+  local T = env.T
   local BASE_FONT = env.baseFont
   local SCROLL_W = env.scrollW
   local track = env.track
