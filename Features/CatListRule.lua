@@ -366,5 +366,6 @@ function factories.catlistrule(env)
     return box
   end
   return condItem, itemName, paintPlus, makePlusSlot, makePinEntry,
-    makeCond, makeDropBtn, makeSortBtn, makePrioPick, makeShowBoxes, COND_H, ADD_COND_W
+    makeCond, makeDropBtn, makeSortBtn, makePrioPick, makeShowBoxes, COND_H, ADD_COND_W,
+    pinFromCursor
 end
