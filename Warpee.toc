@@ -61,6 +61,7 @@ Features\OptionKeybind.lua
 Features\OptionFields.lua
 Features\OptionChars.lua
 Features\OptionSellList.lua
+Features\OptionBadges.lua
 Features\OptionsPages.lua
 Features\Welcome.lua
 Core\Profiles.lua
