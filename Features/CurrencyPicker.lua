@@ -704,7 +704,7 @@ function Pick:Build()
     coin:SetVertexColor(Theme:C((s.wpeHot and not s.offDuty) and "text" or "dim"))
   end
   open.wpeIconPaint(open)
-  ns.AddTip(open, "Opens your currencies", "top")
+  ns.AddTip(open, "Open currency list", "top")
   self.open = open
 
   -- The filter, left of the coin: the whole list, or only what another character can send over -- the

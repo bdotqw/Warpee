@@ -1,5 +1,6 @@
 local addonName, ns = ...
 local Theme = ns.Theme
+local Layout = ns.Layout
 
 local Pocket = {}
 ns.Pocket = Pocket
@@ -516,7 +517,7 @@ function Pocket:PinFromCursor(index)
     end
     keyDirty = true
     later(true)
-  elseif not (type(pin) == "number" and ns.GearID(pin)) then
+  elseif not (type(pin) == "number" and ns.GearItem(pin)) then
     -- A bare id is the whole pin for a stackable, but it names no copy of gear -- the same rule
     -- refuses a typed id. A drop that could not carry a link, the client answering a worn copy by
     -- id alone, must not flatten the pin it was lifted from into an id: nothing is pinned at all.
@@ -541,7 +542,7 @@ end
 function Pocket:AddID(id, pin)
   id = tonumber(id)
   if not id then return false end
-  if not pin and ns.GearID(id) then
+  if not pin and ns.GearItem(id) then
     print("|cffd9a85fWarpee|r |cffffffff"
       .. (ns.L["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."] or "") .. "|r")
     return false
@@ -976,8 +977,7 @@ function Pocket:Layout()
       local key = pin and ns.ItemKey(pin)
       if key and seen[key] then list[i], pin, key = nil, nil, nil end
       if key then seen[key] = true end
-      local px = PAD + ((i - 1) % cols) * step
-      local py = gridTop + math.floor((i - 1) / cols) * step
+      local px, py = Layout.Point(i, cols, PAD, gridTop, step)
       -- The badges of this window are measured against its own cell. The pocket has a size of
       -- its own and its cells belong to no view the badge reader could ask, so without this a
       -- pocket set to another size would draw its badges at the bags' measure.
@@ -1027,11 +1027,11 @@ function Pocket:Layout()
   -- and go.
   local editable = not self:Locked()
   if self.nudge then self.nudge:SetShown(editable) end
-  local foot = gridTop + (rows - 1) * step + size + BOX_GAP
+  local foot = gridTop + Layout.GridHeight(rows, step, size) + BOX_GAP
   -- The plate runs the whole window, the band under the arrows included, and stops only under a
   -- skin's own header (Theme:FitPlate).
   Theme:FitPlate(self.gridBg, w)
-  ns.SnapSize(w, PAD * 2 + cols * step - gap, foot + NUDGE_BAND)
+  ns.SnapSize(w, Layout.WindowWidth(PAD, cols, step, gap), foot + NUDGE_BAND)
   ns.AlignToScreen(w)
   local free = 0
   if rightBtn and rightBtn.GetLeft then
@@ -1101,17 +1101,16 @@ function Pocket:PickPaint()
   for i = n + 1, PICK_MAX do self.pickBtns[i]:Hide() end
   local cols = math.max(1, math.min(PICK_COLS, n))
   local rows = n > 0 and math.ceil(n / cols) or 0
-  local gridH = rows > 0 and (rows * size + (rows - 1) * gap) or 0
-  local pickW = PICK_PAD * 2 + cols * size + (cols - 1) * gap
+  local step = Layout.Step(size, gap)
+  local gridH = rows > 0 and Layout.GridHeight(rows, step, size) or 0
+  local pickW = Layout.WindowWidth(PICK_PAD, cols, step, gap)
   ns.SnapSize(p, math.max(pickW, PICK_MINW), gridTop + gridH + PICK_PAD)
   for i = 1, n do
     local b = self.pickBtns[i]
     ns.SnapSize(b, size, size)
     b:ClearAllPoints()
-    local col, row = (i - 1) % cols, math.floor((i - 1) / cols)
-    ns.SnapPoint(b, "TOPLEFT", p, "TOPLEFT",
-      PICK_PAD + col * (size + gap),
-      -(gridTop + row * (size + gap)))
+    local px, py = Layout.Point(i, cols, PICK_PAD, gridTop, step)
+    ns.SnapPoint(b, "TOPLEFT", p, "TOPLEFT", px, -py)
   end
   local w = self.frame
   if w then

@@ -73,7 +73,7 @@ ns.LOCALES = { "enUS" }
 ns.LOCALE_LABELS = { enUS = "English" }
 
 COINS.enUS = { g = "g", s = "s", c = "c" }
-SHORTS.enUS = { dec = ".", units = { { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } } }
+SHORTS.enUS = { dec = ".", gap = true, units = { { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } } }
 
 -- The unit ladder a cell badge folds through (see ns.ShortCount): one letter, base ten, no fractions.
 -- Every Latin and Cyrillic locale rides this same Latin ladder on purpose -- a count badge reads the
@@ -296,6 +296,9 @@ function ns.ShortNumber(n)
   if n < 1000 then return tostring(n) end
   local form = ns.ShortForm()
   local units = form.units
+  local gap = form.gap
+  if gap == nil then gap = true end
+  local tail = gap and " " or ""
   for i, u in ipairs(units) do
     local scale, suf = u[1], u[2]
     if n >= scale then
@@ -304,8 +307,8 @@ function ns.ShortNumber(n)
         scale, suf = units[i - 1][1], units[i - 1][2]
         r = math.floor(n / scale * 10 + 1e-9) / 10
       end
-      if r == math.floor(r) then return string.format("%d%s", r, suf) end
-      return (string.format("%.1f", r):gsub("%.", form.dec)) .. suf
+      if r == math.floor(r) then return string.format("%d%s%s", r, tail, suf) end
+      return (string.format("%.1f", r):gsub("%.", form.dec)) .. tail .. suf
     end
   end
   return tostring(n)

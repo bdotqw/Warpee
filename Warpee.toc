@@ -26,6 +26,7 @@ Locales\zhCN.lua
 Locales\koKR.lua
 Locales\zhTW.lua
 Core\Theme.lua
+Core\Layout.lua
 Core\Density.lua
 Core\Widgets.lua
 Core\Tooltip.lua

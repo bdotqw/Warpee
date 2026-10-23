@@ -529,6 +529,7 @@ ns.OpenDropdown, ns.CloseDropdown = openDropdown, closeDropdown
 -- because a page asks for one of those rows only while it is being built, long after every file is in.
 ns.OptionControlsEnv = {
   T = T,
+  bg = bg,
   baseFont = BASE_FONT,
   contentW = CONTENT_W,
   track = track,
@@ -815,6 +816,7 @@ ns.CatListEnv = {
   angleGet = angleGet,
   angleSet = angleSet,
   autoField = autoField,
+  bg = bg,
   closeDropdown = closeDropdown,
   colsGet = colsGet,
   colsSet = colsSet,

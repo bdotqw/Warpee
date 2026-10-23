@@ -1076,7 +1076,7 @@ local function door(row)
   -- cell past the last coin, and a player who knows it is there must not have to cross a cell to see it.
   d:HookScript("OnEnter", function() row:LightDoor(true) end)
   d:HookScript("OnLeave", function() unlight(row) end)
-  ns.AddTip(d, "Opens your currencies", "top")
+  ns.AddTip(d, "Open currency list", "top")
   row.plus = d
   return d
 end

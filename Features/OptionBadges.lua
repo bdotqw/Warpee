@@ -16,6 +16,7 @@ local tip = env.tip
 local field = env.field
 local relayoutLive = env.relayoutLive
 local ANCHOR_LABELS = env.anchorLabels
+local bg = env.bg
 
 function factories.badges(parent, spec)
   local PREV = bg.prev

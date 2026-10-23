@@ -433,7 +433,7 @@ function Fav:PinFromCursor(index)
     end
     locsDirty = true
     later(true)
-  elseif not (type(pin) == "number" and ns.GearID(pin)) then
+  elseif not (type(pin) == "number" and ns.GearItem(pin)) then
     -- A bare id is the whole pin for a stackable, but it names no copy of gear -- the same rule
     -- refuses a typed id. A drop that could not carry a link, the client answering a worn copy by
     -- id alone, must not flatten the pin it was lifted from into an id: nothing is pinned at all.

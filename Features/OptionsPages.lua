@@ -91,7 +91,7 @@ local GOLD_FORMAT_LABELS = {
   commas = "Commas (5,000,000)",
   dots   = "Dots (5.000.000)",
   spaces = "Spaces (5 000 000)",
-  short  = "Short (5M, 284.4K)",
+  short  = "Short (5 M, 284.4 K)",
 }
 local function goldFmtGet() return WarpeeDB.goldFormat or "commas" end
 local function goldFmtSet(v) WarpeeDB.goldFormat = v; relayout() end
@@ -175,7 +175,7 @@ local GENERAL_PAGE = {
       { type = "header", name = "Money" },
       { type = "select", name = "Gold format", get = goldFmtGet, set = goldFmtSet,
         keys = function() return GOLD_FORMATS end, label = function(k) return GOLD_FORMAT_LABELS[k] or k end,
-        desc = "How amounts are written in chat. Short turns 1200 into 1.2K." },
+        desc = "How amounts are written in chat. Short turns 1200 into 1.2 K." },
       { type = "toggle", name = "Gold only", col = 1, get = onlyGet, set = onlySet,
         desc = "Show gold only, hide silver and copper." },
       { type = "toggle", name = "Coin letters", col = 2, get = lettersGet, set = lettersSet,
