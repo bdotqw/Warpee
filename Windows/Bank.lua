@@ -1,6 +1,7 @@
 local addonName, ns = ...
 local Theme = ns.Theme
 local Bags = ns.Bags
+local Layout = ns.Layout
 
 local function idList(names)
   local t = {}
@@ -306,8 +307,8 @@ for _, id in ipairs(BANK_MAIN) do MEMBER[id] = true; OWNER[id] = "bank" end
 for _, id in ipairs(WARBAND) do MEMBER[id] = true; OWNER[id] = "warband" end
 function ns.IsBankContainer(id) return MEMBER[id] == true end
 
-local function stepFor(size, gap) return size + gap end
-local gridWidth = ns.GridWidth  -- shared with the bags (Theme.lua); alias keeps call sites unchanged
+local stepFor = ns.Layout.Step
+local gridWidth = ns.GridWidth  -- shared with the bags (Core/Layout.lua); alias keeps call sites unchanged
 
 local View = {}
 View.__index = View
@@ -1995,8 +1996,8 @@ function View:PlanCats(st, size, cols, gap, light)
         local cellsTop = sy + capH
         for k = 1, count do
           local s = b.slots[k]
-          local col, row = (k - 1) % w, math.floor((k - 1) / w)
-          local cx, cy = sx + col * step, -(cellsTop + row * step)
+          local cx, cy = Layout.Point(k, w, sx, cellsTop, step)
+          cy = -cy
           if s.dummy then
             -- Held hole: an item just left this spot while the banker is open. Draw the inert crosshair
             -- instead of a cell (nothing to bind, nothing to click) so the grouped view does not reflow
@@ -2020,7 +2021,7 @@ function View:PlanCats(st, size, cols, gap, light)
           end
         end
         local rows = math.max(1, math.ceil(count / w))
-        secH = capH + (rows - 1) * step + size
+        secH = capH + Layout.GridHeight(rows, step, size)
       end
       -- The section's own drop target, sized to its drawn extent (caption through last cell row, the gap
       -- between sections left out). Positioned every pass but kept hidden; the cursor watcher shows it
@@ -2642,13 +2643,13 @@ function View:PlanLocked(st, size, cols, step)
   for k = 1, cols * rows do
     local c = plan[k] or {}
     c.bag, c.slot, c.force = 0, k, nil
-    local col, row = (k - 1) % cols, math.floor((k - 1) / cols)
-    c.x, c.y = col * step, -(row * step)
+    local x, y = Layout.Point(k, cols, 0, 0, step)
+    c.x, c.y = x, -y
     plan[k] = c
   end
   st.blank = true
   st.planCount = cols * rows
-  return cols * rows, (rows - 1) * step + size, 0, 0
+  return cols * rows, Layout.GridHeight(rows, step, size), 0, 0
 end
 
 function View:Plan(st, size, cols, gap, light)
@@ -2736,11 +2737,11 @@ function View:Plan(st, size, cols, gap, light)
       for k = 1, count do
         local c = plan[first + k]
         local j = Bags.revFill and (count - k + 1) or k
-        local col, row = (j - 1) % cols, math.floor((j - 1) / cols)
+        local col, row = Layout.Cell(j, cols)
         if Bags.fillUp then row = rows - 1 - row end
         c.x, c.y = col * step, -(secTop + row * step)
       end
-      bottom = secTop + (rows - 1) * step + size
+      bottom = secTop + Layout.GridHeight(rows, step, size)
       n = first + count
     end
   end
@@ -2767,12 +2768,12 @@ function View:Plan(st, size, cols, gap, light)
       local c = plan[k] or {}
       c.bag, c.slot, c.force = 0, k, nil
       st.planned[k] = true
-      local col, row = (k - 1) % cols, math.floor((k - 1) / cols)
-      c.x, c.y = col * step, -(row * step)
+      local x, y = Layout.Point(k, cols, 0, 0, step)
+      c.x, c.y = x, -y
       plan[k] = c
     end
     n = cols * rows
-    bottom = (rows - 1) * step + size
+    bottom = Layout.GridHeight(rows, step, size)
     st.blank = true
   end
 

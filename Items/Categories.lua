@@ -492,17 +492,17 @@ end
 function Cats:PinItem(itemID, targetId)
   if not itemID then return end
   local list = self:EnsureCustom()
+  local pinnedHere = false
   for _, c in ipairs(list) do
     if type(c) == "table" and type(c.pins) == "table" then
+      if targetId and c.id == targetId and c.pins[itemID] then pinnedHere = true end
       c.pins[itemID] = nil
       if next(c.pins) == nil then c.pins = nil end
     end
   end
-  -- Dropping a piece on the very section its rules already send it to is not a pin: it is a no-op the
-  -- player reads as "put it back". Pinning it there anyway left a redundant pin that stayed in the
-  -- editor and blocked moving the piece elsewhere until it was cleared by hand. So a target that
-  -- equals the rule-home unfiles instead of pinning; the lift above already cleared any prior pin.
-  if targetId and targetId == self:RuleHome(itemID) then targetId = nil end
+  -- A second drop on the pin the piece already owns takes it back out. A first drop pins even when
+  -- the section is the rule-home, so keys and other already-filed pieces can be pinned explicitly.
+  if targetId and pinnedHere and targetId == self:RuleHome(itemID) then targetId = nil end
   if targetId then
     for _, c in ipairs(list) do
       if type(c) == "table" and c.id == targetId then

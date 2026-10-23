@@ -105,9 +105,10 @@ local Bags = { pool = {}, vpool = {}, cols = COLS_DEFAULT, gap = GAP_DEFAULT, ic
                styleGen = 1 }
 ns.Bags = Bags
 
--- Grid geometry and the caption ellipsis/fit now live in Theme.lua (ns.GridWidth / ns.FitLabel /
--- ns.CharStops), shared with the bank so the two windows never drift. Kept as file locals here so the
--- many call sites read unchanged.
+-- Grid geometry lives in Core/Layout.lua (ns.GridWidth) and the caption ellipsis/fit in Theme.lua
+-- (ns.FitLabel / ns.CharStops), shared with the bank so the two windows never drift. Kept as file
+-- locals here so the many call sites read unchanged.
+local Layout = ns.Layout
 local gridWidth = ns.GridWidth
 local fitLabel = ns.FitLabel
 
@@ -560,11 +561,11 @@ function Bags:Build()
   sortIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\sort.tga]])
   sortIcon:SetPoint("CENTER")
   sort.icon = sortIcon
-  -- The brush paints into only 55% of its texture's width and 62% of its height -- the designer baked a
-  -- wide margin all round so the glyph never touches the texture edge at any scale -- and that margin is
-  -- what the share has to make up for: at 100 the mark lands in the row with the bag and the bank instead
-  -- of under them. The bank window's own sort button draws this same brush at 100, and the two windows
-  -- have to show it at one size.
+  -- The brush's ink covers 59% of its texture's width and 71% of its height -- the designer left a
+  -- margin all round so the glyph never touches the texture edge at any scale -- and that margin is
+  -- what the share has to make up for: at 100 its head lands in the row with the bag and the bank while
+  -- the longer handle uses the upper margin. The bank window's own sort button draws this same brush at
+  -- 100, and the two windows have to show it at one size.
   sort.iconPct = 100
   -- The row's quiet paint: dim at rest, the window ink under the pointer, like the gear and the bank.
   sort.wpeIconPaint = function(s)
@@ -671,14 +672,14 @@ function Bags:Build()
     if Bags:CurrenciesEmpty() then
       return { { text = "RMB: Pick currencies", color = "dim" } }
     end
-    return { { text = "RMB: Opens your currencies", color = "dim" } }
+    return { { text = "RMB: Open currency list", color = "dim" } }
   end)
   -- Warpee's own currencies mark: two coins, the mark that means "money" doubled into the several kinds of
   -- money a row of currencies holds. White art with the shape in the alpha, so the row's paint tints it
-  -- like every other mark. The state is the SHAPE, not the brightness: the pair filled while the row
-  -- stands, the same pair as an outline while it is left out -- the reagent switch's own trick, told by
-  -- the fill. Both files are centred so the mark does not jump on the swap. PaintCurrencies does the swap
-  -- and the ink; IconSilhouette gives it the row's 1px dark ground.
+  -- like every other mark. The state is the SHAPE, not the brightness: the front coin carries a struck
+  -- centre while the row stands, and the pair falls back to plain outlines when it is left out -- the
+  -- reagent switch's own trick, told by the centre. Both files are centred so the mark does not jump on
+  -- the swap. PaintCurrencies does the swap and the ink; IconSilhouette gives it the row's 1px dark ground.
   cur.iconShown  = [[Interface\AddOns\Warpee\Media\Icons\currency-shown.tga]]
   cur.iconHidden = [[Interface\AddOns\Warpee\Media\Icons\currency-hidden.tga]]
   local curIcon = cur:CreateTexture(nil, "ARTWORK")
@@ -985,7 +986,7 @@ function Bags:LayoutBagWindow()
     prev = b
   end
   local n = #self.bagButtons
-  w:SetSize(BPAD * 2 + n * size + (n - 1) * BGAP, BHEAD + size + BPAD)
+  w:SetSize(Layout.WindowWidth(BPAD, n, Layout.Step(size, BGAP), BGAP), BHEAD + size + BPAD)
   self:UpdateBagBar()
 end
 
@@ -1259,12 +1260,17 @@ end
 
 -- The block's place in the run, for the right end of its caption line. Two bags of the same make caption
 -- the same, and the number is the only thing that tells them apart, so it rides beside the name rather
--- than replacing it. Only where there is a name to ride beside: the backpack goes without one, the reagent
--- bag has its own word, and a snapshot without a remembered name is captioned with its place already.
-local function bagOrdinal(bag, live)
-  if bag == 0 or bag == ns.reagentBag then return nil end
-  local named = live and bagName(bag) or snapBagName(bag)
-  if not named then return nil end
+-- than replacing it. Only where there is a name to ride beside: the backpack goes without one, the unsplit
+-- reagent block keeps its own standing word, and a snapshot without a remembered name is captioned with
+-- its place already. The split reagent block is a block like the rest and takes its number there.
+local function bagOrdinal(bag, live, split)
+  if bag == 0 then return nil end
+  if bag == ns.reagentBag then
+    if not split then return nil end
+  else
+    local named = live and bagName(bag) or snapBagName(bag)
+    if not named then return nil end
+  end
   return (ns.L["Bag %d"]):format(bag)
 end
 
@@ -1558,7 +1564,7 @@ function Bags:Layout(capture, light)
       local top = y
       for k = 1, count do
         local j = self.revFill and (count - k + 1) or k
-        local col, row = (j - 1) % cols, math.floor((j - 1) / cols)
+        local col, row = Layout.Cell(j, cols)
         if self.fillUp then row = rows - 1 - row end
         place(list[k][1], list[k][2], col * step, -(top + row * step))
       end
@@ -1572,17 +1578,19 @@ function Bags:Layout(capture, light)
         lbl:Show()
       end
       -- The block's place in the run, on the right end of its own caption line.
-      local ord = capText and bagOrdinal(blk.bag, not self.snap) or nil
+      local ord = capText and bagOrdinal(blk.bag, not self.snap, splitEach) or nil
       if ord then
         local fs = self:BagOrdLabel(capN)
         fs:ClearAllPoints()
         fs:SetText(ord)
         fs:SetPoint("BOTTOMRIGHT", self.content, "TOPRIGHT", -2, -(top - 6))
         fs:Show()
+      elseif capText then
+        self:BagOrdLabel(capN):Hide()
       end
       -- Over the gap the block actually stands on, so the first block's own caption room counts here too.
       if blk.reagent then rTop = top - above + 6 end
-      y = top + (rows - 1) * step + size
+      y = top + Layout.GridHeight(rows, step, size)
     end
     self:HideBagLabels(capN)
     -- A grid with no block at all takes the height of one row: a snapshot of a character with no slots is
@@ -2910,9 +2918,8 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
     else
       local cellsTop = sy + capH
       for k, s in ipairs(b.slots) do
-        local col = (k - 1) % w
-        local row = math.floor((k - 1) / w)
-        local cx, cy = sx + col * step, -(cellsTop + row * step)
+        local cx, cy = Layout.Point(k, w, sx, cellsTop, step)
+        cy = -cy
         if s.dummy then
           -- Held hole: an item just left this spot while a take-items window is open. Draw the inert
           -- crosshair instead of a live cell, so nothing can be dropped or clicked here and the view
@@ -2937,7 +2944,7 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
         end
       end
       local rows = math.max(1, math.ceil(n / w))
-      secH = capH + (rows - 1) * step + size
+      secH = capH + Layout.GridHeight(rows, step, size)
     end
     -- The section's own drop zone, sized to its drawn extent (caption through last cell row, the
     -- between-section gap left out). Positioned every layout but kept hidden; the watcher shows it mid drag.
@@ -3319,6 +3326,7 @@ end
 function Bags:SelectChar(key)
   if not ns.Vault:SetView("bags", key) then return end
   self.snap = (ns.Vault:ViewKey("bags") ~= ns.Vault:Owner()) or nil
+  if self.snap and ns.CurPicker then ns.CurPicker:Close() end
   self:UpdateCharTag()
   if self.frame and self.frame:IsShown() then self:Layout(true) end
 end
@@ -3550,8 +3558,11 @@ function Bags:FitHeader()
   self.search:Show()
   -- The reagent switch hides the reagent block, which is a grid-only idea: cat-view always groups
   -- the full inventory, so the button has nothing to gate there. It comes off the header in
-  -- cat-view and the currency switch slides left into its place; the count then hangs off the
-  -- currency switch, which is always up (only the row it gates can go away).
+  -- cat-view and the currency switch slides left into its place. A foreign snapshot takes the
+  -- currency switch with it, because the row it gates is hidden there; the count then hangs off
+  -- the reagent switch (or the tag).
+  local showCur = not self.snap
+  if self.curBtn then self.curBtn:SetShown(showCur) end
   if self.reagentBtn and self.slotText and self.charTag then
     local catMode = self:CatMode()
     self.reagentBtn:SetShown(not catMode)
@@ -3559,18 +3570,19 @@ function Bags:FitHeader()
     if self.curBtn then
       self.curBtn:ClearAllPoints()
       self.curBtn:SetPoint("LEFT", left, "RIGHT", 4, 0)
-      self.slotText:ClearAllPoints()
+    end
+    self.slotText:ClearAllPoints()
+    if showCur and self.curBtn then
       self.slotText:SetPoint("LEFT", self.curBtn, "RIGHT", 10, 0)
     else
-      self.slotText:ClearAllPoints()
       self.slotText:SetPoint("LEFT", left, "RIGHT", 10, 0)
     end
   end
   if self.slotText and self.charTag then
     local edge = self.headEdge and self.headEdge:GetLeft()
-    -- The count reads after the currency switch now, so that is the edge it has to clear. The reagent
-    -- switch (or the tag) is the fallback for a frame built before the currency switch existed.
-    local anchor = self.curBtn
+    -- The count reads after the currency switch when it stands, so that is the edge it has to
+    -- clear; without it the reagent switch (or the tag) is the anchor.
+    local anchor = (showCur and self.curBtn)
       or ((self.reagentBtn and self.reagentBtn:IsShown()) and self.reagentBtn or self.charTag)
     local from = anchor:GetRight()
     local show = true

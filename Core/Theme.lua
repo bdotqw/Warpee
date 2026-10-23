@@ -287,13 +287,6 @@ function ns.SnapPoint(frame, point, rel, relPoint, x, y)
   frame:SetPoint(point, rel, relPoint, ns.SnapValue(frame, x), ns.SnapValue(frame, y))
 end
 
-function ns.GridMetrics(region, size, gap)
-  local px = ns.PixelUnit(region)
-  local s = math.max(px, math.floor((tonumber(size) or 0) / px + 0.5) * px)
-  local g = math.max(0, math.floor((tonumber(gap) or 0) / px + 0.5) * px)
-  return s, g, s + g, px
-end
-
 function ns.SnapEven(region, v)
   local px = ns.PixelUnit(region)
   local n = math.max(2, math.floor((tonumber(v) or 0) / px + 0.5))
@@ -418,13 +411,9 @@ function ns.PixelLine(t, n, axis)
   end, "line")
 end
 
--- Grid geometry and caption fit, shared by the bags and the bank so the two windows compute the same
--- widths and truncate names the same way. These were duplicated verbatim in Bags.lua and Bank.lua;
--- they are pure (no secure frames, deterministic), so they live here in the theme layer that both
--- load after. Only the group-view caption path uses these; the fixed grid does its own step maths.
-
--- Pixel width of a `cols`-wide grid of `size` cells spaced by `gap`.
-function ns.GridWidth(size, cols, gap) return (cols - 1) * (size + gap) + size end
+-- Caption fit, shared by the bags and the bank so the two windows truncate names the same way.
+-- These were duplicated verbatim in Bags.lua and Bank.lua; they are pure (no secure frames,
+-- deterministic), so they live here in the theme layer that both load after.
 
 local ELLIPSIS = "\226\128\166" -- …
 
