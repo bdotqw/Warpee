@@ -487,6 +487,8 @@ function Bags:Build()
     -- over an empty screen would be an editor for something that is not there.
     if ns.CurPicker then ns.CurPicker:Close() end
     if Bags.bagWindow then Bags.bagWindow:Hide() end
+    -- The pocket travels with the bags, an automatic close included: walking away from the auction house
+    -- shuts the bags, and the pocket that came up beside them has nothing left to sit next to.
     if ns.Pocket and not ns.Pocket.solo then ns.Pocket:Close(true) end
     if ns.Vault:SetView("bags", nil) then
       Bags.snap = nil
@@ -1117,6 +1119,20 @@ function Bags:ToggleCurrencies()
   if ns.Options and ns.Options.Refresh then ns.Options:Refresh() end
 end
 
+-- A bag cell takes its own right click before the game's own deposit sees it, in the one shape where that
+-- deposit lands nothing (see ns.BankRightClickDeposit). PreClick, not OnClick: the game's template handler
+-- then finds the slot already empty, so the piece cannot be moved twice by two handlers arguing over it.
+-- The handler only reads the cell and calls the client's move -- nothing is written onto a game button,
+-- whose click chain is secure. Wired where the bags build their pool, not in the factory: the favourites
+-- row, the pocket and the bank draw their cells from the same factory and answer clicks their own way.
+local function bagCell(parent)
+  local b = ns.CreateItemButton(parent, 0, 1)
+  b:HookScript("PreClick", function(s, button)
+    if button == "RightButton" and ns.BankRightClickDeposit then ns.BankRightClickDeposit(s) end
+  end)
+  return b
+end
+
 function Bags:Acquire(i)
   -- The second return says the cell was made here and not off the pool: the grid's pass reads it, so the
   -- line can say how many of its cells were built rather than moved (see the pass at the end of Layout).
@@ -1132,7 +1148,7 @@ function Bags:Acquire(i)
   local b = self.pool[i]
   if not b then
     if InCombatLockdown() then self.cold = true; return nil end
-    b = ns.CreateItemButton(self.content, 0, 1)
+    b = bagCell(self.content)
     self.pool[i] = b
     return b, true
   end
@@ -1149,7 +1165,7 @@ function Bags:Warm()
   if n == 0 then return end
   for i = 1, n do
     if not self.pool[i] then
-      local b = ns.CreateItemButton(self.content, 0, 1)
+      local b = bagCell(self.content)
       b.holder:Hide()
       self.pool[i] = b
     end

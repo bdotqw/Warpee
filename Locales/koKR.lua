@@ -499,7 +499,10 @@ local STRINGS = {
   ["Pocket slot size"] = "주머니 칸 크기",
   ["Pocket slots per row"] = "주머니 한 줄 칸 수",
   ["Open with bags"] = "가방과 함께 열기",
-  ["The pocket opens together with the bags. A window that opens the bags on its own, the auction house or the mail, pushes the pocket aside until you open it yourself."] = "주머니는 가방과 함께 열립니다. 경매장이나 우편처럼 가방을 혼자 여는 창은 주머니를 밀어두고, 직접 열 때까지 기다립니다.",
+  ["The pocket opens and closes together with the bags, both when you open them and when a window opens them for you."] = "가방과 함께 주머니가 열리고 닫힙니다. 직접 열 때와 창이 대신 열 때 모두 해당합니다.",
+  ["Ignore bag auto-open"] = "가방 자동 열기 무시",
+  ["The bags still open — only the pocket stays out of a window's auto-open (mail, auction, vendor). Opening the bags yourself still brings it."] =
+    "가방은 그대로 열립니다. 창이 자동으로 열어줄 때(우편, 경매장, 상인)만 주머니가 빠집니다. 직접 가방을 열면 주머니도 함께 열립니다.",
   ["Pocket key"] = "주머니 단축키",
   ["Not bound"] = "미지정",
   ["Press a key..."] = "키를 누르세요...",

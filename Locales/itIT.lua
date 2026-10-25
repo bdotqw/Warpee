@@ -568,8 +568,11 @@ local STRINGS = {
   ["Pocket slot size"] = "Dimensione scomparti della tasca",
   ["Pocket slots per row"] = "Scomparti per riga (tasca)",
   ["Open with bags"] = "Apri con le borse",
-  ["The pocket opens together with the bags. A window that opens the bags on its own, the auction house or the mail, pushes the pocket aside until you open it yourself."] =
-    "La tasca si apre insieme alle borse. Una finestra che apre automaticamente le borse, la Casa d'Aste o la posta, nasconde la tasca finché non la apri tu.",
+  ["The pocket opens and closes together with the bags, both when you open them and when a window opens them for you."] =
+    "La tasca si apre e si chiude insieme alle borse, sia quando le apri tu sia quando le apre una finestra.",
+  ["Ignore bag auto-open"] = "Ignora apertura automatica",
+  ["The bags still open — only the pocket stays out of a window's auto-open (mail, auction, vendor). Opening the bags yourself still brings it."] =
+    "Le borse si aprono comunque — solo la tasca resta fuori dall'apertura automatica di una finestra (posta, casa d'aste, venditore). Se apri le borse tu, arriva con loro.",
   ["Pocket key"] = "Tasto della tasca",
   ["Not bound"] = "Non assegnato",
   ["Press a key..."] = "Premi un tasto...",

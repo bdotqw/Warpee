@@ -640,8 +640,11 @@ local STRINGS = {
   ["Pocket slot size"] = "Размер ячейки кармана",
   ["Pocket slots per row"] = "Ячеек в ряду (карман)",
   ["Open with bags"] = "Открывать с сумками",
-  ["The pocket opens together with the bags. A window that opens the bags on its own, the auction house or the mail, pushes the pocket aside until you open it yourself."] =
-    "Карман открывается вместе с сумками. Окно, которое открывает сумки само — аукцион или почта — убирает карман с экрана, пока вы не откроете его сами.",
+  ["The pocket opens and closes together with the bags, both when you open them and when a window opens them for you."] =
+    "Карман открывается и закрывается вместе с сумками — и когда вы открываете их сами, и когда их открывает окно.",
+  ["Ignore bag auto-open"] = "Игнорировать автооткрытие сумок",
+  ["The bags still open — only the pocket stays out of a window's auto-open (mail, auction, vendor). Opening the bags yourself still brings it."] =
+    "Сумки открываются как обычно — в авто-открытии окном (почта, аукцион, торговец) карман не участвует. Открываешь сумки сам — карман придёт.",
   ["Pocket key"] = "Клавиша кармана",
   ["Not bound"] = "Не назначено",
   ["Press a key..."] = "Нажмите клавишу...",

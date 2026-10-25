@@ -495,7 +495,10 @@ local STRINGS = {
   ["Pocket slot size"] = "口袋格子大小",
   ["Pocket slots per row"] = "口袋每行格子數",
   ["Open with bags"] = "隨背包開啟",
-  ["The pocket opens together with the bags. A window that opens the bags on its own, the auction house or the mail, pushes the pocket aside until you open it yourself."] = "口袋會隨背包一起開啟。拍賣行、郵件這類會自己開啟背包的視窗，會把口袋推到一邊，直到你自己開啟它。",
+  ["The pocket opens and closes together with the bags, both when you open them and when a window opens them for you."] = "口袋隨背包一起開啟和關閉：無論是你親自開啟，還是視窗替你開啟。",
+  ["Ignore bag auto-open"] = "忽略自動打開背包",
+  ["The bags still open — only the pocket stays out of a window's auto-open (mail, auction, vendor). Opening the bags yourself still brings it."] =
+    "背包照常開啟——只有口袋不跟著視窗的自動開啟（郵件、拍賣場、商人）。你自己開啟背包時，口袋仍會一起開啟。",
   ["Pocket key"] = "口袋快捷鍵",
   ["Not bound"] = "未綁定",
   ["Press a key..."] = "請按鍵……",

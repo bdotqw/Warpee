@@ -567,8 +567,11 @@ local STRINGS = {
   ["Pocket slot size"] = "Tamanho das células do bolso",
   ["Pocket slots per row"] = "Espaços por linha (bolso)",
   ["Open with bags"] = "Abrir com as bolsas",
-  ["The pocket opens together with the bags. A window that opens the bags on its own, the auction house or the mail, pushes the pocket aside until you open it yourself."] =
-    "O bolso abre junto com as bolsas. Uma janela que abre as bolsas automaticamente, a Casa de Leilões ou o correio, afasta o bolso até que você mesmo o abra.",
+  ["The pocket opens and closes together with the bags, both when you open them and when a window opens them for you."] =
+    "O bolso abre e fecha junto com as bolsas, tanto quando você as abre quanto quando uma janela as abre.",
+  ["Ignore bag auto-open"] = "Ignorar abertura automática",
+  ["The bags still open — only the pocket stays out of a window's auto-open (mail, auction, vendor). Opening the bags yourself still brings it."] =
+    "As bolsas continuam abrindo — só o bolso fica de fora da abertura automática de uma janela (correio, casa de leilões, vendedor). Se você abrir as bolsas, ele vem junto.",
   ["Pocket key"] = "Tecla do bolso",
   ["Not bound"] = "Não atribuída",
   ["Press a key..."] = "Pressione uma tecla...",

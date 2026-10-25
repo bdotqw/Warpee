@@ -29,7 +29,7 @@ local DEFAULTS = {
   splitGapWb = 12,
   -- Whether a block carries its bag's or tab's name over its cells.
   nameBags = true, nameBank = true, nameWb = true,
-  pocketShow = true, pocketWithBags = false, pocketRows = 4, pocketCols = 6,
+  pocketShow = true, pocketWithBags = false, pocketHandOnly = false, pocketRows = 4, pocketCols = 6,
   pocketSnap = true,
   -- A size of the pocket's own. NONE -- "no number of its own, read the bags' size on every pass" --
   -- would make resizing the bags drag the pocket along, and a profile would never carry the size,
@@ -376,10 +376,27 @@ local function repaintLater()
   end)
 end
 
-function ns.Toggle(show)
+-- One place for both kinds of open, a hand press and a window opening the bags for the player. Open with
+-- bags is the master switch; Ignore bag auto-open narrows it to the hand press, so an interaction
+-- that brings the bags brings no pocket and, just as important, does not take a pocket it did not bring
+-- when it closes. A pocket that is up when the bags come up belongs to them and leaves with them
+-- (Bags.OnHide) -- including one the player opened on its own a moment earlier.
+local function openPocketWithBags(automatic)
+  local pocket = ns.Pocket
+  if not (pocket and (not WarpeeDB or WarpeeDB.pocketWithBags ~= false)) then return end
+  if automatic and WarpeeDB and WarpeeDB.pocketHandOnly then return end
+  pocket.solo = nil
+  if not (pocket.frame and pocket.frame:IsShown()) then pocket:Open() end
+end
+-- The pages switch Open with bags on while the bags are already up, and the pocket has to follow the
+-- same rule then as on an open.
+ns.OpenPocketWithBags = openPocketWithBags
+
+function ns.Toggle(show, automatic)
   local f = Bags:Build()
   if show == nil then show = not f:IsShown() end
   if show then
+    if not automatic then ns.autoOpened = nil end
     Bags:RestorePos()
     -- Raised while still hidden. A strata change re-sorts the client's render list, and doing it with the
     -- grid already on screen re-sorts every cell for nothing; raising first is free either way.
@@ -395,15 +412,7 @@ function ns.Toggle(show)
     else
       Bags:Resume()
     end
-    -- The pocket follows the bags on a hand press only. An auto open from the auction
-    -- house, the mail or a merchant has just pushed the pocket aside, and opening the
-    -- bags on top would undo that; ns.autoOpened is set before this runs, so it marks
-    -- which kind of open this is. With the option off nothing touches the pocket here:
-    -- only its own key and the header button open it.
-    if ns.Pocket and not ns.autoOpened
-       and (not WarpeeDB or WarpeeDB.pocketWithBags ~= false) then
-      ns.Pocket:Open()
-    end
+    openPocketWithBags(automatic)
     -- First open on a profile that has never been prompted announces the category view and offers a
     -- starting layout. It gates itself on the per-profile flag and on combat, and sets the flag only when
     -- dismissed, so an open in combat simply tries again next time.
@@ -448,7 +457,7 @@ local function blizzBagsOpen()
 end
 
 local BAG_FN = {
-  close = { "CloseAllBags", "CloseBackpack" },
+  close = { "CloseAllBags" },
   sync  = { "ToggleBackpack", "ToggleBag" },
 }
 
@@ -482,12 +491,6 @@ local function HookBagToggles()
   -- still open ours: an enchant or a gem waiting for a target opens them so the item
   -- to receive it can be clicked, held back when the pocket is on screen, and a loot
   -- toast click means show what just dropped.
-  local OPEN_FRAME_KEY = { MailFrame = "mail" }
-  local function frameKey(frame)
-    if type(frame) ~= "table" or not frame.GetName then return nil end
-    local ok, name = pcall(frame.GetName, frame)
-    return (ok and OPEN_FRAME_KEY[name]) or nil
-  end
   -- A loot toast click is the only thing that reaches the bags through OpenBag, so the
   -- stack is read on that one name. OpenAllBags and OpenBackpack arrive from the mail, a
   -- merchant, the auction house or a keybind, and building a stack for them was paying
@@ -512,47 +515,48 @@ local function HookBagToggles()
   -- bags through these same calls. Only our own frame is held back here; the game's
   -- functions still run whole, so nothing of its own is silenced and no protected call
   -- loses its footing. Never turn this into an override of theirs.
-  -- BankFrame opens and closes the bags itself, and it hands itself in as the first
-  -- argument. Those calls are left to the bank events instead, so the banker still
-  -- honours the auto-open settings.
-  hookList(BAG_FN.close, function(frame)
-    if frame ~= nil and frame == BankFrame then return end
-    local key = frameKey(frame)
-    if key then
-      autoCloseBags(key)
-      return
-    end
-    -- The Escape press reaches here through Blizzard's own window pass before that pass walks
-    -- UISpecialFrames: hiding here would leave that walk nothing to find, and the client would
-    -- open the game menu over the bags it just closed. Seen from the stack the call comes from
-    -- CloseAllWindows/ToggleGameMenu, so it is left to that walk, which hides the frame itself
-    -- and counts the press. Every other caller hides at once, as before.
+  -- Frame-driven closes belong to the interaction events, which know which window still owns the bags.
+  local function closeFromGame(frame, nested)
+    if frame ~= nil then return end
     local st = debugstack and debugstack()
+    -- CloseBackpack can run inside CloseAllBags without its frame argument; only the outer hook decides.
+    if nested and st and st:find("CloseAllBags", 1, true) then return end
+    -- Escape must reach UISpecialFrames or the same press opens the game menu after hiding the bags.
     if st and (st:find("CloseAllWindows", 1, true) or st:find("ToggleGameMenu", 1, true)) then return end
     ns.Toggle(false)
+  end
+  hookList(BAG_FN.close, function(frame) closeFromGame(frame, false) end)
+  hookList({ "CloseBackpack" }, function(frame) closeFromGame(frame, true) end)
+  -- OpenAllBags and CloseAllBags walk through ToggleBackpack and ToggleBag themselves, and the game's
+  -- containers are only reparented, so the inner toggle still reads as the game's own open. Syncing on it
+  -- opened our bags beside every window that calls OpenAllBags, checkbox or no checkbox: the sync hook is
+  -- for a hand that toggles the game's bags, and a call already inside an open/close-all is not a hand.
+  hookList(BAG_FN.sync, function()
+    local st = debugstack and debugstack()
+    if st and (st:find("OpenAllBags", 1, true) or st:find("CloseAllBags", 1, true)) then return end
+    ns.Toggle(blizzBagsOpen())
   end)
-  hookList(BAG_FN.sync, function() ns.Toggle(blizzBagsOpen()) end)
 end
 
 function autoOpenBags(key)
   if not (WarpeeDB and WarpeeDB.autoOpen and WarpeeDB.autoOpen[key]) then return end
-  -- The pocket stands in for the bags, so a window that pulls the bags open pushes the
-  -- pocket out of the way: too many windows on screen at once, and the pocket answers
-  -- "with you or not", which the bags already say. Its own key and button still open it
-  -- on top of everything.
-  if ns.Pocket then ns.Pocket:Close(true) end
+  -- With Open with bags the pocket is part of the bags: the option opens it beside a window that opened the
+  -- bags itself, so this is no place to hide it. With the option off an automatic window still pushes a
+  -- standing pocket aside, the way it always did; either way the pocket leaves with the bags when the
+  -- window closes (Bags.OnHide).
+  if ns.Pocket and WarpeeDB.pocketWithBags == false then
+    ns.Pocket:Close(true)
+  end
   local f = Bags.frame
-  if f and not f:IsShown() then
-    -- Every window that asked is remembered, not only the first: the bank and a merchant
-    -- can be on screen together, and closing either one must not take the bags away while
-    -- the other is still open. Bags the player opened himself are not in the set at all,
-    -- so nothing closes those behind his back.
+  if not f or not f:IsShown() then
+    -- Each interaction owns only bags opened automatically; a hand open keeps ownership.
     local set = ns.autoOpened
     if not set then set = {}; ns.autoOpened = set end
     set[key] = true
-    ns.Toggle(true)
-  elseif ns.autoOpened then
-    ns.autoOpened[key] = true
+    ns.Toggle(true, true)
+  else
+    if ns.autoOpened then ns.autoOpened[key] = true end
+    openPocketWithBags(true)
   end
 end
 
