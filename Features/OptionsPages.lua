@@ -58,20 +58,24 @@ local setPocketShow = ns.Setting("pocketShow", function(v)
   relayout()
 end)
 local setPocketWithBags = ns.Setting("pocketWithBags", function(v)
-  if v and ns.Pocket and ns.Bags and ns.Bags.frame and ns.Bags.frame:IsShown()
-     and not (ns.Pocket.frame and ns.Pocket.frame:IsShown()) then
-    ns.Pocket:Open()
+  -- Switched on while the bags are already up: the same rule as on an open, so an automatic open with
+  -- Ignore bag auto-open on leaves the pocket alone, and a hand open takes a standing pocket along.
+  if v and ns.Bags and ns.Bags.frame and ns.Bags.frame:IsShown() and ns.OpenPocketWithBags then
+    ns.OpenPocketWithBags(ns.autoOpened ~= nil)
   end
   relayout()
 end)
+local setPocketHandOnly = ns.Setting("pocketHandOnly")
 local setPocketSnap = ns.Setting("pocketSnap")
 
 fav.pkGet = function() return ns.Pocket and ns.Pocket:Enabled() end
 fav.pkSet = function(v) setPocketShow(v and true or false) end
 fav.pkWithGet = function() return WarpeeDB.pocketWithBags ~= false end
+fav.pkHandGet = function() return WarpeeDB.pocketHandOnly == true end
 fav.snapGet = function() return WarpeeDB.pocketSnap ~= false end
 fav.snapSet = function(v) setPocketSnap(v and true or false) end
 fav.pkWithSet = function(v) setPocketWithBags(v and true or false) end
+fav.pkHandSet = function(v) setPocketHandOnly(v and true or false) end
 fav.pkLockGet = function() return ns.Pocket and ns.Pocket:Locked() end
 fav.pkLockSet = function(v) if ns.Pocket then ns.Pocket:SetLock(v) end end
 fav.pkRowsGet = function() return ns.Pocket and ns.Pocket:Rows() or 5 end
@@ -194,21 +198,28 @@ local POCKET_PAGE = {
     desc = pinHint(
       "A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and hovering a cell and pressing %s empties it.",
       "A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and a cell under the pointer can be emptied with a key of its own." ) },
-  { type = "toggle", name = "Open with bags", col = 2, get = fav.pkWithGet, set = fav.pkWithSet,
-    disabled = function() return not fav.pkGet() end,
-    desc = "The pocket opens together with the bags. A window that opens the bags on its own, the auction house or the mail, pushes the pocket aside until you open it yourself." },
-  { type = "toggle", name = "Lock the pocket", col = 1,
+  { type = "toggle", name = "Lock the pocket", col = 2,
     get = fav.pkLockGet, set = fav.pkLockSet,
     disabled = function() return not fav.pkGet() end,
     desc = "Keep the pocket where it is. Unlocked, the arrows along its bottom edge nudge it around." },
+  { type = "toggle", name = "Open with bags", col = 1, get = fav.pkWithGet, set = fav.pkWithSet,
+    disabled = function() return not fav.pkGet() end,
+    desc = "The pocket opens and closes together with the bags, both when you open them and when a window opens them for you." },
+  -- The narrower half of Open with bags, standing in its own half of the same row: a window opening the
+  -- bags for the player is not a hand on them. The name points at what it ignores, not at what it stops:
+  -- the bags still open, only the pocket stays out.
+  { type = "toggle", name = "Ignore bag auto-open", col = 2,
+    get = fav.pkHandGet, set = fav.pkHandSet,
+    disabled = function() return not fav.pkGet() or not fav.pkWithGet() end,
+    desc = "The bags still open — only the pocket stays out of a window's auto-open (mail, auction, vendor). Opening the bags yourself still brings it." },
+  { type = "toggle", name = "Recent in the pocket", col = 1,
+    get = fav.recentPocketGet, set = fav.recentPocketSet,
+    disabled = function() return not fav.pkGet() end,
+    desc = "The same recent row as in the bags, above the pocket cells. Clearing it in one window clears it in the other." },
   { type = "toggle", name = "Snap to windows", col = 2,
     get = fav.snapGet, set = fav.snapSet,
     disabled = function() return not fav.pkGet() end,
     desc = "Near the bags or the bank, the pocket lines up with it and holds that seam when the window resizes. Dragging the bags never moves the pocket." },
-  { type = "toggle", name = "Recent in the pocket",
-    get = fav.recentPocketGet, set = fav.recentPocketSet,
-    disabled = function() return not fav.pkGet() end,
-    desc = "The same recent row as in the bags, above the pocket cells. Clearing it in one window clears it in the other." },
   { type = "select", name = "Pocket growth corner",
     get = function() return angleGet("pocketPos") end,
     set = function(v) angleSet("pocketPos", v) end,

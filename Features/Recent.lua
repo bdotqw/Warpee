@@ -20,7 +20,7 @@ local poor = {}
 local pending = {}
 local counter = 0
 local primed = nil
-local guidNow, guidHad, everWorn = {}, {}, {}
+local guidNow, guidHad, everWorn, guidItem = {}, {}, {}, {}
 local wornN = 0
 local ILOC
 
@@ -140,6 +140,9 @@ local function scanBag(bag, counts)
       local g = ns.GearItem(id) and itemGuid(bag, slot) or nil
       if g then
         guidNow[g] = true
+        -- The id the guid stands for this pass, so an arrival can be matched against the ids that just left
+        -- an equipment slot even when the slot itself gives no guid to remember (see bodyDiff).
+        guidItem[g] = id
         locBag[g], locSlot[g] = bag, slot
         if info.quality == 0 then poor[g] = true end
       else
@@ -154,7 +157,7 @@ end
 local function tally()
   local counts = {}
   wipe(locBag); wipe(locSlot); wipe(poor)
-  wipe(guidNow)
+  wipe(guidNow); wipe(guidItem)
   for _, bag in ipairs(ns.playerBags) do scanBag(bag, counts) end
   if ns.reagentBag then scanBag(ns.reagentBag, counts) end
   return counts
@@ -177,9 +180,61 @@ local function mark(id, delta, total)
   got[id] = delta
 end
 
+-- A cell that lost its item is held empty for HOLD seconds before the row closes up. The bags row is
+-- clicked as a strip: a piece used, sold or handed to a banker vanishes under the hand, and a row that
+-- closes in that same frame puts the next piece under the cursor. The grouped view holds its holes for
+-- the same reason and on a much longer clock, because a piece there can come back from the bank; in
+-- Recent nothing comes back, so this is only about the hand, and two seconds is long enough for the
+-- second click of a pair and short enough not to hold a cell the row could be using. Both windows read
+-- one list, so the hold is set here once and the pocket inherits it: its Feed sees the hole in the list
+-- and leaves the cell standing until the same compaction closes both.
+local HOLD = 2
+
+-- A hole is a table in the cell: the piece is gone, its key is freed exactly as a plain removal freed
+-- it (so the same item coming back is listed afresh), and the empty cell carries the order it had and
+-- the moment it emptied. `seq` is read by Feed, `at` by compact.
+local function ord(c)
+  if type(c) == "table" then return c.seq or 0 end
+  return seq[c] or 0
+end
+
+local closeAt
+-- `at` is the moment the row should close, not a delay: a rebuild can leave a younger hole behind, and
+-- its own deadline is what has to be armed next, or that cell would never close at all.
+local function closeSoon(at)
+  if closeAt and closeAt <= at then return end
+  closeAt = at
+  -- The hold has to end by itself: nothing else arrives to close the row in a quiet moment, and an empty
+  -- cell standing past its hold reads as a slot that is really there. The layout is idempotent, so a pass
+  -- that finds the row already closed costs nothing.
+  C_Timer.After(math.max(0, at - GetTime()) + 0.05, function()
+    closeAt = nil
+    Rec:Refresh()
+  end)
+end
+
+local function hole(i, key)
+  local s, t = seq[key] or 0, GetTime()
+  cells[i] = { hole = true, id = key, seq = s, at = t }
+  seq[key], got[key], base[key] = nil, nil, nil
+  cellMiss[key], missed[key] = nil, nil
+  closeSoon(t + HOLD)
+end
+
 local function add(key, n, delta, total)
   if seq[key] then return end
   counter = counter + 1
+  -- A piece that comes back into the bags takes its own hole back instead of gaining a second cell: the
+  -- hole is the place it left, and the pocket reads the list by order, not by index, so restoring it
+  -- there is the same move in both windows.
+  for i = 1, n do
+    local c = cells[i]
+    if type(c) == "table" and c.id == key then
+      cells[i], seq[key] = key, counter
+      if delta then mark(key, delta, total) end
+      return
+    end
+  end
   for i = 1, n do
     if not cells[i] then
       cells[i], seq[key] = key, counter
@@ -190,36 +245,56 @@ local function add(key, n, delta, total)
   local worn, age
   for i = 1, n do
     local c = cells[i]
-    if c and (not age or (seq[c] or 0) < age) then worn, age = i, seq[c] or 0 end
+    local s = ord(c)
+    if c and (not age or s < age) then worn, age = i, s end
   end
   if not worn then return end
   local out = cells[worn]
-  seq[out], got[out], base[out] = nil, nil, nil
+  if type(out) ~= "table" then seq[out], got[out], base[out] = nil, nil, nil end
   cells[worn], seq[key] = key, counter
   if delta then mark(key, delta, total) end
 end
+
 local function compact(n)
-  local ids, over = {}, false
+  local ids, over, stale, soonest, now = {}, false, false, nil, GetTime()
   for i = 1, MAX_SLOTS do
-    local id = cells[i]
-    if id then
-      ids[#ids + 1] = id
-      if i > n then over = true end
+    local c = cells[i]
+    if c then
+      -- An expired hole is what makes the row close up; a young one takes its place in the rebuild like
+      -- any other cell, so the pieces after it do not move while it is held.
+      if type(c) == "table" and (now - (c.at or 0)) >= HOLD then stale = true
+      else
+        ids[#ids + 1] = c
+        if i > n then over = true end
+        if type(c) == "table" then
+          local at = (c.at or 0) + HOLD
+          if not soonest or at < soonest then soonest = at end
+        end
+      end
     end
   end
-  if not over and #ids <= n then return end
-  table.sort(ids, function(a, b) return (seq[a] or 0) < (seq[b] or 0) end)
+  -- A rebuild can drop one hole and leave a younger one standing; that one still has to close on its own
+  -- clock, so the next deadline is armed from what survived rather than from the call that made it.
+  if soonest then closeSoon(soonest) end
+  if not (over or stale or #ids > n) then return end
+  table.sort(ids, function(a, b) return ord(a) < ord(b) end)
   for i = 1, MAX_SLOTS do cells[i] = nil end
   local cut = math.max(0, #ids - n)
   for k = 1, #ids do
-    local id = ids[k]
-    if k <= cut then seq[id], got[id], base[id] = nil, nil, nil else cells[k - cut] = id end
+    local c = ids[k]
+    if k <= cut then
+      -- A hole dropped by the cut was already freed when it was made; only a live key has anything to
+      -- forget, and it is the one the row pushed out.
+      if type(c) ~= "table" then seq[c], got[c], base[c] = nil, nil, nil end
+    else
+      cells[k - cut] = c
+    end
   end
 end
 
 local function remove(id)
   for i = 1, MAX_SLOTS do
-    if cells[i] == id then cells[i] = nil end
+    if cells[i] == id then hole(i, id) end
   end
   seq[id], got[id], base[id] = nil, nil, nil
 end
@@ -231,7 +306,10 @@ local function prune(counts)
   if GetCursorInfo() then return false end
   local fence = false
   for i = 1, MAX_SLOTS do
-    local key = cells[i]
+    -- A hole is already decided: its piece left, and compact closes it once the hold runs out. Read as a
+    -- key it would miss every pass and keep re-making its own hole, pushing the hold out forever.
+    local c = cells[i]
+    local key = (type(c) ~= "table") and c or nil
     local here = key and (type(key) == "string" and guidNow[key] or counts[key])
     if key and (not here or poor[key]) then
       -- Its own counter, not the one the known-item pass keeps: the two run over the same
@@ -239,9 +317,8 @@ local function prune(counts)
       -- the row is showing.
       local m = (cellMiss[key] or 0) + 1
       if m >= 3 or poor[key] then
-        seq[key], got[key], base[key] = nil, nil, nil
+        hole(i, key)
         cellMiss[key] = nil
-        cells[i] = nil
       else
         cellMiss[key] = m
         fence = true
@@ -256,6 +333,14 @@ end
 local shed, shedAt, body = {}, {}, {}
 local SHED = 3
 
+-- The character's own equipment is slots 1-19. Profession equipment sits past them: a tool and two
+-- accessory slots for each of the two professions (20-25), then cooking and fishing (26-30). The paperdoll
+-- never shows them, but the game swaps them like any other equipped piece -- the old one lands in the bag
+-- slot the new one came from -- and GetInventoryItemID reads them like any other slot. Without them an old
+-- tool coming back from the profession window read as recent loot: its id was never in shed and its guid
+-- never in everWorn, since only the paperdoll was watched.
+local BODY_LAST = 30
+
 -- Returns whether any body slot answered at all, which is what tells a real empty inventory
 -- apart from the client not being ready to answer.
 local function bodyDiff()
@@ -266,9 +351,11 @@ local function bodyDiff()
     if t < cut then shed[id], shedAt[id] = nil, nil end
   end
   local seen = false
-  for s = 1, 19 do
+  for s = 1, BODY_LAST do
     local now = f("player", s)
-    if now then seen = true end
+    -- The ready check stays on the paperdoll's own slots: a profession slot answering on its own must not
+    -- talk the pass out of treating an empty read as the client between worlds.
+    if now and s <= 19 then seen = true end
     local was = body[s]
     body[s] = now
     if was and was ~= now then
@@ -301,6 +388,18 @@ local function pardon(id, delta)
   return delta - eat
 end
 
+-- The guid path's version of pardon: a gear piece is keyed by guid, so the count delta it would pardon
+-- never exists. The id the piece just held in the slot is the same evidence, and one piece coming back is
+-- one arrival -- no counter to spend, only the age of the mark.
+local function fromShed(id)
+  if not id or not shed[id] then return false end
+  if GetTime() - (shedAt[id] or 0) > SHED then
+    shed[id], shedAt[id] = nil, nil
+    return false
+  end
+  return true
+end
+
 -- Declared here because detect needs it: see the note on the miss counter in prune.
 local soon
 
@@ -328,7 +427,7 @@ local function detect()
   end
   local n = capacity()
   for g in pairs(guidNow) do
-    if not (guidHad[g] or everWorn[g] or hold or poor[g]) then add(g, n, nil) end
+    if not (guidHad[g] or everWorn[g] or hold or poor[g] or fromShed(guidItem[g])) then add(g, n, nil) end
   end
   for id, c in pairs(counts) do
     local was = known[id] or 0
@@ -440,8 +539,9 @@ end
 
 function Rec:Wipe()
   for i = 1, MAX_SLOTS do
-    local id = cells[i]
-    if id then seq[id], got[id], base[id] = nil, nil, nil; cells[i] = nil end
+    local c = cells[i]
+    if type(c) == "table" then cells[i] = nil
+    elseif c then seq[c], got[c], base[c] = nil, nil, nil; cells[i] = nil end
   end
   self:Refresh()
 end
@@ -465,6 +565,10 @@ end
 function Rec:Feed(n)
   local out = {}
   if not self:PocketOn() then return out end
+  -- The pocket can be the only window on screen, and compaction otherwise only runs from the bags' own
+  -- Apply: a held cell would stand there for the rest of the session. Cheap and idempotent, since it
+  -- returns immediately while nothing is over capacity and no hold has run out.
+  compact(capacity())
   local ids = {}
   for i = 1, MAX_SLOTS do
     if cells[i] then ids[#ids + 1] = cells[i] end
@@ -473,7 +577,7 @@ function Rec:Feed(n)
   -- windows show one list in one order, and only the window under it is different. Reading
   -- this backwards is what put the newest at the left of the pocket while the bags put it
   -- at the right.
-  table.sort(ids, function(a, b) return (seq[a] or 0) < (seq[b] or 0) end)
+  table.sort(ids, function(a, b) return ord(a) < ord(b) end)
   local cut = #ids - (tonumber(n) or 0)
   if cut < 0 then cut = 0 end
   for k = cut + 1, #ids do out[#out + 1] = ids[k] end

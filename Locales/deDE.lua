@@ -583,8 +583,11 @@ local STRINGS = {
   ["Pocket slot size"] = "Feldgröße der Ablage",
   ["Pocket slots per row"] = "Ablageplätze pro Reihe",
   ["Open with bags"] = "Mit den Taschen öffnen",
-  ["The pocket opens together with the bags. A window that opens the bags on its own, the auction house or the mail, pushes the pocket aside until you open it yourself."] =
-    "Die Ablage öffnet sich zusammen mit den Taschen. Ein Fenster, das die Taschen von selbst öffnet, Auktionshaus oder Post, räumt die Ablage beiseite, bis du sie selbst öffnest.",
+  ["The pocket opens and closes together with the bags, both when you open them and when a window opens them for you."] =
+    "Die Ablage öffnet und schließt sich zusammen mit den Taschen – sowohl wenn du sie selbst öffnest, als auch wenn ein Fenster sie öffnet.",
+  ["Ignore bag auto-open"] = "Taschen-Autoöffnung ignorieren",
+  ["The bags still open — only the pocket stays out of a window's auto-open (mail, auction, vendor). Opening the bags yourself still brings it."] =
+    "Die Taschen öffnen sich weiterhin — nur die Ablage bleibt beim Autoöffnen durch ein Fenster (Post, Auktionshaus, Händler) außen vor. Öffnest du die Taschen selbst, kommt sie mit.",
   ["Pocket key"] = "Taste der Ablage",
   ["Not bound"] = "Nicht belegt",
   ["Press a key..."] = "Taste drücken...",

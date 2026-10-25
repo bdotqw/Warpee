@@ -273,7 +273,9 @@ local function bankDepositMove(bag, slot, alloc)
     C_Container.PickupContainerItem(bag, slot)
     C_Container.PickupContainerItem(tab, s)
     if CursorHasItem() then ClearCursor() end
-    if alloc then alloc[key] = true end
+    -- The claim carries the moment it was made, so a caller that keeps its claims between clicks can drop an
+    -- old one whose move never landed. bankTarget only asks whether a claim is there at all.
+    if alloc then alloc[key] = GetTime() end
     -- The target slot the piece is bound for, so the account-bank pacing waits for it to fill
     -- (the round-trip) instead of reading the source bag, which empties the instant it is lifted.
     return { tab, s }
@@ -282,6 +284,82 @@ local function bankDepositMove(bag, slot, alloc)
   return false
 end
 ns.BankDepositMove = bankDepositMove
+
+-- A right click on a bag slot is normally the game's own deposit: its item button template hands the piece
+-- to the bank BankFrame has open, which sorts it into the tab whose deposit rules name that kind of item.
+-- With the warband bank opened from a distance -- the Warband Bank Convergence the Distance Inhibitor
+-- summons -- that deposit is the one gesture the game leaves undone: the piece stays in the bag, while a
+-- drag and the transfer chip, which both name a slot inside the bank, land it. So the click is taken here,
+-- and only in that shape: a banker is open, the open bank is the account bank, and this character's own
+-- bank is out of reach, so the warband bank is the panel's one bank (see bankOnlyAccount). A normal banker
+-- is left to the game for a reason beyond habit: its deposit sorts a piece into the tab whose rules name
+-- its kind and lands it on a matching stack before it looks for a free slot, and a move to a named slot
+-- does none of that -- taking the click everywhere would scatter a player's tabs.
+--
+-- Called from the cell's PreClick, so the slot is emptied before the game's own handler runs and its
+-- deposit has nothing left to act on. Nothing is written onto the button, whose click chain is secure, and
+-- the move is the same pair of unprotected client calls the transfer chip and a drop already use.
+--
+-- The piece is read first: nothing is sent unless the slot holds something, unlocked, with the cursor
+-- empty and no other move in flight. A held Shift is the game's split-a-stack deposit and is left alone
+-- rather than turned into a move of the whole stack; a piece the account bank refuses stays in the bag
+-- inside bankDepositMove.
+--
+-- The slots the clicks have aimed at are kept between them, because the client answers a move at once and
+-- the server confirms it a round trip later: four clicks in a row would otherwise all take the first free
+-- slot, and clicks two to four would lift their piece and find the place taken -- the piece comes back to
+-- the bag a second later, which reads as the click being undone. A claim dies as soon as its slot holds
+-- something, and an old one dies too, so a move that never landed does not keep a slot out of use.
+--
+-- Whether the character's own bank is missing is asked twice, because the two answers come from different
+-- places: the interaction the banker arrived through (View:AccountOnly, which the account banker sets) and
+-- the client itself (CanViewBank). The distant bank may answer through either, and only the banker's own
+-- bank being gone is what makes the warband bank the panel's one bank.
+local function bankOnlyAccount()
+  local B = ns.Bank
+  if B and B:AccountOnly() then return true end
+  local E = Enum and Enum.BankType
+  if not (E and C_Bank and C_Bank.CanViewBank) then return false end
+  local ok, can = pcall(C_Bank.CanViewBank, E.Character)
+  return ok and can == false
+end
+
+-- How long a claim may keep a slot out of use when the move it went with never fills it. A round trip is
+-- a moment; anything this old is a move that did not land, and the slot is worth aiming at again.
+local CLICK_CLAIM_TTL = 10
+
+-- Drop the claims whose slot now holds something (the move landed) and the ones that are too old to mean
+-- anything. Runs on every click, so the table never needs a sweep of its own.
+local function releaseClickClaims(alloc)
+  local now = GetTime()
+  for key, at in pairs(alloc) do
+    if type(key) == "number" then
+      local info = C_Container.GetContainerItemInfo(math.floor(key / 1000), key % 1000)
+      if (info and (info.hyperlink or info.itemID)) or (now - (tonumber(at) or now)) > CLICK_CLAIM_TTL then
+        alloc[key] = nil
+      end
+    end
+  end
+end
+
+function ns.BankRightClickDeposit(b)
+  local B = ns.Bank
+  if not (B and B.bankerOpen and not B.snap and b) then return end
+  if InCombatLockdown() or CursorHasItem() then return end
+  local bag, slot = b.wpeBagID, b.GetID and b:GetID()
+  if not (bag and slot and ns.IsPlayerBag(bag)) then return end
+  local acct = Enum and Enum.BankType and Enum.BankType.Account
+  if not (acct and B.depositType == acct) then return end
+  if not bankOnlyAccount() then return end
+  if IsModifiedClick and IsModifiedClick("SPLITSTACK") then return end
+  local info = C_Container.GetContainerItemInfo(bag, slot)
+  if not (info and (info.hyperlink or info.itemID)) then return end
+  if info.isLocked then return end
+  local alloc = B.clickAlloc
+  if not alloc then alloc = {}; B.clickAlloc = alloc end
+  releaseClickClaims(alloc)
+  return bankDepositMove(bag, slot, alloc)
+end
 
 function ns.RefreshBagDim()
   -- Every interaction edge in the addon comes through here (the house, the guild vault, mail, the merchant,
@@ -450,6 +528,7 @@ function View:Build()
   f:SetScript("OnHide", function()
     ns.ClearSearch(self.search)
     self.depositType = nil
+    self.clickAlloc = nil
     self:DropCatMemory()
     self:HideTabSettings()
     if ns.CharPicker then ns.CharPicker:Close() end
