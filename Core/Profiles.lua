@@ -522,6 +522,10 @@ function P:BuildPanel()
   if self.panel then return self.panel end
   local f = CreateFrame("Frame", "WarpeeProfilesFrame", UIParent, "BackdropTemplate")
   Theme:Panel(f, "bg", "stroke")
+  -- Solid like the settings, and for the same reasons: it is a control panel read as text, and the plate is
+  -- the surface behind the items, of which there are none here. The flag goes on before Theme:Window, which
+  -- is what hands the window to the transparency pass.
+  f.wpeSolid = true
   Theme:Window(f)
   f:SetFrameStrata("DIALOG")
   f:SetClampedToScreen(true)
@@ -610,14 +614,18 @@ function P:BuildPanel()
     StaticPopupDialogs["WARPEE_DEL_PROFILE"].text = T("Delete profile %s?")
     StaticPopup_Show("WARPEE_DEL_PROFILE", active, nil, active)
   end)
-  -- The delete control: a white cross in a red-framed square, the same "this removes" red the category
-  -- editor's delete wears (Theme danger). tintButton keeps the cross white (inkKey "text"); the edge is
-  -- then overridden to danger / dangerHi so the frame, not the glyph, carries the warning.
-  tintButton(delX, "text", "danger")
+  -- The delete control reads "removes" by its colour, not by a frame around a pale mark: the whole cross
+  -- and its frame carry the kit's one red (Theme danger), dangerHi on hover -- the same paint the category
+  -- editor's delete wears, so the two read as one gesture across the addon. A red-filled cross beats a
+  -- red-framed white one here: the glyph is what the eye lands on.
+  tintButton(delX, "text")
   local baseDelX = delX.Repaint
   local function delXPaint(s)
     baseDelX(s)
-    if not s.offDuty then ns.SetEdge(s, Theme:C(s.wpeHot and "dangerHi" or "danger")) end
+    if not s.offDuty then
+      ns.SetEdge(s, Theme:C(s.wpeHot and "dangerHi" or "danger"))
+      ns.TintMarkX(s, s.wpeHot and "dangerHi" or "danger")
+    end
   end
   delX.Repaint = delXPaint
   Theme:Track(delX, delXPaint)

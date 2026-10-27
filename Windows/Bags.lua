@@ -422,6 +422,7 @@ function Bags:Build()
       local gridBg = Theme:Rect(f, "panel", "BACKGROUND")
       gridBg:SetDrawLayer("BACKGROUND", 1)
       self.gridBg = gridBg
+      Theme:TrackPlate(f, gridBg)
     end
     if not self.money then
       local money = Theme:Label(f, FONT + 1, "text")
@@ -489,7 +490,8 @@ function Bags:Build()
     if Bags.bagWindow then Bags.bagWindow:Hide() end
     -- The pocket travels with the bags, an automatic close included: walking away from the auction house
     -- shuts the bags, and the pocket that came up beside them has nothing left to sit next to.
-    if ns.Pocket and not ns.Pocket.solo then ns.Pocket:Close(true) end
+    if ns.Pocket and not ns.Pocket.solo then ns.Pocket:Close(true)
+    elseif ns.Pocket and ns.Pocket.ApplySearch then ns.Pocket:ApplySearch() end
     if ns.Vault:SetView("bags", nil) then
       Bags.snap = nil
       Bags:UpdateCharTag()
@@ -676,21 +678,15 @@ function Bags:Build()
     end
     return { { text = "RMB: Open currency list", color = "dim" } }
   end)
-  -- Warpee's own currencies mark: two coins, the mark that means "money" doubled into the several kinds of
-  -- money a row of currencies holds. White art with the shape in the alpha, so the row's paint tints it
-  -- like every other mark. The state is the SHAPE, not the brightness: the front coin carries a struck
-  -- centre while the row stands, and the pair falls back to plain outlines when it is left out -- the
-  -- reagent switch's own trick, told by the centre. Both files are centred so the mark does not jump on
-  -- the swap. PaintCurrencies does the swap and the ink; IconSilhouette gives it the row's 1px dark ground.
+  -- The rim stays fixed; a round mint mark inside it distinguishes the visible currency row.
   cur.iconShown  = [[Interface\AddOns\Warpee\Media\Icons\currency-shown.tga]]
   cur.iconHidden = [[Interface\AddOns\Warpee\Media\Icons\currency-hidden.tga]]
   local curIcon = cur:CreateTexture(nil, "ARTWORK")
   curIcon:SetTexture(cur.iconShown)
   curIcon:SetPoint("CENTER")
   cur.icon = curIcon
-  -- The two coins fill the texture nearly edge to edge (bbox ~86% x 84%), so 80 lands their mass with the
-  -- bag and the reagent pentagon in the row.
-  cur.iconPct = 80
+  -- The round coin carries more ink than the reagent mark, so it uses a smaller optical scale.
+  cur.iconPct = 72
   cur.wpeIconPaint = function(s) Bags:PaintCurrencies(s) end
   ns.IconSilhouette(cur, curIcon)
   self.curBtn = cur
@@ -876,9 +872,12 @@ function Bags:Build()
 
   local content = self.content
 
+  -- The plate the items stand on: handed to the theme, so the plate option and the transparency option reach
+  -- it from their own lists rather than through this window.
   local gridBg = Theme:Rect(f, "panel", "BACKGROUND")
   gridBg:SetDrawLayer("BACKGROUND", 1)
   self.gridBg = gridBg
+  Theme:TrackPlate(f, gridBg)
 
   local money = Theme:Label(f, FONT + 1, "text")
   Theme:Money(money)
@@ -905,6 +904,8 @@ function Bags:BuildBagWindow()
   local w = CreateFrame("Frame", "WarpeeBagsWindow", UIParent, "BackdropTemplate")
   Theme:Panel(w, "bg", "stroke")
   Theme:WindowArt(w)
+  -- The bag slots stand on the same plate as every other window, so the plate option covers this one too.
+  Theme:Plate(w)
   w:SetFrameStrata("MEDIUM")
   w:SetToplevel(true)
   w:SetClampedToScreen(true)
@@ -989,6 +990,7 @@ function Bags:LayoutBagWindow()
   end
   local n = #self.bagButtons
   w:SetSize(Layout.WindowWidth(BPAD, n, Layout.Step(size, BGAP), BGAP), BHEAD + size + BPAD)
+  Theme:FitPlateOf(w)
   self:UpdateBagBar()
 end
 
@@ -1119,13 +1121,10 @@ function Bags:ToggleCurrencies()
   if ns.Options and ns.Options.Refresh then ns.Options:Refresh() end
 end
 
--- A bag cell takes its own right click before the game's own deposit sees it, in the one shape where that
--- deposit lands nothing (see ns.BankRightClickDeposit). PreClick, not OnClick: the game's template handler
--- then finds the slot already empty, so the piece cannot be moved twice by two handlers arguing over it.
--- The handler only reads the cell and calls the client's move -- nothing is written onto a game button,
--- whose click chain is secure. Wired where the bags build their pool, not in the factory: the favourites
--- row, the pocket and the bank draw their cells from the same factory and answer clicks their own way.
-local function bagCell(parent)
+-- PreClick empties the source before the template's secure handler sees it, avoiding a second move.
+-- The callback only reads the button: writing its fields here can taint the later protected UseContainerItem
+-- call and break item use until reload. Claims live on the bank, not the button; every bag mirror shares them.
+function ns.CreateBagItemButton(parent)
   local b = ns.CreateItemButton(parent, 0, 1)
   b:HookScript("PreClick", function(s, button)
     if button == "RightButton" and ns.BankRightClickDeposit then ns.BankRightClickDeposit(s) end
@@ -1148,7 +1147,7 @@ function Bags:Acquire(i)
   local b = self.pool[i]
   if not b then
     if InCombatLockdown() then self.cold = true; return nil end
-    b = bagCell(self.content)
+    b = ns.CreateBagItemButton(self.content)
     self.pool[i] = b
     return b, true
   end
@@ -1165,7 +1164,7 @@ function Bags:Warm()
   if n == 0 then return end
   for i = 1, n do
     if not self.pool[i] then
-      local b = bagCell(self.content)
+      local b = ns.CreateBagItemButton(self.content)
       b.holder:Hide()
       self.pool[i] = b
     end
@@ -4862,6 +4861,7 @@ function Bags:ApplySearch()
   if ns.Recent and ns.Recent.slots then
     for _, b in ipairs(ns.Recent.slots) do if b:IsShown() then self:ApplyToButton(b) end end
   end
+  if ns.Pocket and ns.Pocket.ApplySearch then ns.Pocket:ApplySearch() end
   self:ArmTransfer()
 end
 
@@ -4909,7 +4909,8 @@ function ns.BumpBlocked()
   ns.BlockGen = ns.BlockGen + 1
 end
 
-function Bags:ApplyToButton(b)
+function Bags:ApplyToButton(b, filters, ownFilters)
+  if not ownFilters then filters = self.filters end
   local g = ns.BlockGen
   if b.wpeBlockGen ~= g or b.wpeBlockLink ~= b.link or b.wpeBlockBound ~= b.wpeBound then
     b.wpeBlockGen, b.wpeBlockLink, b.wpeBlockBound = g, b.link, b.wpeBound
@@ -4920,7 +4921,7 @@ function Bags:ApplyToButton(b)
       or (ns.MailBlocked and ns.MailBlocked(b))
       or (ns.VendorBlocked and ns.VendorBlocked(b))
   end
-  ns.ApplySearchToButton(b, self.filters, b.wpeBlocked)
+  ns.ApplySearchToButton(b, filters, b.wpeBlocked)
 end
 
 function Bags:UpdateDirty(force)

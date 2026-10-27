@@ -80,6 +80,8 @@ fav.pkLockGet = function() return ns.Pocket and ns.Pocket:Locked() end
 fav.pkLockSet = function(v) if ns.Pocket then ns.Pocket:SetLock(v) end end
 fav.pkRowsGet = function() return ns.Pocket and ns.Pocket:Rows() or 5 end
 fav.pkRowsSet = function(v) if ns.Pocket then ns.Pocket:SetRows(v) end end
+fav.pkRecentTwoGet = function() return ns.Pocket and ns.Pocket:RecentRows() == 2 end
+fav.pkRecentTwoSet = function(v) if ns.Pocket then ns.Pocket:SetRecentTwo(v) end end
 fav.pkColsGet = function() return ns.Pocket and ns.Pocket:Cols() or 6 end
 fav.pkColsSet = function(v) if ns.Pocket then ns.Pocket:SetCols(v) end end
 fav.pkSizeGet = function()
@@ -161,7 +163,7 @@ local GENERAL_PAGE = {
         desc = "The plate behind the items, over the window's own background. At 0 it is invisible; raised, it covers the window up to the header." },
       { type = "range", name = "Transparency", min = 0, max = 1, step = 0.01,
         get = winAlphaGet, set = winAlphaSet,
-        desc = "See-through windows. Settings stay solid." },
+        desc = "See-through windows." },
       { type = "select", name = "Language", get = localeGet, set = localeSet,
         keys = localeKeys, label = localeLabel,
         desc = "Language for the addon's own text. Item names always come from the game." },
@@ -220,6 +222,10 @@ local POCKET_PAGE = {
     get = fav.snapGet, set = fav.snapSet,
     disabled = function() return not fav.pkGet() end,
     desc = "Near the bags or the bank, the pocket lines up with it and holds that seam when the window resizes. Dragging the bags never moves the pocket." },
+  { type = "toggle", name = "Two recent rows",
+    get = fav.pkRecentTwoGet, set = fav.pkRecentTwoSet,
+    disabled = function() return not fav.pkGet() or not fav.recentPocketGet() end,
+    desc = "A second row of recent items in the pocket, so a narrow pocket still has room. Off leaves one row." },
   { type = "select", name = "Pocket growth corner",
     get = function() return angleGet("pocketPos") end,
     set = function(v) angleSet("pocketPos", v) end,

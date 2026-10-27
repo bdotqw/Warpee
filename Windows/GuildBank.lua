@@ -806,6 +806,10 @@ function Skin:Apply()
   if frame.PortraitContainer then try(frame.PortraitContainer.Hide, frame.PortraitContainer) end
   frame.wpeGuest = true
   try(Theme.Panel, Theme, frame, "bg", "stroke")
+  -- The game's window stands on the addon's plate like every window we draw, so the plate option reaches it
+  -- too. Asked for before dressFrame, not after: the grain that skin lays over the body is a texture of the
+  -- same layer, and one made later is the one that shows.
+  try(Theme.Plate, Theme, frame)
   try(dressFrame, frame)
   if ns.Theme and ns.Theme.ApplyWindowAlpha then ns.Theme:ApplyWindowAlpha() end
   if frame.SetToplevel then try(frame.SetToplevel, frame, true) end

@@ -315,7 +315,7 @@ local STRINGS = {
   ["Pay with"] = "Zahlungsquelle",
   ["Plate opacity"] = "Deckkraft der Unterlage",
   ["Transparency"] = "Transparenz",
-  ["See-through windows. Settings stay solid."] = "Durchsichtige Fenster. Die Einstellungen bleiben deckend.",
+  ["See-through windows."] = "Durchsichtige Fenster.",
   ["Bank slots per row"] = "Bankplätze pro Reihe",
   ["Warband slots per row"] = "Kriegsmeutenplätze pro Reihe",
   ["Guild bank slots per row"] = "Gildenbank-Plätze pro Reihe",
@@ -809,6 +809,8 @@ local STRINGS = {
   ["Tracked"] = "Verfolgt",
   ["Tracked in the character panel"] = "Im Charakterfenster verfolgt",
   ["Open the transfer window"] = "Öffnet das Übertragungsfenster",
+  ["Two recent rows"] = "Zwei Reihen für Neuzugänge",
+  ["A second row of recent items in the pocket, so a narrow pocket still has room. Off leaves one row."] = "Eine zweite Reihe kürzlich erhaltener Gegenstände in der Ablage, damit auch eine schmale Ablage Platz hat. Aus lässt eine Reihe.",
 }
 
 ns.AddLocale("deDE", "German", {

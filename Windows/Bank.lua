@@ -371,9 +371,12 @@ function ns.RefreshBagDim()
   if ns.BumpBlocked then ns.BumpBlocked() end
   if ns.Bags then ns.Bags.armQ = nil end
   if ns.Bank then ns.Bank.armQ = nil end
-  if not (Bags.frame and Bags.frame:IsShown()) then return end
-  if Bags.ApplySearch then Bags:ApplySearch() end
-  if Bags.BrowseState then Bags:BrowseState() end
+  if Bags.frame and Bags.frame:IsShown() then
+    if Bags.ApplySearch then Bags:ApplySearch() end
+    if Bags.BrowseState then Bags:BrowseState() end
+  elseif ns.Pocket and ns.Pocket.ApplySearch then
+    ns.Pocket:ApplySearch()
+  end
 end
 
 local function addTip(btn, title, extra, side)
@@ -740,6 +743,8 @@ function View:Build()
   gridBg:SetDrawLayer("BACKGROUND", 1)
   self.gridBg = gridBg
   gridBg:SetAlpha(Theme:GridAlpha())
+  -- The plate is handed to the theme, which fits and fades it from its own lists.
+  Theme:TrackPlate(f, gridBg)
 
   local hint = Theme:Label(f, 13, "dim")
   hint:SetPoint("BOTTOMLEFT", PAD, 10)

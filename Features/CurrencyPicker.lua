@@ -491,6 +491,7 @@ function Pick:Paint(keepScroll)
   self.sf:SetHeight(self.listH)
   self.child:SetWidth(w0 - PAD - (PAD + BAR_W + 2))
   ns.SnapSize(w, w0, h)
+  Theme:FitPlateOf(w)
   if not keepScroll then self.sf:SetVerticalScroll(0) end
   Pick:PaintBar()
   -- The panel takes its side of the window, level with the bags' own head where the currency switch that
@@ -655,7 +656,12 @@ function Pick:Build()
   Theme:Panel(w, bgKey, "stroke")
   w:SetFrameStrata("MEDIUM")
   w:SetToplevel(true)
+  -- Solid like the settings and the character picker: a chooser read as rows, each a strip of its own that
+  -- the transparency pass cannot reach. The plate stays: the rows stand on it.
+  w.wpeSolid = true
   Theme:WindowArt(w)
+  -- The list stands on the same plate as every other window; Paint sizes it and fits the plate again.
+  Theme:Plate(w)
   w:EnableMouse(true)
   w:SetClampedToScreen(true)
   ns.EscClose(w)
@@ -713,6 +719,7 @@ function Pick:Build()
   -- client's reads as a transfer at this size.
   local only = ns.CreateButton(w, "", BTN, BTN)
   only:SetPoint("TOPRIGHT", open, "TOPLEFT", -6, 0)
+  only.wpeArrowScale = 0.82
   ns.MarkArrow(only, true)
   -- The arrow takes the header's own white ink -- lit while the filter is on or under the pointer, the
   -- row's dim grey at rest -- so the mark sits in the family of the coin and the cross beside it.

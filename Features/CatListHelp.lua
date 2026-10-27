@@ -49,6 +49,8 @@ function factories.catlisthelp(env)
     -- One repaint after the move: the art a skin builds is sunk against the strata its window stood in when it
     -- was built, and this one has just gone up a stratum, so the plate is asked for again where it now belongs.
     Theme:WindowArt(m)
+    -- The words stand on the same plate as every other window; fillHelp sizes the sheet and fits it again.
+    Theme:Plate(m)
     m:SetClampedToScreen(true)
     m:EnableMouse(true)
     m:SetMovable(true)
@@ -357,6 +359,7 @@ function factories.catlisthelp(env)
     m.bar:SetPoint("TOPRIGHT", -pad, -barTop)
     m.bar:SetPoint("BOTTOMRIGHT", -pad, pad)
     ns.SnapSize(m, width, scTop + listH + pad)
+    Theme:FitPlateOf(m)
     -- Showing is what places it: OnShow re-applies the spot the anchor above wrote, so a sheet already open
     -- keeps the place it has and only a fresh open reads the button again.
     m:Show()

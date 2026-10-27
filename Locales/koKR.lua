@@ -275,7 +275,7 @@ local STRINGS = {
   ["Pay with"] = "지불 수단",
   ["Plate opacity"] = "바탕 투명도",
   ["Transparency"] = "투명도",
-  ["See-through windows. Settings stay solid."] = "반투명 창. 설정 창은 불투명하게 유지됩니다.",
+  ["See-through windows."] = "반투명 창.",
   ["Bank slots per row"] = "은행 한 줄 칸 수",
   ["Warband slots per row"] = "전투부대 한 줄 칸 수",
   ["Guild bank slots per row"] = "가로 칸 수 (길드 은행)",
@@ -744,6 +744,8 @@ local STRINGS = {
   ["Tracked"] = "추적 중",
   ["Tracked in the character panel"] = "캐릭터 창에서 추적 중",
   ["Open the transfer window"] = "이전 창을 엽니다",
+  ["Two recent rows"] = "최근 아이템 두 줄",
+  ["A second row of recent items in the pocket, so a narrow pocket still has room. Off leaves one row."] = "좁은 주머니에도 자리가 있도록 최근 아이템을 한 줄 더 표시합니다. 끄면 한 줄만 표시합니다.",
 }
 
 ns.AddLocale("koKR", "Korean", {

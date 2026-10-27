@@ -1420,13 +1420,15 @@ function ns.FitMarkArrow(host)
   local bw = math.max(8, math.floor(w / u + 0.5))
   local bh = math.max(8, math.floor(h / u + 0.5))
 
-  local headW = evenCount(bw * 0.34, 6)
+  -- A per-button scale changes only the mark, not its hit box or the other arrows.
+  local scale = host.wpeArrowScale or 1
+  local headW = evenCount(bw * 0.34 * scale, 6)
   if headW > bw - 2 then headW = headW - 2 end
   local rows = headW / 2                         -- widths 2,4,...,headW over `rows` rows -> 45-degree sides
-  local height = evenCount(bh * 0.40, rows + 2)  -- total height, floored so a little stem always clears the head
+  local height = evenCount(bh * 0.40 * scale, rows + 2)  -- total height, floored so a little stem always clears the head
   if height > bh - 2 then height = height - 2 end
   local halfH = height / 2
-  local stemW = evenCount(bw * 0.14, 2)
+  local stemW = evenCount(bw * 0.14 * scale, 2)
 
   local shiftX = (bw % 2 == 0) and 0 or 0.5
   local shiftY = (bh % 2 == 0) and 0 or 0.5
