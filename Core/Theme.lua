@@ -769,6 +769,15 @@ local tracked = setmetatable({}, { __mode = "k" })
 local function track(obj, fn) tracked[obj] = fn; return obj end
 Theme.Track = function(_, obj, fn) return track(obj, fn) end
 
+-- Three lists, one per thing the theme has to reach after the fact.
+-- WINDOWS holds every window the addon draws, so the transparency option reaches a window built after its
+-- last pass as well as the ones that stood when it ran; ART_FRAMES holds the windows a skin has drawn art
+-- for, which is also the only kind whose art may be built lazily; PLATES holds the plate each window stands
+-- its items on, so the plate option is one walk rather than a call per window.
+local WINDOWS = setmetatable({}, { __mode = "k" })
+local ART_FRAMES = setmetatable({}, { __mode = "k" })
+local PLATES = setmetatable({}, { __mode = "k" })
+
 function Theme:Restyle(name)
   self:Apply(name)
   for obj, fn in pairs(tracked) do ns.Guard("theme paint", fn, obj) end
@@ -795,7 +804,8 @@ function Theme:GridAlpha()
   return a
 end
 
--- Whole-window transparency, one value for every window but the settings.
+-- Whole-window transparency, one value for every window the addon draws. The settings, the profiles panel and
+-- the two pickers stay solid -- see windowAlphaOf below -- since they are the addon's own control panels.
 function Theme:WindowAlpha()
   local v = WarpeeDB and tonumber(WarpeeDB.transparency) or 0
   if v < 0 then v = 0 elseif v > 1 then v = 1 end
@@ -822,12 +832,23 @@ local PLATE_SUBLEVEL = 2
 function Theme:PlateTop(frame)
   local def = self:SkinDef()
   if not def then return 0 end
+  -- Only a window that draws a band keeps the room for it. A guest never draws one: the guild bank is the
+  -- game's own frame, and the skin lays its art over it but no header (HeaderBand answers no guest). Held
+  -- down by the measurement anyway, the plate stopped short of the top and left the window's own surface
+  -- standing above it -- a second tone over a window that has to read as one.
+  if frame and frame.wpeGuest then return 0 end
   -- The band is measured, not guessed: a window hands its own height to HeaderBand when it draws one,
   -- and the plate has to stop under the hairline that closes it off.
   if def.band then
+    -- A window whose art was never built draws no band either, so there is nothing to stop under.
+    if frame and not frame.wpeArt then return 0 end
     local h = (frame and frame.wpeBandH) or def.band
     return h + (frame and ns.PX(frame) or 0)
   end
+  -- A skin that keeps no band keeps its title strip only where it draws that art. A window whose art was
+  -- never built has no strip standing at its top, so a plate held down by the measurement would leave a
+  -- band of the window's own background over it -- a second tone where it reads as one surface.
+  if frame and not frame.wpeArt then return 0 end
   return def.inset or 0
 end
 
@@ -859,13 +880,26 @@ local function surfaceInsets(frame, host, declared)
   return edge(bl - fl), edge((fl + fw) - (bl + bw)), edge(bb - fb)
 end
 
+-- A window that stays solid ignores the transparency. The settings, the profiles panel and the two pickers
+-- are the addon's own control surfaces: the pass below fades a window's own surface but not the tabs, rows,
+-- fields and buttons standing on it, so on them it left solid pieces on a see-through body -- worse than
+-- either extreme, and the settings is the window the slider itself lives in. The settings and the profiles
+-- panel ask for no plate either: the plate is the surface behind the items, and there are none there. The
+-- two pickers keep theirs, since their rows stand on it.
+local function windowAlphaOf(frame)
+  if frame and frame.wpeSolid then return 1 end
+  return Theme:WindowAlpha()
+end
+
 -- Fits one window's plate and hands it the current opacity, so where the plate reaches and how
 -- solid it is can never drift apart. The art of a skin is built lazily, so it is asked for here the
 -- same way Theme:WindowArt asks for it.
 function Theme:FitPlate(plate, frame)
   if not (plate and frame) then return end
   local def = self:SkinDef()
-  if def and not frame.wpeArt and self.RefreshArt then self:RefreshArt(frame) end
+  -- Asked for only where the window's art is the theme's to build: a guest the skin does not dress with art
+  -- of its own (the guild bank) must never have a window art dropped over the game's frame.
+  if def and not frame.wpeArt and ART_FRAMES[frame] and self.RefreshArt then self:RefreshArt(frame) end
   local host = (def and frame.wpeArt) or frame
   local onArt = host ~= frame
   if plate:GetParent() ~= host then plate:SetParent(host) end
@@ -874,15 +908,57 @@ function Theme:FitPlate(plate, frame)
   plate:ClearAllPoints()
   plate:SetPoint("TOPLEFT", frame, "TOPLEFT", left, -self:PlateTop(frame))
   plate:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -right, bottom)
-  plate:SetAlpha(self:GridAlpha() * self:WindowAlpha())
+  plate:SetAlpha(self:GridAlpha() * windowAlphaOf(frame))
+end
+
+-- A plate a window hands in: the bags, the bank and the pocket lay theirs out with the grid and hand it in
+-- here, so the two options below reach it without those three having to know about the slider at all. The
+-- plate is fitted again whenever its window comes up: a window that sizes itself while hidden has no edges
+-- to measure until then, and a spot measured on the old size leaves the surface short of the border.
+function Theme:TrackPlate(frame, plate)
+  if not (frame and plate) then return end
+  PLATES[frame] = plate
+  frame.wpePlate = plate
+  if not frame.wpePlateHook and frame.HookScript then
+    frame.wpePlateHook = true
+    frame:HookScript("OnShow", function(s) Theme:FitPlateOf(s) end)
+  end
+  return plate
+end
+
+-- A plate for a window with no grid of its own: the bag-slots window, the search-words sheet, the two side
+-- panels (the character and currency pickers) and the guild bank. Called after the window's own Panel and
+-- art, so the plate knows which of them it rides. The settings and the profiles panel are not here: they are control panels with no
+-- items to stand on a plate.
+function Theme:Plate(frame)
+  if not frame then return nil end
+  local plate = PLATES[frame]
+  if plate then return plate end
+  plate = self:Rect(frame, "panel", "BACKGROUND")
+  plate:SetDrawLayer("BACKGROUND", 1)
+  self:TrackPlate(frame, plate)
+  self:FitPlate(plate, frame)
+  return plate
+end
+
+-- The plate of one window back over the surface it stands on. A window calls this after it has sized
+-- itself; the OnShow hook above is the other way in.
+function Theme:FitPlateOf(frame)
+  local plate = frame and PLATES[frame]
+  if plate then self:FitPlate(plate, frame) end
+  return plate
 end
 
 function Theme:ApplyGridAlpha()
-  local a = self:GridAlpha() * self:WindowAlpha()
-  local B, K, P = ns.Bags, ns.Bank, ns.Pocket
-  if B and B.gridBg then B.gridBg:SetAlpha(a) end
-  if K and K.gridBg then K.gridBg:SetAlpha(a) end
-  if P and P.gridBg then P.gridBg:SetAlpha(a) end
+  -- Every plate in the addon from one list, so a window that is not a grid of cells is covered as well as
+  -- the three that are. A plate riding a skin's art has to be moved with the art it stands on, and only the
+  -- window can say where that is: a shown window is fitted here, a hidden one lays itself out, plate
+  -- included, on its next show.
+  for frame, plate in pairs(PLATES) do
+    if frame:IsShown() then self:FitPlate(plate, frame)
+    else plate:SetAlpha(self:GridAlpha() * windowAlphaOf(frame)) end
+  end
+  local P = ns.Pocket
   -- Which frame the plate rides follows the theme as well, and only the window can lay it out. The
   -- bags and the bank re-lay themselves on a restyle and pick it up there; the pocket has no restyle
   -- pass and would keep the art frame of the theme just left -- which the switch itself tears down,
@@ -895,26 +971,34 @@ function Theme:ApplyGridAlpha()
   self.plateSkin = self.skin
 end
 
-function Theme:ApplyWindowAlpha()
-  local a = self:WindowAlpha()
-  local function apply(frame)
-    if not frame then return end
-    frame.wpeWinA = a
-    local art = frame.wpeArt
-    if art and art.SetAlpha then art:SetAlpha(a) end
-    local bg = frame.wpeBg
-    if bg and bg[4] ~= nil and frame.SetBackdropColor then
-      frame:SetBackdropColor(bg[1], bg[2], bg[3], bg[4] * a)
-    end
-    local ed = frame.wpeEdge
-    if ed and frame.SetBackdropBorderColor then
-      frame:SetBackdropBorderColor(ed[1], ed[2], ed[3], (ed[4] ~= nil and a ~= 1) and (ed[4] * a) or ed[4])
-    end
+-- One window's surface at the transparency in force: its own background, its border, and the art a skin
+-- draws for it. The value is kept on the frame because ns.SetBg and ns.SetEdge multiply by it, so a colour
+-- painted after this pass -- a theme switch, a slider move -- comes out at the same transparency instead of
+-- going solid again.
+local function applyWindowAlpha(frame)
+  if not frame then return end
+  local a = windowAlphaOf(frame)
+  frame.wpeWinA = a
+  local art = frame.wpeArt
+  if art and art.SetAlpha then art:SetAlpha(a) end
+  local bg = frame.wpeBg
+  if bg and bg[4] ~= nil and frame.SetBackdropColor then
+    frame:SetBackdropColor(bg[1], bg[2], bg[3], bg[4] * a)
   end
-  local B, K, P = ns.Bags, ns.Bank, ns.Pocket
-  if B then apply(B.frame); apply(B.bagWindow) end
-  if K then apply(K.frame) end
-  if P then apply(P.frame) end
+  local ed = frame.wpeEdge
+  if ed and frame.SetBackdropBorderColor then
+    frame:SetBackdropBorderColor(ed[1], ed[2], ed[3], (ed[4] ~= nil and a ~= 1) and (ed[4] * a) or ed[4])
+  end
+end
+
+function Theme:ApplyWindowAlpha()
+  -- Every window the addon draws, from one list: the bags, the bank, the pocket, the bag-slots window and the
+  -- search-words sheet fade; the settings, the profiles panel and the two side panels are in the list too,
+  -- kept solid by the flag they carry. The guild bank is the game's own frame and is handed in by its skin, so
+  -- it is asked for here by name.
+  for frame in pairs(WINDOWS) do applyWindowAlpha(frame) end
+  applyWindowAlpha(_G.GuildBankFrame)
+  local B, K = ns.Bags, ns.Bank
   local function repaintHoles(pool)
     if not pool then return end
     for i = 1, #pool do
@@ -926,11 +1010,12 @@ function Theme:ApplyWindowAlpha()
   if K and K.state then
     for _, st in pairs(K.state) do repaintHoles(st.catHoles); repaintHoles(st.tHoles) end
   end
-  apply(_G.GuildBankFrame)
-  local ga = self:GridAlpha() * a
-  if B and B.gridBg then B.gridBg:SetAlpha(ga) end
-  if K and K.gridBg then K.gridBg:SetAlpha(ga) end
-  if P and P.gridBg then P.gridBg:SetAlpha(ga) end
+  -- The plates follow both options, so the same walk is made here: a plate left at the surface it had before
+  -- the slider moved would read as a rectangle of the old density inside a window that has gone see-through.
+  for frame, plate in pairs(PLATES) do
+    if frame:IsShown() then self:FitPlate(plate, frame)
+    else plate:SetAlpha(self:GridAlpha() * windowAlphaOf(frame)) end
+  end
 end
 
 -- Escape is the game's own key, not ours. A named frame only has to sit in
@@ -1057,7 +1142,6 @@ local ART_TEMPLATE = "DefaultPanelTemplate"
 local ART_FALLBACK = "PortraitFrameTemplate"
 local ART_HIDE = { "CloseButton", "PortraitContainer", "portrait", "PortraitFrame",
                    "Portrait", "TopTileStreaks", "Inset", "TitleBg" }
-local ART_FRAMES = setmetatable({}, { __mode = "k" })
 
 local function nineSlice(base)
   local function corner(name)
@@ -1299,8 +1383,13 @@ end
 
 function Theme:WindowArt(frame)
   ART_FRAMES[frame] = true
+  -- Registered on the way in: this is the one seam every window the addon draws goes through, the three
+  -- grids and the bag-slots window included, so the transparency option can reach a window that was built
+  -- after its last pass. The pass is applied straight away, so a window opens at the slider's own value.
+  WINDOWS[frame] = true
   local fn = tracked[frame]
   if fn then fn(frame) else self:RefreshArt(frame) end
+  applyWindowAlpha(frame)
   return frame
 end
 

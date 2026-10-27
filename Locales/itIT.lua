@@ -300,7 +300,7 @@ local STRINGS = {
   ["Pay with"] = "Pagare con",
   ["Plate opacity"] = "Opacità dello sfondo",
   ["Transparency"] = "Trasparenza",
-  ["See-through windows. Settings stay solid."] = "Finestre traslucide. Le impostazioni restano opache.",
+  ["See-through windows."] = "Finestre traslucide.",
   ["Bank slots per row"] = "Scomparti per riga (banca)",
   ["Warband slots per row"] = "Scomparti per riga (Brigata)",
   ["Guild bank slots per row"] = "Scomparti per riga (banca di gilda)",
@@ -793,6 +793,8 @@ local STRINGS = {
   ["Tracked"] = "Seguite",
   ["Tracked in the character panel"] = "Seguita nella finestra del personaggio",
   ["Open the transfer window"] = "Apre la finestra di trasferimento",
+  ["Two recent rows"] = "Due righe dei recenti",
+  ["A second row of recent items in the pocket, so a narrow pocket still has room. Off leaves one row."] = "Una seconda riga di oggetti recenti nella tasca, così anche una tasca stretta ha spazio. Disattivato lascia una riga.",
 }
 
 ns.AddLocale("itIT", "Italian", {

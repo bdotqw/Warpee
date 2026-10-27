@@ -271,7 +271,7 @@ local STRINGS = {
   ["Pay with"] = "支付方式",
   ["Plate opacity"] = "底板透明度",
   ["Transparency"] = "透明度",
-  ["See-through windows. Settings stay solid."] = "半透明視窗。設定視窗保持不透明。",
+  ["See-through windows."] = "半透明視窗。",
   ["Bank slots per row"] = "銀行每行格子數",
   ["Warband slots per row"] = "戰隊銀行每行格子數",
   ["Guild bank slots per row"] = "每列格數（公會銀行）",
@@ -740,6 +740,8 @@ local STRINGS = {
   ["Tracked"] = "已追蹤",
   ["Tracked in the character panel"] = "已在角色視窗中追蹤",
   ["Open the transfer window"] = "開啟轉移視窗",
+  ["Two recent rows"] = "兩列最近物品",
+  ["A second row of recent items in the pocket, so a narrow pocket still has room. Off leaves one row."] = "在口袋中多顯示一列最近物品，讓狹窄的口袋也有位置。關閉後只顯示一列。",
 }
 
 ns.AddLocale("zhTW", "Chinese (Traditional)", {

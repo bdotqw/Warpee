@@ -477,7 +477,7 @@ function Fav:Warm()
   if InCombatLockdown() then self.cold = true; return end
   for i = 1, MAX_SLOTS do
     if not self.slots[i] then
-      local b = ns.CreateItemButton(frame, 0, 1)
+      local b = ns.CreateBagItemButton(frame)
       b:RegisterForClicks(unpack(ns.CLICKS_USE))
       b:RegisterForDrag()
       b.wpeClicks, b.wpeLockable, b.wpeTotal = ns.CLICKS_USE, nil, true

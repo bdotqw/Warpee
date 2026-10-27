@@ -371,7 +371,7 @@ local STRINGS = {
   ["Pay with"] = "Источник оплаты",
   ["Plate opacity"] = "Плотность подложки",
   ["Transparency"] = "Прозрачность",
-  ["See-through windows. Settings stay solid."] = "Прозрачные окна. Настройки остаются непрозрачными.",
+  ["See-through windows."] = "Прозрачные окна.",
   ["Bank slots per row"] = "Ячеек в ряду (банк)",
   ["Warband slots per row"] = "Ячеек в ряду (банк отряда)",
   ["Guild bank slots per row"] = "Ячеек в ряду (банк гильдии)",
@@ -852,6 +852,8 @@ local STRINGS = {
   ["Transferable currencies only"] = "Только переносимые валюты",
   ["Tracked"] = "Отслеживаемые",
   ["Open the transfer window"] = "Открыть окно передачи",
+  ["Two recent rows"] = "Два ряда недавних",
+  ["A second row of recent items in the pocket, so a narrow pocket still has room. Off leaves one row."] = "Второй ряд недавних предметов в кармане, чтобы место было и в узком кармане. Выключено — один ряд.",
 }
 
 ns.AddLocale("ruRU", "Russian", {

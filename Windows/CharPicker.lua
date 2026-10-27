@@ -56,7 +56,13 @@ function Picker:Build()
   Theme:Panel(m, bgKey, "stroke")
   m:SetFrameStrata("MEDIUM")
   m:SetToplevel(true)
+  -- Solid like the settings: this is a chooser read as rows of names, and every row is a strip of its own
+  -- (Picker:Row) that the transparency pass cannot reach -- a faded body would leave those strips standing
+  -- alone over the world, and the filter box and buttons with them. The plate stays: the rows stand on it.
+  m.wpeSolid = true
   Theme:WindowArt(m)
+  -- The list stands on the same plate as every other window; Paint sizes it and fits the plate again.
+  Theme:Plate(m)
   m:EnableMouse(true)
   m:SetClampedToScreen(true)
   ns.EscClose(m)
@@ -282,6 +288,7 @@ function Picker:Paint(keepScroll)
   local bodyH = math.max(ROW_H, math.min(y, MAX_ROWS * ROW_H, maxRows * ROW_H))
   if self.capH then bodyH = math.min(bodyH, self.capH) end
   ns.SnapSize(self.frame, widest + PAD * 2 + wide + BAR_W + 2, PAD * 2 + HEAD_H + bodyH + drop)
+  Theme:FitPlateOf(self.frame)
   self.child:SetSize(widest + wide, math.max(1, y))
   local span = math.max(0, y - bodyH)
   self.sf:SetVerticalScroll(math.min(span, math.max(0, scroll)))

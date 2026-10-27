@@ -30,7 +30,7 @@ local DEFAULTS = {
   -- Whether a block carries its bag's or tab's name over its cells.
   nameBags = true, nameBank = true, nameWb = true,
   pocketShow = true, pocketWithBags = false, pocketHandOnly = false, pocketRows = 4, pocketCols = 6,
-  pocketSnap = true,
+  pocketSnap = true, pocketRecentTwo = true,
   -- A size of the pocket's own. NONE -- "no number of its own, read the bags' size on every pass" --
   -- would make resizing the bags drag the pocket along, and a profile would never carry the size,
   -- since only keys with a default are copied into one. A save with no number takes the bags' size

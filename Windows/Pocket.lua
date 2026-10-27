@@ -9,7 +9,11 @@ Pocket.recSlots, Pocket.recGhosts = {}, {}
 
 local PAD, BAND = 12, 26
 local NUDGE_BAND = 24
-local LABEL_H, LABEL_GAP, SPLIT = 13, 4, 10
+local LABEL_H, LABEL_GAP = 13, 4
+-- The hairline that seams the recent block off from the pins: one pixel of accent with the same room
+-- above and below it, so it reads as the seam between two blocks and not as a box around the cells.
+local SEP_H, SEP_GAP = 1, 6
+local SPLIT = SEP_GAP * 2 + SEP_H
 local BOX_H, BOX_GAP = 22, 8
 local MAX_COLS, MAX_ROWS = 8, 6
 local PICK_MAX, PICK_COLS = 64, 8
@@ -117,6 +121,7 @@ end
 local setLock = ns.Setting("pocketLock", function() Pocket:Refresh() end)
 local setRows = ns.Setting("pocketRows", function() Pocket:Refresh() end)
 local setCols = ns.Setting("pocketCols", function() Pocket:Refresh() end)
+local setRecentTwo = ns.Setting("pocketRecentTwo", function() Pocket:Refresh() end)
 local setSize = ns.Setting("pocketIconSize", function()
   ns.BumpCellSize()
   Pocket:Refresh()
@@ -125,6 +130,9 @@ end)
 function Pocket:SetLock(value) setLock(value and true or false) end
 function Pocket:SetRows(value) setRows(tonumber(value) or 5) end
 function Pocket:SetCols(value) setCols(tonumber(value) or 6) end
+function Pocket:SetRecentTwo(value)
+  setRecentTwo(value and true or false)
+end
 function Pocket:SetIconSize(value) setSize(tonumber(value) or ns.PocketIconSize()) end
 
 -- The lock button takes the same pass the options row does, which also repaints the picks list when it
@@ -141,6 +149,16 @@ end
 function Pocket:Rows()
   local n = math.floor(tonumber(WarpeeDB and WarpeeDB.pocketRows) or 5)
   return math.max(1, math.min(MAX_ROWS, n))
+end
+
+function Pocket:RecentRows()
+  local db = WarpeeDB
+  if db and db.pocketRecentTwo == false then return 1 end
+  return 2
+end
+
+function Pocket:RecentCount()
+  return self:Cols() * self:RecentRows()
 end
 
 function Pocket:Count()
@@ -597,6 +615,8 @@ function Pocket:Build()
   local gridBg = Theme:Rect(w, "panel", "BACKGROUND")
   gridBg:SetDrawLayer("BACKGROUND", 1)
   self.gridBg = gridBg
+  -- The plate is handed to the theme, which fits and fades it from its own lists.
+  Theme:TrackPlate(w, gridBg)
   w:SetClampedToScreen(true)
   w:SetMovable(true)
   w:EnableMouse(true)
@@ -677,6 +697,16 @@ function Pocket:Build()
   end)
   clr:Hide()
   self.recWipe = clr
+
+  -- One accent under the whole Recent block instead of a mark on every cell: two rows of marks read as
+  -- a ladder of stripes down the window, and the block is what they were meant to distinguish. The colour
+  -- is painted here as well as tracked: a window built after the theme's last pass would otherwise keep
+  -- the white it was born with until something asked for a restyle.
+  local recLine = w:CreateTexture(nil, "ARTWORK", nil, 5)
+  recLine:SetColorTexture(Theme:C("accent"))
+  Theme:Track(recLine, function(t) t:SetColorTexture(Theme:C("accent")) end)
+  recLine:Hide()
+  self.recLine = recLine
 
   local picks = CreateFrame("Frame", "WarpeePocketPicks", UIParent, "BackdropTemplate")
   Theme:Panel(picks, "bg", "stroke")
@@ -784,7 +814,7 @@ function Pocket:Warm()
   local n = self:Count()
   for i = 1, n do
     if not self.slots[i] then
-      local b = ns.CreateItemButton(w, 0, 1)
+      local b = ns.CreateBagItemButton(w)
       b:RegisterForClicks(unpack(ns.CLICKS_USE))
       b:RegisterForDrag()
       b.wpeClicks, b.wpeLockable, b.wpeTotal = ns.CLICKS_USE, nil, true
@@ -803,23 +833,24 @@ function Pocket:Warm()
       self.catchers[i] = c
     end
   end
-  local m = self:Cols()
+  local m = self:RecentCount()
   for i = 1, m do
     if not self.recSlots[i] then
       -- The same cells the bag row draws, and the pocket had them a button short of
       -- it: the factory registers both mouse buttons and the drag, and this row wants
       -- all three now that the cell answers for itself.
-      local b = ns.CreateItemButton(w, 0, 1)
+      local b = ns.CreateBagItemButton(w)
       b.wpeClicks, b.wpeLockable, b.wpeTotal = ns.CLICKS_SLOT, nil, nil
       b.wpeNoNew, b.wpeNoReagent = true, true
       b.holder:Hide()
       self.recSlots[i] = b
     end
     if not self.recGhosts[i] then
+      -- No per-cell accent here: the block wears one line under itself (Layout), because a mark on
+      -- every cell turned into a ladder of stripes as soon as the pocket held two rows.
       local g = ns.SlotGhost(w)
       ns.ShowMark(g, false)
       g.icon:Hide()
-      ns.RecMark(g)
       g:Hide()
       self.recGhosts[i] = g
     end
@@ -835,6 +866,24 @@ function Pocket:Flush()
   self:Refresh()
 end
 
+function Pocket:ApplySearch()
+  if not (self.frame and self.frame:IsShown()) then return end
+  local bags = ns.Bags
+  if not (bags and bags.ApplyToButton) then return end
+  local filters = bags.frame and bags.frame:IsShown() and not bags.snap and bags.filters or nil
+  for _, slots in ipairs({ self.slots, self.recSlots }) do
+    for _, b in ipairs(slots) do
+      if b.pkBag and b.holder:IsShown() then bags:ApplyToButton(b, filters, true) end
+    end
+  end
+  local alpha = (filters and not filters.empty) and 0.20 or 1
+  for _, ghosts in ipairs({ self.ghosts, self.recGhosts }) do
+    for _, g in ipairs(ghosts) do
+      if g:IsShown() then g:SetAlpha(alpha) end
+    end
+  end
+end
+
 function Pocket:Layout()
   local w = self.frame
   if not w then return end
@@ -843,8 +892,9 @@ function Pocket:Layout()
   local Bags = ns.Bags
   local size, gap, step = ns.GridMetrics(w, ns.PocketIconSize(), Bags and Bags.gap or 4)
   local cols, rows = self:Cols(), self:Rows()
+  local recRows, recCount = self:RecentRows(), self:RecentCount()
   local n = cols * rows
-  if (self.warmed or 0) < n or (self.recWarmed or 0) < cols then self:Warm() end
+  if (self.warmed or 0) < n or (self.recWarmed or 0) < recCount then self:Warm() end
   local band = Theme:HeaderBand(w, BAND)
   local head = band and (band + 6) or (30 + Theme:TopInset())
   local mid = (band or head) / 2 + Theme:TitleDrop()
@@ -902,19 +952,20 @@ function Pocket:Layout()
     self.recLabel:Show()
     local capY = y
     y = y + LABEL_H + LABEL_GAP
-    local feed = R:Feed(cols)
+    local feed = R:Feed(recCount)
     self.recWipe.Text:SetFont(path, FONT - 5, ns.OutlineFlags())
     self.recWipe:SetSize(math.ceil(self.recWipe.Text:GetStringWidth()) + 8, LABEL_H)
     self.recWipe:ClearAllPoints()
     ns.SnapPoint(self.recWipe, "TOPLEFT", w, "TOPLEFT",
                  PAD + math.ceil(self.recLabel:GetStringWidth()) + 10, -capY)
-    self.recWipe:SetOn(feed[1] and true or false)
+    self.recWipe:SetOn(next(feed) ~= nil)
     self.recWipe:Show()
-    for i = 1, math.max(cols, self.recMax or 0) do
+    for i = 1, math.max(recCount, self.recMax or 0) do
       local b, g = self.recSlots[i], self.recGhosts[i]
       if b then b.wpeCell = size end
       if g then g.wpeCell = size end
-      local id = (i <= cols) and feed[i] or nil
+      local id = (i <= recCount) and feed[i] or nil
+      local px, py = Layout.Point(i, cols, PAD, y, step)
       local bag, slot = R:Where(id)
       if id and bag and not b then self.cold = true end
       local live = (id and bag and b) and true or false
@@ -928,7 +979,7 @@ function Pocket:Layout()
         local h = b.holder
         ns.SnapSize(h, size, size)
         h:ClearAllPoints()
-        ns.SnapPoint(h, "TOPLEFT", w, "TOPLEFT", PAD + (i - 1) * step, -y)
+        ns.SnapPoint(h, "TOPLEFT", w, "TOPLEFT", px, -py)
         h:Show(); b:Show()
         b.wpeForce = R:Got(id)
         if repaint then b.link = nil end
@@ -936,10 +987,10 @@ function Pocket:Layout()
         if g then g:Hide() end
       else
         if b then b.holder:Hide(); b.pkBag, b.wpeForce = nil, nil end
-        if g and i <= cols then
+        if g and i <= recCount then
           ns.SnapBox(g, size, size)
           g:ClearAllPoints()
-          ns.SnapPoint(g, "TOPLEFT", w, "TOPLEFT", PAD + (i - 1) * step, -y)
+          ns.SnapPoint(g, "TOPLEFT", w, "TOPLEFT", px, -py)
           ns.PaintGhostBg(g)
           g:Show()
         elseif g then
@@ -947,11 +998,21 @@ function Pocket:Layout()
         end
       end
     end
-    self.recMax = cols
-    y = y + size + SPLIT
+    self.recMax = recCount
+    local blockBottom = y + Layout.GridHeight(recRows, step, size)
+    local line = self.recLine
+    if line then
+      ns.PixelLine(line, SEP_H)
+      line:ClearAllPoints()
+      ns.SnapPoint(line, "TOPLEFT", w, "TOPLEFT", PAD, -(blockBottom + SEP_GAP))
+      ns.SnapPoint(line, "TOPRIGHT", w, "TOPRIGHT", -PAD, -(blockBottom + SEP_GAP))
+      line:Show()
+    end
+    y = blockBottom + SPLIT
   else
     self.recLabel:Hide()
     self.recWipe:Hide()
+    if self.recLine then self.recLine:Hide() end
     for i = 1, (self.recMax or 0) do
       local b, g = self.recSlots[i], self.recGhosts[i]
       if b then b.holder:Hide(); b.pkBag, b.wpeForce = nil, nil end
@@ -1021,6 +1082,7 @@ function Pocket:Layout()
     end
   end
   self.max = n
+  self:ApplySearch()
   self:Cooldowns()
   -- The band under the arrows is reserved whether they are up or not. Locking a window is not
   -- a resize, so dropping the band would move everything in it; only the arrows themselves come
@@ -1167,6 +1229,7 @@ function Pocket:Open()
   WarpeeDB.pocketOpen = true
   self:Layout()
   w:Show()
+  self:ApplySearch()
   Theme:Raise(w)
   -- Layout runs before the frame is shown, so its cooldown pass sees nothing visible.
   -- One pass after Show picks up a cooldown that started while the window was closed.

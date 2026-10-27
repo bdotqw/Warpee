@@ -639,6 +639,11 @@ function Options:Build()
   local f = CreateFrame("Frame", "WarpeeOptionsFrame", UIParent, "BackdropTemplate")
   f:Hide()
   Theme:Panel(f, "bg", "stroke", true)
+  -- The settings stays solid whatever the transparency says: this is the window the slider itself lives in,
+  -- and the pass fades a window's own surface but not the tabs and fields standing on it, so a see-through
+  -- settings would be solid controls on a missing body. It asks for no plate either: there are no items
+  -- under one here.
+  f.wpeSolid = true
   ns.SnapBox(f, WIN_W, math.min(WIN_H, UIParent:GetHeight() - 60), true)
   f:SetClampedToScreen(true)
   f:SetMovable(true)

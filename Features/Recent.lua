@@ -9,6 +9,7 @@ local MAX_SLOTS = 24
 local SETTLE = 5
 
 local cells, seq, known, got, base = {}, {}, {}, {}, {}
+local bagView, pocketView = { cells = {} }, { cells = {} }
 local missed, guidMiss, cellMiss = {}, {}, {}
 local locBag, locSlot = {}, {}
 local poor = {}
@@ -114,9 +115,14 @@ local function equipped(id)
   return (f and f(id)) and true or false
 end
 
-local function capacity()
+local function bagCapacity()
   local c = math.floor(tonumber(ns.Bags and ns.Bags.cols) or 14)
   return math.max(1, math.min(c, MAX_SLOTS))
+end
+local function capacity()
+  local pocket = ns.Pocket
+  local n = pocket and pocket.RecentCount and pocket:RecentCount() or 0
+  return math.max(bagCapacity(), math.min(n, MAX_SLOTS))
 end
 local function scanBag(bag, counts)
   for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
@@ -180,115 +186,44 @@ local function mark(id, delta, total)
   got[id] = delta
 end
 
--- A cell that lost its item is held empty for HOLD seconds before the row closes up. The bags row is
--- clicked as a strip: a piece used, sold or handed to a banker vanishes under the hand, and a row that
--- closes in that same frame puts the next piece under the cursor. The grouped view holds its holes for
--- the same reason and on a much longer clock, because a piece there can come back from the bank; in
--- Recent nothing comes back, so this is only about the hand, and two seconds is long enough for the
--- second click of a pair and short enough not to hold a cell the row could be using. Both windows read
--- one list, so the hold is set here once and the pocket inherits it: its Feed sees the hole in the list
--- and leaves the cell standing until the same compaction closes both.
-local HOLD = 2
-
--- A hole is a table in the cell: the piece is gone, its key is freed exactly as a plain removal freed
--- it (so the same item coming back is listed afresh), and the empty cell carries the order it had and
--- the moment it emptied. `seq` is read by Feed, `at` by compact.
-local function ord(c)
-  if type(c) == "table" then return c.seq or 0 end
-  return seq[c] or 0
-end
-
-local closeAt
--- `at` is the moment the row should close, not a delay: a rebuild can leave a younger hole behind, and
--- its own deadline is what has to be armed next, or that cell would never close at all.
-local function closeSoon(at)
-  if closeAt and closeAt <= at then return end
-  closeAt = at
-  -- The hold has to end by itself: nothing else arrives to close the row in a quiet moment, and an empty
-  -- cell standing past its hold reads as a slot that is really there. The layout is idempotent, so a pass
-  -- that finds the row already closed costs nothing.
-  C_Timer.After(math.max(0, at - GetTime()) + 0.05, function()
-    closeAt = nil
-    Rec:Refresh()
-  end)
-end
-
 local function hole(i, key)
-  local s, t = seq[key] or 0, GetTime()
-  cells[i] = { hole = true, id = key, seq = s, at = t }
+  cells[i] = nil
   seq[key], got[key], base[key] = nil, nil, nil
   cellMiss[key], missed[key] = nil, nil
-  closeSoon(t + HOLD)
 end
 
 local function add(key, n, delta, total)
   if seq[key] then return end
   counter = counter + 1
-  -- A piece that comes back into the bags takes its own hole back instead of gaining a second cell: the
-  -- hole is the place it left, and the pocket reads the list by order, not by index, so restoring it
-  -- there is the same move in both windows.
+  local target, age
   for i = 1, n do
     local c = cells[i]
-    if type(c) == "table" and c.id == key then
-      cells[i], seq[key] = key, counter
-      if delta then mark(key, delta, total) end
-      return
-    end
+    if not c then target = i; break end
+    if not age or seq[c] < age then target, age = i, seq[c] end
   end
-  for i = 1, n do
-    if not cells[i] then
-      cells[i], seq[key] = key, counter
-      if delta then mark(key, delta, total) end
-      return
-    end
-  end
-  local worn, age
-  for i = 1, n do
-    local c = cells[i]
-    local s = ord(c)
-    if c and (not age or s < age) then worn, age = i, s end
-  end
-  if not worn then return end
-  local out = cells[worn]
-  if type(out) ~= "table" then seq[out], got[out], base[out] = nil, nil, nil end
-  cells[worn], seq[key] = key, counter
+  if not target then return end
+  local out = cells[target]
+  if out then seq[out], got[out], base[out] = nil, nil, nil end
+  cells[target], seq[key] = key, counter
   if delta then mark(key, delta, total) end
 end
 
+-- Resize the shared history only when capacity shrinks; a removal never compacts either view.
 local function compact(n)
-  local ids, over, stale, soonest, now = {}, false, false, nil, GetTime()
+  local ids, over = {}, false
   for i = 1, MAX_SLOTS do
-    local c = cells[i]
-    if c then
-      -- An expired hole is what makes the row close up; a young one takes its place in the rebuild like
-      -- any other cell, so the pieces after it do not move while it is held.
-      if type(c) == "table" and (now - (c.at or 0)) >= HOLD then stale = true
-      else
-        ids[#ids + 1] = c
-        if i > n then over = true end
-        if type(c) == "table" then
-          local at = (c.at or 0) + HOLD
-          if not soonest or at < soonest then soonest = at end
-        end
-      end
+    if cells[i] then
+      ids[#ids + 1] = cells[i]
+      if i > n then over = true end
     end
   end
-  -- A rebuild can drop one hole and leave a younger one standing; that one still has to close on its own
-  -- clock, so the next deadline is armed from what survived rather than from the call that made it.
-  if soonest then closeSoon(soonest) end
-  if not (over or stale or #ids > n) then return end
-  table.sort(ids, function(a, b) return ord(a) < ord(b) end)
-  for i = 1, MAX_SLOTS do cells[i] = nil end
+  if not over then return end
+  table.sort(ids, function(a, b) return seq[a] < seq[b] end)
+  wipe(cells)
   local cut = math.max(0, #ids - n)
-  for k = 1, #ids do
-    local c = ids[k]
-    if k <= cut then
-      -- A hole dropped by the cut was already freed when it was made; only a live key has anything to
-      -- forget, and it is the one the row pushed out.
-      if type(c) ~= "table" then seq[c], got[c], base[c] = nil, nil, nil end
-    else
-      cells[k - cut] = c
-    end
+  for i, key in ipairs(ids) do
+    if i <= cut then seq[key], got[key], base[key] = nil, nil, nil
+    else cells[i - cut] = key end
   end
 end
 
@@ -299,6 +234,37 @@ local function remove(id)
   seq[id], got[id], base[id] = nil, nil, nil
 end
 
+-- Slot order belongs to the window, not to arrival age: refilling one hole must not move its neighbours.
+local function viewFeed(view, n, refill)
+  local out, ids, selected = view.cells, {}, {}
+  n = math.max(1, math.min(MAX_SLOTS, math.floor(tonumber(n) or 1)))
+  compact(capacity())
+  for i = 1, MAX_SLOTS do
+    local key = cells[i]
+    if key and seq[key] then ids[#ids + 1] = key end
+  end
+  table.sort(ids, function(a, b) return seq[a] < seq[b] end)
+  local first = math.max(1, #ids - n + 1)
+  for i = first, #ids do selected[ids[i]] = true end
+  local taken = {}
+  for i = 1, MAX_SLOTS do
+    local key = out[i]
+    if i > n or (key and not selected[key]) then out[i] = nil
+    elseif key then taken[key] = true end
+  end
+  local nextSlot = 1
+  for i = first, #ids do
+    local key = ids[i]
+    if not taken[key] and (refill or view.seen == nil or seq[key] > view.seen or n ~= view.size) then
+      while nextSlot <= n and out[nextSlot] do nextSlot = nextSlot + 1 end
+      if nextSlot > n then break end
+      out[nextSlot], taken[key] = key, true
+    end
+  end
+  view.seen, view.size = counter, n
+  return out
+end
+
 local function prune(counts)
   -- Nothing is counted or dropped while the cursor carries an item. A picked-up item is in
   -- no bag at all until it lands, so every key reads as gone for the pass, and the row would
@@ -306,10 +272,7 @@ local function prune(counts)
   if GetCursorInfo() then return false end
   local fence = false
   for i = 1, MAX_SLOTS do
-    -- A hole is already decided: its piece left, and compact closes it once the hold runs out. Read as a
-    -- key it would miss every pass and keep re-making its own hole, pushing the hold out forever.
-    local c = cells[i]
-    local key = (type(c) ~= "table") and c or nil
+    local key = cells[i]
     local here = key and (type(key) == "string" and guidNow[key] or counts[key])
     if key and (not here or poor[key]) then
       -- Its own counter, not the one the known-item pass keeps: the two run over the same
@@ -506,7 +469,7 @@ function Rec:Warm()
     if not self.slots[i] then
       -- The registration and the drag come from the factory: the row wants exactly what the
       -- grid wants. wpeClicks has to say so, because the vendor lock re-registers from it.
-      local b = ns.CreateItemButton(frame, 0, 1)
+      local b = ns.CreateBagItemButton(frame)
       b.wpeClicks, b.wpeLockable, b.wpeTotal = ns.CLICKS_SLOT, nil, nil
       b.wpeNoNew, b.wpeNoReagent = true, true
       b.holder:Hide()
@@ -538,11 +501,8 @@ function Rec:Flush()
 end
 
 function Rec:Wipe()
-  for i = 1, MAX_SLOTS do
-    local c = cells[i]
-    if type(c) == "table" then cells[i] = nil
-    elseif c then seq[c], got[c], base[c] = nil, nil, nil; cells[i] = nil end
-  end
+  wipe(cells); wipe(seq); wipe(got); wipe(base)
+  wipe(bagView.cells); wipe(pocketView.cells)
   self:Refresh()
 end
 
@@ -563,25 +523,8 @@ function Rec:Height(size)
 end
 
 function Rec:Feed(n)
-  local out = {}
-  if not self:PocketOn() then return out end
-  -- The pocket can be the only window on screen, and compaction otherwise only runs from the bags' own
-  -- Apply: a held cell would stand there for the rest of the session. Cheap and idempotent, since it
-  -- returns immediately while nothing is over capacity and no hold has run out.
-  compact(capacity())
-  local ids = {}
-  for i = 1, MAX_SLOTS do
-    if cells[i] then ids[#ids + 1] = cells[i] end
-  end
-  -- Oldest first, the newest at the right, which is how the row reads in the bags: the two
-  -- windows show one list in one order, and only the window under it is different. Reading
-  -- this backwards is what put the newest at the left of the pocket while the bags put it
-  -- at the right.
-  table.sort(ids, function(a, b) return ord(a) < ord(b) end)
-  local cut = #ids - (tonumber(n) or 0)
-  if cut < 0 then cut = 0 end
-  for k = cut + 1, #ids do out[#out + 1] = ids[k] end
-  return out
+  if not self:PocketOn() then return {} end
+  return viewFeed(pocketView, n, true)
 end
 
 function Rec:Where(id)
@@ -616,8 +559,8 @@ function Rec:Apply(bags, x, top, size, gap)
   local frame = bags.frame
   local d = ns.Density(size)
   self.args = { bags = bags, x = x, top = top, size = size, gap = gap }
-  local n = capacity()
-  compact(n)
+  local n = bagCapacity()
+  local feed = viewFeed(bagView, n, false)
   if not self:BagsOn() then
     self:Hide()
     return 0
@@ -647,7 +590,7 @@ function Rec:Apply(bags, x, top, size, gap)
   local repaint = self.paintKey ~= gen
   self.paintKey = gen
   for i = 1, MAX_SLOTS do
-    local id = (i <= n) and cells[i] or nil
+    local id = (i <= n) and feed[i] or nil
     local bag, slot = id and locBag[id], id and locSlot[id]
     local b, g = self.slots[i], self.ghosts[i]
     local px = x + (i - 1) * (size + gap)
