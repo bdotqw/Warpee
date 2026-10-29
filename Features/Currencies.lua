@@ -262,7 +262,10 @@ end
 -- popup, and the popup's transfer toggle, which opens the menu -- both in the client's own, untainted
 -- context. The addon only names frames.
 local XFER_SOUNDS = { 567422, 567507, 567433 }   -- character info tab, open, close
-local XFER_TOKEN = {}                            -- the layout callback token this file books with
+local xferBusy, xferInCombat, watch, armWatch
+local function xferLocked()
+  return xferInCombat or InCombatLockdown()
+end
 local function xferMute()
   for i = 1, #XFER_SOUNDS do MuteSoundFile(XFER_SOUNDS[i]) end
 end
@@ -272,29 +275,67 @@ local function xferUnmute()
   end)
 end
 
--- The client's own row for a currency. Its scroll box builds only the rows its own height covers, and the
--- wanted currency may sit far down the list, so the list is laid out whole for the moment it takes to read
--- the row: the two panels are parented where a layout may happen, the box is stretched over every entry,
--- and everything is put back as soon as the row is read -- the row is the only thing that can select a
--- currency without tainting it.
---
--- The answer may come late, and that is the whole of the first Ctrl-click of a session: a client that has
--- never shown the currency tab lays its list out a frame or two after the panels stand, so reading the row
--- here and putting the panels back on the very next frame answered nothing at all -- the cell stayed
--- unarmed, its press fell back to the tab, and only the second press reached the menu. So `onRow` is
--- called with whatever the layout eventually reads (right away when the list is already warm), and the
--- panels are held until then -- bounded, so a client that answers no layout at all still gets them back.
-local function clientRow(id, onRow)
+-- The native list must be laid out to obtain a row without assigning its currency from addon Lua.
+-- Each request owns its callback and timeout; cancelled rows must never become click targets later.
+local function clientRow(request, onRow)
   local CI = C_CurrencyInfo
-  local TF, popup = _G.TokenFrame, _G.TokenFramePopup
+  local CF, TF, popup = _G.CharacterFrame, _G.TokenFrame, _G.TokenFramePopup
   local sb = TF and TF.ScrollBox
   local toggle = popup and popup.CurrencyTransferToggleButton
-  if not (id and CI and sb and toggle and CharacterFrame and sb.GetFrames
-          and BaseScrollBoxEvents and sb.RegisterCallback) then return nil end
-  local row
+  if not (CI and CF and sb and toggle and sb.GetFrames
+          and BaseScrollBoxEvents and sb.RegisterCallback and sb.UnregisterCallback) then
+    onRow(nil)
+    return
+  end
+
+  local row, settled, restored, staging, staged, subscribed, muted
+  local characterParent, tokenParent, characterShown, tokenShown
+  local function restore()
+    if restored or not settled or staging then return end
+    -- Combat may begin after the hover. SetParent/HideUIPanel on these native panels must wait for
+    -- PLAYER_REGEN_ENABLED; abandoning restoration would leave the staged panels in the wrong parent.
+    if staged and xferLocked() then
+      request.cancelled = true
+      request.restore = restore
+      watch:RegisterEvent("PLAYER_REGEN_ENABLED")
+      return
+    end
+    restored = true
+    request.restore = nil
+    if staged then
+      local ok = pcall(function()
+        sb:ClearAllPoints()
+        sb:SetPoint("TOPLEFT", CF.Inset, 4, -4)
+        sb:SetPoint("BOTTOMRIGHT", CF.Inset, -22, 2)
+        CF.SetParent(CF, characterParent)
+        TF.SetParent(TF, tokenParent)
+        HideUIPanel(TF)
+        HideUIPanel(CF)
+        if tokenShown then ShowUIPanel(TF) end
+        if characterShown then ShowUIPanel(CF) end
+      end)
+      if not ok then row = nil end
+    end
+    if request.cancelled then row = nil end
+    onRow(row)
+  end
+  local function finish(result)
+    if settled then return end
+    settled, row = true, result
+    if subscribed then
+      subscribed = nil
+      sb:UnregisterCallback(BaseScrollBoxEvents.OnLayout, request)
+    end
+    if muted then muted = nil; xferUnmute() end
+    restore()
+  end
+  request.cancel = function()
+    request.cancelled = true
+    finish(nil)
+  end
+
+  staging = true
   local ok = pcall(function()
-    -- The client's own index for this currency, opening the sections on the way: a currency inside a
-    -- collapsed section is not in the list at all, and the index moves as the sections open.
     local index
     local i = 0
     while i < (CI.GetCurrencyListSize() or 0) do
@@ -306,62 +347,47 @@ local function clientRow(id, onRow)
         else
           local link = CI.GetCurrencyListLink and CI.GetCurrencyListLink(i)
           local cid = link and CI.GetCurrencyIDFromLink and CI.GetCurrencyIDFromLink(link)
-          if cid == id then index = i; break end
+          if cid == request.id then index = i; break end
         end
       end
     end
-    if not index then return end
+    if not index or settled or xferLocked() then finish(nil); return end
 
-    local characterParent, tokenParent = CharacterFrame:GetParent(), TF:GetParent()
-    local characterShown, tokenShown = CharacterFrame:IsVisible(), TF:IsVisible()
-    local done, waits
-    local function putBack()
-      if done then return end
-      -- The list is still laying out: the panels stand only until the row is read, and never longer than
-      -- a score of frames -- a client that answers no layout at all gets its panels back by the count.
-      if not row and waits and waits < 20 then
-        waits = waits + 1
-        C_Timer.After(0, putBack)
-        return
-      end
-      done = true
-      sb:ClearAllPoints()
-      sb:SetPoint("TOPLEFT", CharacterFrame.Inset, 4, -4)
-      sb:SetPoint("BOTTOMRIGHT", CharacterFrame.Inset, -22, 2)
-      -- Dot calls on the frames' own SetParent: a UI overhaul can replace the method on these two, and
-      -- the C function behind it is what actually moves them.
-      CharacterFrame.SetParent(CharacterFrame, characterParent)
-      TF.SetParent(TF, tokenParent)
-      HideUIPanel(TF)
-      HideUIPanel(CharacterFrame)
-      if tokenShown then ShowUIPanel(TF) end
-      if characterShown then ShowUIPanel(CharacterFrame) end
-      xferUnmute()
-    end
-
+    characterParent, tokenParent = CF:GetParent(), TF:GetParent()
+    characterShown, tokenShown = CF:IsVisible(), TF:IsVisible()
+    staged, muted = true, true
     xferMute()
-    HideUIPanel(CharacterFrame)
+    HideUIPanel(CF)
     HideUIPanel(TF)
-    CharacterFrame.SetParent(CharacterFrame, UIParent)
-    TF.SetParent(TF, CharacterFrame)
+    if settled or xferLocked() then finish(nil); return end
+    CF.SetParent(CF, UIParent)
+    TF.SetParent(TF, CF)
     sb:ClearAllPoints()
-    sb:SetHeight(30 * (CI.GetCurrencyListSize() or 1))   -- 30: taller than any row the client draws
+    sb:SetHeight(30 * (CI.GetCurrencyListSize() or 1))
     sb:SetWidth(200)
     sb:SetPoint("TOPLEFT", UIParent)
+    subscribed = true
     sb:RegisterCallback(BaseScrollBoxEvents.OnLayout, function()
-      sb:UnregisterCallback(BaseScrollBoxEvents.OnLayout, XFER_TOKEN)
-      local frames = sb:GetFrames()
-      row = frames and frames[index]
-      putBack()
-      if onRow then onRow(row) end
-    end, XFER_TOKEN)
-    ShowUIPanel(CharacterFrame)
-    ShowUIPanel(TF)
-    waits = 0
-    C_Timer.After(0, putBack)
+      if settled then return end
+      if xferLocked() then request.cancel(); return end
+      local read, found = pcall(function()
+        for _, frame in ipairs(sb:GetFrames() or {}) do
+          local data = frame.elementData
+          if data and data.currencyID == request.id then return frame end
+        end
+      end)
+      if not read then finish(nil) elseif found then finish(found) end
+    end, request)
+    if not settled then ShowUIPanel(CF) end
+    if not settled then ShowUIPanel(TF) end
   end)
-  if not ok then return nil end
-  return row
+  staging = nil
+  if not ok then request.cancel() end
+  if settled then
+    restore()
+  else
+    C_Timer.After(0.5, function() finish(nil) end)
+  end
 end
 
 -- The frames this chain names -- TokenFrame, TokenFramePopup, CurrencyTransferMenu -- live in
@@ -393,16 +419,23 @@ do
     if name == addonName then
       boot:UnregisterEvent("ADDON_LOADED")
       ask()                       -- may be refused while the loading screen stands
-    elseif name == "PLAYER_LOGIN" then
+    elseif name == "PLAYER_LOGIN" or name == "PLAYER_REGEN_ENABLED" then
       boot:UnregisterEvent("PLAYER_LOGIN")
+      if InCombatLockdown() then
+        boot:RegisterEvent("PLAYER_REGEN_ENABLED")
+        return
+      end
+      boot:UnregisterEvent("PLAYER_REGEN_ENABLED")
       if not _G.TokenFramePopup then ask() end   -- the second chance, now that the screen is down
+      -- The hidden transfer button misses the first data-ready event; request before its first click.
+      local CI = C_CurrencyInfo
+      if CI and CI.RequestCurrencyDataForAccountCharacters then
+        pcall(CI.RequestCurrencyDataForAccountCharacters)
+      end
     end
   end)
   boot:RegisterEvent("PLAYER_LOGIN")
 end
-
--- Armed and left holding: the armed cell, so the disarm above can follow the key out.
-local watch, armWatch
 
 -- Arms one cell for the client's own click chain. The press and the release are two different targets,
 -- and that is the whole chain: the press clicks the currency's own row in the character panel (which
@@ -419,46 +452,68 @@ local watch, armWatch
 -- again. The press target stays the Ctrl one, so a plain press never reaches the chain at all -- and the
 -- disarm follows the key out of the press (see armWatch), so a release that fires with Ctrl gone still
 -- lands on the toggle that belongs to the currency just armed.
--- One layout at a time: the list is laid out whole to read a row, and a pointer crossing several rows
--- quickly would open as many layouts. The last want wins -- it is the one a press would be aimed at -- and
--- whatever arrives arms the row it names, or asks again for the row the pointer moved on to while the list
--- was laying out (the list is warm by then, so that second ask answers inside the same frame).
-local xferBusy
+-- One layout owns the native panels until restoration; a newer hover starts after its dispatch returns.
+local function transferTarget(cell, id)
+  return cell and id and cell.SetAttribute and cell.wpeID == id
+    and cell.IsVisible and cell:IsVisible()
+end
+
+-- The arm is normally made by the hover that comes first, but a pointer that did not move fires no
+-- OnEnter: a strip or picker reopened under it, a row repainted, combat that ended with the pointer
+-- still resting on the cell. The Ctrl press reads the region under the pointer itself, so that click
+-- is not the unarmed fallback -- which opens the currency tab and leaves the menu for a second press.
+-- The topmost region can be a child of the cell (a picker tick, a tooltip anchor), so each region's
+-- parents are walked before the next one is tried.
+local function hoveredCell()
+  local foci = ns.MouseFoci()
+  if not foci then return nil end
+  for i = 1, #foci do
+    local f = foci[i]
+    for _ = 1, 4 do
+      if not (f and f.GetParent) then break end
+      if f.wpeID and f.SetAttribute and f.IsVisible and f:IsVisible() then return f end
+      f = f:GetParent()
+    end
+  end
+end
+
 function Cur:ArmTransfer(cell, id)
-  if not (cell and id and cell.SetAttribute) then return end
-  if InCombatLockdown() or not tokenUI() then return end
+  if not transferTarget(cell, id) or not IsControlKeyDown() or xferLocked() or not tokenUI() then return end
   local toggle = _G.TokenFramePopup and _G.TokenFramePopup.CurrencyTransferToggleButton
-  if not toggle or xferBusy then return end
-  -- A call from outside the hover is a want too: the row it names is the one the press would be aimed at.
-  if not (Cur.wantArm and Cur.wantArm.cell == cell) then Cur.wantArm = { cell = cell, id = id } end
-  local token = {}
-  xferBusy = token
-  -- A client that answers no layout at all (or a currency the list does not hold) must not leave the
-  -- arming closed for the rest of the session.
-  C_Timer.After(0.5, function()
-    if xferBusy == token then xferBusy = nil end
-  end)
-  clientRow(id, function(row)
-    if xferBusy == token then xferBusy = nil end
-    if not row then return end
+  if not toggle then return end
+  Cur.wantArm = { cell = cell, id = id }
+  if xferBusy then return end
+  if Cur.armed and Cur.armed ~= cell then Cur:DisarmTransfer(Cur.armed, true) end
+  local request = { cell = cell, id = id }
+  xferBusy = request
+  clientRow(request, function(row)
+    if xferBusy ~= request then return end
+    xferBusy = nil
+    if xferLocked() or not IsControlKeyDown() then return end
     local want = Cur.wantArm
-    if not (want and want.cell == cell and want.id == id) then
-      -- The pointer moved on to another row while the list was laying out: that row wants the same door,
-      -- and the list is warm now, so its own ask is answered inside the same frame it is made.
-      if want then Cur:ArmTransfer(want.cell, want.id) end
+    if not (want and transferTarget(want.cell, want.id)) then return end
+    if want.cell ~= cell or want.id ~= id then
+      -- OnLayout registrations made during dispatch are deferred by the client until it returns.
+      C_Timer.After(0, function()
+        if Cur.wantArm == want and not xferBusy then Cur:ArmTransfer(want.cell, want.id) end
+      end)
       return
     end
-    if InCombatLockdown() then return end
+    if request.cancelled or not (row and row.elementData and row.elementData.currencyID == id) then return end
     cell:SetAttribute("pressAndHoldAction", true)
     cell:SetAttribute("clickbutton", toggle)
     cell:SetAttribute("ctrl-clickbutton-startup", row)
     cell.wpeArmed = true
     Cur.armed = cell
-    armWatch()
   end)
 end
 
 function Cur:DisarmTransfer(cell, leaving)
+  local all = cell == nil
+  local want = Cur.wantArm
+  if leaving and want and (all or want.cell == cell) then Cur.wantArm = nil end
+  local request = xferBusy
+  if request and (all or request.cell == cell) and request.cancel then request.cancel() end
   cell = cell or Cur.armed
   if not cell then return end
   if cell.SetAttribute then
@@ -466,10 +521,6 @@ function Cur:DisarmTransfer(cell, leaving)
     cell:SetAttribute("ctrl-clickbutton-startup", nil)
   end
   cell.wpeArmed = nil
-  -- The cell leaving the pointer is the only one whose want is dropped: a Ctrl let go keeps the want, so
-  -- the next Ctrl press over the same row arms it again without a second hover.
-  local want = Cur.wantArm
-  if leaving and want and want.cell == cell then Cur.wantArm = nil end
   if Cur.armed == cell then Cur.armed = nil end
 end
 
@@ -481,7 +532,10 @@ function Cur:WantTransfer(cell, id)
   if not (cell and id) then return end
   -- Combat has no transfer door at all: the hover neither remembers a want nor arms the cell, so a
   -- Ctrl-press in combat can never reach the client's protected chain.
-  if InCombatLockdown and InCombatLockdown() then return end
+  if xferLocked() then return end
+  if self.armed and (self.armed ~= cell or self.wantArm and self.wantArm.id ~= id) then
+    self:DisarmTransfer(self.armed, true)
+  end
   Cur.wantArm = { cell = cell, id = id }
   if IsControlKeyDown and IsControlKeyDown() then Cur:ArmTransfer(cell, id) end
 end
@@ -498,17 +552,39 @@ armWatch = function()
   watch:RegisterEvent("PLAYER_REGEN_DISABLED")
   watch:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_REGEN_DISABLED" then
-      Cur.wantArm = nil
-      Cur:DisarmTransfer()
+      -- The event can arrive before InCombatLockdown turns true; cancellation must not restore panels here.
+      xferInCombat = true
+      watch:RegisterEvent("PLAYER_REGEN_ENABLED")
+      Cur:DisarmTransfer(nil, true)
+      return
+    elseif event == "PLAYER_REGEN_ENABLED" then
+      if InCombatLockdown() then return end
+      xferInCombat = nil
+      watch:UnregisterEvent("PLAYER_REGEN_ENABLED")
+      local request = xferBusy
+      if request and request.restore then request.restore() end
+      -- A tip built in combat says nothing about the transfer and does not rebuild itself when the
+      -- fight ends. Its own OnEnter is asked again, so the hint comes back with the rest of the tip
+      -- and nothing here can drift from what a fresh hover would say.
+      local tip = _G.GameTooltip
+      local owner = tip and tip.IsShown and tip:IsShown() and tip.GetOwner and tip:GetOwner()
+      if owner and owner.wpeID and owner.GetScript then
+        local enter = owner:GetScript("OnEnter")
+        if enter then pcall(enter, owner) end
+      end
       return
     end
     local down = IsControlKeyDown and IsControlKeyDown()
-    if Cur.armed and not down then
+    if not down then
       Cur:DisarmTransfer()
       return
     end
     local want = Cur.wantArm
-    if down and want and not Cur.armed then Cur:ArmTransfer(want.cell, want.id) end
+    if not want then
+      local cell = hoveredCell()
+      if cell and Cur.Transferable(cell.wpeID) then want = { cell = cell, id = cell.wpeID } end
+    end
+    if want and not Cur.armed then Cur:ArmTransfer(want.cell, want.id) end
   end)
 end
 
@@ -528,7 +604,7 @@ function Cur:PlaceTransfer()
   local popup = _G.TokenFramePopup
   if not (popup and CharacterFrame and popup.SetPoint) then return end
   local function place()
-    if not popup:IsShown() then return end
+    if xferLocked() or not popup:IsShown() then return end
     if popup.ClearAllPoints then popup:ClearAllPoints() end
     popup:SetPoint("TOPLEFT", CharacterFrame, "TOPRIGHT", 3, -28)
   end
@@ -1049,6 +1125,7 @@ local function chip(row, i)
     unlight(row)
     GameTooltip:Hide()
   end)
+  c:HookScript("OnHide", function(s) Cur:DisarmTransfer(s, true) end)
   row.chips[i] = c
   return c
 end
@@ -1084,6 +1161,7 @@ end
 -- Paints one cell for its tracked currency: icon, the row's one ring, count. Kept apart from seating so
 -- a count change repaints in place without moving anything.
 local function paintCell(row, c, r, sz)
+  if c.wpeID ~= r.id then Cur:DisarmTransfer(c, true) end
   c.wpeID, c.wpeName = r.id, r.name
   c.icon:SetTexture(r.icon)
   zoomIcon(c.icon)
@@ -1237,7 +1315,7 @@ end
 function Cur:Hide()
   -- No armed cell outlives the row: its attributes name a row of the client's list, and nothing that is
   -- not on screen should still be able to ask for a transfer.
-  Cur:DisarmTransfer()
+  Cur:DisarmTransfer(nil, true)
   for i = 1, #(self.chips or {}) do if self.chips[i] then self.chips[i]:Hide() end end
   -- The door goes with the row and comes back at rest: a layout that hid it under the pointer must not
   -- leave a lit plus waiting for the next time the row opens. The switch also stops the lit watch.

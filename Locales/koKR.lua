@@ -343,6 +343,9 @@ local STRINGS = {
   ["Count each character's bank too. Off = bags only."] = "각 캐릭터의 은행까지 셉니다. 끔 = 가방만.",
   ["Count the shared Warband bank on its own line."] = "공유 전투부대 은행을 따로 한 줄로 셉니다.",
   ["Tooltips"] = "툴팁",
+  ["Hide gold below"] = "골드 숨기기 기준",
+  ["Characters with less gold than this are left out of the tooltip. The total still counts every character."] =
+    "이보다 적은 골드를 가진 캐릭터는 툴팁에서 제외됩니다. 합계는 모든 캐릭터를 계속 계산합니다.",
   ["Gold tooltip"] = "골드 툴팁",
   ["Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price."] = "창 모서리 돈 위의 골드 툴팁: 전 캐릭터 골드, 전투부대 은행, 합계, WoW 토큰 시세.",
   ["Unchecked characters stay saved but are hidden from the character list."] = "체크 해제한 캐릭터는 저장된 채로 목록에서만 숨겨집니다.",

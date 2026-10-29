@@ -402,6 +402,9 @@ local STRINGS = {
   ["Count the shared Warband bank on its own line."] =
     "Zählt die gemeinsame Kriegsmeutenbank in einer eigenen Zeile.",
   ["Tooltips"] = "Tooltips",
+  ["Hide gold below"] = "Gold darunter ausblenden",
+  ["Characters with less gold than this are left out of the tooltip. The total still counts every character."] =
+    "Charaktere mit weniger Gold werden im Tooltip weggelassen. Die Summe zählt weiterhin alle.",
   ["Gold tooltip"] = "Gold-Tooltip",
   ["Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price."] =
     "Gold-Tooltip über dem Geld in der Fensterecke: das Gold jedes Charakters, die Kriegsmeutenbank, die Summe und der WoW-Markenpreis.",

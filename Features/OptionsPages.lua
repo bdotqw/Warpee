@@ -589,7 +589,25 @@ local function tipWbGet() return WarpeeDB.tipWarband ~= false end
 local function tipWbSet(v) WarpeeDB.tipWarband = v and true or false end
 local function tipGoldGet() return WarpeeDB.tipGold ~= false end
 local function tipGoldSet(v) WarpeeDB.tipGold = v and true or false end
+-- The threshold the gold tooltip hides purses under, held in copper like every other amount here but
+-- offered in gold: the list is what a player would name, not a copper figure.
+local function goldMinGet() return math.floor((tonumber(WarpeeDB.goldMin) or 0) / 10000) end
+local function goldMinSet(v) WarpeeDB.goldMin = math.max(0, math.floor(tonumber(v) or 0)) * 10000 end
+-- One list, handed over by a function: the Forever build answers with its own scale -- its purses are
+-- counted in single coins, where 1k is already everything a player owns -- and needs no second row.
+-- Up to a million: past that a threshold stops filtering anything -- a purse that big is a main, not an
+-- alt to leave out -- and the entry would only make the list longer. The quarter steps are here because
+-- the gap between 100k and a million is where a player's own numbers actually land.
+local function goldMinKeys()
+  return { 0, 1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000 }
+end
+-- 0 is the "show everyone" entry and reads as a word. The rest are written the way the addon writes money
+-- everywhere else, so the menu and the money line cannot disagree about 100000 being "100k".
+local function goldMinLabel(k)
+  return k <= 0 and T("Off") or ns.FormatNumber(k)
+end
 local function tipOff() return not tipOnGet() end
+local function tipGoldOff() return not tipGoldGet() end
 
 local snap = {}
 -- The three keep-open switches share one redraw; declared through the settings layer so the store and the
@@ -617,6 +635,14 @@ local CHARS_PAGE = {
     desc = "Count the shared Warband bank on its own line." },
   { type = "toggle", name = "Gold tooltip", col = 2, get = tipGoldGet, set = tipGoldSet,
     desc = "Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price." },
+  -- A list, not a number box: the thresholds that matter are few, a preset always fits the row, and a
+  -- saved figure outside the list still reads back (its label falls through FormatNumber) instead of
+  -- being snapped to the nearest entry behind the player's back. The left column, like every other
+  -- dropdown on the page: it starts the line under the switch above it.
+  { type = "select", name = "Hide gold below", col = 1,
+    get = goldMinGet, set = goldMinSet, keys = goldMinKeys, label = goldMinLabel,
+    disabled = tipGoldOff,
+    desc = "Characters with less gold than this are left out of the tooltip. The total still counts every character." },
   { type = "header", name = "Snapshots",
     state = function() return onOf({ snap.bagsGet, snap.bankGet, snap.wbGet }) end },
   { type = "description",

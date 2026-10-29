@@ -1,6 +1,22 @@
 local addonName, ns = ...
 local Theme = ns.Theme
 
+-- The regions under the pointer, topmost first. GetMouseFocus was removed from the modern client in
+-- 11.0.0; GetMouseFoci replaced it and exists on the Forever client too (1.60.1+). The old call stays
+-- for a client that still has it. An empty list is a real answer: the pointer is off-screen or over the
+-- world, where the client reports no region at all.
+function ns.MouseFoci()
+  if GetMouseFoci then
+    local ok, list = pcall(GetMouseFoci)
+    if ok and type(list) == "table" then return list end
+  end
+  if GetMouseFocus then
+    local ok, f = pcall(GetMouseFocus)
+    if ok and f then return { f } end
+  end
+  return nil
+end
+
 local TRI = {
   up    = { { 1, 1, 0 }, { 3, -1, 0 } },
   down  = { { 2, 1, 0 }, { 4, -1, 0 } },

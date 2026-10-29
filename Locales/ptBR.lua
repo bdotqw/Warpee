@@ -386,6 +386,9 @@ local STRINGS = {
   ["Count the shared Warband bank on its own line."] =
     "Conta o banco compartilhado do Bando de Guerra em uma linha separada.",
   ["Tooltips"] = "Dicas",
+  ["Hide gold below"] = "Ocultar ouro abaixo de",
+  ["Characters with less gold than this are left out of the tooltip. The total still counts every character."] =
+    "Personagens com menos ouro ficam fora da dica. O total continua contando todos.",
   ["Gold tooltip"] = "Dica de ouro",
   ["Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price."] =
     "Dica de ouro sobre o dinheiro no canto da janela: o ouro de cada personagem, o banco do Bando de Guerra, o total e o preço da ficha.",

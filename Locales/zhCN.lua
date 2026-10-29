@@ -356,6 +356,9 @@ local STRINGS = {
   ["Count each character's bank too. Off = bags only."] = "连每个角色的银行一起算。关 = 只算背包。",
   ["Count the shared Warband bank on its own line."] = "共用的战团银行单独列一行。",
   ["Tooltips"] = "提示信息",
+  ["Hide gold below"] = "隐藏金币低于",
+  ["Characters with less gold than this are left out of the tooltip. The total still counts every character."] =
+    "金币低于此值的角色不会显示在提示中。总计仍会计入所有角色。",
   ["Gold tooltip"] = "金币提示",
   ["Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price."] = "窗口角落金币上的提示：所有角色的金币、战团银行、总计，还有时光徽章的价格。",
   ["Unchecked characters stay saved but are hidden from the character list."] = "取消勾选的角色仍然保存着，只是不在角色列表里显示。",

@@ -400,6 +400,9 @@ local STRINGS = {
   ["Count the shared Warband bank on its own line."] =
     "Compte la banque de bataillon partagée sur une ligne à part.",
   ["Tooltips"] = "Infobulles",
+  ["Hide gold below"] = "Masquer l'or en dessous de",
+  ["Characters with less gold than this are left out of the tooltip. The total still counts every character."] =
+    "Les personnages avec moins d'or sont omis de l'infobulle. Le total compte toujours tout le monde.",
   ["Gold tooltip"] = "Infobulle d'or",
   ["Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price."] =
     "Infobulle d'or au-dessus de l'argent dans le coin de la fenêtre : l'or de chaque personnage, la banque de bataillon, le total et le prix du jeton.",

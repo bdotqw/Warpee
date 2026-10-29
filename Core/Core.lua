@@ -64,7 +64,7 @@ local DEFAULTS = {
   catPinDrag = "alt",
   -- goldBlizzard: the money line's coin is Warpee's own unless this says otherwise (the client's icons
   -- are the ones the rest of the game writes, kept for anyone who wants the window to match them).
-  goldFormat = "short", goldLetters = false, goldOnly = false, goldBlizzard = false,
+  goldFormat = "short", goldLetters = false, goldOnly = false, goldBlizzard = false, goldMin = 0,
   -- curStrip: the row of the currencies the client itself tracks, drawn inside the bags under the grid
   -- behind a seam. On by default: it answers "how much of it do I have" without opening the character
   -- panel, and a tick in the panel behind it is the character panel's own pin, both ways.

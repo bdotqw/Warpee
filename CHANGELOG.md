@@ -1,21 +1,17 @@
 # Warpee
 
-## 12.6
+## 12.7
 
 ENG
 
-- New currency icon with a round mint mark.
-- The Pocket can now hold twice as many Recent slots, with a **Two recent rows** switch on the Pocket page.
-- Removed the timer that caused items in the Recent row to jump when disappearing.
-- Items can now be deposited into the Warband Bank through a summoned NPC from Recent, Favorites, and Pocket, in addition to bags.
-- Contextual actions and search now also affect items in the Pocket. Items that cannot be sold to a vendor or deposited into a bank are dimmed when you interact with the corresponding NPC.
-- **Plate opacity** now also applies to the Guild Bank, the bag slots window, the search-words list, the other-character picker, and the currency list.
+- Fixed currency transfer not opening on the first click.
+- The item tooltip no longer follows a slot the pointer has left: the check used a client call that no longer answers.
+- The gold tooltip can leave small purses out: the threshold is a list of amounts now (Off, 1k … 1m) instead of a typed number, and the total still counts every character.
+- The gold tooltip no longer picks up a threshold above what a character can hold.
 
 RU
 
-- Новый значок валюты с круглой чеканкой.
-- Убран таймер, из-за которого предметы в строке недавних прыгали при исчезновении.
-- В кармане теперь можно удвоить количество слотов для недавних предметов — переключателем **«Два ряда недавних»** на странице кармана.
-- Добавлена возможность помещать предметы в банк отряда через призываемого НПЦ не только из сумок, но и из строки недавних, избранного и кармана.
-- Контекстные действия и поиск теперь влияют и на предметы в кармане. Если у торговца или банковского НПЦ предмет нельзя продать или положить в банк, он показывается приглушенным.
-- **Плотность подложки** теперь применяется и к гильдейскому банку, слотам сумок, списку слов, выбору снимков других персонажей и списку валют.
+- Исправлено открытие окна передачи валюты не с первого нажатия.
+- Подсказка предмета больше не перескакивает на ячейку, над которой курсора уже нет: проверка опиралась на функцию клиента, которая больше не отвечает.
+- Подсказка золота умеет не показывать мелкие кошельки: порог теперь список сумм (Off, 1k … 1m), а не вписанное число, и итог по-прежнему считает всех персонажей.
+- Порог выше того, что вообще может лежать у персонажа, в подсказке золота больше не держится.

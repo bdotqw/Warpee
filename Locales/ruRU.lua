@@ -458,6 +458,9 @@ local STRINGS = {
   ["Count the shared Warband bank on its own line."] =
     "Считать общий банк отряда отдельной строкой.",
   ["Tooltips"] = "Подсказки",
+  ["Hide gold below"] = "Скрывать золото ниже",
+  ["Characters with less gold than this are left out of the tooltip. The total still counts every character."] =
+    "Персонажи с меньшим золотом не показываются в подсказке. Итог считает всех.",
   ["Gold tooltip"] = "Подсказка золота",
   ["Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price."] =
     "Подсказка золота над деньгами в углу окна: золото каждого персонажа, банк отряда, итог и цена жетона.",

@@ -86,6 +86,177 @@ function factories.input(parent, spec)
   return row
 end
 
+-- A coin amount typed in gold: the separators are drawn while typing, and once the field loses focus it
+-- shows the same form as the rest of the addon (grouped or short, per Gold format). Stored in copper, so
+-- a client whose money is small needs no second scale: the same number is 1g there and 1k here.
+local function goldDigits(text)
+  local digits = (text or ""):gsub("%D", "")
+  if #digits > 12 then digits = digits:sub(1, 12) end
+  local n = tonumber(digits) or 0
+  if n > 999999999 then n = 999999999 end
+  return n
+end
+
+local function groupGold(n)
+  local mode = WarpeeDB and WarpeeDB.goldFormat or "commas"
+  local sep = (mode == "dots" and ".") or (mode == "spaces" and " ") or ","
+  local out = tostring(math.floor(n))
+  local k
+  repeat out, k = out:gsub("^(%d+)(%d%d%d)", "%1" .. sep .. "%2") until k == 0
+  return out
+end
+
+function factories.money(parent, spec)
+  local row = CreateFrame("Frame", nil, parent)
+  row:SetHeight(28)
+
+  local fs = track(Theme:Label(row, BASE_FONT, "text"), 0)
+  fs:SetPoint("LEFT", 1, 0)
+  fs:SetText(T(spec.name))
+
+  -- spec.max is the row's ceiling in gold. The client's purse stops at 9,999,999, and a filter above that
+  -- could only hide every character. It lives on the row so the Forever port can give it its own scale.
+  local cap = spec.max
+  -- The ceiling is also the most digits the field takes: 9,999,999 is seven, so the eighth is refused.
+  local capDigits = cap and #tostring(math.floor(cap)) or nil
+
+  local box = CreateFrame("EditBox", nil, row, "BackdropTemplate")
+  ns.SnapBox(box, 92, 24, true)
+  ns.SnapPoint(box, "TOPRIGHT", row, "TOPRIGHT", -1, -2)
+  ns.PixelBackdrop(box)
+  ns.SetBg(box, Theme:C("bg"))
+  ns.SetEdge(box, Theme:C("stroke"))
+  Theme:Track(box, function(s)
+    ns.SetBg(s, Theme:C("bg"))
+    s:SetTextColor(Theme:C("accentInk"))
+    if not s:HasFocus() then ns.SetEdge(s, Theme:C("stroke")) end
+  end)
+  box:SetFont(dropdownFont(), BASE_FONT - 1, ns.OutlineFlags())
+  track(box, -1)
+  -- The number wears the colour the slider values wear, not the plain label colour: it is a gold figure,
+  -- and the coin beside it is the file the money line draws, so the row reads as money at a glance.
+  box:SetTextColor(Theme:C("accentInk"))
+  box:SetJustifyH("CENTER")
+  box:SetAutoFocus(false)
+  -- Not numeric: the client's numeric box refuses the grouping separators this field draws.
+  box:SetNumeric(false)
+  -- The client's own letter limit is the ceiling, not a Lua check: seven digits plus the two separators
+  -- grouping adds is the longest a valid entry can be, so a held key is refused by the EditBox itself and
+  -- never reaches the handler -- no rewrite per repeat, nothing to flicker.
+  box:SetMaxLetters(capDigits and capDigits + 2 or 14)
+  local coin = row:CreateTexture(nil, "ARTWORK")
+  coin:SetTexture("Interface\\AddOns\\Warpee\\Media\\Icons\\coin-gold")
+  coin:SetSize(12, 12)
+  coin:SetPoint("RIGHT", box, "LEFT", -6, 0)
+  -- The resting zero is a placeholder, not text: an EditBox holding "0" puts a caret beside it on
+  -- focus, and the stale text event puts it back, so the first typed digit shoved the zero aside.
+  local ph = box:CreateFontString(nil, "OVERLAY")
+  ph:SetFont(dropdownFont(), BASE_FONT - 1, ns.OutlineFlags())
+  ph:SetPoint("CENTER")
+  ph:SetText("0")
+  ph:SetTextColor(Theme:C("faint"))
+  Theme:Track(ph, function(s) s:SetTextColor(Theme:C("faint")) end)
+  ph:Hide()
+  box.wpePlaceholder = ph
+
+  local function stored() return math.max(0, tonumber(spec.get()) or 0) end
+  local function gold()
+    local g = math.floor(stored() / 10000)
+    if cap and g > cap then g = cap end
+    return g
+  end
+
+  row.Refresh = function()
+    local on = not (spec.disabled and spec.disabled())
+    box:EnableMouse(on)
+    offDuty(row, not on)
+    fs:SetText(T(spec.name))
+    fs:SetTextColor(Theme:C(on and "text" or "faint"))
+    if box:HasFocus() then return end
+    local g = gold()
+    -- A saved value over the ceiling is cut back here, not only on the next edit: a 17 million left in the
+    -- store would hide every purse until the player happened to touch the field again.
+    if g * 10000 ~= stored() then spec.set(g * 10000) end
+    -- Digits and separators at rest, never the short form: a box that can hold "9.9m" is a box whose text
+    -- the field has to be able to read back, and one letter in it would be parsed as one gold. The same
+    -- grouped text the edit shows also means focus does not change the number under the player's eyes.
+    box.wpeBusy = true
+    box:SetText(g > 0 and groupGold(g) or "")
+    box.wpeBusy = nil
+    ph:SetShown(g <= 0 and on)
+    box:SetTextColor(Theme:C(on and "accentInk" or "faint"))
+    coin:SetAlpha(on and 1 or 0.35)
+  end
+
+  local function apply()
+    if spec.disabled and spec.disabled() then return end
+    local raw = box:GetText() or ""
+    -- A display form is not an edit: a letter left in the field (an old save, a text set from outside)
+    -- must not be parsed as its digits, which would commit 500 for "500 к". Revert instead of guessing.
+    if raw:find("[^%d%s%.,]") then row.Refresh(); return end
+    local g = goldDigits(raw)
+    if cap and g > cap then g = cap end
+    spec.set(g * 10000)
+    row.Refresh()
+    Options:Refresh()
+  end
+
+  -- The text is rewritten on every keystroke so the grouping appears as it is typed. The guard stops
+  -- SetText from re-entering this handler. A "short" format would turn 1000 into "1k" mid-edit and make
+  -- the next digit invisible, so editing always shows digits with the user's own separator.
+  box:SetScript("OnTextChanged", function(s)
+    -- Only the player's own editing is regrouped. A programmatic SetText (Refresh's short form, the
+    -- rebuild after a commit) can deliver OnTextChanged after wpeBusy is gone; regrouping "500 к" then
+    -- reads 500 and writes it back, which is how a typed 500,000 collapsed to 500.
+    if s.wpeBusy or not s:HasFocus() then return end
+    -- Anything that is not a digit is dropped here: an empty entry is empty, not a zero, so a letter
+    -- leaves the field blank instead of putting a zero in it. Past the ceiling's own digit count the
+    -- extra stays out, so the field never holds a number that would have to be cut back later.
+    local digits = goldDigits(s:GetText())
+    if capDigits and #tostring(digits) > capDigits then
+      digits = tonumber(tostring(digits):sub(1, capDigits)) or 0
+    end
+    local want = digits > 0 and groupGold(digits) or ""
+    if want ~= s:GetText() then
+      s.wpeBusy = true
+      s:SetText(want)
+      s:SetCursorPosition(#want)
+      s.wpeBusy = nil
+    end
+  end)
+  box:SetScript("OnEditFocusGained", function(s)
+    ns.SetEdge(s, Theme:C("accent"))
+    s:SetTextColor(Theme:C("accentInk"))
+    ph:Hide()
+    -- The resting text is already digits and separators, so this rewrite normally changes nothing; it
+    -- stays for a field painted before a save landed.
+    local g = gold()
+    s.wpeBusy = true
+    s:SetText(g > 0 and groupGold(g) or "")
+    s:SetCursorPosition(#s:GetText())
+    s.wpeBusy = nil
+  end)
+  box:SetScript("OnEditFocusLost", function(s)
+    ns.SetEdge(s, Theme:C("stroke"))
+    apply()
+  end)
+  box:SetScript("OnEnterPressed", function(s) s:ClearFocus() end)
+  -- Escape reverts through the grouped digits, never through the short form: "1k" would parse as 1 gold
+  -- when the focus loss commits it.
+  box:SetScript("OnEscapePressed", function(s)
+    local g = gold()
+    s.wpeBusy = true
+    s:SetText(g > 0 and groupGold(g) or "")
+    s.wpeBusy = nil
+    s:ClearFocus()
+    row.Refresh()
+  end)
+
+  row.Refresh()
+  tip(row, spec.desc)
+  return row
+end
+
 function factories.range(parent, spec)
   local row = CreateFrame("Frame", nil, parent)
   row:SetHeight(46)

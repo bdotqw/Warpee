@@ -729,18 +729,28 @@ end
 function ns.RefreshCellTip(frame, cell)
   if not (frame and frame:IsShown()) then return end
   if CursorHasItem() then return end
-  local f = GetMouseFocus and GetMouseFocus()
-  if f then
-    local p = f
-    while p and p ~= frame do p = p:GetParent() end
-    if p ~= frame then return end
+  -- GetMouseFocus is gone from the modern client (11.0.0); ns.MouseFoci reads the replacement and the
+  -- old call alike. Any region inside this window means the pointer is over it; a window lying under
+  -- another one is not answered for.
+  local foci = ns.MouseFoci()
+  if foci then
+    local over = false
+    for i = 1, #foci do
+      local p = foci[i]
+      while p and p ~= frame do p = p:GetParent() end
+      if p == frame then over = true; break end
+    end
+    if not over then return end
   end
   local b = cell
   if not b then
-    b = f
-    while b and b ~= frame do
-      if b.wpeBagID and not b.wpeBare and b.GetID then break end
-      b = b:GetParent()
+    for i = 1, #(foci or {}) do
+      local p = foci[i]
+      while p and p ~= frame do
+        if p.wpeBagID and not p.wpeBare and p.GetID then b = p; break end
+        p = p:GetParent()
+      end
+      if b then break end
     end
   end
   if not b or b == frame then return end

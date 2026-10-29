@@ -274,6 +274,7 @@ function Pick:Row(i)
   r.box:SetScript("OnMouseUp", function(_, button)
     if button == "LeftButton" then toggleWatched(r) end
   end)
+  r:HookScript("OnHide", function(s) ns.Cur:DisarmTransfer(s, true) end)
   self.rows[i] = r
   return r
 end
@@ -359,14 +360,11 @@ function Pick:Paint(keepScroll)
     local e = rows[i]
     local r = self:Row(i)
     dressRow(r)
-    -- A section name is a plain label: it answers no click and takes no light, the way a section name
-    -- always did; only a currency row is live.
-    r.wpeID   = e.header and nil or e.id
-    r.wpeName = e.header and nil or e.name
+    -- A recycled row must not keep click targets for its previous currency.
+    if e.header or r.wpeID ~= e.id then ns.Cur:DisarmTransfer(r, true) end
+    r.wpeID   = not e.header and e.id or nil
+    r.wpeName = not e.header and e.name or nil
     r.wpeLive = (not e.header) and true or nil
-    -- A pooled row that comes back as a heading must lose the arm it carried as a currency: the attributes
-    -- name the client's frames and survive a repaint, so a heading clicked with Ctrl would still transfer.
-    if e.header then ns.Cur:DisarmTransfer(r) end
     if e.header then
       r.icon:Hide()
       r.box:Hide()

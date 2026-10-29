@@ -189,6 +189,23 @@ local function goldTipFrame()
   return t
 end
 
+-- The threshold hides small purses from the table, but the total still counts every character: the
+-- number is the account's gold, not the sum of whatever the filter happens to show. Every row is
+-- filtered alike, the current character included: the setting is about what the player wants to read.
+function ns.GoldRows(list, min)
+  if not min or min <= 0 then return list end
+  local out = {}
+  for _, e in ipairs(list) do
+    if (e.money or 0) >= min then out[#out + 1] = e end
+  end
+  return out
+end
+
+-- The client's own purse ceiling: a character holds at most 9,999,999 gold. A threshold above it could
+-- only hide every character, and a save written before the list of presets (a hand-typed figure) can
+-- still carry one, so the filter reads it through the ceiling rather than trusting it.
+local GOLD_CAP = 9999999
+
 local function showGoldTip(anchor)
   if WarpeeDB and WarpeeDB.tipGold == false then
     if goldTip then goldTip:Hide() end
@@ -197,6 +214,9 @@ local function showGoldTip(anchor)
   local t = goldTipFrame()
   local path = ns.Fonts:Current()
   local list, total = ns.Vault:MoneyList()
+  local min = tonumber(WarpeeDB and WarpeeDB.goldMin) or 0
+  if min > GOLD_CAP * 10000 then min = GOLD_CAP * 10000 end
+  local shown = ns.GoldRows(list, min)
   local wb = ns.Vault:WarbandMoney()
   local token = 0
   if C_WowTokenPublic and C_WowTokenPublic.GetCurrentMarketPrice then
@@ -208,7 +228,11 @@ local function showGoldTip(anchor)
     token = C_WowTokenPublic.GetCurrentMarketPrice() or 0
   end
 
-  local count = math.max(1, #list) + 1 + ((wb and wb > 0) and 1 or 0) + ((token > 0) and 1 or 0)
+  -- One row is reserved for "nothing recorded" only when the store itself is empty; a filter that hides
+  -- every purse must not leave a blank row of height behind.
+  local listed = #shown
+  if listed == 0 and #list == 0 then listed = 1 end
+  local count = listed + 1 + ((wb and wb > 0) and 1 or 0) + ((token > 0) and 1 or 0)
   local top = (anchor and anchor:GetTop()) or 0
   local avail = math.max(120, (UIParent:GetHeight() or 768) - top - 24)
   local size = anchor and anchor.wpeGoldSize
@@ -241,22 +265,30 @@ local function showGoldTip(anchor)
     y = y + rowH
   end
 
-  for _, e in ipairs(list) do
+  for _, e in ipairs(shown) do
     -- An empty purse is listed but not dressed up: dim and uncoloured, so a run of zeroes does not read
     -- as gold the way the class colours do.
     local live = (e.money or 0) > 0
     local col = live and e.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
     row(e.name, ns.FormatMoney(e.money, true, true), live and "text" or "dim", col)
   end
-  if n == 0 then row(ns.L["No gold recorded yet"], "", "dim") end
+  -- "Nothing recorded" is about the store, not about the filter: a threshold that hides every row must
+  -- leave the table empty, not claim the purse was never recorded.
+  if n == 0 and #list == 0 then row(ns.L["No gold recorded yet"], "", "dim") end
 
   local sum = total
-  y = y + 3
-  t.sep:ClearAllPoints()
-  t.sep:SetPoint("TOPLEFT", TIP_PAD, -y)
-  t.sep:SetPoint("TOPRIGHT", -TIP_PAD, -y)
-  t.sep:Show()
-  y = y + 4
+  -- With every purse hidden by the threshold there is nothing above the total, so the divider has no
+  -- row to separate and is left out rather than drawn across the top of the tip.
+  if n > 0 then
+    y = y + 3
+    t.sep:ClearAllPoints()
+    t.sep:SetPoint("TOPLEFT", TIP_PAD, -y)
+    t.sep:SetPoint("TOPRIGHT", -TIP_PAD, -y)
+    t.sep:Show()
+    y = y + 4
+  else
+    t.sep:Hide()
+  end
   if wb and wb > 0 then
     row(ns.L["Warband bank"], ns.FormatMoney(wb, true, true), "azure")
     sum = sum + wb

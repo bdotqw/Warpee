@@ -1150,9 +1150,12 @@ local KEYED = false
 local function buildMeta(bag, slot, info)
   local hl = info.hyperlink
   local m = scratch
-  local iItemID, iType, iSub, iEquipLoc, iClassID, iSubID
+  local iItemID, iType, iSub, iEquipLoc, iIcon, iClassID, iSubID
   if hl then
-    iItemID, iType, iSub, iEquipLoc, _, iClassID, iSubID = C_Item.GetItemInfoInstant(hl)
+    -- The fifth return is the icon, which neither builder draws: named rather than `_`, because an
+    -- undeclared `_` here writes a real global, and a global written by an addon is taint waiting
+    -- for a game path to read it.
+    iItemID, iType, iSub, iEquipLoc, iIcon, iClassID, iSubID = C_Item.GetItemInfoInstant(hl)
   end
   local isGear = iClassID == Enum.ItemClass.Armor or iClassID == Enum.ItemClass.Weapon
   local nm = (hl and hl:match("%[(.-)%]")) or ""
@@ -1225,9 +1228,12 @@ local scratchSnap = {}
 local function buildMetaSnap(bag, d)
   local hl = d.l
   local m = scratchSnap
-  local iItemID, iType, iSub, iEquipLoc, iClassID, iSubID
+  local iItemID, iType, iSub, iEquipLoc, iIcon, iClassID, iSubID
   if hl then
-    iItemID, iType, iSub, iEquipLoc, _, iClassID, iSubID = C_Item.GetItemInfoInstant(hl)
+    -- The fifth return is the icon, which neither builder draws: named rather than `_`, because an
+    -- undeclared `_` here writes a real global, and a global written by an addon is taint waiting
+    -- for a game path to read it.
+    iItemID, iType, iSub, iEquipLoc, iIcon, iClassID, iSubID = C_Item.GetItemInfoInstant(hl)
   end
   local isGear = iClassID == Enum.ItemClass.Armor or iClassID == Enum.ItemClass.Weapon
   local nm = (hl and hl:match("%[(.-)%]")) or ""
