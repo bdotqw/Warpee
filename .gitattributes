@@ -1,2 +1,10 @@
 * -text
 *.ttf binary
+
+# Never in a package. The packager archives tracked files, so the two ignored folders cannot reach it
+# anyway; naming them here keeps a plain "zip this folder" honest as well.
+/.github export-ignore
+/.gitignore export-ignore
+/.pkgmeta export-ignore
+/.freebuff export-ignore
+/.playwright-mcp export-ignore

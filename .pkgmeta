@@ -15,3 +15,6 @@ ignore:
   - README.md
   - .github
   - .gitattributes
+  - .gitignore
+  - .freebuff
+  - .playwright-mcp
