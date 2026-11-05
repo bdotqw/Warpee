@@ -310,6 +310,7 @@ local STRINGS = {
   ["Reverse slot order"] = "Taschenplätze umkehren",
   ["Keep new items apart"] = "Neue Gegenstände getrennt halten",
   ["Grid order"] = "Rasterreihenfolge",
+  ["Window position"] = "Fensterposition",
   ["Fill grid upwards"] = "Raster von unten füllen",
   ["Slot background"] = "Platzhintergrund",
   ["Pay with"] = "Zahlungsquelle",
@@ -369,7 +370,7 @@ local STRINGS = {
     "Die Bildschirmecke, an der das Taschenfenster hängt. Es wächst von dieser Ecke weg, wenn sich die Taschen füllen.",
   ["The corner the pocket hangs from. Snapping it against another window sets this by itself."] =
     "Die Ecke, an der die Ablage hängt. Beim Einrasten an einem anderen Fenster wird sie automatisch gesetzt.",
-  ["Near the bags or the bank, the pocket lines up with it and holds that seam when the window resizes. Dragging the bags never moves the pocket."] = "In der Nähe von Taschen oder Bank richtet sich die Ablage daran aus und hält die Naht, wenn das Fenster seine Größe ändert. Taschen ziehen nimmt sie nie mit.",
+  ["Near the bags or the bank, the pocket lines up with it and holds that seam when the window resizes. When the bags or the bank are moved, the pocket keeps its offset and comes along."] = "In der Nähe von Taschen oder Bank richtet sich die Ablage daran aus und hält die Naht, wenn das Fenster seine Größe ändert. Wird das Fenster verschoben, behält die Ablage ihren Abstand und zieht mit.",
   ["Text size"] = "Textgröße",
   ["X offset"] = "X-Versatz",
   ["Y offset"] = "Y-Versatz",
@@ -481,6 +482,9 @@ local STRINGS = {
   ["Slots %d/%d"] = "Plätze %d/%d",
   ["Settings"] = "Einstellungen",
   ["Bags"] = "Taschen",
+  ["Ammo"] = "Munition",
+  ["Quivers"] = "Köcher",
+  ["Keys"] = "Schlüssel",
   ["Transfer"] = "Übertragen",
   ["Moving now, click again to stop"] = "Übertragung läuft, Linksklick hält an",
   ["Wait for combat to end and empty the cursor"] = "Warte, bis der Kampf endet und der Zeiger leer ist",
@@ -508,6 +512,9 @@ local STRINGS = {
   ["Everything"] = "Alles",
   ["Tab %d"] = "Fach %d",
   ["Right-click to edit"] = "Rechtsklick: bearbeiten",
+  ["Drop a bag here to swap it"] = "Tasche hier fallen lassen, um zu tauschen",
+  ["Drop a bag here to use this tab"] = "Tasche hier fallen lassen, um diesen Tab zu nutzen",
+  ["Drag the bag off to remove it"] = "Tasche herausziehen, um sie zu entfernen",
   ["Buy tab"] = "Fach kaufen",
   ["Cost: %s"] = "Kosten: %s",
   ["Hidden"] = "Versteckt",
@@ -607,10 +614,10 @@ local STRINGS = {
   ["Already in the pocket"] = "Schon in der Ablage",
   ["Clear"] = "Leeren",
   ["Equipped"] = "Angelegt",
-  ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and hovering a cell and pressing %s empties it."] =
-    "Ein kleines Fenster mit Merkfeldern neben den Taschen, geöffnet über die Gitterschaltfläche in der Kopfzeile. Zieh einen Gegenstand in ein Feld, und das Feld behält ihn, wohin er in den Taschen auch wandert. Ein Feld auf ein anderes gezogen tauscht beide, ein Feld unter dem Zeiger wird mit %s geleert.",
-  ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and a cell under the pointer can be emptied with a key of its own."] =
-    "Ein kleines Fenster mit Merkfeldern neben den Taschen, geöffnet über die Gitterschaltfläche in der Kopfzeile. Zieh einen Gegenstand in ein Feld, und das Feld behält ihn, wohin er in den Taschen auch wandert. Ein Feld auf ein anderes gezogen tauscht beide, ein Feld unter dem Zeiger lässt sich mit einer eigenen Taste leeren.",
+  ["A small window of bookmark cells beside the bags, opened by its own key. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and hovering a cell and pressing %s empties it."] =
+    "Ein kleines Fenster mit Merkfeldern neben den Taschen, geöffnet über ihre eigene Taste. Zieh einen Gegenstand in ein Feld, und das Feld behält ihn, wohin er in den Taschen auch wandert. Ein Feld auf ein anderes gezogen tauscht beide, ein Feld unter dem Zeiger wird mit %s geleert.",
+  ["A small window of bookmark cells beside the bags, opened by its own key. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and a cell under the pointer can be emptied with a key of its own."] =
+    "Ein kleines Fenster mit Merkfeldern neben den Taschen, geöffnet über ihre eigene Taste. Zieh einen Gegenstand in ein Feld, und das Feld behält ihn, wohin er in den Taschen auch wandert. Ein Feld auf ein anderes gezogen tauscht beide, ein Feld unter dem Zeiger lässt sich mit einer eigenen Taste leeren.",
   ["Favorite slots"] = "Favoritenplätze",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; hovering a slot and pressing %s clears it."] =
     "Eine Reihe Plätze über dem Raster, immer im Blick. Zieh einen Gegenstand darauf, um ihn mit einem Klick zu nutzen; ein Platz unter dem Zeiger wird mit %s geleert.",
@@ -621,10 +628,10 @@ local STRINGS = {
   ["%s clears the slot"] = "%s leert den Platz",
   ["Middle-click to clear the slot"] = "Mittlere Maustaste leert den Platz",
   ["Bind a key to clear the slot"] = "Taste zum Leeren belegen",
-  ["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."] =
-    "Die Ablage ist ein kleines Fenster mit Merkfeldern neben den Taschen. Öffne sie mit %s oder der Gitterschaltfläche in der Kopfzeile.",
-  ["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."] =
-    "Die Ablage ist ein kleines Fenster mit Merkfeldern neben den Taschen. Öffne sie über die Gitterschaltfläche in der Kopfzeile oder lege eine Taste in den Einstellungen fest.",
+  ["The pocket is a small window of bookmark cells beside the bags. Open it with %s."] =
+    "Die Ablage ist ein kleines Fenster mit Merkfeldern neben den Taschen. Öffne sie mit %s.",
+  ["The pocket is a small window of bookmark cells beside the bags. Open it with a key bound in the settings."] =
+    "Die Ablage ist ein kleines Fenster mit Merkfeldern neben den Taschen. Lege in den Einstellungen eine Taste fest und öffne sie damit.",
   ["No gold recorded yet"] = "Noch kein Gold erfasst",
   ["Delete mode"] = "Löschmodus",
   ["Profiles"] = "Profile",
@@ -662,6 +669,7 @@ local STRINGS = {
   ["Not a profile code"] = "Kein Profil-Code",
   ["Damaged profile code"] = "Beschädigter Profil-Code",
   ["Saved by a newer version"] = "Von einer neueren Version gespeichert",
+  ["This profile code was not made for this client"] = "Dieser Profil-Code wurde nicht für diesen Client erstellt",
   ["Not supported on this client"] = "Auf diesem Client nicht unterstützt",
   ["Off"] = "Aus",
   ["Invalid range"] = "Ungültiger Bereich",
@@ -790,9 +798,12 @@ local STRINGS = {
   ["Hide currencies"] = "Währungen ausblenden",
   ["LMB: Show currencies"] = "LM: Währungen einblenden",
   ["LMB: Hide currencies"] = "LM: Währungen ausblenden",
-  ["RMB: Pick currencies"] = "RM: Währungen wählen",
   ["Currencies direction"] = "Währungsrichtung",
   ["The currencies the game tracks, in a row under the grid. Shift-click drops one, drag to reorder. The + at the end of the row, or a right-click on the header switch, opens the picker; a left-click shows or hides the row."] = "Die Währungen, die das Spiel selbst verfolgt, in einer Reihe unter dem Raster. Shift-Klick nimmt eine heraus, Ziehen ordnet sie neu. Das Plus am Ende der Reihe oder ein Rechtsklick auf den Schalter in der Kopfzeile öffnet die Auswahl; ein Linksklick zeigt die Reihe oder blendet sie aus.",
+  ["Currency appearance"] = "Währungsdarstellung",
+  ["Icons"] = "Symbole",
+  ["Compact"] = "Kompakt",
+  ["How the currency row is drawn: full cells with the icon, or a narrow line of number and small icon by the gold."] = "Wie die Währungsreihe gezeichnet wird: volle Zellen mit dem Symbol oder eine schmale Zeile aus Zahl und kleinem Symbol beim Gold.",
   ["The way the currency row grows. Left to right fills from the left edge; Right to left mirrors it, starting from the right edge; From the middle centres each line."] = "Wie die Währungsreihe wächst. Von links nach rechts füllt sie vom linken Rand; Von rechts nach links wird sie gespiegelt und beginnt am rechten Rand; Aus der Mitte zentriert sie jede Zeile.",
   ["Left to right"] = "Von links nach rechts",
   ["Right to left"] = "Von rechts nach links",

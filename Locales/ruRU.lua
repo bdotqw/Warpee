@@ -366,6 +366,7 @@ local STRINGS = {
   ["Reverse slot order"] = "Обратный порядок ячеек",
   ["Keep new items apart"] = "Новые предметы отдельно",
   ["Grid order"] = "Порядок сетки",
+  ["Window position"] = "Положение окон",
   ["Fill grid upwards"] = "Ряды снизу вверх",
   ["Slot background"] = "Фон ячейки",
   ["Pay with"] = "Источник оплаты",
@@ -425,7 +426,7 @@ local STRINGS = {
     "Угол экрана, от которого висит окно сумок. По мере заполнения сумок окно растёт от этого угла.",
   ["The corner the pocket hangs from. Snapping it against another window sets this by itself."] =
     "Угол, от которого висит карман. Прилипание к другому окну выставляет его само.",
-  ["Near the bags or the bank, the pocket lines up with it and holds that seam when the window resizes. Dragging the bags never moves the pocket."] = "Рядом с сумками или банком карман встаёт встык и держит этот стык при изменении размера окна. Перетаскивание сумок его не тянет.",
+  ["Near the bags or the bank, the pocket lines up with it and holds that seam when the window resizes. When the bags or the bank are moved, the pocket keeps its offset and comes along."] = "Рядом с сумками или банком карман встаёт встык и держит этот стык при изменении размера окна. Если окно перетащить, карман сохраняет своё расстояние и едет вместе с ним.",
   ["Text size"] = "Размер текста",
   ["X offset"] = "Сдвиг по X",
   ["Y offset"] = "Сдвиг по Y",
@@ -537,6 +538,9 @@ local STRINGS = {
   ["Slots %d/%d"] = "Ячейки %d/%d",
   ["Settings"] = "Настройки",
   ["Bags"] = "Сумки",
+  ["Ammo"] = "Боеприпасы",
+  ["Quivers"] = "Колчаны",
+  ["Keys"] = "Ключи",
   ["Transfer"] = "Перенести",
   ["Moving now, click again to stop"] = "Перенос идёт, ЛКМ останавливает",
   ["Wait for combat to end and empty the cursor"] = "Дождитесь конца боя и уберите предмет с курсора",
@@ -564,6 +568,9 @@ local STRINGS = {
   ["Everything"] = "Всё",
   ["Tab %d"] = "Вкладка %d",
   ["Right-click to edit"] = "ПКМ — изменить",
+  ["Drop a bag here to swap it"] = "Бросьте сумку сюда, чтобы заменить",
+  ["Drop a bag here to use this tab"] = "Бросьте сумку сюда, чтобы занять вкладку",
+  ["Drag the bag off to remove it"] = "Вытащите сумку, чтобы убрать её",
   ["Buy tab"] = "Купить",
   ["Cost: %s"] = "Цена: %s",
   ["Hidden"] = "Скрытые",
@@ -668,10 +675,10 @@ local STRINGS = {
   ["Already in the pocket"] = "Уже в кармане",
   ["Clear"] = "Очистить",
   ["Equipped"] = "Надето",
-  ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and hovering a cell and pressing %s empties it."] =
-    "Маленькое окно с ячейками-закладками рядом с сумками, открывается кнопкой-сеткой в шапке. Перетащите предмет в ячейку, и она будет держать его, куда бы он ни переехал в сумках. Перетаскивание ячейки на ячейку меняет их местами, а ячейка под курсором освобождается нажатием %s.",
-  ["A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and a cell under the pointer can be emptied with a key of its own."] =
-    "Маленькое окно с ячейками-закладками рядом с сумками, открывается кнопкой-сеткой в шапке. Перетащите предмет в ячейку, и она будет держать его, куда бы он ни переехал в сумках. Перетаскивание ячейки на ячейку меняет их местами, а ячейку под курсором можно освободить своей клавишей.",
+  ["A small window of bookmark cells beside the bags, opened by its own key. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and hovering a cell and pressing %s empties it."] =
+    "Маленькое окно с ячейками-закладками рядом с сумками, открывается своей клавишей. Перетащите предмет в ячейку, и она будет держать его, куда бы он ни переехал в сумках. Перетаскивание ячейки на ячейку меняет их местами, а ячейка под курсором освобождается нажатием %s.",
+  ["A small window of bookmark cells beside the bags, opened by its own key. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and a cell under the pointer can be emptied with a key of its own."] =
+    "Маленькое окно с ячейками-закладками рядом с сумками, открывается своей клавишей. Перетащите предмет в ячейку, и она будет держать его, куда бы он ни переехал в сумках. Перетаскивание ячейки на ячейку меняет их местами, а ячейку под курсором можно освободить своей клавишей.",
   ["Favorite slots"] = "Ячейки избранного",
   ["A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; hovering a slot and pressing %s clears it."] =
     "Ряд ячеек над сеткой, всегда на виду. Перетащите предмет в ячейку, чтобы держать его под рукой; ячейка под курсором освобождается нажатием %s.",
@@ -684,10 +691,10 @@ local STRINGS = {
   ["%s clears the slot"] = "%s освобождает ячейку",
   ["Middle-click to clear the slot"] = "Средняя кнопка мыши освобождает ячейку",
   ["Bind a key to clear the slot"] = "Назначьте клавишу, чтобы освобождать ячейку",
-  ["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."] =
-    "Карман — небольшое окно с ячейками-закладками рядом с сумками. Откройте его по %s или кнопкой-сеткой в шапке.",
-  ["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."] =
-    "Карман — небольшое окно с ячейками-закладками рядом с сумками. Откройте его кнопкой-сеткой в шапке или назначьте клавишу в настройках.",
+  ["The pocket is a small window of bookmark cells beside the bags. Open it with %s."] =
+    "Карман — небольшое окно с ячейками-закладками рядом с сумками. Откройте его по %s.",
+  ["The pocket is a small window of bookmark cells beside the bags. Open it with a key bound in the settings."] =
+    "Карман — небольшое окно с ячейками-закладками рядом с сумками. Назначьте клавишу в настройках и открывайте им.",
   ["No gold recorded yet"] = "Данных о золоте пока нет",
   ["Delete mode"] = "Режим удаления",
   ["Profiles"] = "Профили",
@@ -725,6 +732,7 @@ local STRINGS = {
   ["Not a profile code"] = "Это не код профиля",
   ["Damaged profile code"] = "Повреждённый код профиля",
   ["Saved by a newer version"] = "Сохранён более новой версией",
+  ["This profile code was not made for this client"] = "Этот код профиля создан не для этого клиента",
   ["Not supported on this client"] = "Не поддерживается на этом клиенте",
   ["Off"] = "Выкл.",
   ["Invalid range"] = "Неверный диапазон",
@@ -840,9 +848,12 @@ local STRINGS = {
   ["Hide currencies"] = "Скрыть валюты",
   ["LMB: Show currencies"] = "ЛКМ: Показать валюты",
   ["LMB: Hide currencies"] = "ЛКМ: Скрыть валюты",
-  ["RMB: Pick currencies"] = "ПКМ: Выбрать валюты",
   ["Currencies direction"] = "Направление валют",
   ["The currencies the game tracks, in a row under the grid. Shift-click drops one, drag to reorder. The + at the end of the row, or a right-click on the header switch, opens the picker; a left-click shows or hides the row."] = "Валюты, которые отслеживает сама игра, строкой под сеткой. Shift+клик убирает одну, перетаскивание меняет порядок. Плюс в конце строки или правый клик по переключателю в шапке открывает выбор; левый клик показывает строку или скрывает её.",
+  ["Currency appearance"] = "Внешний вид валют",
+  ["Icons"] = "Иконки",
+  ["Compact"] = "Компактно",
+  ["How the currency row is drawn: full cells with the icon, or a narrow line of number and small icon by the gold."] = "Как рисуется строка валют: полные ячейки с иконкой или узкая строка из числа и маленькой иконки у золота.",
   ["The way the currency row grows. Left to right fills from the left edge; Right to left mirrors it, starting from the right edge; From the middle centres each line."] = "Как растёт строка валют. Слева направо заполняет от левого края; Справа налево зеркалит её, начиная с правого края; От середины центрирует каждую линию.",
   ["Left to right"] = "Слева направо",
   ["Right to left"] = "Справа налево",

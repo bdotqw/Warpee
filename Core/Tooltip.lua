@@ -217,9 +217,11 @@ local function showGoldTip(anchor)
   local min = tonumber(WarpeeDB and WarpeeDB.goldMin) or 0
   if min > GOLD_CAP * 10000 then min = GOLD_CAP * 10000 end
   local shown = ns.GoldRows(list, min)
-  local wb = ns.Vault:WarbandMoney()
+  -- Forever drops the account bank and the token from the client, so neither line is built there and
+  -- neither is counted into the height the fit loop below works from.
+  local wb = (not ns.IsForever) and ns.Vault:WarbandMoney() or 0
   local token = 0
-  if C_WowTokenPublic and C_WowTokenPublic.GetCurrentMarketPrice then
+  if not ns.IsForever and C_WowTokenPublic and C_WowTokenPublic.GetCurrentMarketPrice then
     if not tokenTick and C_WowTokenPublic.UpdateMarketPrice and C_Timer and C_Timer.NewTicker then
       tokenTick = true
       C_WowTokenPublic.UpdateMarketPrice()
@@ -265,12 +267,15 @@ local function showGoldTip(anchor)
     y = y + rowH
   end
 
+  -- Small balances matter on Forever; its rows and total retain silver and copper.
+  local goldOnly = not ns.IsForever
   for _, e in ipairs(shown) do
-    -- An empty purse is listed but not dressed up: dim and uncoloured, so a run of zeroes does not read
-    -- as gold the way the class colours do.
+    -- The name is coloured by class whatever the purse holds: the colour says who the character is,
+    -- not how much they carry, and a fresh alt read as an unnamed stranger when it was left plain for
+    -- being at zero. What a full purse buys is the number beside it, and that is the same for everyone.
     local live = (e.money or 0) > 0
-    local col = live and e.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
-    row(e.name, ns.FormatMoney(e.money, true, true), live and "text" or "dim", col)
+    local col = e.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
+    row(e.name, ns.FormatMoney(e.money, goldOnly, true), (col or live) and "text" or "dim", col)
   end
   -- "Nothing recorded" is about the store, not about the filter: a threshold that hides every row must
   -- leave the table empty, not claim the purse was never recorded.
@@ -293,7 +298,7 @@ local function showGoldTip(anchor)
     row(ns.L["Warband bank"], ns.FormatMoney(wb, true, true), "azure")
     sum = sum + wb
   end
-  row(ns.L["Total"], ns.FormatMoney(sum, true, true), "accent")
+  row(ns.L["Total"], ns.FormatMoney(sum, goldOnly, true), "accent")
   if token > 0 then
     y = y + 3
     t.sep2:ClearAllPoints()

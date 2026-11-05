@@ -164,6 +164,31 @@ function ns.PaintSlotBg(b)
   ns.PaintCellBase(b.bgBase)
 end
 
+-- The client paints its own picture of an empty slot into the cell's icon region on an empty update, and
+-- that picture is a slot of the game's own -- a full-size atlas with a slot drawn inside it. An empty cell
+-- here carries the theme's fill instead, so the region is cleared of both the file and the atlas; the
+-- region itself stays, since the same one shows an item on the next update. Left alone, that picture was
+-- the whole of an empty cell on Transparent and was what read as the game's slots on every theme.
+function ns.ClearCellIcon(b)
+  local ic = b and (b.icon or _G[(b:GetName() or "") .. "IconTexture"])
+  if not ic then return end
+  ic:SetTexture(nil)
+  if ic.SetAtlas then pcall(ic.SetAtlas, ic, nil) end
+  ic:SetTexCoord(0, 1, 0, 1)
+end
+
+-- Ring tones. At full strength a full page is a wall of strips: the quality ring is a frame around the
+-- item, not a badge on it, and the icon is what is meant to be looked at. Held back to nine tenths a
+-- ring still names its quality and stops a page of them reading as stickers. Quest yellow keeps a
+-- little more, being a job rather than a grade, and the unusable red keeps all of it, being a warning.
+local RING_A = 0.9
+local RING_QUEST_A = 0.95
+-- The ink of the item level. It is the one badge printed on nearly every cell of a gear page, and at the
+-- white the badge shipped in it was the loudest thing left once the rings came down: a hundred "321"s
+-- over icons that are the actual content. Cooled a touch and held just off full, it reads as a note on
+-- the cell. The stack count is deliberately not here: the client owns that string's colour and turns it
+-- red when the bag is full, which is a warning worth more than the tone.
+local ILVL_INK = { 0.88, 0.89, 0.92, 0.95 }
 local RING_INSET = 0
 local RING_WIDTH = 2
 local function borderLine(bf, sub, layer)
@@ -291,8 +316,10 @@ local function attachBorder(b)
   b.outfit:SetTextColor(Theme:C("overlay"))
 end
 
+-- The client's own helper reads the same three keys in this order. `Icon` is the one a widget built from nothing
+-- carries: a template names its icon region, an intrinsic button does not.
 local function iconOf(b)
-  return b.icon or _G[(b:GetName() or "") .. "IconTexture"]
+  return b.Icon or b.icon or _G[(b:GetName() or "") .. "IconTexture"]
 end
 
 local function fitToIcon(t, ic)
@@ -575,6 +602,9 @@ function ns.ClearWarboundMeta()
 end
 
 function ns.IsWarbound(bagID, slot, loc, bound, link)
+  -- Forever has no account bindings: answered once here instead of letting every cell scan a tooltip
+  -- line the client never writes.
+  if ns.IsForever then return false end
   if not bound and loc and C_Item.DoesItemExist(loc) and C_Item.IsBoundToAccountUntilEquip
      and C_Item.IsBoundToAccountUntilEquip(loc) then
     return true
@@ -644,7 +674,9 @@ end
 --     and anything under the wpe prefix. Never a name that could belong to the template.
 --     emptyBackgroundAtlas is the one sanctioned exception: it is the template's own
 --     knob for the empty-slot watermark, only insecure paint code reads it, and there
---     is no other way to switch that watermark off.
+--     is no other way to switch that watermark off. Clearing it is not always enough
+--     on its own -- the client has already drawn the picture by then -- see the bare
+--     cell below, which also takes the icon region down.
 --   call SetBagID. The holder's SetID carries the bag id, GetBagID falls back to it.
 -- Safe in and out of combat: SetID on the button and on the holder, RegisterForClicks,
 -- RegisterForDrag, hooksecurefunc on child regions and animations, new wpe* fields.
@@ -677,6 +709,12 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
   attachBorder(b)
   local nm = b:GetName() or ""
   suppress(b.IconBorder);   suppress(_G[nm.."IconBorder"])
+  -- EmptyBagIcon is the client's own picture of an empty slot, which the bag template brings in with it.
+  -- An empty cell here wears the theme's fill instead, and a second picture of a slot over that fill is
+  -- neither the theme's colour nor the style's: with the slot style on Transparent that picture was all
+  -- that was left to see, and on every theme the cell read as the game's own. The fill is the slot's
+  -- picture; the client's is taken down like the borders and the quest mark.
+  suppress(b.EmptyBagIcon);  suppress(_G[nm.."EmptyBagIcon"])
   -- IconQuestTexture is the template's own field, so it is never written: it is killed on the
   -- button instead, which takes the game's animated quest border off a quest item. The mark is
   -- taken from the atlas sheet and not from the game's own quest picture: that picture has a
@@ -754,6 +792,12 @@ function ns.RefreshCellTip(frame, cell)
     end
   end
   if not b or b == frame then return end
+  -- A cell with no container behind it cannot answer, and the caller that named it may not know that:
+  -- a snapshot cell is a record key drawn from what another character had, so it carries no wpeBagID,
+  -- and the bags' own hit test reads rectangles, not containers -- it names the snapshot pool all the
+  -- same. The same guard the focus walk above uses. Without it the read below asks C_Container for a
+  -- bag of nil and throws on every pass that runs while the pointer rests over an alt's cell.
+  if not b.wpeBagID then return end
   local info = C_Container.GetContainerItemInfo(b.wpeBagID, b:GetID())
   if not (info and (info.hyperlink or info.itemID)) then return end
   if GameTooltip:IsShown() and GameTooltip:GetOwner() == b then return end
@@ -858,10 +902,21 @@ function ns.CreateBareCell(parent)
   if nt then nt:SetAlpha(0) end
   -- The widget's own watermark for an empty slot, switched off the way the heavy factory switches it off:
   -- the fill under it is the picture of a slot, and a second picture over the same square is neither one.
-  -- The icon is left alone rather than cleared -- nothing here ever writes it.
   b.emptyBackgroundAtlas = nil
-  local ic = b.icon or _G[(b:GetName() or "") .. "IconTexture"]
-  if ic then ic:ClearAllPoints(); ic:SetAllPoints(b) end
+  -- The field alone is not enough on a cell that never hands the widget an item. The watermark is not a
+  -- region of its own: the client paints it into the icon from the empty atlas the button carries, and
+  -- clearing the field only tells the next SetItemButtonTexture that there is nothing to draw. The heavy
+  -- factory gets that next call on
+  -- every pass; nothing paints a bare cell after it is built, so the picture drawn at build time stood over
+  -- the theme's fill and every theme there looked like Blizzard's. The region is taken down by hand here --
+  -- an empty cell never draws an icon, so nothing is lost by it.
+  local ic = iconOf(b)
+  if ic then
+    ic:ClearAllPoints(); ic:SetAllPoints(b)
+    if ic.SetTexture then pcall(ic.SetTexture, ic, nil) end
+    if ic.SetAtlas then pcall(ic.SetAtlas, ic, nil) end
+    ic:Hide()
+  end
   -- The four lines of the empty look, on the cell itself. A heavy cell hangs them on a ring frame of its
   -- own, since the ring of a rarity and its keyline live there too; an empty slot wears no ring, so that
   -- frame would hold these four and nothing else, and every frame of the pool is paid for on a cold open.
@@ -926,12 +981,12 @@ end
 -- the badge actually lands in.
 local BADGES = {
   -- The two numbers ship as they are worn on the default cells: 12px, centred on the bottom-right
-  -- corner of the cell, eighteen pixels in and one pixel up. a = "center" is what makes the number
+  -- corner of the cell, eighteen pixels in and two pixels up. a = "center" is what makes the number
   -- grow both ways from that point rather than away from the corner alone.
-  { key = "ilvl",   n = "Item level",  p = "447",  c = "BOTTOMRIGHT", x = -18, y = 1, s = 12,
+  { key = "ilvl",   n = "Item level",  p = "447",  c = "BOTTOMRIGHT", x = -18, y = 2, s = 12,
     a = "center", m = 8, ref = DEFAULT_CELL,
     t = "Item level on gear, and a keystone's level." },
-  { key = "count",  n = "Stack count", p = "1000", c = "BOTTOMRIGHT", x = -18, y = 1, s = 12,
+  { key = "count",  n = "Stack count", p = "1000", c = "BOTTOMRIGHT", x = -18, y = 2, s = 12,
     a = "center", m = 8, ref = DEFAULT_CELL,
     t = "How many items the stack holds." },
   { key = "bind",   n = "Binding",     p = "BoE",  c = "TOPLEFT",     x = 14, y = -2, s = 10,
@@ -1207,6 +1262,9 @@ function ns.ApplyBadge(b, key)
   else
     k = ns.BadgeScale(cell, key, g)
     ns.SetOutlined(o, ns.BadgeSize(key, cell, g))
+    -- Dressed with the size rather than once at birth: a badge is handed a new face and a new place on
+    -- every pass, so the tone rides the same call and nothing has to remember it went dim.
+    if key == "ilvl" then o:SetTextColor(ILVL_INK[1], ILVL_INK[2], ILVL_INK[3], ILVL_INK[4]) end
   end
   local px, py = ns.BadgeOffset(g.x, k), ns.BadgeOffset(g.y, k)
   o:ClearAllPoints()
@@ -1265,12 +1323,27 @@ end
 -- what the old 1.19 drew, and a decoration zooms exactly like everything else.
 local ZOOM_UNIT = 1.19
 
+-- The crop last written is read back before it is trusted. The cell is cast from the client's own item
+-- button, and that button stamps its default rectangle on the icon whenever it is handed an item -- on
+-- some builds after this pass has already run. The remembered zoom is then a statement about what was
+-- asked for, not about what is on screen, and a session could open with the client's crop standing in for
+-- the setting until some later change moved the zoom and forced a second pass.
+local function cropIs(ic, crop)
+  if not crop then return false end
+  local l, r, t, bo = ic:GetTexCoord()
+  -- Nothing to compare when the texture will not say: the record below is then the only word there is.
+  if not (l and r and t and bo) then return true end
+  local eps = 1e-4
+  return math.abs(l - crop[1]) <= eps and math.abs(r - crop[2]) <= eps
+     and math.abs(t - crop[3]) <= eps and math.abs(bo - crop[4]) <= eps
+end
+
 function ns.ApplyIconZoom(b)
   local ic = b.icon or _G[(b:GetName() or "") .. "IconTexture"]
   if not ic then return end
   local z = (ns.Bags.iconZoom or 1) * ZOOM_UNIT
   local sz = cellOf(b)
-  if b.zoomFor == z and b.zoomSize == sz then return end
+  if b.zoomFor == z and b.zoomSize == sz and cropIs(ic, b.zoomCrop) then return end
   b.zoomFor, b.zoomSize = z, sz
   ic:ClearAllPoints()
   if z > 1 then
@@ -1286,6 +1359,8 @@ function ns.ApplyIconZoom(b)
     ic:SetTexCoord(0, 1, 0, 1)
     ic:SetAllPoints(b)
   end
+  local tc = { ic:GetTexCoord() }
+  b.zoomCrop = (tc[4] ~= nil) and tc or nil
 end
 
 function ns.FitOverlays(b)
@@ -1916,6 +1991,11 @@ function ns.UpdateItemButton(b)
   local locked = (info and info.isLocked) and true or false
   if b.link == link and b.wpeCount == count and b.wpeMark == mark
      and b.wpeQuestKey == qkey and b.wpeBound == bound and b.wpeItemLocked == locked then
+    -- The crop is the one drawing the client can take away without any of the facts above moving: its
+    -- own button stamps a rectangle on the icon when it is handed an item, and on some builds that lands
+    -- after this pass has already run. Verifying it here costs two reads and leaves the cell alone when
+    -- the rectangle is still the one the setting asks for.
+    ns.ApplyIconZoom(b)
     return b.itemName
   end
   b.link, b.wpeCount, b.wpeMark, b.wpeQuestKey, b.wpeBound = link, count, mark, qkey, bound
@@ -1932,6 +2012,7 @@ function ns.UpdateItemButton(b)
     -- always, so a nil here meant a re-empty cell never took the early return and repainted every pass.
     b.wpeItemLocked = false
     SetItemButtonTexture(b, nil)
+    ns.ClearCellIcon(b)
     SetItemButtonCount(b, 0)
     SetItemButtonDesaturated(b, false)
     if b.ilvl then b.ilvl:SetText("") end
@@ -1942,12 +2023,24 @@ function ns.UpdateItemButton(b)
     ns.MarkNewItem(b, bagID, slot)
     local nt = b:GetNormalTexture()
     if nt then nt:SetAlpha(0) end
+    -- The template brings its own picture of an empty slot and shows it here, when the cell becomes
+    -- empty -- not only when the cell is built. An empty cell wears the theme's fill instead, so the
+    -- picture is taken down again on this path; suppress is idempotent, so a cell that already had it
+    -- killed at build time pays one table read.
+    suppress(b.EmptyBagIcon); suppress(_G[(b:GetName() or "") .. "EmptyBagIcon"])
     ns.SetSlotBorder(b, Theme:C("emptyLine"))
+    -- The ammo run is a container of its own in the grid, so its cells wear an outline of its own rather
+    -- than the empty line: its hue is what tells a quiver's slots from the sheet's at a glance, and an empty
+    -- cell in it is still a cell of that run, so it is drawn like the full ones rather than left bare. On a
+    -- client without the run there is no ammo bag to name, and the branch never opens.
+    if not b.wpeCat and ns.IsAmmoBag and ns.IsAmmoBag(bagID) then
+      local r = Theme.colors.azure
+      ns.SetRarityRing(b, r[1], r[2], r[3], RING_A)
     -- An empty slot has no class to read, so the reagent ring on it only ever means the reagent bag,
     -- and that is a grid idea: the grouped view rings by class and never tints an empty cell.
-    if ns.Bags.reagentTint and not b.wpeCat and bagID == ns.reagentBag then
+    elseif ns.Bags.reagentTint and not b.wpeCat and bagID == ns.reagentBag then
       local r = Theme.colors.reagent
-      ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
+      ns.SetRarityRing(b, r[1], r[2], r[3], RING_A)
     else
       ns.SetRarityRing(b)
     end
@@ -2043,9 +2136,15 @@ function ns.UpdateItemButton(b)
   else
     reagentRing = (bagID == ns.reagentBag)
   end
-  if ns.Bags.reagentTint and not b.wpeNoReagent and reagentRing then
+  if not b.wpeCat and ns.IsAmmoBag and ns.IsAmmoBag(bagID) then
+    -- The ammo run's hue, ahead of every other ring: a quiver or an ammo pouch is a container the player
+    -- pointed at on purpose, and the run it makes is what the cells in it belong to. Same colour the empty
+    -- cells of that run wear, so a half-filled quiver reads as one block.
+    local r = Theme.colors.azure
+    ns.SetRarityRing(b, r[1], r[2], r[3], RING_A)
+  elseif ns.Bags.reagentTint and not b.wpeNoReagent and reagentRing then
     local r = Theme.colors.reagent
-    ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
+    ns.SetRarityRing(b, r[1], r[2], r[3], RING_A)
   elseif ns.Bags.unusableBorder and hl and ns.IsItemUnusable(bagID, slot, hl) then
     local R = RED_FONT_COLOR
     ns.SetRarityRing(b, R.r, R.g, R.b, 1)
@@ -2056,11 +2155,11 @@ function ns.UpdateItemButton(b)
          -- for (a bank slot, a pocket cell, an item the client has not described yet) fell through to the
          -- quality ring -- yellow in the vault, where the class is the test, and a quality colour here.
          and ((qi and (qi.questID or qi.isQuestItem)) or iClassID == Enum.ItemClass.Questitem) then
-    ns.SetRarityRing(b, QUEST_YELLOW[1], QUEST_YELLOW[2], QUEST_YELLOW[3], 1)
+    ns.SetRarityRing(b, QUEST_YELLOW[1], QUEST_YELLOW[2], QUEST_YELLOW[3], RING_QUEST_A)
   elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q]
          and not decorated(b.IconOverlay) and not decorated(b.IconOverlay2) then
     local c = ITEM_QUALITY_COLORS[q]
-    ns.SetRarityRing(b, c.r, c.g, c.b, 1)
+    ns.SetRarityRing(b, c.r, c.g, c.b, RING_A)
   else
     ns.SetRarityRing(b)
   end
@@ -2202,16 +2301,16 @@ function ns.PaintVaultButton(b, d, bagID, forceCount)
   end
   if ns.Bags.reagentTint and reagentRing then
     local r = Theme.colors.reagent
-    ns.SetRarityRing(b, r[1], r[2], r[3], 0.95)
+    ns.SetRarityRing(b, r[1], r[2], r[3], RING_A)
   elseif link and ns.Bags.unusableBorder and ns.IsLinkUnusable(link) then
     local R = RED_FONT_COLOR
     ns.SetRarityRing(b, R.r, R.g, R.b, 1)
   elseif ns.Bags.qualityBorder and classID == Enum.ItemClass.Questitem then
-    ns.SetRarityRing(b, QUEST_YELLOW[1], QUEST_YELLOW[2], QUEST_YELLOW[3], 1)
+    ns.SetRarityRing(b, QUEST_YELLOW[1], QUEST_YELLOW[2], QUEST_YELLOW[3], RING_QUEST_A)
   elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q]
          and not decorated(b.IconOverlay) and not decorated(b.IconOverlay2) then
     local c = ITEM_QUALITY_COLORS[q]
-    ns.SetRarityRing(b, c.r, c.g, c.b, 1)
+    ns.SetRarityRing(b, c.r, c.g, c.b, RING_A)
   else
     ns.SetRarityRing(b)
   end

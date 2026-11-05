@@ -4,9 +4,10 @@ local reqPrefixes
 local function requirementPrefixes()
   if reqPrefixes then return reqPrefixes end
   reqPrefixes = {}
-  for _, g in ipairs({ ITEM_MIN_LEVEL, ITEM_REQ_SKILL, ITEM_REQ_LEVEL, ITEM_MIN_SKILL,
-                       ITEM_CLASSES_ALLOWED, ITEM_REQ_REPUTATION, ITEM_REQ_ARENA_RATING,
-                       ITEM_REQ_SPECIALIZATION }) do
+  for _, key in ipairs({ "ITEM_MIN_LEVEL", "ITEM_REQ_SKILL", "ITEM_REQ_LEVEL", "ITEM_MIN_SKILL",
+                         "ITEM_CLASSES_ALLOWED", "ITEM_REQ_REPUTATION", "ITEM_REQ_ARENA_RATING",
+                         "ITEM_REQ_SPECIALIZATION" }) do
+    local g = _G[key]
     if type(g) == "string" then
       local p = (g:match("^(.-)%%") or g):gsub("%s+$", ""):lower()
       if #p >= 3 then reqPrefixes[#reqPrefixes + 1] = p end
@@ -27,6 +28,9 @@ end
 
 local unusableCache = {}
 local warboundCache = {}
+-- How many times a link has been asked about without an answer yet. Beside the caches because it is
+-- wiped with them: the same level or reputation change that moves a verdict makes the old count stale.
+local retries = {}
 
 -- Everything here answers "what does this item look like right now", so it goes together:
 -- a level, a reputation, a rating or a spec change can move any of these verdicts and none
@@ -35,6 +39,7 @@ local warboundCache = {}
 function ns.ClearUnusableCache()
   wipe(unusableCache)
   wipe(warboundCache)
+  wipe(retries)
   ns.ClearWarboundMeta()
 end
 
@@ -105,6 +110,69 @@ drain = function()
   end
 end
 
+-- An item the client has not described yet is not a verdict. Right after a login the bags can hold pieces
+-- whose data has not streamed in, and GetItemInfoInstant answers nil for them -- and that nil was read as
+-- "not equipment", which wrote a "fine" into the cache for the rest of the session. That is why the red
+-- ring sometimes did not come at all until the next /reload, by which time the client knew the item: the
+-- answer had already been given, and given wrongly, from an ignorance that looked like a fact. So an
+-- item with no class is asked for its data and the link comes back a beat later, a few times at most:
+-- a link the client never answers for is not a verdict either, and retrying it all session would be a
+-- timer that never stops.
+local RETRY_DELAY, RETRY_MAX = 1, 5
+
+local function unknownItem(link)
+  if select(6, C_Item.GetItemInfoInstant(link)) then return false end
+  local id = tonumber((link or ""):match("item:(%d+)"))
+  if id and C_Item.RequestLoadItemDataByID then pcall(C_Item.RequestLoadItemDataByID, id) end
+  return true
+end
+
+local function retryLater(link, bag, slot)
+  local n = (retries[link] or 0) + 1
+  retries[link] = n
+  if n > RETRY_MAX then return end
+  C_Timer.After(RETRY_DELAY, function() askNextFrame(link, bag, slot) end)
+end
+
+-- Red lines an item says for reasons that are not "you cannot wear this now". Everything else red is a
+-- block, in whatever words the client chooses: the sentences a requirement is written in are the part of
+-- a tooltip every patch rewrites, and a list of the ones we know is a list that is always one patch
+-- behind -- which is how a piece that plainly says "requires" in red keeps its quality colour. So the few
+-- red lines that mean something else are named and the rest are taken at their colour.
+local notBlocking
+local function nonBlocking()
+  if notBlocking then return notBlocking end
+  notBlocking = {}
+  -- Read by name, not by value: a nil in a table constructor ends ipairs at that hole, so one missing
+  -- global in one locale would silently drop every name after it.
+  for _, key in ipairs({ "ITEM_SCRAPABLE_NOT", "CANNOT_UNEQUIP_COMBAT", "ITEM_DISENCHANT_NOT_DISENCHANTABLE",
+                         "ITEM_CANT_BE_DISENCHANTED", "ITEM_UNIQUE_EQUIPPED", "ITEM_ALREADY_KNOWN",
+                         "ITEM_CANT_BE_REFUNDED", "ITEM_WONT_BE_TRADABLE" }) do
+    local g = _G[key]
+    if type(g) == "string" and g ~= "" then
+      notBlocking[g] = true
+      notBlocking[(g:gsub("%s+$", ""))] = true
+      notBlocking[(g:gsub("^%s+", ""))] = true
+    end
+  end
+  return notBlocking
+end
+
+-- The broad read: any red line that is not one of the named non-blocks. It is deliberately independent of
+-- how a requirement is phrased, and it runs on every item rather than only on the classes that usually
+-- carry one -- a restriction is the item's own business, not its class's.
+local function redBlocked(data)
+  local skip = nonBlocking()
+  for _, line in ipairs(data.lines) do
+    if line.leftColor == nil and TooltipUtil and TooltipUtil.SurfaceArgs then
+      TooltipUtil.SurfaceArgs(line)
+    end
+    if lineRed(line.leftColor) and not skip[line.leftText or ""] then return true end
+    if lineRed(line.rightColor) and not skip[line.rightText or ""] then return true end
+  end
+  return false
+end
+
 local function scanRequirements(link, data)
   local _, _, subType, equipLoc = C_Item.GetItemInfoInstant(link)
   local slotName = (equipLoc and equipLoc ~= "" and _G[equipLoc]) or nil
@@ -129,40 +197,21 @@ local function scanRequirements(link, data)
   return false
 end
 
-local function equippable(link)
-  -- 12.1.5 removed the shim behind the bare IsEquippableItem; the namespace is all that is left.
-  local eq = C_Item.IsEquippableItem
-  return eq and eq(link) and true or false
-end
-
-local restrictedClasses
-local function restrictedClass(link)
-  if not (Enum and Enum.ItemClass) then return false end
-  if not restrictedClasses then
-    restrictedClasses = {}
-    for _, key in ipairs({ "Recipe", "Miscellaneous", "Consumable" }) do
-      local id = Enum.ItemClass[key]
-      if id then restrictedClasses[id] = true end
-    end
-  end
-  local classID = select(6, C_Item.GetItemInfoInstant(link))
-  return (classID and restrictedClasses[classID]) and true or false
-end
-
-local function checkable(link)
-  return equippable(link) or restrictedClass(link)
-end
-
 function ns.IsItemUnusable(bag, slot, link)
   if not link then return false end
   local hit = knownVerdict(link)
   if hit ~= nil then return hit end
-  if not checkable(link) then keepVerdict(link, false); return false end
+  if unknownItem(link) then retryLater(link, bag, slot); return false end
   if not (C_TooltipInfo and C_TooltipInfo.GetBagItem) then return false end
   if ns.OutOfTime() then askNextFrame(link, bag, slot); return false end
   local data = C_TooltipInfo.GetBagItem(bag, slot)
-  if not (data and data.lines) then return false end
-  local bad = scanRequirements(link, data)
+  -- No tooltip is not "usable" either: the read can come back empty while the client is still filling
+  -- in the item, and a bare false here left the cell without its ring and nothing to paint it later.
+  if not (data and data.lines) then retryLater(link, bag, slot); return false end
+  -- The wording of a requirement is not something to depend on, so the broad read has the last word: the
+  -- precise one still runs first for the cases it knows, and anything it does not recognise but the item
+  -- prints in red counts as a block.
+  local bad = scanRequirements(link, data) or redBlocked(data)
   keepVerdict(link, bad)
   return bad
 end
@@ -171,12 +220,12 @@ function ns.IsLinkUnusable(link)
   if not link then return false end
   local hit = knownVerdict(link)
   if hit ~= nil then return hit end
-  if not checkable(link) then keepVerdict(link, false); return false end
+  if unknownItem(link) then retryLater(link); return false end
   if not (C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return false end
   if ns.OutOfTime() then askNextFrame(link); return false end
   local data = C_TooltipInfo.GetHyperlink(link)
-  if not (data and data.lines) then return false end
-  local bad = scanRequirements(link, data)
+  if not (data and data.lines) then retryLater(link); return false end
+  local bad = scanRequirements(link, data) or redBlocked(data)
   keepVerdict(link, bad)
   return bad
 end
@@ -229,6 +278,8 @@ local function accountBinds()
 end
 
 function ns.IsLinkWarbound(link)
+  -- Forever retires the account-bound marker with the rest of the warband UI.
+  if ns.IsForever then return false end
   if not link then return false end
   local hit = warboundCache[link]
   if hit ~= nil then return hit end

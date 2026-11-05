@@ -5,8 +5,22 @@ local Theme = ns.Theme
 -- The bags a character item may be set down in, the reagent bag deliberately absent: it is the one
 -- container that refuses anything but its own kind, so a piece off the body can never land there and
 -- StowFromCursor walks this list alone.
+-- The keyring is not here either. The client opens it in a window of its own, so it is no part of what this
+-- window counts, no part of the runs that sort or stow, and on retail no part of the grid. On Forever it is
+-- drawn at the foot of the same grid, behind its own rule -- keys are a container of the character like the
+-- bags are, and the client's separate window for it is the one thing that client opens apart.
 ns.playerBags = { 0, 1, 2, 3, 4 }
 ns.reagentBag = (Enum and Enum.BagIndex and Enum.BagIndex.ReagentBag) or 5
+local KEYRING = (ns.IsForever and Enum and Enum.BagIndex and Enum.BagIndex.Keyring) or nil
+ns.keyringBag = KEYRING
+
+-- How many slots the keyring actually has. The container reader answers with the capacity the client could
+-- ever open -- 32-odd slots on a client whose keyring is a container like the bags -- while the number the
+-- player can put a key in is a figure of its own, and Forever is the client that keeps it.
+local function keyringSize()
+  if not KEYRING then return 0 end
+  return GetKeyRingSize() or 0
+end
 
 local OWN_BAGS = { [ns.reagentBag] = true }
 for _, b in ipairs(ns.playerBags) do OWN_BAGS[b] = true end
@@ -14,6 +28,48 @@ for _, b in ipairs(ns.playerBags) do OWN_BAGS[b] = true end
 function ns.IsPlayerBag(id)
   return OWN_BAGS[id] == true
 end
+
+-- What a bag item is, by the client's own class number: a quiver and an ammo pouch are class 11, and the
+-- class is a property of the bag, not of the slot it stands in -- the player may move a quiver to another
+-- bag slot at any time, so nothing here may key off the slot. Only the equipped item answers it, and that
+-- read is a cache hit on the client's item table, not a tooltip scan.
+local AMMO_CLASS = (Enum and Enum.ItemClass and Enum.ItemClass.Quiver) or 11
+
+-- The item equipped in a bag slot: the id off the equipped slot, which the client keeps whether or not the
+-- item itself has been seen. nil for the backpack, an empty slot, and a client without the reader.
+local function bagItemID(bag)
+  if not (bag and bag >= 1 and GetInventoryItemID) then return nil end
+  local toInv = (C_Container and C_Container.ContainerIDToInventoryID) or ContainerIDToInventoryID
+  if not toInv then return nil end
+  local ok, inv = pcall(toInv, bag)
+  if not (ok and inv) then return nil end
+  return GetInventoryItemID("player", inv)
+end
+
+-- The class of a bag item is kept per id: a bag's own item never changes without the bag itself changing,
+-- and a layout pass asks the same four slots again on every change the bags see.
+local ammoByItem = {}
+
+local function bagHoldsAmmo(bag)
+  local id = bagItemID(bag)
+  if not id then return false end
+  local known = ammoByItem[id]
+  if known == nil then
+    local get = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+    if not get then return false end
+    -- name, link, quality, item level, required level, class, subclass: the class is the sixth answer and
+    -- the one field of the set that says what the bag can hold.
+    local ok, _, _, _, _, _, classID = pcall(get, id)
+    if not (ok and type(classID) == "number") then return false end
+    known = (classID == AMMO_CLASS)
+    ammoByItem[id] = known
+  end
+  return known
+end
+
+-- Named for the cells as well: an item button asks this of its own bag to know whether to wear the ammo
+-- run's outline, and the answer has to be the same one the layout grouped the run by.
+ns.IsAmmoBag = bagHoldsAmmo
 
 local SIZE_DEFAULT, PAD = 37, 10
 -- Air a captioned block needs over its own cells: the reagent bag is the one block in the bags grid that
@@ -29,6 +85,11 @@ local DIV = 22
 local CUR_SEAM = 16    -- the band under the grid: air, the hairline dividing the currency row off, the row
 local CUR_MID = 8      -- how far the hairline drops below the grid's foot, in the middle of that band
 local HB = 26
+-- The pocket's door stood in the header's right row until 2026-11-01 and is kept, built and wired, but
+-- off: seven marks with one of them opening a niche window read as a picket fence, and the row is
+-- already wider than the narrowest the window goes. The button, its art and its tooltip are all still
+-- here -- this flag is the whole of the move, so bringing it back is one word.
+local POCKET_BTN = false
 local ROW1_Y = 4
 -- The purse line's inset from the window's right edge, over PAD. At PAD + 4 the amount ran onto the
 -- right border (owner), so 12 keeps a further eight clear of it. Height is the density's own and is not
@@ -57,13 +118,19 @@ local SEARCH = 22
 local GAUGE_Y = ROW1_Y + HB + 6
 local ROW2_Y = GAUGE_Y + 6
 local FONT = 15
+-- The band ink is the theme's own azure: every palette carries one next to its accent, and it is the cool
+-- second colour a theme picks to sit opposite the accent -- blue under the violet theme, steel under the
+-- warm ones, the class blue in Class colour. That is what a band has always been painted in, and it is the
+-- right answer: a band is the window's structure, the accent is the theme's voice, so the two levels are
+-- told apart by hue and never by a colour hard-coded in this file that a theme cannot tune.
 local BAGPAD, BAGGAP = 12, 6
 local HBAND = 32
 
 local function applyDensity(size)
   local d = ns.Density(size)
-  PAD, HEADER, FOOTER, DIV, HB = d.pad, d.header, d.footer, d.div, d.hb
-  ROW1_Y, SEARCH = d.row1y, d.searchH
+  PAD, HEADER, FOOTER, DIV, HB = d.pad + Theme:ContentPad("side"),
+    d.header + Theme:ContentPad("top"), d.footer + Theme:ContentPad("bottom"), d.div, d.hb
+  ROW1_Y, SEARCH = d.row1y + Theme:ContentPad("top"), d.searchH
   GAUGE_Y = ROW1_Y + HB + 6
   ROW2_Y = GAUGE_Y + 6
   FONT = d.font
@@ -315,28 +382,46 @@ function Bags:ReagentsUp()
 end
 
 function Bags:TopOffset()
-  local rows = (self.recentH or 0) + (self.favH or 0)
+  local rows = (self.recentH or 0) + (self.favH or 0) + (self.listGap or 0)
   -- The rows overhead keep a gap to the grid so the two do not read as one block. A reagent
   -- block standing between them brings its own separator in the caption the block is labelled
   -- with, and the two together would leave a hole between the caption and the cells above it.
-  -- Only that case drops the gap: merged reagents carry no caption, and hidden ones leave
-  -- nothing behind at all. Category view drops it too: its first band already opens with a group
-  -- caption that separates it from the rows above, so the extra 18 only doubled the gap. The
-  -- split grid does the same once its names are on: the first block opens on the bag's own name.
+  return self:BaseTop() + rows + self:ListSep()
+end
+
+-- Six at the foot of the lists' own height, or none. Favorites keeps six under its cells; Recent's Apply
+-- ends on them. The band below is placed against this, so both of its gaps come out equal.
+function Bags:ListTail() return ((self.favH or 0) > 0) and 6 or 0 end
+
+-- The gap between the last row of the lists and the grid, and the one band that separates them: fifteen
+-- points from the last cell to the grid, whatever the foot already carries -- the count the pocket keeps
+-- around its line, and where the old eighteen plus six made twenty-four. Zero when another caption
+-- already does the separating: merged reagents carry none, hidden ones leave nothing, and category view
+-- or a named split grid opens on a caption of its own.
+function Bags:ListSep()
+  local rows = (self.recentH or 0) + (self.favH or 0) + (self.listGap or 0)
+  if rows <= 0 or self:ReagentsUp() or self:CatMode() then return 0 end
   local hide = self.hideReagents and true or false
   local merge = (not hide) and self.mergeReagents and true or false
-  local showNames = (not merge) and self.splitBags and self.nameBags and true or false
-  local sep = (rows > 0 and not self:ReagentsUp() and not self:CatMode()
-               and not showNames) and 18 or 0
-  return self:BaseTop() + rows + sep
+  if (not merge) and self.splitBags and self.nameBags then return 0 end
+  return 15 - self:ListTail()
 end
 
 function Bags:FlowHeader()
   if not self.frame then return end
   local row1 = ROW1_Y + Theme:TopInset() + Theme:HeadDrop()
-  self.headEdge = ns.FlowRow(self.frame, -PAD, -row1, 4,
-    { self.closeBtn, self.gearBtn, self.bagsToggle, self.pocketBtn,
-      self.bankBtn, self.sellBtn, self.sortBtn })
+  -- Filled by hand rather than spelled as one list: the pocket sits in the middle of the row and a nil
+  -- there would end ipairs, leaving the bank, the coin and the sort unplaced behind it.
+  local row = {}
+  local function add(b) if b then row[#row + 1] = b end end
+  add(self.closeBtn)
+  add(self.gearBtn)
+  add(self.bagsToggle)
+  if POCKET_BTN then add(self.pocketBtn) end
+  add(self.bankBtn)
+  add(self.sellBtn)
+  add(self.sortBtn)
+  self.headEdge = ns.FlowRow(self.frame, -PAD, -row1, 4, row)
 end
 
 -- The search row: the box takes the whole width, except while the transfer chip stands at its right
@@ -375,11 +460,11 @@ function Bags:AnchorHeader()
   self:FlowHeader()
   if self.title then
     self.title:ClearAllPoints()
-    self.title:SetPoint("BOTTOMLEFT", PAD, 6)
+    self.title:SetPoint("BOTTOMLEFT", PAD, 6 + Theme:ContentPad("bottom"))
   end
   if self.money then
     self.money:ClearAllPoints()
-    self.money:SetPoint("BOTTOMRIGHT", -(PAD + footInset()), 6)
+    self.money:SetPoint("BOTTOMRIGHT", -(PAD + footInset()), 6 + Theme:ContentPad("bottom"))
   end
   if self.charTag then
     self.charTag:ClearAllPoints()
@@ -427,7 +512,7 @@ function Bags:Build()
     if not self.money then
       local money = Theme:Label(f, FONT + 1, "text")
       Theme:Money(money)
-      money:SetPoint("BOTTOMRIGHT", -(PAD + footInset()), 6)
+      money:SetPoint("BOTTOMRIGHT", -(PAD + footInset()), 6 + Theme:ContentPad("bottom"))
       self.money = money
       ns.AttachGoldTooltip(money, f, function() return self.iconSize end)
     end
@@ -511,7 +596,7 @@ function Bags:Build()
   ns.CreateMoveBar(f, "pos")
 
   local title = Theme:Title(f, FONT, "accent")
-  title:SetPoint("BOTTOMLEFT", PAD, 6)
+  title:SetPoint("BOTTOMLEFT", PAD, 6 + Theme:ContentPad("bottom"))
   title:SetText(ns.TITLE)
   self.title = title
 
@@ -582,6 +667,7 @@ function Bags:Build()
   self.sortBtn = sort
 
   local gear = ns.GearButton(f, close, HB)
+  gear.iconPct = 56
   self.gearBtn = gear
 
   local bagsToggle = ns.CreateGlyphButton(f, "", HB, "icon")
@@ -602,7 +688,7 @@ function Bags:Build()
   bagIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\bags.tga]])
   bagIcon:SetPoint("CENTER")
   bagsToggle.icon = bagIcon
-  bagsToggle.iconPct = 85
+  bagsToggle.iconPct = 72
   -- Same quiet paint as the rest of the header: dim at rest, text under the pointer.
   bagsToggle.wpeIconPaint = function(s)
     local hot = s.wpeHot and not s.offDuty
@@ -649,7 +735,8 @@ function Bags:Build()
   Bags:PaintReagents(reags)
 
   -- Currencies, right of the reagent switch: this window's own currency row on the left button, and the
-  -- picker on the right. It stands on the tag side of the header, beside the slot count, because the row
+  -- picker on the right -- or on both, while nothing is tracked and there is no row to speak of. It
+  -- stands on the tag side of the header, beside the slot count, because the row
   -- it gates is a band of the window just as the reagent block is -- a count of what is tracked, next to
   -- the count of what is held. This switch opens the picker at the head of the window; the row's own add
   -- door opens the same panel at its foot, by the row itself, and this switch stays the only way in while
@@ -658,24 +745,30 @@ function Bags:Build()
   cur:SetPoint("LEFT", reags, "RIGHT", 4, 0)
   cur:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   cur:SetScript("OnClick", function(_, button)
+    -- Nothing tracked means there is no row for the left button to show or hide: an empty track list is
+    -- a strip of air, and hiding or showing air is not a step. Both buttons reach for the picker, which
+    -- is the only place a row can be filled from. Opening it arms the row, so the first currency ticked
+    -- appears at once instead of flipping a flag nobody can see.
+    if Bags:CurrenciesEmpty() then
+      if Bags:CurrenciesHidden() then Bags:ToggleCurrencies() end
+      if ns.CurPicker then ns.CurPicker:Toggle(f) end
+      return
+    end
     if button == "RightButton" then
-      -- An empty track list has no row to show or hide: opening the picker arms the row, so the first
-      -- currency ticked appears at once instead of flipping a flag nobody can see.
-      if Bags:CurrenciesEmpty() and Bags:CurrenciesHidden() then Bags:ToggleCurrencies() end
       if ns.CurPicker then ns.CurPicker:Toggle(f) end
       return
     end
     Bags:ToggleCurrencies()
   end)
-  -- Two steps, one line each, the way the bag switch and the pocket name theirs: the left shows or hides
-  -- the row, the right walks into the picker. Both lines are read live as closures, so they offer the
-  -- step the click will take and can never contradict the shape standing beside it.
+  -- The left shows or hides the row, the right walks into the picker. Both lines are read live as
+  -- closures, so they offer the step the click will take and can never contradict the shape standing
+  -- beside it. With nothing tracked there is only one step and both buttons take it, so the tip says
+  -- that one thing on one line instead of promising a second that the button does not have.
   addTip(cur, function()
+    if Bags:CurrenciesEmpty() then return "Open currency list" end
     return Bags:CurrenciesHidden() and "LMB: Show currencies" or "LMB: Hide currencies"
   end, function()
-    if Bags:CurrenciesEmpty() then
-      return { { text = "RMB: Pick currencies", color = "dim" } }
-    end
+    if Bags:CurrenciesEmpty() then return nil end
     return { { text = "RMB: Open currency list", color = "dim" } }
   end)
   -- The rim stays fixed; a round mint mark inside it distinguishes the visible currency row.
@@ -696,26 +789,25 @@ function Bags:Build()
 
   local bank = ns.CreateGlyphButton(f, "", HB, "icon")
   bank:SetScript("OnClick", function() if ns.ToggleBank then ns.ToggleBank() end end)
-  ns.AddTip(bank, "Bank / Warband", "top", function(s)
+  -- Forever has no account bank, so the mark opens one door only and its tip says so; naming a second
+  -- door there would promise a window the client cannot show.
+  ns.AddTip(bank, ns.IsForever and "Bank" or "Bank / Warband", "top", function(s)
     if s:IsEnabled() then return nil end
     return { { text = "Visit a banker to record this bank", color = "dim" } }
   end)
-  -- Warpee's own bank: a stack of three gold bars (bullion), two on the floor with one on top. Each bar
-  -- is an ingot, not a block -- a low, wide front face under a deep sheared lid -- or the stack stops
-  -- reading as slabs lying flat. Two channels like the coin: bright lid, deeper front face, and a black
-  -- contour struck into the texel, so the quiet paint below tints the mark to the row's ink (it is not
-  -- gold-coloured; the header's colour is) while the split and the contour hold their tones at any size.
-  -- A hand-held object, like every other mark in the row: a monument or a round container would break the
-  -- family, which is why a chest, a sack or a piggy bank was not used.
+  -- Warpee's own bank: a chest drawn for the size it is actually seen at. The header draws this mark at
+  -- fifteen to eighteen points, so the glyph was built on a twenty-point grid -- one unit, one pixel
+  -- there -- and nothing in it is thinner than a unit and a half: a domed lid, one seam cut clean under
+  -- it, and a coin slot cut through the body below. The slot rather than a lock: a lock needs a plate, a
+  -- plate is white on white, and a keyhole alone was a dot -- a slot is a wide cut that still reads as a
+  -- slot at eighteen. Everything the painted chests carried (straps, bands, a hasp, shading) turned to
+  -- fog in the resample. One flat white silhouette at full alpha, like the bag and the pocket.
   local bankIcon = bank:CreateTexture(nil, "ARTWORK")
   bankIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\bank.tga]])
   bankIcon:SetPoint("CENTER")
   bank.icon = bankIcon
-  -- Smaller than the chest wore (92): the bars are a wide, low block (bbox ~91% x 49% of the texture), so
-  -- a high share let them outweigh every mark beside them. 84 lands their ink -- the area they cover, not
-  -- their bounding box -- level with the bag, which is what the chest's 72 worked out to. The contour is
-  -- thin on purpose (~2px at 128): a fat one ate the corners and rounded the bars back into blobs.
-  bank.iconPct = 84
+  -- The shaded chest needs more area than the flat mark to keep its planes readable.
+  bank.iconPct = 86
   -- The contour lives in the bake, so the ground IconSilhouette lays under it only adds the same 1px dark
   -- edge the bag and the gear wear -- the bars are a solid mass like the bag, not the dropped building
   -- whose column gaps filled black.
@@ -745,7 +837,7 @@ function Bags:Build()
   sellIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\coin.tga]])
   sellIcon:SetPoint("CENTER")
   sell.icon = sellIcon
-  -- The row's other marks run from 62 (the gear) to 100 (the brush), and the two are not comparable: the
+  -- The row's other marks run from 56 (the gear) to 100 (the brush), and the two are not comparable: the
   -- brush's ink covers little of its square while the coin's fills its own, so a pct that reads level
   -- beside them lands higher. The tipped coin also gives up a slice of the disc to the tilt, which this
   -- pays back -- at 76 its ink stands level with the brush and the bag.
@@ -792,6 +884,9 @@ function Bags:Build()
   self.sellBtn = sell
 
   local pocket = ns.CreateGlyphButton(f, "", HB, "icon")
+  -- Built and wired, but off the row (see POCKET_BTN at the top of the file): the icon, the script and
+  -- the tooltip stay exactly as they were, so turning the door back on is one word and no code.
+  pocket:Hide()
   -- One action and one line: the view switch left for the bags button, where the picture it changes
   -- lives, and the button itself leaves the row while the pocket is switched off (see the paint pass),
   -- so there is no dead control left over and nothing for a second tooltip line to explain. The one line
@@ -881,7 +976,7 @@ function Bags:Build()
 
   local money = Theme:Label(f, FONT + 1, "text")
   Theme:Money(money)
-  money:SetPoint("BOTTOMRIGHT", -(PAD + footInset()), 6)
+  money:SetPoint("BOTTOMRIGHT", -(PAD + footInset()), 6 + Theme:ContentPad("bottom"))
   self.money = money
   ns.AttachGoldTooltip(money, f, function() return self.iconSize end)
 
@@ -959,21 +1054,24 @@ end
 function Bags:LayoutBagWindow()
   local w = self.bagWindow
   if not w or not self.bagButtons then return end
+  applyDensity(self.iconSize)
   sizeGlyph(self.bagWinClose, HB - 4)
-  local BGAP, BPAD = BAGGAP, BAGPAD
+  local BGAP, BPAD = BAGGAP, BAGPAD + Theme:ContentPad("side")
   local BBAND = 26
   local size = self:BagWinButtonSize()
   local cf = ns.Badge("count").s
   local band = Theme:HeaderBand(w, BBAND)
+  local top = Theme:ContentPad("top")
   local BHEAD = band and (band + 6) or (30 + Theme:TopInset())
-  local mid = (band or BHEAD) / 2 + Theme:TitleDrop()
+  local mid = (band or BHEAD) / 2 + Theme:TitleDrop() + top
+  BHEAD = BHEAD + top
   if self.bagTitle then
     self.bagTitle:ClearAllPoints()
     self.bagTitle:SetPoint("LEFT", w, "TOPLEFT", BPAD, -mid)
   end
   if self.bagWinClose then
     self.bagWinClose:ClearAllPoints()
-    ns.SnapPoint(self.bagWinClose, "RIGHT", w, "TOPRIGHT", -6, -mid)
+    ns.SnapPoint(self.bagWinClose, "RIGHT", w, "TOPRIGHT", -(6 + Theme:ContentPad("side")), -mid)
   end
   local prev
   for _, b in ipairs(self.bagButtons) do
@@ -989,7 +1087,8 @@ function Bags:LayoutBagWindow()
     prev = b
   end
   local n = #self.bagButtons
-  w:SetSize(Layout.WindowWidth(BPAD, n, Layout.Step(size, BGAP), BGAP), BHEAD + size + BPAD)
+  w:SetSize(Layout.WindowWidth(BPAD, n, Layout.Step(size, BGAP), BGAP),
+    BHEAD + size + BAGPAD + Theme:ContentPad("bottom"))
   Theme:FitPlateOf(w)
   self:UpdateBagBar()
 end
@@ -1063,6 +1162,14 @@ function Bags:ToggleReagents()
   -- and the action has changed.
   if ns.RefreshTip then ns.RefreshTip(self.reagentBtn) end
   if ns.Options and ns.Options.Refresh then ns.Options:Refresh() end
+end
+
+-- Untracked currencies still need a way into the picker; the list size includes collapsed headers.
+function Bags:HasCurrencies()
+  local CI = C_CurrencyInfo
+  if not CI then return false end
+  if CI.GetBackpackCurrencyInfo and CI.GetBackpackCurrencyInfo(1) then return true end
+  return CI.GetCurrencyListSize and (CI.GetCurrencyListSize() or 0) > 0 or false
 end
 
 function Bags:CurrenciesHidden() return self.curStrip == false end
@@ -1291,7 +1398,11 @@ end
 
 function Bags:Restyle()
   self.styleGen = (self.styleGen or 0) + 1
-  if self.frame and self.frame:IsShown() then self:Layout() end
+  if self.frame and self.frame:IsShown() then
+    self:Layout()
+  elseif self.bagWindow and self.bagWindow:IsShown() then
+    self:LayoutBagWindow()
+  end
 end
 
 function Bags:Layout(capture, light)
@@ -1356,13 +1467,51 @@ function Bags:Layout(capture, light)
   -- over another character's cached bags read as if that character had recently touched your items.
   -- So while a foreign snapshot is up they are hidden outright and reserve no height; the window is
   -- purely the cached grid. They come back the moment the view returns to the owner.
+  if not self.listLine and self.frame then
+    -- One band of accent, the pocket's own seam, under whichever lists are up: Recent and Favorites
+    -- are two rows of the same block, so a line between them cut the block in two and left the grid
+    -- running into the last row. It sits seven points above the grid, in the middle of the fifteen
+    -- that separate them.
+    local line = self.frame:CreateTexture(nil, "ARTWORK", nil, 5)
+    line:SetColorTexture(Theme:C("accent"))
+    Theme:Track(line, function(t) t:SetColorTexture(Theme:C("accent")) end)
+    line:Hide()
+    self.listLine = line
+  end
   if self.snap then
     if ns.Recent and ns.Recent.Hide then ns.Recent:Hide() end
     if ns.Fav and ns.Fav.Hide then ns.Fav:Hide() end
-    self.recentH, self.favH = 0, 0
+    if self.listLine then self.listLine:Hide() end
+    self.recentH, self.favH, self.listGap = 0, 0, 0
   else
     self.recentH = ns.Recent and ns.Recent:Apply(self, PAD, self:BaseTop(), size, gap) or 0
-    self.favH = ns.Fav and ns.Fav:Apply(self, PAD, self:BaseTop() + self.recentH, size, gap) or 0
+    -- Only a row that is actually there earns the seam: an empty Recent with Favorites under it
+    -- would otherwise spend eight points on air above the caption.
+    local favOn = (ns.Fav and ns.Fav.Enabled and ns.Fav:Enabled()) and true or false
+    self.listGap = (self.recentH > 0 and favOn) and 8 or 0
+    self.favH = ns.Fav and ns.Fav:Apply(self, PAD, self:BaseTop() + self.recentH + self.listGap,
+                                        size, gap) or 0
+    if self.favH == 0 then self.listGap = 0 end
+    local line = self.listLine
+    if line then
+      -- Under the block, not between its rows: one band whether one list stands or both do, and none
+      -- when the captions above the grid already do the separating.
+      local sep = self:ListSep()
+      if sep > 0 then
+        ns.PixelLine(line, 1)
+        line:ClearAllPoints()
+        -- Centred, not dropped in by hand: the band is one point tall, so the air it may share is the
+        -- space above the last cell (the lists' own foot) plus the gap, less that one point. Eight over
+        -- and six under was what the eye caught; this splits it even, 7 and 7, in all three cases.
+        local y = self:BaseTop() + self.recentH + self.listGap + self.favH
+                  + math.floor((sep - 1 - self:ListTail()) / 2)
+        ns.SnapPoint(line, "TOPLEFT", self.frame, "TOPLEFT", PAD, -y)
+        ns.SnapPoint(line, "TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -y)
+        line:Show()
+      else
+        line:Hide()
+      end
+    end
   end
 
   self.content:ClearAllPoints()
@@ -1451,6 +1600,9 @@ function Bags:Layout(capture, light)
   if self:CatMode() then
     self.reagentLabel:Hide()
     self:HideBagLabels(0)
+    -- The rules seam the grid's containers; the grouped view draws sections, so the grid's own are hidden
+    -- on the way in rather than left standing over a page of category headings.
+    self:HideRuleLines(0)
     contentH, used, total = self:LayoutCats(place, park, size, gap, step, cols, light)
   else
     -- Every section widget, not just the captions: the headers, drop zones and the Empty section's
@@ -1495,13 +1647,21 @@ function Bags:Layout(capture, light)
     -- run on as the one sheet they have always been, with the merged reagent slots at its end. The reagent
     -- block is the only one carrying a caption, and it takes the room that caption needs whichever way it
     -- stands, so a split gap tighter than the caption cannot press the two together.
+    -- Forever seams the client's extra containers into the one sheet, in the order a player reads them:
+    -- what is carried, then ammunition, then reagents, then keys. A quiver or an ammo pouch is an ordinary
+    -- bag carried in one of the four bag slots, so its run is picked out by what the bag holds, never by
+    -- the slot it stands in -- moving the quiver to another slot moves its block, it does not lose it.
+    -- Retail has none of these: one sheet, and the reagent bag as the only block of its own.
+    local ammoOn = (ns.IsForever and not splitEach and not self.snap) and true or false
+    local ammoList, keyList = {}, {}
     local mainList, reagList, blocks = {}, {}, {}
     for _, bag in ipairs(ns.playerBags) do
       local num = self:Slots(bag)
       self.bagSlots[bag] = num
       total = total + num
       used = used + self:Taken(bag)
-      local list = splitEach and {} or mainList
+      local ammo = ammoOn and bagHoldsAmmo(bag)
+      local list = (splitEach and {}) or (ammo and ammoList or mainList)
       for slot = 1, num do list[#list + 1] = { bag, slot } end
       if splitEach and #list > 0 then blocks[#blocks + 1] = { list = list, bag = bag } end
     end
@@ -1518,6 +1678,13 @@ function Bags:Layout(capture, light)
     if merge then
       for i = 1, #reagList do mainList[#mainList + 1] = reagList[i] end
     end
+    if ammoOn and KEYRING then
+      local knum = keyringSize()
+      self.bagSlots[KEYRING] = knum
+      -- Keys take no part in the count: the header figure, the gauge and the free-slot number keep reading
+      -- the bags alone, as they did while the keyring stood in the client's own window.
+      for slot = 1, knum do keyList[#keyList + 1] = { KEYRING, slot } end
+    end
     -- The order the blocks stand in: the reagent block takes the head when it is set to sit on top and the
     -- tail otherwise. With the split on the run is already one block per bag, so on top means the front of
     -- that list, and put() only appends, so the reagent block goes in there on its own. Without a split the
@@ -1527,7 +1694,23 @@ function Bags:Layout(capture, light)
       if a then blocks[#blocks + 1] = a end
       if b then blocks[#blocks + 1] = b end
     end
-    if onTop and splitEach then
+    if ammoOn then
+      -- Each run after the first is seamed off by a rule in the block loop below, which is what tells one
+      -- container's cells from the next without a caption over every one of them.
+      local ammoBlock = #ammoList > 0 and { list = ammoList, ammo = true } or nil
+      local keyBlock = #keyList > 0 and { list = keyList, keys = true } or nil
+      -- "Reagents on top" still means the head of the grid, so that setting keeps its one meaning here: the
+      -- reagent run moves in front of the sheet rather than to the front of a section order it no longer has.
+      local seq = onTop and { reagBlock, sheet, ammoBlock, keyBlock }
+                         or { sheet, ammoBlock, reagBlock, keyBlock }
+      for si = 1, #seq do
+        local sb = seq[si]
+        if sb then
+          sb.rule = #blocks > 0
+          blocks[#blocks + 1] = sb
+        end
+      end
+    elseif onTop and splitEach then
       table.insert(blocks, 1, reagBlock)
     elseif onTop then
       put(reagBlock, sheet)
@@ -1540,7 +1723,7 @@ function Bags:Layout(capture, light)
     -- new pieces to the far end of their bag, so drawing the slots in order shows them there honestly.
     -- Reverse and fill-up act inside a block, so with the split on each bag turns over on its own instead
     -- of the whole sheet, and the bags keep the order they are stored in.
-    local y, rTop, capN = 0, nil, 0
+    local y, rTop, capN, ruleN = 0, nil, 0, 0
     for bi = 1, #blocks do
       local blk = blocks[bi]
       local list = blk.list
@@ -1577,6 +1760,25 @@ function Bags:Layout(capture, light)
       if bi == 1 then above = (capText or reagName) and (capH + 8) or 0 end
       y = y + above
       local top = y
+      -- The seam over a run that starts a new container: the gap between two blocks is already there, so
+      -- the line costs the window no height, and half of it lands in the air on either side.
+      if blk.rule then
+        ruleN = ruleN + 1
+        local line = self:RuleLine(ruleN)
+        -- A captioned run owns the air directly over its cells, so the rule takes the middle of what is left
+        -- above the caption instead of the middle of the whole gap, which would draw it through the words.
+        local air = above
+        if capText or reagName then
+          local ch = math.ceil((lbl or self.reagentLabel):GetStringHeight() or 0)
+          if ch <= 0 then ch = FONT end
+          air = math.max(1, above - ch - 6)
+        end
+        local ly = top - above + math.floor(air / 2)
+        line:ClearAllPoints()
+        ns.SnapPoint(line, "TOPLEFT", self.content, "TOPLEFT", 0, -ly)
+        ns.SnapPoint(line, "TOPRIGHT", self.content, "TOPRIGHT", 0, -ly)
+        line:Show()
+      end
       for k = 1, count do
         local j = self.revFill and (count - k + 1) or k
         local col, row = Layout.Cell(j, cols)
@@ -1608,6 +1810,7 @@ function Bags:Layout(capture, light)
       y = top + Layout.GridHeight(rows, step, size)
     end
     self:HideBagLabels(capN)
+    self:HideRuleLines(ruleN)
     -- A grid with no block at all takes the height of one row: a snapshot of a character with no slots is
     -- the only way there, and a content frame sized to nothing would take the window down with it.
     contentH = #blocks > 0 and y or size
@@ -1651,9 +1854,10 @@ function Bags:Layout(capture, light)
   if self.curBtn then self:PaintCurrencies() end
   -- The pocket button opens the pocket and nothing else, so a pocket that is switched off takes the
   -- button off the row with it -- the row chains through the shown buttons only, so nothing is left
-  -- standing in its place. The view switch lives on the bags button.
+  -- standing in its place. The view switch lives on the bags button. While POCKET_BTN is off the
+  -- button stays hidden whatever the switch says: it is built, and it is not on the row.
   if self.pocketBtn then
-    self.pocketBtn:SetShown(ns.Pocket and ns.Pocket:Enabled() and true or false)
+    self.pocketBtn:SetShown(POCKET_BTN and ns.Pocket and ns.Pocket:Enabled() and true or false)
   end
   self:VendorState()
   -- The snapshot is the one thing here that costs a scan of every bag, and a plain
@@ -1793,7 +1997,9 @@ function Bags:Resume()
   if self.sortBtn then self.sortBtn:SetShown(not self.snap) end
   if self.reagentBtn then self:PaintReagents() end
   if self.curBtn then self:PaintCurrencies() end
-  if self.pocketBtn then self.pocketBtn:SetShown(ns.Pocket and ns.Pocket:Enabled() and true or false) end
+  if self.pocketBtn then
+    self.pocketBtn:SetShown(POCKET_BTN and ns.Pocket and ns.Pocket:Enabled() and true or false)
+  end
   self:VendorState()
   self:UpdateMeta()
   self:RefreshHoverTip()
@@ -1854,6 +2060,28 @@ function Bags:BagOrdLabel(i)
   end
   fs:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, ns.OutlineFlags())
   return fs
+end
+
+-- The rule that seams one container's run off from the next in the Forever grid. A hairline the width of
+-- the cells, drawn in the gap the blocks already leave: a caption over every run would spend a row of the
+-- window on a name the player reads off the cells anyway, and the blocks here are containers, not sorts of
+-- thing. Pooled like the captions and kept on the content frame, so a rule never outlives what it seamed.
+function Bags:RuleLine(i)
+  self.ruleLines = self.ruleLines or {}
+  local t = self.ruleLines[i]
+  if not t then
+    t = Theme:Rect(self.content, "strokeSoft", "ARTWORK")
+    ns.PixelLine(t, 1)
+    self.ruleLines[i] = t
+  end
+  return t
+end
+
+function Bags:HideRuleLines(from)
+  if not self.ruleLines then return end
+  for i = (from or 0) + 1, #self.ruleLines do
+    if self.ruleLines[i] then self.ruleLines[i]:Hide() end
+  end
 end
 
 function Bags:HideBagLabels(from)
@@ -1962,7 +2190,7 @@ end
 
 -- The click target over a caption strip: a transparent pooled button covering the caption row, so a
 -- piece on the cursor can be dropped anywhere along the strip to be filed by hand. It carries the
--- section id, set fresh each layout. Hover tints the caption so the whole strip reads as one target.
+-- section id, set fresh each layout. The caption is not tinted on hover: see the note on the scripts.
 function Bags:CatHeader(i)
   self.catHeaders = self.catHeaders or {}
   local btn = self.catHeaders[i]
@@ -1980,14 +2208,10 @@ function Bags:CatHeader(i)
     btn:SetScript("OnClick", function(s, button)
       if button == "RightButton" then self:TransferCategory(s.wpeSlots) else drop() end
     end)
-    btn:SetScript("OnEnter", function(s)
-      if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("accentInk")) end
-    end)
-    btn:SetScript("OnLeave", function(s)
-      -- Back to the caption's resting tone, which the layout paints accent; a lesser tone here would
-      -- leave any header the cursor crossed stuck dim while its untouched neighbours kept the accent.
-      if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("accent")) end
-    end)
+    -- No tint on hover. A caption used to jump to accentInk on the way in and back to the accent on the way
+    -- out, which repainted a part-strength heading as a full one and made the two levels of heading flash
+    -- their "real" colours under the cursor. The strip is still the target -- it takes the drop, the right
+    -- click and the tips -- it just does not change colour to say so.
     -- A caption cut to fit its section shows the whole name on hover, so nothing is lost to the
     -- ellipsis. Only a truncated one reads out; a name that fit speaks for itself. The right-click hint
     -- rides along only while a banker is open, when the click would actually do it. Both go on the
@@ -2438,6 +2662,7 @@ end
 -- A display-only cell for the Empty section: a quiet icon and a free-slot count, sized like a bag
 -- cell but bound to nothing, so it never carries a bag or slot id and stays wholly taint-free. Pooled
 -- by index like the other section widgets.
+
 function Bags:EmptyTile(i)
   self.emptyTiles = self.emptyTiles or {}
   local t = self.emptyTiles[i]
@@ -2496,9 +2721,14 @@ end
 -- layout, so a theme change (which re-lays the grid) repaints it and nothing can stick lit.
 function Bags:EmptyTileBorder(t, on)
   if not t.edges then return end
+  -- An empty cell is room, not an item, and the reagent mint at full strength is brighter than most of
+  -- the rings on the items beside it: a row of free room outshone the things the player came for. Two
+  -- thirds of it still draws the cell and no longer competes with one. Written on the vertex colour, so
+  -- the layout pass repaints it and a theme change cannot leave it lit.
   local r, g, b = Theme:C(on and "reagent" or "faint")
+  local a = on and 0.62 or 0.55
   for _, e in ipairs(t.edges) do
-    e:SetVertexColor(r, g, b)
+    e:SetVertexColor(r, g, b, a)
     e:Show()
   end
 end
@@ -2629,8 +2859,9 @@ dropWatch:SetScript("OnUpdate", function(s, dt)
   Bags:TrackDropHighlight()
 end)
 
--- Sections packed into shelves: each is as wide as its cells need (capped at the grid, floored by
--- its caption) so several share a row and the list reads left to right in priority order. A section
+-- Sections packed into shelves: each is as wide as its cells and no wider, so several share a row and
+-- the list reads left to right in priority order. A caption longer than its own section is cut with an
+-- ellipsis rather than buying columns, since those columns would be paid for on every shelf. A section
 -- is always drawn whole, and only a group band folds, from the caption row above its own sections.
 -- A search changes none of that: it dims the cells it did not match and moves nothing.
 -- How long a piece that left with no window open keeps its cell after it went. A destroy is over in one
@@ -2690,7 +2921,12 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
     self.catCache = { b = buckets, used = used, total = total }
   end
   local d = ns.Density(size)
-  local capH = d.labelH + d.labelGap
+  -- The air under a section caption is one point, not the density's own labelGap. A caption is a
+  -- heading over its own cells, not a labelled field: the name sits on the row of icons directly
+  -- beneath it, and the three or four points the grid keeps between a label and its box read here as
+  -- a gap that belongs to nothing. Every section pays it once, so a bag of twenty sections pays it
+  -- twenty times -- more than any repacking of the rows ever saved.
+  local capH = d.labelH + 1
   local gridW = gridWidth(size, cols, gap)
   -- The group caption sits at labelX with its caret in the gap to its left. A section caption sits at
   -- capX, flush with the left edge of its own first cell, so the name reads as the heading of the
@@ -2700,18 +2936,19 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
   local labelX = 14
   local capX = 0
   -- The drop below the group caption before its sections begin, so the band header is not crammed
-  -- against the first row of names. Added on top of the caption's own height.
-  local GHEAD_GAP = 6
+  -- against the first row of names. Added on top of the caption's own height. Two points rather than
+  -- six: the band heading is already the largest line on the page, and the seam under it does the
+  -- parting that the air was doubling up on.
+  local GHEAD_GAP = 2
   -- Shelves, not a single column: each section is only as wide as it needs, so several sit side by
   -- side on one row and the list still reads left to right, which is the priority order. A section's
-  -- width is its cell count capped at the grid columns, but never narrower than its own caption, so
-  -- a long name is not clipped by a two-item block. When the next section will not fit the row's
-  -- remaining width the shelf wraps: y drops by the tallest section on the shelf plus one gap, and
-  -- packing starts again at the left. GUT is the gap between neighbours on a shelf.
-  -- The gap between categories, split in two: GUTX is the neighbour gap across a shelf, GUTY the drop
-  -- between shelf rows. Each follows the density scale (DIV) until the player sets a flat value on its
-  -- own slider, and both are the grouped view's alone, so the reagent block's own DIV spacing in the
-  -- grid is untouched.
+  -- width is its cell count capped at the grid columns, and when the next section will not fit the
+  -- row's remaining width the shelf wraps: y drops by the tallest section on the shelf plus one gap,
+  -- and packing starts again at the left. GUT is the gap between neighbours on a shelf. The widths
+  -- themselves come from the row packing below, which can give a section extra rows to keep its row.
+  -- The gap between categories: GUTX across a shelf, GUTY between shelf rows. Each follows the density
+  -- scale (DIV) until the player sets a flat value on its own slider, and both are the grouped view's
+  -- alone, so the reagent block's own DIV spacing in the grid is untouched.
   local GUTX = math.max(0, math.floor(tonumber(self.catGapX) or DIV))
   local GUTY = math.max(0, math.floor(tonumber(self.catGapY) or DIV))
   local shelfX, shelfY, shelfH = 0, 0, 0
@@ -2757,6 +2994,96 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
   local function bandOpen(band)
     return not (band.key and Cats:Folded(band.key))
   end
+  -- Row packing. A section is exactly as wide as its cells and never wider: a caption that does not
+  -- fit its own section is cut with an ellipsis instead of buying columns for itself. Reserving a
+  -- column or two so a name reads whole looks free and is not -- those columns are spent on every
+  -- shelf the section lands on, and a bag of small sections pays for a dozen names it already knows
+  -- by heart. The name is the one thing in the row that can be shortened without losing a piece.
+  --
+  -- A shelf fills left to right until it will not take another section, and it may try one second
+  -- packing first: the sections on it may each take up to two rows of items, so a six-item section
+  -- stands three wide and two deep and the section the shelf had to refuse fits after all. Two rules
+  -- keep that from making a worse picture than the one it replaced. No section ever takes more than
+  -- two rows, so nothing becomes a two-wide column running down the window. And the squeeze is used
+  -- only when it saves a whole row of cells, never on points alone: a squeezed shelf two cells tall
+  -- beside two shelves of one is the block of squares a player reads as a bug.
+  local MAXK = 2
+  local catW, catOver = {}, {}
+  do
+    -- Columns a section stands in at row limit kk: its cell count, cut by kk when the shelf is
+    -- squeezed, and capped at the grid's own width either way.
+    local function colsAt(it, kk)
+      if kk <= 1 then return math.min(it.n, cols) end
+      return math.max(1, math.min(it.cols, math.ceil(it.n / kk)))
+    end
+    -- The shortest a band of cnt sections can stand with no row limit above maxk, and the shelves that
+    -- get it there: pick[i] is the last section on the shelf opening at i, and the limit that shelf is
+    -- packed at. Few sections per band and two limits, so trying every shelf and keeping the shortest
+    -- is the whole search.
+    local function packBand(items, cnt, maxk)
+      local best, pick = {}, {}
+      best[cnt + 1] = 0
+      for i = cnt, 1, -1 do
+        local bcost, bj, bk
+        for kk = 1, maxk do
+          local x, h = 0, capH
+          for j = i, cnt do
+            local it = items[j]
+            local w = colsAt(it, math.min(kk, it.capk))
+            x = x + (j > i and GUTX or 0) + w * step - gap
+            if x > gridW + 0.5 then break end
+            local hh = capH + math.ceil(it.n / w) * step - gap
+            if hh > h then h = hh end
+            local cost = h + (j < cnt and (GUTY + best[j + 1]) or 0)
+            if not bcost or cost < bcost then bcost, bj, bk = cost, j, kk end
+          end
+        end
+        best[i], pick[i] = bcost, { bj, bk }
+      end
+      return best[1], pick
+    end
+    local items = {}
+    for k = 1, #bands do
+      local band = bands[k]
+      local cnt = band.to - band.from + 1
+      if cnt > 0 then
+        for i = 1, cnt do
+          local b = buckets[band.from + i - 1]
+          local n = math.max(1, b.empty and emptyTiles or #b.slots)
+          -- Two rows at most, and never below two columns: a section only takes extra rows while the
+          -- cut still leaves it wide enough to read as a block of items rather than as a column.
+          local capk = math.floor(n / 2)
+          if capk > MAXK then capk = MAXK end
+          if capk < 1 then capk = 1 end
+          items[i] = { bi = band.from + i - 1, n = n, cols = math.min(n, cols), capk = capk }
+        end
+        -- Plain shelves first, then the squeezed pack, which is used only when it saves a whole row of
+        -- cells. Points alone never buy it: a squeezed shelf two cells tall against two shelves of one
+        -- is the block of squares that reads as a bug.
+        local plainCost, pick = packBand(items, cnt, 1)
+        if MAXK > 1 then
+          local tightCost, tightPick = packBand(items, cnt, MAXK)
+          if tightCost <= plainCost - step then pick = tightPick end
+        end
+        -- Bank the chosen shelves: each member's columns, and for the shelf's last member the room the
+        -- shelf left unused, which its caption is allowed to run into.
+        local i = 1
+        while i <= cnt do
+          local p = pick[i]
+          local x = 0
+          for j = i, p[1] do
+            local it = items[j]
+            local w = colsAt(it, math.min(p[2], it.capk))
+            catW[it.bi] = w
+            catOver[it.bi] = 0
+            x = x + (j > i and GUTX or 0) + w * step - gap
+          end
+          catOver[items[p[1]].bi] = math.max(0, gridW - x)
+          i = p[1] + 1
+        end
+      end
+    end
+  end
   local gi, si = 0, 0
   local holes = 0
   for k = 1, #bands do
@@ -2794,7 +3121,12 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
       self:CatGroupCount(gi):Hide()
       local headH
       if isHead then
-        glabel:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 2, ns.OutlineFlags())
+        -- The band is the one heading that does not take the accent: it is structure, and the accent belongs to
+        -- the sections below, which are what the player scans for. Capitals alone did not carry that: set two
+        -- points above a caption, a band read no larger than the caption under it, and in a narrow-caps face it
+        -- read smaller still. One point under the body font, against the caption's four under it, makes the band
+        -- the first word the eye takes on the page.
+        glabel:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 1, ns.OutlineFlags())
         glabel:SetTextColor(Theme:C("azure"))
         fitLabel(glabel, Cats:GroupName(band.key), gridW - labelX)
         glabel:ClearAllPoints()
@@ -2834,47 +3166,27 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
     local name = b.name
     local n = isEmpty and emptyTiles or #b.slots
     local label = self:CatLabel(si)
-    -- Set as a file every layout so a font change reaches the caption.
+    -- Set as a file every layout so a font change reaches the caption. Full accent, one step under the band
+    -- and in the name's own case: this is the word the player scans for, so it is the one heading that gets
+    -- the theme's colour at full strength.
     label:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, ns.OutlineFlags())
     label:SetTextColor(Theme:C("accent"))
-    local count = self:CatCount(si)
-    -- Parenthesised so the dim tally beside the accent name reads as a count, not a stray number or an
-    -- item level tacked onto the caption. The Empty section drops the tally outright: its free numbers
-    -- are already printed on the sample tiles below, so a count here only repeats them, and in a one or
-    -- two cell wide section it steals the very width the word EMPTY needs. Zeroing countW gives that
-    -- room back to both the width floor and the truncation, so the label reads at a small cell size
-    -- instead of collapsing to an ellipsis.
-    -- The tally is only worth the room once it beats a glance: at one or two items the eye already
-    -- counts them, so the (N) there only steals width from a narrow section's caption. It shows from
-    -- three up. Empty never shows one (its free numbers ride the sample tiles below). showCount gates
-    -- both the text and the width floor, so a hidden count reserves no space and the name gets it back.
-    local showCount = (not isEmpty) and n >= 3
-    local countW = 0
-    if showCount then
-      count:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, ns.OutlineFlags())
-      count:SetText("(" .. n .. ")")
-      countW = count:GetStringWidth()
-    else
-      count:Hide()
-    end
-    -- Width from the cell count, but never so narrow the name is crushed to an initial. The floor is
-    -- the whole caption (indent, name, gap, count), capped so a long name cannot blow one section across
-    -- the grid: up to catNameCap px of name is granted room, past that the name truncates and the header
-    -- offers the whole of it in a tooltip. This is why a one-item section still reads its name instead of
-    -- a lone glyph, while the shelf packing stays sane. Measured with the real name in the label.
-    label:SetText(ns.Upper(name or ""))
-    local fullNameW = label:GetStringWidth()
-    local nameCap = math.min(gridW, 6 * step)
-    local floorNeed = capX + math.min(fullNameW, nameCap) + 6 + countW
-    local capCols = math.max(1, math.ceil((floorNeed - size) / step) + 1)
-    local w = math.max(math.min(n, cols), capCols)
+    -- No tally beside a caption any more. The cells under it already say how many things there are, and a
+    -- parenthesised number set in the caption's own ink read as a second heading on every section. The
+    -- pool entry is hidden on every pass rather than left alone, so a build that printed one clears it.
+    self:CatCount(si):Hide()
+    -- Width from the packing above: the cell count, cut by however many rows this section took on so
+    -- that its shelf could take one more section. The width never grows for the caption's sake, so a
+    -- long name on a narrow section is cut with an ellipsis rather than given a column of its own.
+    local w = catW[bi] or math.min(n, cols)
     if w > cols then w = cols end
     local sw = gridWidth(size, w, gap)
-    -- Cut the name to whatever the section leaves once the indent, gap and count are reserved, so the
-    -- caption is never wider than its own section. The count keeps its place at the name's right, so a
-    -- shorter name only pulls the tally inward; the caption indent never moves. A cut name (only the
-    -- longest, past the cap) shows in full on hover, so nothing is lost to the ellipsis.
-    local truncated = fitLabel(label, name, sw - capX - 6 - countW)
+    -- The caption's room: its own cells, half the gutter to its right, and -- on the last section of a
+    -- shelf -- whatever that shelf left free. Half the gutter, not all of it: a caption that used the
+    -- whole gap ended its ellipsis against the next caption's first glyph, and two names touching read
+    -- as one run of letters rather than as two sections. The last section of a shelf is the one that can
+    -- afford the room, because there is nothing after it to crowd.
+    local truncated = fitLabel(label, name, sw - capX + math.min(GUTX, 4) + (catOver[bi] or 0), true)
     -- Wrap to a new shelf when this section would run past the grid's right edge. The 0.5 absorbs the
     -- rounding in the density-scaled widths so an exact fit is not bumped to the next row.
     if shelfX > 0 and shelfX + GUTX + sw > gridW + 0.5 then
@@ -2886,16 +3198,9 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
     label:ClearAllPoints()
     ns.SnapPoint(label, "TOPLEFT", self.content, "TOPLEFT", sx + capX, -sy)
     label:Show()
-    if showCount then
-      count:ClearAllPoints()
-      -- Left edge to the name's right, so the tally rides beside the caption as one unit and shares its
-      -- vertical centre. On the ragged shelf edges a far-right count would line up with nothing.
-      ns.SnapPoint(count, "LEFT", label, "RIGHT", 6, 0)
-      count:Show()
-    end
     local head = self:CatHeader(si)
     head.wpeId, head.wpeLabel = id, label
-    head.wpeFull, head.wpeCut = ns.Upper(name or ""), truncated
+    head.wpeFull, head.wpeCut = name or "", truncated
     -- The section's own slots, for a right-click transfer to an open window. Empty owns none, so a
     -- right click there does nothing.
     head.wpeSlots = (not isEmpty) and b.slots or nil
@@ -3571,17 +3876,12 @@ function Bags:FitHeader()
   self:FlowHeader()
   local w = self.frame:GetWidth()
   self.search:Show()
-  -- The reagent switch hides the reagent block, which is a grid-only idea: cat-view always groups
-  -- the full inventory, so the button has nothing to gate there. It comes off the header in
-  -- cat-view and the currency switch slides left into its place. A foreign snapshot takes the
-  -- currency switch with it, because the row it gates is hidden there; the count then hangs off
-  -- the reagent switch (or the tag).
-  local showCur = not self.snap
+  local showReag = not ns.IsForever and not self:CatMode() and self:Slots(ns.reagentBag) > 0
+  local showCur = not self.snap and self:HasCurrencies()
   if self.curBtn then self.curBtn:SetShown(showCur) end
+  if self.reagentBtn then self.reagentBtn:SetShown(showReag) end
   if self.reagentBtn and self.slotText and self.charTag then
-    local catMode = self:CatMode()
-    self.reagentBtn:SetShown(not catMode)
-    local left = catMode and self.charTag or self.reagentBtn
+    local left = showReag and self.reagentBtn or self.charTag
     if self.curBtn then
       self.curBtn:ClearAllPoints()
       self.curBtn:SetPoint("LEFT", left, "RIGHT", 4, 0)
@@ -3790,6 +4090,13 @@ local KIND_WORDS = {
   -- gives no classID and a kind row never sees it. They are flags below, read off the link in buildMeta.
   projectile = kind(IC.Projectile),
   projectiles = kind(IC.Projectile),
+  -- Keys are a class of their own on the clients that keep a keyring, and read as nothing else: they would
+  -- otherwise fall to the Miscellaneous class row, which is the last place a player looks for the key to a
+  -- door they are standing at. A client without the class gets no entry, since kind() answers nil.
+  key      = kind(IC.Key),
+  keys     = kind(IC.Key),
+  keyring  = kind(IC.Key),
+  keyrings = kind(IC.Key),
   tradegoods = kind(IC.Tradegoods),
   tradegood = kind(IC.Tradegoods),
   misc     = kind(IC.Miscellaneous),
@@ -4209,7 +4516,7 @@ local PICK_TOKENS = {
   -- Item class: the remaining item classes that are neither gear, collectible nor crafting. Alphabetical,
   -- with projectile pushed to the end (a dead class on the modern client, kept only for old ammo).
   { "bag", "class" }, { "glyph", "class" }, { "keystone", "class" }, { "misc", "class" },
-  { "quest", "class" }, { "projectile", "class" },
+  { "quest", "class" }, { "projectile", "class" }, { "key", "class" },
   -- Equipment slot: every worn position, plus the two words that name a SET rather than a position. "gear"
   -- opens the band because it is the whole equipped set in one word (the parser's equippable flag: a piece
   -- answers to it from any slot); "1h"/"2h" and "offhand" cover the weapon hands, where "offhand" already
@@ -4221,6 +4528,9 @@ local PICK_TOKENS = {
   { "legs", "slot" }, { "feet", "slot" }, { "finger", "slot" }, { "trinket", "slot" },
   { "shield", "slot" }, { "ranged", "slot" }, { "tabard", "slot" }, { "shirt", "slot" },
   { "relic", "slot" }, { "mainhand", "slot" }, { "offhand", "slot" }, { "2h", "slot" }, { "1h", "slot" },
+  -- Ammo and the bag that carries it: neither word is a weapon or a container, and on the clients that
+  -- still hold them they are the whole reason a hunter opens the bag at all.
+  { "ammo", "slot" }, { "quiver", "slot" },
   -- Quality (one word per tier; the parser also takes the colour names grey/white/green/…)
   { "poor", "quality" }, { "common", "quality" }, { "uncommon", "quality" }, { "rare", "quality" },
   { "epic", "quality" }, { "legendary", "quality" }, { "artifact", "quality" }, { "heirloom", "quality" },
@@ -4239,6 +4549,24 @@ local PICK_TOKENS = {
   -- the player locked from selling).
   { "current", "property" }, { "legacy", "property" }, { "token", "property" }, { "locked", "property" },
 }
+
+-- Forever carries one expansion and no account bindings. An expansion chip there can only ever empty a
+-- section, and a BoA or warbound chip names a binding the client does not put on anything, so the picker
+-- stops offering them: a menu of conditions that cannot match reads as a broken filter, not as a filter
+-- with nothing in it. Only the offered list shrinks -- the parser still takes every word, so a rule
+-- already carrying one keeps reading and classifying exactly as it did.
+if ns.IsForever then
+  local DEAD = { tbc = true, wotlk = true, cata = true, mop = true, wod = true, legion = true,
+                 bfa = true, sl = true, df = true, tww = true, midnight = true,
+                 boa = true, warbound = true, legacy = true, token = true, glyph = true,
+                 cosmetic = true }
+  local keep = {}
+  for _, row in ipairs(PICK_TOKENS) do
+    if not DEAD[row[1]] then keep[#keep + 1] = row end
+  end
+  for i = #PICK_TOKENS, 1, -1 do PICK_TOKENS[i] = nil end
+  for i = 1, #keep do PICK_TOKENS[i] = keep[i] end
+end
 
 -- A few tokens read as a set abbreviation rather than a word, so they are shown exactly, not run through
 -- the localized/UpperFirst display path (which would give "Boe"/"Boa"). The field still inserts the

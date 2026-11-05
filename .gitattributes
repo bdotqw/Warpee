@@ -8,3 +8,4 @@
 /.pkgmeta export-ignore
 /.freebuff export-ignore
 /.playwright-mcp export-ignore
+/.cloud-attachments export-ignore

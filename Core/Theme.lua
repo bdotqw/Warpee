@@ -432,13 +432,17 @@ function ns.CharStops(s)
   return stops
 end
 
--- Fit a caption name into maxW pixels: the whole upper-cased name when it clears, else the longest
--- glyph prefix that still fits once the ellipsis is appended. Binary search over the character
--- boundaries, measured in the label's own font so a font swap or resize re-cuts on the next layout.
+-- Fit a caption name into maxW pixels: the whole name when it clears, else the longest glyph prefix that
+-- still fits once the ellipsis is appended. Binary search over the character boundaries, measured in the
+-- label's own font so a font swap or resize re-cuts on the next layout.
 -- `name or ""` guards a nil the way the bank copy did; the bags copy passed a caption that was always
 -- a string, so taking the safer form loses nothing.
-function ns.FitLabel(label, name, maxW)
-  local up = ns.Upper(name or "")
+-- Capitals used to be the one shape of every caption. A category heading still takes them -- that is what
+-- says "this is a shelf" without spending a colour on it -- but a section caption reads as a name in the
+-- player's own case, which keepCase asks for; the fold is skipped so the glyph count searched over is the
+-- name's own.
+function ns.FitLabel(label, name, maxW, keepCase)
+  local up = keepCase and (name or "") or ns.Upper(name or "")
   label:SetText(up)
   if maxW <= 0 or label:GetStringWidth() <= maxW then return false end
   local stops = ns.CharStops(up)
@@ -963,10 +967,11 @@ function Theme:ApplyGridAlpha()
   -- bags and the bank re-lay themselves on a restyle and pick it up there; the pocket has no restyle
   -- pass and would keep the art frame of the theme just left -- which the switch itself tears down,
   -- taking the plate with it -- so a theme move asks it for a layout here. Compared by skin, not by
-  -- whether one is in use: two skins rebuild the art just as a skin and its absence do. A hidden
-  -- window is not touched: it lays itself out, plate included, on its next show.
+  -- whether one is in use: two skins rebuild the art just as a skin and its absence do.
+  -- A pocket held by a picker returns through Show, not Open, so it needs the layout while hidden too.
   if self.plateSkin ~= nil and self.plateSkin ~= self.skin then
-    if P and P.gridBg and P.frame and P.frame:IsShown() then P:Layout() end
+    if P and P.gridBg and P.frame and (P.frame:IsShown() or P.hidden) then P:Layout() end
+    if P and P.picksFrame and P.picksFrame:IsShown() then P:PickPaint() end
   end
   self.plateSkin = self.skin
 end
@@ -1173,7 +1178,8 @@ local EDGE_HIDE = { "NineSlice", "TopLeftCorner", "TopRightCorner", "BotLeftCorn
 local SKINS = {
   -- inset is the strip a skin keeps for its own title band at the top; border is how far its art runs
   -- in from the frame's sides and bottom, where the frame's edge is art rather than window.
-  blizzard     = { inset = 20, border = 4, grain = true, titleDrop = 10 },
+  blizzard     = { inset = 20, border = 4, grain = true, titleDrop = 10,
+                   contentPad = { side = 8, top = 5, bottom = 8 } },
   blizzardflat = { inset = 4, drop = -5, edge = FLAT_EDGE, out = 14, band = 32,
                    bandAlpha = 0.80,
                    edgeTint = "stroke", plate = true, bodyGrain = 0.10, guestArt = true },
@@ -1181,6 +1187,12 @@ local SKINS = {
 
 function Theme:SkinDef()
   return SKINS[self.skin or ""]
+end
+
+-- Forever's original panel needs room inside its rim; retail and flat skins keep their geometry.
+function Theme:ContentPad(edge)
+  local def = ns.IsForever and self:SkinDef()
+  return (def and def.contentPad and def.contentPad[edge]) or 0
 end
 
 function Theme:Skinned()

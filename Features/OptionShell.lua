@@ -795,14 +795,23 @@ end
 function Options:AnchorHeader()
   local f = self.frame
   if not f then return end
-  local top = Theme:TopInset()
+  local side = Theme:ContentPad("side")
+  local extraTop, bottom = Theme:ContentPad("top"), Theme:ContentPad("bottom")
+  local top, pad = Theme:TopInset() + extraTop, PAD + side
+  local width, height = WIN_W, math.min(WIN_H, UIParent:GetHeight() - 60)
+  local padded = side ~= 0 or extraTop ~= 0 or bottom ~= 0
+  if padded then
+    -- Keep the old even-sized viewport; only the outer padding may be odd.
+    width, height = ns.SnapEven(f, width) + side * 2, ns.SnapEven(f, height) + extraTop + bottom
+  end
+  ns.SnapBox(f, width, height, not padded)
   if self.title then
     self.title:ClearAllPoints()
-    self.title:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(10 + top))
+    self.title:SetPoint("TOPLEFT", f, "TOPLEFT", pad, -(10 + top))
   end
   if self.closeBtn then
     self.closeBtn:ClearAllPoints()
-    ns.SnapPoint(self.closeBtn, "TOPRIGHT", f, "TOPRIGHT", -PAD, -(8 + top))
+    ns.SnapPoint(self.closeBtn, "TOPRIGHT", f, "TOPRIGHT", -pad, -(8 + top))
   end
   -- The search field rides on the same band as the rest of the header: its left side hugs the Profiles
   -- button, an 8 pixel gap between them, and the count glows on the box's left, so the number grows toward
@@ -818,13 +827,13 @@ function Options:AnchorHeader()
   end
   if self.headLine then
     self.headLine:ClearAllPoints()
-    self.headLine:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(HEADER_H + top))
-    self.headLine:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -(HEADER_H + top))
+    self.headLine:SetPoint("TOPLEFT", f, "TOPLEFT", pad, -(HEADER_H + top))
+    self.headLine:SetPoint("TOPRIGHT", f, "TOPRIGHT", -pad, -(HEADER_H + top))
   end
   local first = self.tabs and self.tabs[1]
   if first then
     first:ClearAllPoints()
-    ns.SnapPoint(first, "TOPLEFT", f, "TOPLEFT", PAD, -(HEADER_H + 7 + top))
+    ns.SnapPoint(first, "TOPLEFT", f, "TOPLEFT", pad, -(HEADER_H + 7 + top))
   end
   -- A page with a strip gives it room: the strip sits a gap under the tab row, and the page's list
   -- starts a gap under the strip. A page without one keeps the single list it has always had. Every
@@ -842,15 +851,15 @@ function Options:AnchorHeader()
       -- puts the row above the scroll areas of every page.
       local stripTop = tabsBottom + SUB_GAP
       entry.strip:ClearAllPoints()
-      entry.strip:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -stripTop)
-      entry.strip:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -stripTop)
+      entry.strip:SetPoint("TOPLEFT", f, "TOPLEFT", pad, -stripTop)
+      entry.strip:SetPoint("TOPRIGHT", f, "TOPRIGHT", -pad, -stripTop)
       entry.strip:SetFrameLevel(f:GetFrameLevel() + 4)
       areaTop = stripTop + SUB_H + SUB_DROP
     end
     for _, area in ipairs(entry.areas) do
       area:ClearAllPoints()
-      area:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -areaTop)
-      area:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(PAD + SCROLL_W + 6), PAD)
+      area:SetPoint("TOPLEFT", f, "TOPLEFT", pad, -areaTop)
+      area:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(pad + SCROLL_W + 6), PAD + bottom)
     end
     end
   end

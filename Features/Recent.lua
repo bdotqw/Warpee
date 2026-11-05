@@ -7,10 +7,13 @@ Rec.slots, Rec.ghosts = {}, {}
 
 local MAX_SLOTS = 24
 local SETTLE = 5
+-- The seam under the row, and the air either side of it. Exported because the bags draw the line: the
+-- row cannot know whether Favorites is up under it, and a seam with nothing under it is a rule over a
+-- blank strip. Three points a side is the air the band dividers keep.
 
 local cells, seq, known, got, base = {}, {}, {}, {}, {}
 local bagView, pocketView = { cells = {} }, { cells = {} }
-local missed, guidMiss, cellMiss = {}, {}, {}
+local missed, guidMiss = {}, {}
 local locBag, locSlot = {}, {}
 local poor = {}
 -- Items a scan saw in a slot but could not read yet: GetContainerItemInfo answers nil for an item whose
@@ -176,6 +179,27 @@ local function used()
   return false
 end
 
+-- The band's space is decided when the window opens, and an emptied list gives it back while the window
+-- stands. A window opened with nothing to show does not spend a row on it; a window whose list is used
+-- up, sold off or dropped away loses the row there and then; and in both cases an arrival brings it back
+-- on its own. Clear is the same thing asked by hand: label and all go at once, because a row that says
+-- nothing is not a place, and the window settles around its going.
+function Rec:Armed()
+  if self.armed == nil then self.armed = used() and true or false end
+  -- An armed band whose list has emptied goes with it. Every item used, sold, mailed or dropped out of
+  -- the row leaves the caption standing over nothing, and a caption over nothing says a list is there
+  -- when it is not -- the same reason Clear takes the band away. The row comes back by itself the moment
+  -- something new lands, exactly as it does when the window opens on an empty list.
+  -- No guard beyond the empty list itself. An earlier version also held the band up while any item was
+  -- "poor", meaning a quality of zero -- which is every grey piece of junk a bag ever carries, not an
+  -- unread item -- so one piece of trash anywhere kept a used-up row standing for the whole session.
+  -- The passes that could read an empty bag wrongly already decide nothing (see detect), so the list is
+  -- the only thing left to ask.
+  if self.armed and not used() then self.armed = false end
+  if not self.armed and used() then self.armed = true end
+  return self.armed
+end
+
 -- Seat a newly listed id. base is what the id held before this pass's increase, so the number the cell
 -- wears is "how much it has grown since it appeared", read straight off the live total every pass. Nothing
 -- is accumulated and nothing is clamped down, which is the whole point: an accumulated counter was clipped
@@ -189,7 +213,7 @@ end
 local function hole(i, key)
   cells[i] = nil
   seq[key], got[key], base[key] = nil, nil, nil
-  cellMiss[key], missed[key] = nil, nil
+  missed[key] = nil
 end
 
 local function add(key, n, delta, total)
@@ -267,30 +291,21 @@ end
 
 local function prune(counts)
   -- Nothing is counted or dropped while the cursor carries an item. A picked-up item is in
-  -- no bag at all until it lands, so every key reads as gone for the pass, and the row would
-  -- spend the forgiveness on the very items it is showing.
+  -- no bag at all until it lands, so every key reads as gone for the pass.
   if GetCursorInfo() then return false end
-  local fence = false
   for i = 1, MAX_SLOTS do
     local key = cells[i]
     local here = key and (type(key) == "string" and guidNow[key] or counts[key])
-    if key and (not here or poor[key]) then
-      -- Its own counter, not the one the known-item pass keeps: the two run over the same
-      -- cell keys, so sharing it spent the forgiveness twice as fast on exactly the items
-      -- the row is showing.
-      local m = (cellMiss[key] or 0) + 1
-      if m >= 3 or poor[key] then
-        hole(i, key)
-        cellMiss[key] = nil
-      else
-        cellMiss[key] = m
-        fence = true
-      end
-    elseif key then
-      cellMiss[key] = nil
-    end
+    -- A cell goes the moment its item is not in the bags: using, selling, mailing and destroying all
+    -- read the same here, and the pass that saw it gone is the pass that saw it leave -- holding the
+    -- cell for two more passes left a used-up row standing with nothing left in it, which is the shape
+    -- of a row that does not disappear. The guards above are what keeps this honest: a pass with no
+    -- container answer at all and a pass with something on the cursor decide nothing.
+    if key and (not here or poor[key]) then hole(i, key) end
   end
-  return fence
+  -- Nothing left to ask for: a cell that missed is gone on this pass, so there is no counter to push
+  -- over and no extra look to schedule.
+  return false
 end
 
 local shed, shedAt, body = {}, {}, {}
@@ -414,17 +429,22 @@ local function detect()
     end
     known[id] = c
   end
-  if mailing() then
-    for g in pairs(guidNow) do guidHad[g] = true end
-    return
-  end
-  for id in pairs(known) do
-    if not counts[id] and not equipped(id) then
-      local m = (missed[id] or 0) + 1
-      if m >= 3 then known[id] = nil; missed[id] = nil
-      else missed[id] = m end
-    else
-      missed[id] = nil
+  -- The mail frame is the one place where the bags change without anything arriving: a letter is filled
+  -- out of them and emptied back into them, and the client pushes every one of those moves through the
+  -- same bag event. Nothing is counted there and no id is forgotten, for the same reason -- a letter being
+  -- written is not the inventory changing shape. But an item that has left the bags has left them, and a
+  -- row left standing empty because a mailbox happens to be open is the same bug as anywhere else, so the
+  -- cells are still pruned; only the accounting waits for the letter to go.
+  local mail = mailing()
+  if not mail then
+    for id in pairs(known) do
+      if not counts[id] and not equipped(id) then
+        local m = (missed[id] or 0) + 1
+        if m >= 3 then known[id] = nil; missed[id] = nil
+        else missed[id] = m end
+      else
+        missed[id] = nil
+      end
     end
   end
   -- A cell that just missed is not decided: it takes three passes, and the passes are only
@@ -503,6 +523,9 @@ end
 function Rec:Wipe()
   wipe(cells); wipe(seq); wipe(got); wipe(base)
   wipe(bagView.cells); wipe(pocketView.cells)
+  -- Clear is the player saying the list is done, so the band goes with it: leaving the space until
+  -- the next opening kept an empty caption over nothing and made Clear look like it had not worked.
+  self.armed = false
   self:Refresh()
 end
 
@@ -518,6 +541,7 @@ end
 
 function Rec:Height(size)
   if not self:BagsOn() then return 0 end
+  if not self:Armed() then return 0 end
   local d = ns.Density(size)
   return d.labelH + d.labelGap + (tonumber(size) or 0) + 6
 end
@@ -565,9 +589,27 @@ function Rec:Apply(bags, x, top, size, gap)
     self:Hide()
     return 0
   end
+  -- The window's own show/hide is what re-decides the band for the next opening: while it stands,
+  -- the answer is frozen, so Clear cannot make the window (and the pocket with it) jump.
+  if frame.HookScript and not frame.wpeRecArm then
+    frame.wpeRecArm = true
+    frame:HookScript("OnShow", function() Rec.armed = used() and true or false end)
+    frame:HookScript("OnHide", function() Rec.armed = nil end)
+  end
+  if not self:Armed() then
+    self:Hide()
+    return 0
+  end
   if not self.warmed then self:Warm() end
   if not self.label then
-    local fs = Theme:Label(frame, 11, "dim")
+    -- The section names in the grid are accent (see the layout's SetTextColor), and these two are
+    -- typographic peers of them: same face, same FONT - 4, same one word above a run of cells. Left at
+    -- dim they were the only grey heads in a window painted in accent and azure, which read as a
+    -- switched-off control rather than a caption. The ink is the sections' own, softened by alpha --
+    -- the standing rule here is the same colour quieter, never a second colour -- so the four section
+    -- heads still lead the two list heads above them.
+    local fs = Theme:Label(frame, 11, "accent")
+    fs:SetAlpha(0.85)
     fs:SetJustifyH("LEFT")
     ns.LocalText(fs, "Recent")
     self.label = fs
@@ -615,22 +657,13 @@ function Rec:Apply(bags, x, top, size, gap)
       if g then g:Hide() end
     else
       if b then b.holder:Hide(); b.recBag, b.wpeForce = nil, nil end
-      if g and i <= n then
-        ns.SnapBox(g, size, size)
-        g:ClearAllPoints()
-        ns.SnapPoint(g, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
-        ns.PaintGhostBg(g)
-        -- A ghost is never a search hit, so it wears the row's dim while a query runs; set here too so
-        -- one freshly placed mid-search starts dimmed instead of flashing full until the next pass.
-        g:SetAlpha((bags.filters and not bags.filters.empty) and 0.20 or 1)
-        g:Show()
-      elseif g then
-        g:Hide()
-      end
+      -- An empty cell here is neither a target nor a placeholder: only what the list holds is drawn,
+      -- so a Recent with two items is two cells, not a rack of bare frames.
+      if g then g:Hide() end
     end
   end
   self:Cooldowns()
-  return d.labelH + d.labelGap + size + 6
+  return d.labelH + d.labelGap + size
 end
 function Rec:Refresh()
   local a = self.args
@@ -658,11 +691,22 @@ end
 local ev = CreateFrame("Frame")
 ev:RegisterEvent("BAG_UPDATE")
 ev:RegisterEvent("BAG_UPDATE_DELAYED")
+-- The two events that say an item exists, as opposed to the container saying something about a slot.
+-- A loot, a purchase, a quest reward and a craft all land here at once, while BAG_UPDATE for the same
+-- item can trail behind by the client's own delay -- and until it arrives the row has nothing to show,
+-- which is the wait a player sees as the row refusing to appear. BAG_NEW_ITEMS_UPDATED is the event the
+-- window's own new-item glow rides, so it is already the earliest word of an arrival in this addon.
+pcall(ev.RegisterEvent, ev, "BAG_NEW_ITEMS_UPDATED")
+pcall(ev.RegisterEvent, ev, "ITEM_PUSH")
 ev:RegisterEvent("BAG_UPDATE_COOLDOWN")
 ev:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 ev:RegisterEvent("PLAYER_REGEN_ENABLED")
 ev:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 ev:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
+-- Login and /reload are new sessions for the row: the old list must not stand in the window that
+-- reopens on them, so the band is wiped and taken away with the world coming up, not on the next
+-- close. A plain zone-in (both args false) leaves the list alone.
+ev:RegisterEvent("PLAYER_ENTERING_WORLD")
 -- An item whose data was not cached when a scan read its slot (pending). The scan asked for the load; the
 -- game answers here, once per id, and the pass is run again -- now the slot reads in full and the arrival
 -- is counted. Without this an item taken from the mail whose BAG_UPDATE was its last event never lists.
@@ -670,7 +714,7 @@ ev:RegisterEvent("ITEM_DATA_LOAD_RESULT")
 -- The cursor picking an item up or putting it down. Stamped before any bag pass so a split in flight is
 -- already on record when the source-shrunk BAG_UPDATE arrives; without this the pass beats the cursor read.
 ev:RegisterEvent("CURSOR_CHANGED")
-ev:SetScript("OnEvent", function(_, event, arg1)
+ev:SetScript("OnEvent", function(_, event, arg1, arg2)
   if event == "CURSOR_CHANGED" then
     noteCursor()
     return
@@ -688,7 +732,11 @@ ev:SetScript("OnEvent", function(_, event, arg1)
     Rec:Flush()
     return
   end
-  if event == "BAG_UPDATE" then
+  if event == "PLAYER_ENTERING_WORLD" then
+    if arg1 or arg2 then Rec:Wipe() end
+    return
+  end
+  if event == "BAG_UPDATE" or event == "BAG_NEW_ITEMS_UPDATED" or event == "ITEM_PUSH" then
     soon()
     return
   end

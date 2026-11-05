@@ -4,8 +4,7 @@ local Theme = ns.Theme
 -- The currency panel: the one editor of the client's tracking flags. It shows every currency the
 -- client knows, in the client's own order and under the client's own section names, with a tick on the
 -- ones the character panel tracks -- a tick tracks, a second tick untracks, and the list itself is the
--- feedback. Search narrows it, and a coin in the header walks to the game's own currency tab --
--- the filter lives there, and so do the transfers.
+-- feedback. Search narrows it; a Ctrl-click on a row asks the client for that currency's transfer.
 --
 -- The panel is also the only place in the addon that walks the client's whole currency list, and that walk
 -- is the reason this file exists apart from Features/Currencies.lua:
@@ -37,7 +36,7 @@ local FONT     = 14
 local HDR_FONT = 11    -- a section name: under a currency's and quiet, so the currencies carry the eye
 local ICON     = 20    -- a currency's icon in a row (nearly the row's own height; the old 15 read as a smudge)
 local BOX      = 14    -- its tick box
-local BTN      = 22    -- a header button: the coin, the filter and the cross
+local BTN      = 22    -- a header button: the filter and the cross
 local HEAD_UP  = 4     -- on Blizzard Flat the header pair stands this far above its plain line
 
 -- Blizzard Flat alone lifts the header pair (the two buttons and the title) off its line; every other skin
@@ -447,15 +446,17 @@ function Pick:Paint(keepScroll)
   if widest > (self.widest or 0) then self.widest = widest end
   local need = 2 + ICON + 6 + (self.widest or 0) + 6 + 44 + BOX + 2 + ROW_H + 4 + PAD * 2 + BAR_W + 2
   local w0 = math.min(W + 90, math.max(W, need))
+  local side = Theme:ContentPad("side")
+  local pad = PAD + side
   -- The search box stands its own height under the title and the list begins under the box: they are two
   -- lines, not one. Anchoring both at `head` drew the list's first row up under the search box. A skin also
-  -- draws its own title band across the top and keeps a strip for it (Theme:TopInset): the title, the coin
-  -- and the cross move below that strip, and the frame grows by it, so on the Blizzard art the three no
-  -- longer sit on the ornate band.
-  local top = Theme:TopInset()
+  -- draws its own title band across the top and keeps a strip for it (Theme:TopInset): the title and the
+  -- cross move below that strip, and the frame grows by it, so on the Blizzard art the two no longer sit
+  -- on the ornate band.
+  local top = Theme:TopInset() + Theme:ContentPad("top")
   local searchTop = TITLE_H + PAD + top
   local head = searchTop + SEARCH_H + 8
-  local h = head + self.listH + 8
+  local h = head + self.listH + 8 + Theme:ContentPad("bottom")
   -- The face follows the numbers: the frame is built once and painted many times, so the chrome is
   -- re-anchored here rather than written down at birth -- a density change reaches an open panel.
   -- The header pair shares one line: the two buttons stand on the right and the title is centered on their
@@ -467,16 +468,16 @@ function Pick:Paint(keepScroll)
   if self.title then
     self.title:SetFontObject(ns.Fonts:Object(FONT, ns.OutlineFlags()))
     self.title:ClearAllPoints()
-    self.title:SetPoint("LEFT", w, "TOPLEFT", PAD, btnTop - BTN / 2)
+    self.title:SetPoint("LEFT", w, "TOPLEFT", pad, btnTop - BTN / 2)
   end
   if self.close then
     self.close:ClearAllPoints()
-    self.close:SetPoint("TOPRIGHT", -(PAD - 2), btnTop)
+    self.close:SetPoint("TOPRIGHT", -(pad - 2), btnTop)
   end
   if self.filter then
     self.filter:ClearAllPoints()
-    self.filter:SetPoint("TOPLEFT", PAD, -searchTop)
-    self.filter:SetPoint("TOPRIGHT", -PAD, -searchTop)
+    self.filter:SetPoint("TOPLEFT", pad, -searchTop)
+    self.filter:SetPoint("TOPRIGHT", -pad, -searchTop)
     self.filter:SetHeight(SEARCH_H)
     self.filter:SetFont(path, FONT, ns.OutlineFlags())
     if self.filter.Hint then
@@ -484,11 +485,11 @@ function Pick:Paint(keepScroll)
     end
   end
   self.sf:ClearAllPoints()
-  self.sf:SetPoint("TOPLEFT", PAD, -head)
-  self.sf:SetPoint("TOPRIGHT", -(PAD + BAR_W + 2), -head)
+  self.sf:SetPoint("TOPLEFT", pad, -head)
+  self.sf:SetPoint("TOPRIGHT", -(pad + BAR_W + 2), -head)
   self.sf:SetHeight(self.listH)
   self.child:SetWidth(w0 - PAD - (PAD + BAR_W + 2))
-  ns.SnapSize(w, w0, h)
+  ns.SnapSize(w, w0 + side * 2, h)
   Theme:FitPlateOf(w)
   if not keepScroll then self.sf:SetVerticalScroll(0) end
   Pick:PaintBar()
@@ -515,6 +516,9 @@ function Pick:Paint(keepScroll)
     ns.SidePlace(w, self.win, self.side or "left", align)
   end
   ns.AlignToScreen(w)
+  -- A hidden panel has no rect to measure, and its first open lays it out before Show: only a standing
+  -- list takes the pocket off the screen, and it asks again on every repaint.
+  if ns.Pocket and w:IsShown() then ns.Pocket:Hold(w, self.win) end
 end
 
 ------------------------------------------------------------------------------
@@ -674,15 +678,16 @@ function Pick:Build()
   -- The skin's title strip (Theme:TopInset) is honoured here too: the points set at build are replaced on
   -- the first paint, but the panel must not flash its title on the band for the frame between the two. The
   -- title takes the buttons' middle from the start (its LEFT onto the frame's TOPLEFT, never the bare LEFT).
-  local top = Theme:TopInset()
+  local pad = PAD + Theme:ContentPad("side")
+  local top = Theme:TopInset() + Theme:ContentPad("top")
   local btnTop = -(PAD - 5 + top) + headerUp()
   local title = Theme:Title(w, FONT, "accent")
-  title:SetPoint("LEFT", w, "TOPLEFT", PAD, btnTop - BTN / 2)
+  title:SetPoint("LEFT", w, "TOPLEFT", pad, btnTop - BTN / 2)
   ns.LocalText(title, "Currencies")
   self.title = title
 
   local close = ns.CreateGlyphButton(w, "×", BTN)
-  close:SetPoint("TOPRIGHT", -(PAD - 2), btnTop)
+  close:SetPoint("TOPRIGHT", -(pad - 2), btnTop)
   close:SetScript("OnClick", function() w:Hide() end)
   -- Quiet at rest, up to the white text ink under the pointer, the way the bags' header marks read.
   close.wpeIconPaint = function(s)
@@ -692,35 +697,16 @@ function Pick:Build()
   ns.AddTip(close, "Close", "top")
   self.close = close
 
-  -- The door to the game's own list, left of the cross: a coin that opens the character tab, where
-  -- the filter lives and the transfers happen.
-  local open = ns.CreateButton(w, "", BTN, BTN)
-  open:SetPoint("TOPRIGHT", close, "TOPLEFT", -6, 0)
-  local coin = open:CreateTexture(nil, "ARTWORK")
-  coin:SetTexture([[Interface\AddOns\Warpee\Media\Icons\coin.tga]])
-  coin:SetSize(14, 14)
-  coin:SetPoint("CENTER", 0, 0)
-  open:SetScript("OnClick", function()
-    if ToggleCharacter then ToggleCharacter("TokenFrame") end
-  end)
-  -- The coin wears the same dim-at-rest, white-under-the-pointer ink as the header's other marks.
-  open.wpeIconPaint = function(s)
-    coin:SetVertexColor(Theme:C((s.wpeHot and not s.offDuty) and "text" or "dim"))
-  end
-  open.wpeIconPaint(open)
-  ns.AddTip(open, "Open currency list", "top")
-  self.open = open
-
-  -- The filter, left of the coin: the whole list, or only what another character can send over -- the
+  -- The filter, left of the cross: the whole list, or only what another character can send over -- the
   -- same cut the game's own currency tab keeps. Its face is a single down arrow with a 1px dark outline,
   -- drawn in code the way the cross and the lock are -- the kit is square textures, and no atlas of the
   -- client's reads as a transfer at this size.
   local only = ns.CreateButton(w, "", BTN, BTN)
-  only:SetPoint("TOPRIGHT", open, "TOPLEFT", -6, 0)
+  only:SetPoint("TOPRIGHT", close, "TOPLEFT", -6, 0)
   only.wpeArrowScale = 0.82
   ns.MarkArrow(only, true)
   -- The arrow takes the header's own white ink -- lit while the filter is on or under the pointer, the
-  -- row's dim grey at rest -- so the mark sits in the family of the coin and the cross beside it.
+  -- row's dim grey at rest -- so the mark sits in the family of the cross beside it.
   only.wpeIconPaint = function(s)
     local lit = s.wpeOn or (s.wpeHot and not s.offDuty)
     ns.TintMarkX(s, lit and "text" or "dim")
@@ -742,15 +728,15 @@ function Pick:Build()
   end)
   local searchTop = TITLE_H + PAD + top
   local head = searchTop + SEARCH_H + 8
-  filter:SetPoint("TOPLEFT", PAD, -searchTop)
-  filter:SetPoint("TOPRIGHT", -PAD, -searchTop)
+  filter:SetPoint("TOPLEFT", pad, -searchTop)
+  filter:SetPoint("TOPRIGHT", -pad, -searchTop)
   filter:SetHeight(SEARCH_H)
   if filter.Hint then ns.LocalText(filter.Hint, "Search") end
   self.filter = filter
 
   local sf = CreateFrame("ScrollFrame", nil, w)
-  sf:SetPoint("TOPLEFT", PAD, -head)
-  sf:SetPoint("TOPRIGHT", -(PAD + BAR_W + 2), -head)
+  sf:SetPoint("TOPLEFT", pad, -head)
+  sf:SetPoint("TOPRIGHT", -(pad + BAR_W + 2), -head)
   sf:EnableMouseWheel(true)
   local child = CreateFrame("Frame", nil, sf)
   -- The scroll frame owns this frame's corners: it clears and moves them whenever the list scrolls,
@@ -787,6 +773,8 @@ function Pick:Build()
   w:SetScript("OnShow", function() Pick:Scan() end)
   w:SetScript("OnHide", function()
     if self.filter then self.filter:ClearFocus() end
+    -- The list is gone, so the pocket it hid comes back to its own corner.
+    if ns.Pocket then ns.Pocket:Unhold(w) end
   end)
   local ev = CreateFrame("Frame", nil, w)
   ev:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
@@ -839,6 +827,7 @@ function Pick:Toggle(anchor, place)
   end
   self:Paint()
   w:Show()
+  if ns.Pocket then ns.Pocket:Hold(w, self.win) end
 end
 
 function Pick:Close()

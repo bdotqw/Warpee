@@ -18,3 +18,4 @@ ignore:
   - .gitignore
   - .freebuff
   - .playwright-mcp
+  - .cloud-attachments

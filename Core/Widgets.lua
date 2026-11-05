@@ -176,6 +176,9 @@ end
 -- The mechanical half of a drag, without the lock check: the pocket keeps its own lock rather
 -- than the one that governs the bags and the bank, and it decides for itself when to start.
 function ns.DragMove(frame)
+  -- Read before the frame moves: the carry is the delta of this move, not a relation to be worked out
+  -- afterwards, when the window is already somewhere else.
+  ns.CarryLift(frame)
   frame:StartMoving()
   frame.wpeMoving = true
   Theme:LiftArt(frame)
@@ -188,7 +191,10 @@ end
 function ns.MoveWindowTo(frame, dbKey, nx, ny)
   local l, b = frame:GetLeft(), frame:GetBottom()
   if not (l and b) then return end
+  -- The arrow row and the typed coordinates are the same move without a release to report it.
+  ns.CarryLift(frame)
   ns.PlaceRect(frame, dbKey, nil, nx or l, ny or b)
+  ns.CarrySettle(frame)
   if ns.Profiles and ns.Profiles.SyncActive then ns.Profiles:SyncActive() end
 end
 
@@ -489,7 +495,7 @@ function ns.CreateMoveBar(frame, dbKey)
   if frame.wpeBar then return frame.wpeBar end
   local bar = CreateFrame("Frame", nil, frame)
   bar:SetHeight(16)
-  bar:SetPoint("BOTTOM", frame, "BOTTOM", 0, 6)
+  bar:SetPoint("BOTTOM", frame, "BOTTOM", 0, 6 + Theme:ContentPad("bottom"))
   bar:SetFrameLevel(frame:GetFrameLevel() + 20)
   bar.key = dbKey
 
@@ -544,6 +550,8 @@ function ns.CreateMoveBar(frame, dbKey)
 
   bar.Size = function(s, h)
     h = math.max(12, h or 16)
+    s:ClearAllPoints()
+    s:SetPoint("BOTTOM", frame, "BOTTOM", 0, 6 + Theme:ContentPad("bottom"))
     s:SetHeight(h)
     for _, b in ipairs({ xm, xp, ym, yp }) do ns.SizeArrow(b, h) end
     local fw = math.floor(h * 2.5 + 0.5)
@@ -613,7 +621,7 @@ end
 function ns.CreateNudgeRow(frame, dbKey)
   if frame.wpeNudge then return frame.wpeNudge end
   local row = CreateFrame("Frame", nil, frame)
-  row:SetPoint("BOTTOM", frame, "BOTTOM", 0, 6)
+  row:SetPoint("BOTTOM", frame, "BOTTOM", 0, 6 + Theme:ContentPad("bottom"))
   row:SetFrameLevel(frame:GetFrameLevel() + 20)
   row:SetHeight(16)
   row:SetWidth(70)
@@ -632,6 +640,8 @@ function ns.CreateNudgeRow(frame, dbKey)
   end
   row.Size = function(s, px)
     px = math.max(12, px or 16)
+    s:ClearAllPoints()
+    s:SetPoint("BOTTOM", frame, "BOTTOM", 0, 6 + Theme:ContentPad("bottom"))
     for _, b in ipairs(s.wpeArrows or {}) do ns.SizeArrow(b, px) end
     s:SetHeight(px)
     s:SetWidth(px * 4 + 6)
@@ -733,6 +743,110 @@ local function seamFix(mover, partner, rel, dbKey, fallback)
   return true
 end
 
+-- The pocket rides with the window it belongs beside. Not a seam: the pocket is not aligned, not pulled
+-- to the nominal gap and not asked to look docked -- it keeps exactly the offset the player gave it and
+-- travels by the same delta the window travelled. Measured from the two rectangles on the way up and
+-- replayed on the way down, because after the move the window is elsewhere and there is nothing left to
+-- measure against.
+local carryFrom, carryTicker
+
+-- The carry has to be seen while it happens. Working the delta out once, on the release, is the same
+-- result on paper and a bad one on screen: the window slides and the pocket stands still until it is
+-- dropped, then appears somewhere else. So the pocket is walked a frame at a time, by whatever the
+-- window moved since the previous frame, and by the time the drag ends it is already there.
+local function carryStop()
+  carryFrom = nil
+  if carryTicker then carryTicker:Hide() end
+end
+
+local function carryWalk(c, w)
+  local l, b = c.frame:GetLeft(), c.frame:GetBottom()
+  if not (l and b) then return end
+  local dx, dy = l - c.l, b - c.b
+  if math.abs(dx) < 0.001 and math.abs(dy) < 0.001 then return end
+  -- The remembered corner moves by the same delta as the pocket, so the next frame measures against
+  -- where the window really is rather than against the start of the drag: no drift over a long pull.
+  c.l, c.b = l, b
+  c.pl, c.pb = c.pl + dx, c.pb + dy
+  c.moved = true
+  -- Raw point, no record and no snap pass: this runs every frame of the drag, and the saved rectangle
+  -- is written once on the release. Snapping here would also make the pocket stutter against the
+  -- window on a fractional move.
+  w:ClearAllPoints()
+  w:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", c.pl, c.pb)
+end
+
+local function carryTick()
+  local c = carryFrom
+  local w = c and ns.Pocket and ns.Pocket.frame
+  if not (c and w and w:IsShown() and c.frame.wpeMoving) then carryStop() return end
+  carryWalk(c, w)
+end
+
+-- How close the pocket stands for the window to tow it. A pocket beside the bags or the bank is part of
+-- the pair the player arranged on screen, and one parked a screen away is its own HUD: dragging the
+-- window must not drag it back across the display by a delta it was never part of. Twenty points covers
+-- the seam the snap uses and the air either side of it. Diagonal air is not a seam: a corner-to-corner
+-- pair is two windows, not one block.
+local CARRY_REACH = 20
+local function carryNear(a, w)
+  local al, ar, at, ab = a:GetLeft(), a:GetRight(), a:GetTop(), a:GetBottom()
+  local wl, wr, wt, wb = w:GetLeft(), w:GetRight(), w:GetTop(), w:GetBottom()
+  if not (al and ar and at and ab and wl and wr and wt and wb) then return false end
+  local dx = math.max(0, wl - ar, al - wr)
+  local dy = math.max(0, wb - at, ab - wt)
+  if dx > 0 and dy > 0 then return false end
+  return math.max(dx, dy) <= CARRY_REACH
+end
+
+function ns.CarryLift(frame)
+  carryStop()
+  -- Only the two lists carry the pocket: a panel or a list dragged past it must not take it along.
+  local B, K = ns.Bags and ns.Bags.frame, ns.Bank and ns.Bank.frame
+  if not (frame and ((B and frame == B) or (K and frame == K))) then return end
+  local P = ns.Pocket
+  local w = P and P.frame
+  if not (w and w:IsShown()) then return end
+  -- A pocket hidden by an open list is not carried: it is not on screen, and its corner is corrected on
+  -- the way back by the window's own delta.
+  -- Standing against the window is the whole condition, and the player owns it twice: the snap switch says
+  -- whether the pocket belongs to the window at all, and the distance says whether it still stands there.
+  -- A pocket across the display keeps its own corner through a drag, however the switch is set.
+  if not ns.PocketSnapOn() then return end
+  if not carryNear(w, frame) then return end
+  local l, b = frame:GetLeft(), frame:GetBottom()
+  local pl, pb = w:GetLeft(), w:GetBottom()
+  if not (l and b and pl and pb) then return end
+  carryFrom = { frame = frame, l = l, b = b, pl = pl, pb = pb }
+  if not carryTicker then
+    carryTicker = CreateFrame("Frame")
+    carryTicker:Hide()
+    carryTicker:SetScript("OnUpdate", carryTick)
+  end
+  carryTicker:Show()
+end
+
+-- The pocket asks the same question on the way back from a list: a pocket parked elsewhere, or with
+-- snap off, is not carried then either.
+function ns.CarryNear(a, w) return carryNear(a, w) end
+
+function ns.CarrySettle(frame)
+  local c = carryFrom
+  if not (c and c.frame == frame) then carryStop() return false end
+  local w = ns.Pocket and ns.Pocket.frame
+  if not (w and w:IsShown()) then carryStop() return false end
+  -- One last step, so a move that ends between two frames is not lost with the ticker.
+  carryWalk(c, w)
+  local moved, pl, pb = c.moved, c.pl, c.pb
+  carryStop()
+  if not moved then return false end
+  -- The record is written here rather than per frame: the same call the window goes through, so the
+  -- corner it grows from and the saved rectangle are both right, and the pocket is where it stood
+  -- before the reload too. It is already on that rectangle, so this writes without moving anything.
+  ns.PlaceRect(w, "pocketPos", nil, pl, pb)
+  return true
+end
+
 function ns.SeamWatch(mover)
   if seamBusy or not ns.PocketSnapOn() then return nil end
   local partner = pocketFrame()
@@ -749,10 +863,32 @@ function ns.SeamHeal(watch)
   seamBusy = false
 end
 
+-- The saved corner alone cannot remember a dock: it is measured from the corner of the screen, so a
+-- window that reopens at another height -- or a corner nudged while the pair was off screen -- leaves
+-- the pocket standing a few points off the edge it was sharing. Asking the seam question once after
+-- the piece is placed puts the pocket back on its seam, and a pocket parked away from the lists, or
+-- one with snapping off, is left alone: both are the conditions the seam has always used.
+function ns.PocketSeam()
+  if seamBusy or not ns.PocketSnapOn() then return false end
+  local list = { ns.Bags and ns.Bags.frame, ns.Bank and ns.Bank.frame }
+  for i = 1, 2 do
+    local f = list[i]
+    if f and f:IsShown() then
+      local watch = ns.SeamWatch(f)
+      if watch then ns.SeamHeal(watch) return true end
+    end
+  end
+  return false
+end
+
 -- On a drop the pocket is the one that gives way, whichever of the two was just put down.
 -- Dragging the bags does not carry it, and it is never dragged along by a window it is not
 -- standing against.
 function ns.SeamDrop(mover)
+  -- The pocket came along with the window, so the seam it held is the seam it still holds: repairing it
+  -- here would pull the offset the player chose to the nominal gap, which is the snapping that reads as
+  -- a jolt on the way out of a drag.
+  if ns.CarrySettle(mover) then return end
   if seamBusy or not ns.PocketSnapOn() then return end
   local partner = pocketFrame()
   if not partner then return end
@@ -962,8 +1098,15 @@ function ns.FitMarkPlus(host)
   if not (mark and mark[1] and mark[2]) then return end
   local w, h = host:GetWidth() or 0, host:GetHeight() or 0
   if w <= 0 or h <= 0 then return end
-  local span = w * 0.45
+  -- A plus is read off its short side, not its width: a box that is not square -- the compact currency
+  -- door is more than three times as wide as it is tall -- grew arms as long as 45% of the width, and the
+  -- mark spilled over the box's own edges into the line above and below. A square box answers the same
+  -- either way, so every other plus on the kit is untouched.
+  local side = math.min(w, h)
+  local span = side * 0.45
   local want = ns.PX(host, host.wpeMarkW or 3)
+  -- Read off the short side too: a 3px bar across a 9px arm is a slab, not a plus.
+  if h < w then want = math.min(want, math.max(1, side / 9)) end
   -- Each bar is measured on both axes: its length runs along one and its thickness across the
   -- other, and each wants the parity of the box on the axis it reads (see snapParity). Asking the
   -- thickness the same question as the length keeps a 2px bar from rounding one edge out and the
@@ -1583,10 +1726,8 @@ end
 -- Why a texture and not a |T...|t escape inside the label: a texture inside a string has no shadow to be
 -- given, so the art sat flat on the band while every mark around it carried its own ground. On the icon
 -- path IconSilhouette can lay that ground.
--- Why 62% and not the lock's 60%: a round solid body reads heavier than a thin-stroked one, and at that
--- size the two marks weigh the same instead of the cog shouting. The art is authored on the grid it is
--- shown on -- 16 pixels, hard alpha -- because a 128px drawing blurred down to a half-box left a grey
--- smudge in a row of 2px strokes.
+-- The compact gear reads heavier than the taller bag at the same texture size.
+-- Hard alpha on a 16px grid keeps tooth gaps open when the header resamples it.
 -- The tip takes the key, not the word, so a language switch reaches it without a reload.
 function ns.GearButton(parent, close, box)
   local gear = ns.CreateGlyphButton(parent, "", box, "icon")
@@ -1623,14 +1764,10 @@ function ns.CreateSectionHead(parent, relayout)
     end
     if relayout then relayout() end
   end)
-  b:SetScript("OnEnter", function(s)
-    if s.wpeCaret then s.wpeCaret:SetTint("accent") end
-    if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("accentInk")) end
-  end)
-  b:SetScript("OnLeave", function(s)
-    if s.wpeCaret then s.wpeCaret:SetTint("dim") end
-    if s.wpeLabel then s.wpeLabel:SetTextColor(Theme:C("azure")) end
-  end)
+  -- No hover recolour. Enter used to lift the caret to the accent and repaint the label accentInk, and
+  -- leave painted the label azure -- a hard-coded blue that then stayed until the next layout repainted
+  -- it, so a group name went pink on the way in and blue on the way out. The label keeps whatever ink the
+  -- window painted, which for the bags is the accent at CAT_INK, and the caret keeps its resting tint.
   return b
 end
 

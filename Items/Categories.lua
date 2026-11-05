@@ -144,6 +144,79 @@ local DEFAULTS = {
   -- from the row's + panel like any other, and every other section still follows the global sort.
 }
 
+-- Forever's gear is item level 1-60. The `ilvl>180` in the four gear rules exists to push gear from past
+-- expansions into `legacy`; the client has one tier of gear and no old expansions behind it, so the word
+-- would only leave every drop unclaimed and send all of it to Miscellaneous. Taken off the shipped rules
+-- before the preset shelf is built from them, so the shelf and a fresh save agree.
+if ns.IsForever then
+  -- Legacy and Keystone name content this client does not have: with one expansion behind the player
+  -- nothing is "older than the last one", and there are no keystones to hold. A row that can never fill is
+  -- an empty band in the window and a preset in the editor that adds nothing, so both leave the list here
+  -- rather than shipping as promises.
+  -- Gems and Housing join them for the same reason: jewels and sockets arrived after this client's content,
+  -- and a house is not a thing a character carries. A band that can never fill is an empty strip in the
+  -- window and a preset that adds nothing.
+  local GONE = { legacy = true, keystone = true, gem = true, housing = true }
+  for i = #DEFAULTS, 1, -1 do
+    local c = DEFAULTS[i]
+    if c.id and GONE[c.id] then table.remove(DEFAULTS, i) end
+  end
+  -- The word also comes off the two rules that carry it. With one expansion nothing is older than the last
+  -- one, so `!legacy` always holds: it excludes no item, and the picker above no longer offers the word, so
+  -- it would sit in the rule as a chip the player cannot name or remove. Dropped here, the rules on this
+  -- client name nothing they cannot reach.
+  for _, c in ipairs(DEFAULTS) do
+    if c.search and (c.id == "consumables" or c.id == "reagents") then
+      c.search = (c.search:gsub("%s*!legacy%s*$", ""))
+    end
+    -- Collectibles here is mounts and nothing else: a toy or a caged pet arrived long after this client's
+    -- content, and either word would leave the rule reading wider than the bag it runs over.
+    if c.id == "collectibles" then c.search = "mount" end
+    -- The two gadgets pinned to Consumables on retail -- an auto-hammer and a glider kit -- are pieces this
+    -- client's item list does not hold. A pin on an item that cannot exist draws nothing in the rack and
+    -- sits in the editor as a row to clean up, so the shelf ships bare here and the rule alone fills it.
+    if c.id == "consumables" then c.pins = nil end
+    -- Glyphs came with the inscription profession and cosmetic pieces with a later wardrobe, neither of
+    -- which this client has: both words can only ever match nothing, and a rule that names them reads as if
+    -- the transmog set were wider than it is. What is left there is what a vanilla character wears.
+    if c.id == "wardrobe" then c.search = "tabard | shirt" end
+  end
+  local OPEN = { weapons = "weapon shield offhand", jewelry = "finger neck",
+                 armor = "cloth leather mail plate", trinkets = "trinket" }
+  for _, c in ipairs(DEFAULTS) do
+    if c.id and OPEN[c.id] then c.search = OPEN[c.id] end
+  end
+  -- A bag on this client holds three kinds of thing the retail rows never name: ammunition, the quiver or
+  -- pouch that carries it, and the keys the keyring holds. Left out, all three fall through the rows above
+  -- into Miscellaneous, which is the class catch-all and the last place anybody looks for an arrow. Each
+  -- gets a row of its own, beside the bags it is put away with.
+  local at
+  for i, c in ipairs(DEFAULTS) do
+    if c.id == "bag" then at = i end
+  end
+  -- The crafting mats sit in a different class on this client. On retail everything a profession eats is
+  -- Reagent, which is why one word covers the shelf. Here herbs, ore, bars, cloth and leather are Trade
+  -- Goods, and Reagent is left with the handful of powders and runes a spell asks for -- so the row has to
+  -- ask both, or half the crafting bag falls past every rule into Other. One section, as it is on retail:
+  -- two rows for the same shelf would only split the mats in two.
+  for _, c in ipairs(DEFAULTS) do
+    if c.id == "reagents" then c.search = "reagent | tradegoods" end
+  end
+  local extra = { { id = "ammo", search = "projectile" },
+                  { id = "quiver", search = "quiver" } }
+  for i = #extra, 1, -1 do
+    table.insert(DEFAULTS, (at or #DEFAULTS) + 1, extra[i])
+  end
+  -- Keys do not belong with the crafting stock: they sit under the quest items, which is where a player
+  -- looks for the thing they are carrying for a reason. In the hoard band they would be three screens from
+  -- the door they open.
+  local qat
+  for i, c in ipairs(DEFAULTS) do
+    if c.id == "quest" then qat = i end
+  end
+  table.insert(DEFAULTS, (qat or #DEFAULTS) + 1, { id = "keys", search = "key" })
+end
+
 local GROUP_NAMEKEY = {
   essentials   = "Essentials",
   gear         = "Gear",
@@ -169,6 +242,9 @@ local NAMEKEY = {
   profgear      = "Profession Gear",
   reagents      = "Reagents",
   bag           = "Bags",
+  ammo          = "Ammo",
+  quiver        = "Quivers",
+  keys          = "Keys",
   wardrobe      = "Wardrobe",
   collectibles  = "Collectibles",
   housing       = "Housing",
@@ -275,6 +351,32 @@ for _, c in ipairs(DEFAULTS) do
       for k, v in pairs(c.pins) do pins[k] = v end
       PRESET_PINS[c.id] = pins
     end
+  end
+end
+
+-- The three rows the Forever list adds are offered as presets beside the bags they belong with, and only
+-- there: the shelf is a menu of what this client can use, and an Ammo preset on a client without ammunition
+-- would be a row that only ever fills a hole.
+if ns.IsForever then
+  local at
+  for i, id in ipairs(PRESET_IDS) do
+    if id == "bag" then at = i end
+  end
+  for _, id in ipairs({ "ammo", "quiver" }) do
+    at = (at or #PRESET_IDS) + 1
+    table.insert(PRESET_IDS, at, id)
+  end
+  -- Keys follow the list: under the quest items, not with the crafting stock.
+  local qat
+  for i, id in ipairs(PRESET_IDS) do
+    if id == "quest" then qat = i end
+  end
+  table.insert(PRESET_IDS, (qat or #PRESET_IDS) + 1, "keys")
+  -- The two rows the list itself drops are not offered back as presets either: adding a category that can
+  -- never fill is a button that does nothing.
+  local DEAD = { legacy = true, keystone = true, gem = true, housing = true }
+  for i = #PRESET_IDS, 1, -1 do
+    if DEAD[PRESET_IDS[i]] then table.remove(PRESET_IDS, i) end
   end
 end
 

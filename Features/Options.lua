@@ -393,10 +393,14 @@ end
 bg.windows = {
   { n = "Bags",    cell = bagsCell },
   { n = "Bank",    cell = function() return bankCell("bank") end },
-  { n = "Warband", cell = function() return bankCell("warband") end },
   { n = "Pocket",  cell = pocketCell },
   { n = "Guild bank", cell = guildCell },
 }
+-- The Warband bank is not on the Forever client, so the line that quotes badge sizes per window cannot
+-- promise a number for it. Built in at its old place when the window exists, absent when it does not.
+if not ns.IsForever then
+  table.insert(bg.windows, 3, { n = "Warband", cell = function() return bankCell("warband") end })
+end
 
 -- The editor draws a badge against the bags and stores what it drew, so the cell those numbers
 -- are written for is the bags' cell. When the bags have moved since the badge was last touched,

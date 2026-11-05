@@ -30,7 +30,7 @@ local DEFAULTS = {
   -- Whether a block carries its bag's or tab's name over its cells.
   nameBags = true, nameBank = true, nameWb = true,
   pocketShow = true, pocketWithBags = false, pocketHandOnly = false, pocketRows = 4, pocketCols = 6,
-  pocketSnap = true, pocketRecentTwo = true,
+  pocketSnap = true, pocketRecentTwo = false,
   -- A size of the pocket's own. NONE -- "no number of its own, read the bags' size on every pass" --
   -- would make resizing the bags drag the pocket along, and a profile would never carry the size,
   -- since only keys with a default are copied into one. A save with no number takes the bags' size
@@ -52,10 +52,14 @@ local DEFAULTS = {
   catSort = "ilvl",
   -- Flat pixel values, not NONE: the grouped view ships with the sections packed tight rather than
   -- following the density scale, which read too airy. Two gaps, kept apart on purpose: X is the space
-  -- between sections side by side on a shelf (8), Y the drop between shelf rows, set a touch tighter (6)
-  -- so the rows read as a block. A player overrides either from its own slider, and a save that already
-  -- carried the old single gap seeds both.
-  catGapX = 8, catGapY = 6,
+  -- between sections side by side on a shelf, Y the drop between shelf rows, set a touch tighter so the
+  -- rows read as a block. X is the wider of the two (10): the captions of two sections are what the gap
+  -- actually separates, and at 8 a long name ran close enough to its neighbour to read as one run of
+  -- letters. Width costs nothing here -- a shelf holds the same sections at 8 and at 40, since it is the
+  -- sections' own widths that decide a break -- while Y is height paid on every shelf, so Y stays at 6.
+  -- A player overrides either from its own slider, and a save that already carried the old single gap
+  -- seeds both.
+  catGapX = 10, catGapY = 6,
   catCombine = true,
   -- Drag a piece onto a section in the grouped view to pin it there. "off" keeps a bag drag meaning only
   -- "put it down" (the editor is the sole way to pin); "alt" pins only while Alt is held, so an ordinary
@@ -74,6 +78,9 @@ local DEFAULTS = {
   curOrder = {},
   -- curDir: the row grows from the middle out of the box; "ltr" and "rtl" are the player's other picks.
   curDir = "center",
+  -- curStyle: the row's own look -- the shipped cells, or the narrow line of number and small icon by
+  -- the gold. Unknown values read as the shipped one (see Cur.Style).
+  curStyle = "icons",
   vendorIlvl = 100, vendorIlvlMin = 10, vendorConsum = false, vendorAuto = false,
   vendorTokens = false, vendorTokenExp = {},
   vendorKeepBoE = true, vendorKeepWarbound = true, vendorKeepGems = true,
@@ -94,10 +101,23 @@ local DEFAULTS = {
                vendor = true, guildbank = true, professions = false,
                itemupgrade = true, catalyst = true },
   bagWinPos = NONE,
-  pos = { p = "BOTTOMRIGHT", rp = "BOTTOMRIGHT", x = -8, y = 20 },
-  bankPos = { p = "BOTTOMLEFT", rp = "BOTTOMLEFT", x = 5, y = 20 },
+  pos = { p = "BOTTOMRIGHT", rp = "BOTTOMRIGHT", x = -8, y = 120 },
+  bankPos = { p = "BOTTOMLEFT", rp = "BOTTOMLEFT", x = 5, y = 120 },
   pocketPos = { p = "CENTER", rp = "CENTER", x = 163, y = 80.5 },
 }
+
+-- Forever's gear is item level 1-60, so retail's 10..100 sell window would take every piece the coin
+-- touches; the port starts with no item-level rule and leaves the numbers to the player. There are no
+-- Legion relics and no tier tokens there either, so both rules start off instead of scanning for items
+-- the client cannot hold.
+if ns.IsForever then
+  DEFAULTS.cols, DEFAULTS.bankCols = 12, 16
+  DEFAULTS.vendorIlvl, DEFAULTS.vendorIlvlMin = 0, 0
+  DEFAULTS.vendorRelics, DEFAULTS.vendorTokens = false, false
+  -- Neither window exists there, so neither switch may arrive switched on: the bags would wait on a
+  -- window that never opens.
+  DEFAULTS.autoOpen.itemupgrade, DEFAULTS.autoOpen.catalyst = false, false
+end
 
 local function copyDeep(v)
   if type(v) ~= "table" then return v end
@@ -434,9 +454,31 @@ function ns.ToggleBank()
   end
 end
 
-local blizzHidden
+local blizzHidden, hideBlizzBags
 
-local function hideBlizzBags()
+-- The keyring is the one container the client opens in a window of its own, apart from the bags, and that
+-- window is one of the bag frames this addon tucks away. It is let back out while it shows and put away
+-- again when it closes: the client's own keyring still opens from its button, and the addon's window goes
+-- on drawing the bags alone -- the keyring's slots are in no grid, no count and no run.
+local KEYRING = (ns.IsForever and Enum and Enum.BagIndex and Enum.BagIndex.Keyring) or nil
+local function isKeyringFrame(f)
+  if not (KEYRING and f and f.MatchesBagID) then return false end
+  if not f:IsShown() then return false end
+  return f:MatchesBagID(KEYRING) and true or false
+end
+
+local keyringFrameHooked = setmetatable({}, { __mode = "k" })
+local function letKeyringOut(f)
+  local host = ContainerFrameContainer or UIParent
+  if host and f:GetParent() ~= host then f:SetParent(host) end
+  if keyringFrameHooked[f] then return end
+  keyringFrameHooked[f] = true
+  -- The frames are shared between containers: once the keyring window is closed it goes back under the
+  -- hidden parent, or the next bag it shows would be invisible.
+  f:HookScript("OnHide", function(s) if not s:IsShown() then hideBlizzBags() end end)
+end
+
+function hideBlizzBags()
   if InCombatLockdown() then return end
   if not blizzHidden then
     blizzHidden = CreateFrame("Frame")
@@ -444,7 +486,13 @@ local function hideBlizzBags()
   end
   for i = 1, 13 do
     local f = _G["ContainerFrame" .. i]
-    if f and f:GetParent() ~= blizzHidden then f:SetParent(blizzHidden) end
+    if f then
+      if isKeyringFrame(f) then
+        letKeyringOut(f)
+      elseif f:GetParent() ~= blizzHidden then
+        f:SetParent(blizzHidden)
+      end
+    end
   end
   local c = ContainerFrameCombinedBags
   if c and c:GetParent() ~= blizzHidden then c:SetParent(blizzHidden) end
@@ -531,9 +579,12 @@ local function HookBagToggles()
   -- containers are only reparented, so the inner toggle still reads as the game's own open. Syncing on it
   -- opened our bags beside every window that calls OpenAllBags, checkbox or no checkbox: the sync hook is
   -- for a hand that toggles the game's bags, and a call already inside an open/close-all is not a hand.
-  hookList(BAG_FN.sync, function()
+  hookList(BAG_FN.sync, function(id)
     local st = debugstack and debugstack()
     if st and (st:find("OpenAllBags", 1, true) or st:find("CloseAllBags", 1, true)) then return end
+    -- The keyring's button toggles the game's keyring window, not the bags: the window is let out and the
+    -- addon's own stays as it was.
+    if KEYRING and id == KEYRING then hideBlizzBags(); return end
     ns.Toggle(blizzBagsOpen())
   end)
 end
@@ -594,11 +645,12 @@ local function interactKey(t)
       [IT.MailInfo]    = "mail",
       [IT.Merchant]    = "vendor",
       [IT.TradePartner] = "trade",
-      -- Item Upgrade window (53) and the Revival Catalyst (44, an ItemInteraction), both arriving on
-      -- the same interaction-manager event as the others.
-      [IT.ItemUpgrade]   = "itemupgrade",
-      [IT.ItemInteraction] = "catalyst",
     }
+    -- Item Upgrade window (53) and the Revival Catalyst (44, an ItemInteraction) arrive on the same
+    -- interaction-manager event as the others. Added one at a time and only when the client has them: a
+    -- nil key inside the literal above would take the whole addon down at load, and Forever ships neither.
+    if IT.ItemUpgrade and not ns.IsForever then INTERACT_KEY[IT.ItemUpgrade] = "itemupgrade" end
+    if IT.ItemInteraction and not ns.IsForever then INTERACT_KEY[IT.ItemInteraction] = "catalyst" end
   end
   return INTERACT_KEY[t]
 end

@@ -1,8 +1,8 @@
-## Interface: 120105
+## Interface: 120105, 16001
 ## Title: Warpee
 ## Notes: One-bag inventory with categories, snapshots and smart selling
 ## Author: Naavo
-## Version: 12.7
+## Version: 13.0
 ## SavedVariables: WarpeeDB
 ## X-Category: Inventory
 ## IconTexture: Interface\AddOns\Warpee\Media\Icons\logo.tga
@@ -13,7 +13,6 @@
 Libs\LibStub.lua
 Libs\CallbackHandler-1.0.lua
 Libs\LibSharedMedia-3.0.lua
-
 Core\Locale.lua
 Locales\deDE.lua
 Locales\esES.lua
@@ -25,6 +24,7 @@ Locales\ruRU.lua
 Locales\zhCN.lua
 Locales\koKR.lua
 Locales\zhTW.lua
+Core\Forever.lua
 Core\Theme.lua
 Core\Layout.lua
 Core\Density.lua
@@ -40,13 +40,13 @@ Items\Categories.lua
 Features\Favorites.lua
 Features\Recent.lua
 Windows\Pocket.lua
-Features\Tokens.lua
+Features\Tokens.lua [AllowLoadGameType standard]
 Features\Vendor.lua
 Features\MinimapIcon.lua
 Windows\Vault.lua
 Windows\CharPicker.lua
 Windows\Bank.lua
-Windows\GuildBank.lua
+Windows\GuildBank.lua [AllowLoadGameType standard]
 Features\Options.lua
 Features\CatListHeader.lua
 Features\CatListRow.lua

@@ -67,6 +67,10 @@ function Picker:Build()
   m:SetClampedToScreen(true)
   ns.EscClose(m)
   self.frame = m
+  -- The pocket is a HUD the player placed; a list opened over it steps it aside and puts it back on the
+  -- exact anchor when the list goes. Both exits run through Hide, so this one hook covers the x, Escape,
+  -- the owner window closing and the other side panel taking this one down.
+  m:HookScript("OnHide", function() if ns.Pocket then ns.Pocket:Unhold(m) end end)
 
   local hide = ns.CreateButton(m, ns.L["Hidden"], 68, 23)
   ns.LocalText(hide, "Hidden")
@@ -264,12 +268,15 @@ function Picker:Paint(keepScroll)
     if self.filter.Hint then self.filter.Hint:SetFont(path, FONT - 2, ns.OutlineFlags()) end
   end
   local skin = Theme.skin
+  local outer = Theme:ContentPad("side")
+  local extraTop, extraBottom = Theme:ContentPad("top"), Theme:ContentPad("bottom")
   local top, wide, drop, side = PAD, 0, 0, 0
   if skin == "blizzardflat" then top = PAD - 3
   elseif skin == "blizzard" then top = PAD + 20; wide = 16; drop = 12; side = 2 end
+  top = top + extraTop
   if self.hideBtn then
     self.hideBtn:ClearAllPoints()
-    self.hideBtn:SetPoint("TOPLEFT", PAD + side, -top)
+    self.hideBtn:SetPoint("TOPLEFT", PAD + side + outer, -top)
     self.hideBtn.Text:SetFont(path, FONT - 2, ns.OutlineFlags())
     local w = math.max(68, math.ceil(self.hideBtn.Text:GetStringWidth()) + 18)
     self.hideBtn.wpeBoxW = w
@@ -277,17 +284,18 @@ function Picker:Paint(keepScroll)
   end
   if self.close then
     self.close:ClearAllPoints()
-    self.close:SetPoint("TOPRIGHT", -PAD + side, -top)
+    self.close:SetPoint("TOPRIGHT", -PAD + side - outer, -top)
   end
   self:UpdateHiddenBorder()
 
   self.sf:ClearAllPoints()
-  self.sf:SetPoint("TOPLEFT", PAD, -(PAD + HEAD_H + drop))
-  self.sf:SetPoint("BOTTOMRIGHT", -(PAD + BAR_W + 2), PAD)
+  self.sf:SetPoint("TOPLEFT", PAD + outer, -(PAD + HEAD_H + drop + extraTop))
+  self.sf:SetPoint("BOTTOMRIGHT", -(PAD + BAR_W + 2 + outer), PAD + extraBottom)
   local maxRows = math.max(3, PICK_ROWS)
   local bodyH = math.max(ROW_H, math.min(y, MAX_ROWS * ROW_H, maxRows * ROW_H))
   if self.capH then bodyH = math.min(bodyH, self.capH) end
-  ns.SnapSize(self.frame, widest + PAD * 2 + wide + BAR_W + 2, PAD * 2 + HEAD_H + bodyH + drop)
+  ns.SnapSize(self.frame, widest + PAD * 2 + wide + BAR_W + 2 + outer * 2,
+    PAD * 2 + HEAD_H + bodyH + drop + extraTop + extraBottom)
   Theme:FitPlateOf(self.frame)
   self.child:SetSize(widest + wide, math.max(1, y))
   local span = math.max(0, y - bodyH)
@@ -298,6 +306,9 @@ function Picker:Paint(keepScroll)
   if self.win then
     ns.SidePlace(self.frame, self.win, self.side or "left", "top")
   end
+  -- Paint runs while the frame may still be hidden (the first open lays it out before Show), and a
+  -- hidden frame has no rect to measure: only a standing list can ask the pocket to step aside.
+  if ns.Pocket and self.frame:IsShown() then ns.Pocket:Hold(self.frame, self.win) end
 end
 
 function Picker:UpdateHiddenBorder()
@@ -337,7 +348,8 @@ function Picker:Toggle(anchor, side, onSelect, currentKey, mode, size)
   if winH and winH > 0 then
     local drop = 0
     if Theme.skin == "blizzard" then drop = 12 end
-    self.capH = math.max(3 * ROW_H, winH - (PAD * 2 + HEAD_H + drop))
+    self.capH = math.max(3 * ROW_H, winH - (PAD * 2 + HEAD_H + drop
+      + Theme:ContentPad("top") + Theme:ContentPad("bottom")))
   else
     self.capH = nil
   end
@@ -356,6 +368,7 @@ function Picker:Toggle(anchor, side, onSelect, currentKey, mode, size)
   self.win, self.side = win, side
   self:Paint()
   m:Show()
+  if ns.Pocket then ns.Pocket:Hold(m, self.win) end
 end
 
 function Picker:Close()

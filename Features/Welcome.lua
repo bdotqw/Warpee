@@ -37,8 +37,7 @@ function Welcome:Restore()
   preview(self.committed or "grid")
 end
 
--- The choice is made: set both the bags and the bank to the picked view (one press decides both, as the
--- reference does), relayout an open bank, and finish. WarpeeDB carries the view so it survives a reload.
+-- A first-run choice applies to both windows, not just the previewed bags.
 function Welcome:Commit(mode)
   -- Both views go through the same setters the settings page uses, so the first-run pick and a later
   -- change write the same keys and the same module copy.
@@ -61,10 +60,7 @@ function Welcome:Finish()
   if ns.Options and ns.Options.RefreshOpen then ns.Options:RefreshOpen() end
 end
 
--- One tile: a plate with a bold heading and a wrapped description. Hover previews its view on the bag
--- window, leaving without a click restores the committed one, and a click commits. The whole tile is the
--- button so the reference's separate "Choose" caption is unneeded; the heading names the view. Head and
--- desc are kept on the tile so FitLayout can measure and place them once the width is known.
+-- The whole tile is clickable; FitLayout measures its heading and wrapped description.
 function Welcome:Tile(parent, mode, headKey, descKey)
   local t = CreateFrame("Button", nil, parent, "BackdropTemplate")
   ns.PixelBackdrop(t)

@@ -32,6 +32,13 @@ local Cur = {}
 ns.Cur = Cur
 
 local CHIP_GAP  = 12   -- cell to cell, both ways
+-- The compact row's own measure: one chip of a number and a sixteen-point icon, eight points of air
+-- between chips and between lines. Same band of the window as the cells, half as tall. The width is what
+-- the counted text needs with room to spare: Cur.CountText keeps five glyphs before it folds (a "9,999"
+-- or the short "12.3k" past it), which is about 38 points at this face, so three points of air, the text,
+-- two more, the icon and its two come to 68. Narrowing it to 56 cut the fourth digit down to an ellipsis,
+-- so the air is what buys the number its width, not slack.
+local CMP_W, CMP_H, CMP_GAP = 68, 20, 8
 local MAX_WATCH = 40   -- the read stops at the first empty slot; this is only the ceiling it never climbs
 
 local pending
@@ -160,6 +167,13 @@ function Cur.Dir()
   return "center"
 end
 
+-- The row's look: the shipped cells, or the narrow line of number and small icon. An unknown value --
+-- an old profile, a typo -- reads as the shipped one.
+function Cur.Style()
+  local s = WarpeeDB and WarpeeDB.curStyle
+  return s == "compact" and "compact" or "icons"
+end
+
 function Cur:Remember(id)
   if not id then return end
   local o = Cur.Order()
@@ -239,8 +253,24 @@ end
 -- untainted path, and opening the game's CurrencyTransferMenu from addon code taints that path -- the
 -- game's own confirm button then dies with ADDON_ACTION_FORBIDDEN naming us. So the door only walks the
 -- player to the game's own currency tab; the transfer click itself stays the player's own, untainted.
+-- A transfer the client has just run is the rest of this Ctrl's business. Laying the client's list out
+-- again to arm another row hides the panel the transfer menu hangs on, so the menu goes with it: the
+-- window the player just opened vanishes under their own held key. One transfer per Ctrl press, then;
+-- the key coming up is the player asking for the next one.
+local xferSpent
+-- Whether the client's transfer menu is standing right now. It hangs on the same panel the arming has to
+-- hide, and it belongs to the currency it was opened for.
+local function xferMenuUp()
+  local popup = _G.TokenFramePopup
+  return popup and popup.IsShown and popup:IsShown() and true or nil
+end
+
 function Cur:OpenTransfer(id)
   if not id then return end
+  -- The door is a walk to the currency tab, and the tab is where the transfer menu stands: opening it
+  -- under a menu that is already up puts a second, empty transfer panel over the one in hand. While the
+  -- player is in the middle of a transfer the click answers nothing instead.
+  if xferSpent or xferMenuUp() then return end
   -- The currency tab is protected, so walking to it is left alone in combat: a Ctrl-click there answers
   -- nothing rather than reaching for a frame the client will refuse.
   if InCombatLockdown and InCombatLockdown() then return end
@@ -266,6 +296,7 @@ local xferBusy, xferInCombat, watch, armWatch
 local function xferLocked()
   return xferInCombat or InCombatLockdown()
 end
+
 local function xferMute()
   for i = 1, #XFER_SOUNDS do MuteSoundFile(XFER_SOUNDS[i]) end
 end
@@ -288,7 +319,8 @@ local function clientRow(request, onRow)
     return
   end
 
-  local row, settled, restored, staging, staged, subscribed, muted
+  local row, settled, restored, staging, staged, subscribed, muted, waitFrame, waiting
+  local alphaC, alphaT
   local characterParent, tokenParent, characterShown, tokenShown
   local function restore()
     if restored or not settled or staging then return end
@@ -304,6 +336,8 @@ local function clientRow(request, onRow)
     request.restore = nil
     if staged then
       local ok = pcall(function()
+        if CF.SetAlpha then CF:SetAlpha(alphaC or 1) end
+        if TF.SetAlpha then TF:SetAlpha(alphaT or 1) end
         sb:ClearAllPoints()
         sb:SetPoint("TOPLEFT", CF.Inset, 4, -4)
         sb:SetPoint("BOTTOMRIGHT", CF.Inset, -22, 2)
@@ -326,6 +360,10 @@ local function clientRow(request, onRow)
       subscribed = nil
       sb:UnregisterCallback(BaseScrollBoxEvents.OnLayout, request)
     end
+    if waitFrame then
+      waitFrame:UnregisterAllEvents()
+      waitFrame = nil
+    end
     if muted then muted = nil; xferUnmute() end
     restore()
   end
@@ -334,9 +372,9 @@ local function clientRow(request, onRow)
     finish(nil)
   end
 
-  staging = true
-  local ok = pcall(function()
-    local index
+  -- Where the currency sits in the client's own list. The list is the client's to fill, and on the
+  -- first hover of a session it can still be empty.
+  local function scan()
     local i = 0
     while i < (CI.GetCurrencyListSize() or 0) do
       i = i + 1
@@ -347,14 +385,55 @@ local function clientRow(request, onRow)
         else
           local link = CI.GetCurrencyListLink and CI.GetCurrencyListLink(i)
           local cid = link and CI.GetCurrencyIDFromLink and CI.GetCurrencyIDFromLink(link)
-          if cid == request.id then index = i; break end
+          if cid == request.id then return i end
         end
       end
     end
-    if not index or settled or xferLocked() then finish(nil); return end
+  end
+
+  -- Laying the client's list out is the expensive half, and it is the half that has to be done before
+  -- the press. Split out of the body so that a list with no data yet can be waited on and staged
+  -- again, instead of giving up inside the frame the hover arrived in.
+  local function stage()
+    if settled or staged or xferLocked() then return end
+    local index = scan()
+    if not index then
+      -- Nothing to arm yet: the client fills the list when its own data arrives. A hover that ran
+      -- before that armed nothing, the click fell back to the currency tab, and the player had to
+      -- press again -- the "it worked the second time" report. So wait for the data once, and give
+      -- up if the second look finds nothing either: there is one wait per hover, not a queue of them.
+      if waiting then finish(nil); return end
+      waiting = true
+      waitFrame = CreateFrame("Frame")
+      local f = waitFrame
+      -- By name and through a pcall: a client without one of these events must not fail to load.
+      pcall(f.RegisterEvent, f, "CURRENCY_DISPLAY_UPDATE")
+      pcall(f.RegisterEvent, f, "ACCOUNT_CHARACTER_CURRENCY_DATA_RECEIVED")
+      f:SetScript("OnEvent", function(s)
+        s:UnregisterAllEvents()
+        if settled then return end
+        -- The list is filled by the client's own handler, so the scan is asked for after it.
+        C_Timer.After(0, function()
+          if settled or staged then return end
+          local queued = pcall(stage)
+          if not queued then request.cancel() end
+        end)
+      end)
+      -- A longer leash than the staging itself: nothing is on screen while waiting, and a cold list
+      -- can take more than a couple of frames to arrive. The player's own click is not held by it.
+      C_Timer.After(2.5, function() if not settled then finish(nil) end end)
+      return
+    end
 
     characterParent, tokenParent = CF:GetParent(), TF:GetParent()
     characterShown, tokenShown = CF:IsVisible(), TF:IsVisible()
+    -- The client's list has to be on screen to be laid out, and a panel on screen is a panel the player
+    -- sees: at the corner of the display it read as a stray window flying past on every hover. It stands
+    -- at no alpha for the length of the staging and is handed back at its own.
+    alphaC = CF.GetAlpha and CF:GetAlpha() or 1
+    alphaT = TF.GetAlpha and TF:GetAlpha() or 1
+    if CF.SetAlpha then CF:SetAlpha(0) end
+    if TF.SetAlpha then TF:SetAlpha(0) end
     staged, muted = true, true
     xferMute()
     HideUIPanel(CF)
@@ -380,12 +459,17 @@ local function clientRow(request, onRow)
     end, request)
     if not settled then ShowUIPanel(CF) end
     if not settled then ShowUIPanel(TF) end
-  end)
+  end
+
+  staging = true
+  local ok = pcall(stage)
   staging = nil
   if not ok then request.cancel() end
   if settled then
     restore()
-  else
+  elseif not waiting then
+    -- Only the staged list needs a leash this short: it is on screen, off the corner. A wait for data
+    -- has its own, and its own frame in which nothing is staged.
     C_Timer.After(0.5, function() finish(nil) end)
   end
 end
@@ -479,6 +563,13 @@ end
 
 function Cur:ArmTransfer(cell, id)
   if not transferTarget(cell, id) or not IsControlKeyDown() or xferLocked() or not tokenUI() then return end
+  -- The arming lays the client's whole currency list out on screen, which is the expensive half of it, so
+  -- a cell that already carries the arm for this very currency asks for nothing. Without this every hover
+  -- of the same row paid for the staging again, and the staged list was the flash the player saw.
+  if Cur.armed == cell and cell.wpeArmed and cell.wpeID == id then return end
+  -- A transfer already ran under this Ctrl: arming again would hide the panel its menu stands on (see
+  -- xferSpent). The hover still remembers the want, so pressing Ctrl anew serves it without a second move.
+  if xferSpent then return end
   local toggle = _G.TokenFramePopup and _G.TokenFramePopup.CurrencyTransferToggleButton
   if not toggle then return end
   Cur.wantArm = { cell = cell, id = id }
@@ -576,6 +667,9 @@ armWatch = function()
     end
     local down = IsControlKeyDown and IsControlKeyDown()
     if not down then
+      -- Letting the key go ends the request as well as the arm: the next transfer is the player asking
+      -- again, and it may lay the client's list out for it (see xferSpent).
+      xferSpent = nil
       Cur:DisarmTransfer()
       return
     end
@@ -585,6 +679,21 @@ armWatch = function()
       if cell and Cur.Transferable(cell.wpeID) then want = { cell = cell, id = cell.wpeID } end
     end
     if want and not Cur.armed then Cur:ArmTransfer(want.cell, want.id) end
+  end)
+end
+
+-- The transfer's own outcome, which nothing else reports. An arm is a set of frames named by us: when the
+-- client refuses a transfer, the row it named may be stale, and the next Ctrl-click would be led into a
+-- dead menu with no second chance. So a failure drops the arm and the want and asks for the account data
+-- again, and the next hover arms against a fresh list. The event is the only report of a refusal, so the
+-- arm cannot be left standing on the strength of a click that never landed.
+do
+  local f = CreateFrame("Frame")
+  pcall(f.RegisterEvent, f, "CURRENCY_TRANSFER_FAILED")
+  f:SetScript("OnEvent", function()
+    Cur:DisarmTransfer(nil, true)
+    local CI = C_CurrencyInfo
+    if CI and CI.RequestCurrencyDataForAccountCharacters then pcall(CI.RequestCurrencyDataForAccountCharacters) end
   end)
 end
 
@@ -605,6 +714,8 @@ function Cur:PlaceTransfer()
   if not (popup and CharacterFrame and popup.SetPoint) then return end
   local function place()
     if xferLocked() or not popup:IsShown() then return end
+    -- The menu is up, so this Ctrl press has had its transfer (see xferSpent).
+    xferSpent = true
     if popup.ClearAllPoints then popup:ClearAllPoints() end
     popup:SetPoint("TOPLEFT", CharacterFrame, "TOPRIGHT", 3, -28)
   end
@@ -644,6 +755,13 @@ end
 -- here, the bodies fill them below.
 local chipEdge, paintEdge, chipRing, chipKey, ringJob, paintRing, restEdge, hotEdge
 
+-- How a currency that is not with you fades. The shipped cell halves its icon, as it always has. The
+-- narrow chip keeps it whole: at sixteen points a half-faded icon did not read as a ghost but as a cell
+-- whose alpha had been left out, and the nought in the gone ink already says there is none of it.
+local function ghostAlpha(s)
+  return (s and s.wpeCmp) and 1 or 0.55
+end
+
 -- The cursor, in the window frame's own coordinates: x from the left edge, y downward from the top.
 -- nil while the scale is not ready, so every caller bails instead of guessing.
 local function cursorAt(row)
@@ -678,20 +796,21 @@ end
 -- currency sits at the right edge and the row grows left; from the middle centres each line, so a short
 -- last line stands centred rather than flush left.
 local function seatAt(row, k)
-  local cols = row.cols or 1
-  local size, gap = row.size or 30, row.gap or CHIP_GAP
-  local step = size + gap
+  local stepX = row.stepX or ((row.size or 30) + (row.gap or CHIP_GAP))
+  local stepY = row.stepY or stepX
+  local cols = row.perLine or row.cols or 1
+  local gapX = row.gapX or row.gap or CHIP_GAP
   local n = seats(row)
   local line = math.floor(k / cols)
   local p = k % cols
   local cnt = lineCount(n, cols, line)
-  local gw = row.gridW or (cols * step - gap)
-  local blockW = cnt * step - gap
+  local gw = row.gridW or (cols * stepX - gapX)
+  local blockW = cnt * stepX - gapX
   local dir = row.dir or "ltr"
   local off = 0
   if dir == "rtl" then off = gw - blockW; p = cnt - 1 - p
   elseif dir == "center" then off = (gw - blockW) / 2 end
-  return (row.x0 or 0) + off + p * step, (row.top or 0) + line * step
+  return (row.x0 or 0) + off + p * stepX, (row.top or 0) + line * stepY
 end
 
 -- The seat the held cell would land ahead of, read off the cursor over the wrapped grid: the line the
@@ -701,15 +820,18 @@ end
 local function dropSlot(row)
   local cx, cy = cursorAt(row)
   if not cx then return nil end
-  local size, gap, cols = row.size or 30, row.gap or CHIP_GAP, row.cols or 1
-  local step = size + gap
+  local stepX = row.stepX or ((row.size or 30) + (row.gap or CHIP_GAP))
+  local stepY = row.stepY or stepX
+  local gapX = row.gapX or row.gap or CHIP_GAP
+  local gapY = row.gapY or gapX
+  local cols = row.perLine or row.cols or 1
   local n = seats(row)
   local lastLine = math.floor((n - 1) / cols)
-  local line = math.floor((cy - (row.top or 0) + gap / 2) / step)
+  local line = math.floor((cy - (row.top or 0) + gapY / 2) / stepY)
   if line < 0 then line = 0 elseif line > lastLine then line = lastLine end
   local cnt = lineCount(n, cols, line)
-  local gw = row.gridW or (cols * step - gap)
-  local blockW = cnt * step - gap
+  local gw = row.gridW or (cols * stepX - gapX)
+  local blockW = cnt * stepX - gapX
   local dir = row.dir or "ltr"
   local off = 0
   if dir == "rtl" then off = gw - blockW
@@ -717,7 +839,7 @@ local function dropSlot(row)
   -- The row starts at the content's left edge, not at the window's own: without taking `x0` out the
   -- whole index sat a fraction of a cell to the right of the hand, so the mark and the drop both landed
   -- one seat past the point the player was pointing at.
-  local p = math.floor((cx - (row.x0 or 0) - off + gap / 2) / step)
+  local p = math.floor((cx - (row.x0 or 0) - off + gapX / 2) / stepX)
   if p < 0 then p = 0 elseif p > cnt then p = cnt end
   local slot
   if dir == "rtl" then slot = line * cols + (cnt - p) + 1 else slot = line * cols + p + 1 end
@@ -745,28 +867,35 @@ local function dragUpdate(row)
   if not id then return end
   local cx, cy = cursorAt(row)
   if cx then
-    local size, gap, cols = row.size or 30, row.gap or CHIP_GAP, row.cols or 1
-    local step = size + gap
+    -- The floor the carried chip travels is the row's own grid: a compact line has chips of their own
+    -- width and height and a per-line count read from the window, so its walls are cut from those and
+    -- not from the square cell the icons view walks.
+    local cols = row.perLine or row.cols or 1
+    local stepX = row.stepX or ((row.size or 30) + (row.gap or CHIP_GAP))
+    local stepY = row.stepY or stepX
+    local gapX = row.gapX or row.gap or CHIP_GAP
+    local halfW = (row.cmp and CMP_W or (row.size or 30)) / 2
+    local halfH = (row.cmp and CMP_H or (row.size or 30)) / 2
     local fx = cx - (row.grabOff or 0)
     local fy = cy - (row.grabY or 0)
     -- Half a cell of overhang past the outer seats: the middle must cross the outer line, or the
     -- first and last seats stay unreachable no matter how far the eye pushes.
     local n = seats(row)
     local lastLine = math.floor((n - 1) / cols)
-    local gw = row.gridW or (cols * step - gap)
+    local gw = row.gridW or (cols * stepX - gapX)
     local lo, hi
     if (row.dir or "ltr") == "ltr" then
       -- The right-hand wall is the last column the row actually fills: a row that does not fill its last
       -- line stops at its own last seat, so the carried cell travels right across the whole line instead
       -- of running off into the empty columns past the end of the row.
       local lastCol = math.min(cols - 1, n - 1)
-      lo, hi = (row.x0 or 0) - size / 2, (row.x0 or 0) + lastCol * step + size / 2
+      lo, hi = (row.x0 or 0) - halfW, (row.x0 or 0) + lastCol * stepX + halfW
     else
       -- A mirrored or centred row is read the other way: its cells span the width, so the wall is the
       -- row's own width, not a left column count.
-      lo, hi = (row.x0 or 0) - size / 2, (row.x0 or 0) + gw + size / 2
+      lo, hi = (row.x0 or 0) - halfW, (row.x0 or 0) + gw + halfW
     end
-    local vo, vh = (row.top or 0) - size / 2, (row.top or 0) + lastLine * step + size / 2
+    local vo, vh = (row.top or 0) - halfH, (row.top or 0) + lastLine * stepY + halfH
     if fx < lo then fx = lo elseif fx > hi then fx = hi end
     if fy < vo then fy = vo elseif fy > vh then fy = vh end
     for i = 1, #row.chips do
@@ -786,7 +915,9 @@ local function dragUpdate(row)
   row.dropTo = slot
   local m = dropMark(row)
   if slot then
-    local size, gap = row.size or 30, row.gap or CHIP_GAP
+    local cw = row.cmp and CMP_W or (row.size or 30)
+    local ch = row.cmp and CMP_H or (row.size or 30)
+    local gapX = row.gapX or row.gap or CHIP_GAP
     local n = seats(row)
     local bx, by
     if (row.dir or "ltr") == "rtl" then
@@ -794,15 +925,18 @@ local function dragUpdate(row)
       -- boundary ahead of the first seat stands at the far right edge.
       local k = math.max(0, math.min(slot - 2, n - 1))
       bx, by = seatAt(row, k)
-      if slot <= 1 then bx = bx + size + gap / 2 else bx = bx - gap / 2 end
+      if slot <= 1 then bx = bx + cw + gapX / 2 else bx = bx - gapX / 2 end
     else
       local k = math.min(slot - 1, n - 1)
       bx, by = seatAt(row, k)
-      if slot > n then bx = bx + size + gap / 2 else bx = bx - gap / 2 end
+      if slot > n then bx = bx + cw + gapX / 2 else bx = bx - gapX / 2 end
     end
     m:ClearAllPoints()
-    ns.SnapSize(m, 2, size - 8)
-    ns.SnapPoint(m, "TOPLEFT", row.frame, "TOPLEFT", bx - 1, -(by + 4))
+    -- The mark is drawn to the chip it points between, not to the square cell: a 22px mark over a 20px
+    -- chip spilled onto the line above it.
+    local mh = ch - 4
+    ns.SnapSize(m, 2, mh)
+    ns.SnapPoint(m, "TOPLEFT", row.frame, "TOPLEFT", bx - 1, -(by + (ch - mh) / 2))
     m:Show()
   else
     m:Hide()
@@ -834,7 +968,7 @@ local function endDrag(row, s)
   row.dragId, row.dragIdx, row.dropTo, row.grabOff, row.grabY = nil, nil, nil, nil, nil
   if s then
     if s.wpeLevel then s:SetFrameLevel(s.wpeLevel); s.wpeLevel = nil end
-    s.icon:SetAlpha(s.wpeGhost and 0.55 or 1)
+    s.icon:SetAlpha(s.wpeGhost and ghostAlpha(s) or 1)
     restEdge(s)
     s.pressed = nil
   end
@@ -853,8 +987,19 @@ end
 -- the currency (the client's own pin, so the character panel agrees), and the panel behind the row is the
 -- picker's own (Features/CurrencyPicker.lua) -- the tooltip is the game's own currency tooltip where it
 -- exists. The cell follows the window's icon size, live: the row is a summary of the grid, not the grid.
-local function cellSize()
-  return math.max(16, ((ns.Bags and ns.Bags.iconSize) or 30) - 3)
+-- The icon cell is its picture and nothing else: no plate, no keyline. A bag slot spends five points of
+-- its own size on that furniture, so the art inside a slot is the icon size minus five, and a currency
+-- cell drawn at the raw size read a step larger than every item around it. Both passes below take their
+-- size through here, so the cells and the band they stand in cannot disagree.
+local function cellSize(size)
+  local s = tonumber(size) or 30
+  -- Five points off is what a slot spends, so the cell matches the art inside an item at the sizes the grid
+  -- ships with. Against a small grid that cut is too much of the whole cell and the art stops reading, so
+  -- from 34 down it takes three. Between 34 and 36 the cut grows a point per point rather than jumping: a
+  -- plain "three up to 34, five above" made a 35 grid draw a cell smaller than a 34 one, which is the one
+  -- thing a size must never do.
+  local cut = math.min(5, 3 + math.max(0, s - 34))
+  return math.max(16, s - cut)
 end
 
 -- The cell's own drawn border, in the cell's own language: a 1px outer edge (the window's stroke,
@@ -877,7 +1022,7 @@ chipEdge = function(c)
 end
 
 paintEdge = function(c, r, g, b)
-  for _, t in ipairs(chipEdge(c)) do t:SetVertexColor(r, g, b) end
+  for _, t in ipairs(chipEdge(c)) do t:Show(); t:SetVertexColor(r, g, b) end
 end
 
 -- The ring on the very edge, over the outer line the way a cell's ring sits over its edge. Inset
@@ -949,9 +1094,19 @@ end
 -- ring keeps the slots' width slider and the black keyline, so it still reads on a pale coin icon.
 restEdge = function(s)
   local r, g, b
-  if s:IsMouseOver() then r, g, b = Theme:C("accent") else r, g, b = Theme:C("coin") end
+  if s.wpeCmp then
+    -- The narrow chip's hairline is drawn in the seam ink: it is there to say where one count ends and
+    -- the next begins, not to look lit. The coin ink it used to take was bright enough to read as a
+    -- frame round every number and pulled the eye off the bags above.
+    r, g, b = Theme:C("emptyLine")
+  elseif s:IsMouseOver() then r, g, b = Theme:C("accent")
+  else r, g, b = Theme:C("coin") end
   paintEdge(s, r, g, b)
-  paintRing(s, r, g, b)
+  -- A compact chip carries the hairline alone: the ring and its keyline were measured for a full-bleed
+  -- icon plate, and on a chip one ring's worth of frame a side ate a third of its height and read as a
+  -- box drawn round the number. The hairline itself stays -- with no edge at all the chips read as loose
+  -- numbers floating on the panel.
+  if s.wpeCmp then paintRing(s, nil) else paintRing(s, r, g, b) end
 end
 
 -- The same outline under the hand or in it: both lines take the accent, since the ring is an accent, not
@@ -960,7 +1115,7 @@ end
 hotEdge = function(s)
   local r, g, b = Theme:C("accent")
   paintEdge(s, r, g, b)
-  paintRing(s, r, g, b)
+  if s.wpeCmp then paintRing(s, nil) else paintRing(s, r, g, b) end
 end
 
 -- The door's one switch. Every hover on the band lands here: a cell, the door itself, or the bare seam
@@ -1071,6 +1226,12 @@ local function chip(row, i)
   c.Count = c.text   -- the stack badge's own handle: ApplyBadge dresses it like every other count
   c.text:SetJustifyH("RIGHT")
   c.text:SetWordWrap(false)
+  -- The compact line's number: the badge dress owns c.text and pins it to the cell's own corner, so a
+  -- narrow chip keeps a second string instead of fighting that dress for the same points.
+  c.cmpText = c:CreateFontString(nil, "OVERLAY")
+  c.cmpText:SetJustifyH("RIGHT")
+  c.cmpText:SetWordWrap(false)
+  c.cmpText:Hide()
   c:RegisterForDrag("LeftButton")
   -- The ring geometry heals on a scale change without a layout, through the pixel pass.
   ns.PixelJob(c, ringJob, "ring")
@@ -1107,7 +1268,8 @@ local function chip(row, i)
     -- The row is one target: a pointer anywhere on the band lights the add door at its tail.
     row:LightDoor(true)
     -- A ghost lifts toward the eye under the pointer, the way a pocket ghost does.
-    if s.wpeGhost and row.dragId ~= s.wpeID then s.icon:SetAlpha(0.85) end
+    -- The lift toward the eye is a ghost's own: a chip that never faded must not dim under the pointer.
+    if s.wpeGhost and not s.wpeCmp and row.dragId ~= s.wpeID then s.icon:SetAlpha(0.85) end
     if not s.wpeID then return end
     -- Ctrl asks for the client's own transfer, and the arm has to be in place before the press: the cell
     -- wants it on every hover, and the key going down (see Cur:WantTransfer) is where the arm is made, so
@@ -1118,7 +1280,7 @@ local function chip(row, i)
   c:SetScript("OnLeave", function(s)
     restEdge(s)
     Cur:DisarmTransfer(s, true)
-    if not row.dragId then s.icon:SetAlpha(s.wpeGhost and 0.55 or 1) end
+    if not row.dragId then s.icon:SetAlpha(s.wpeGhost and ghostAlpha(s) or 1) end
     -- Moving off a coin does not by itself mean the row is left: the next coin, the door or the bare
     -- seam between two cells is still the same band, and the plate knows its own rectangle. Only a leave
     -- that carries the pointer out of it puts the door out.
@@ -1163,6 +1325,9 @@ end
 local function paintCell(row, c, r, sz)
   if c.wpeID ~= r.id then Cur:DisarmTransfer(c, true) end
   c.wpeID, c.wpeName = r.id, r.name
+  -- Which shape this cell answers to, read by the outline painters and by the ghost fade below. Set
+  -- before either of them runs, so a style change lands on the first repaint of a standing row.
+  c.wpeCmp = row.cmp and true or false
   c.icon:SetTexture(r.icon)
   zoomIcon(c.icon)
   -- A ghost when there is nothing of it, the way the pocket draws a pin that is not with you: no
@@ -1170,12 +1335,57 @@ local function paintCell(row, c, r, sz)
   -- hover and the drop know the resting alpha without a second lookup. The held cell keeps the
   -- drag's own alpha while it is in the air.
   c.wpeGhost = (r.q or 0) <= 0
-  if row.dragId ~= r.id then c.icon:SetAlpha(c.wpeGhost and 0.55 or 1) end
+  if row.dragId ~= r.id then c.icon:SetAlpha(c.wpeGhost and ghostAlpha(c) or 1) end
   -- The cell's outline, by its own hand: the accent under the pointer or in the hand, the row's coin ink at
   -- rest. The ring follows the same width slider as the slots, so the row and the grid speak one line.
   local hot = ((c:IsMouseOver() and true or false) or row.dragId == r.id) and true or false
+  -- Read by the outline painters above: a compact chip takes no ring, in the hand or out of it.
   c.wpeRingW = (ns.Bags and ns.Bags.borderWidth) or 2
   if hot then hotEdge(c) else restEdge(c) end
+
+  -- The compact chip draws its own way: the number on the left, a small icon at the right. The icon is
+  -- re-anchored here rather than at birth, so a style change reaches a row that already stands.
+  if row.cmp then
+    c.text:Hide()
+    c.cmpText:Show()
+    c.icon:ClearAllPoints()
+    -- Fourteen points, not sixteen: the small art is what tells one currency from another, and the count
+    -- is what the eye should land on first. The two points the icon gives up are the number's.
+    c.icon:SetSize(CMP_H - 6, CMP_H - 6)
+    c.icon:SetPoint("RIGHT", c, "RIGHT", -2, 0)
+    c.cmpText:ClearAllPoints()
+    c.cmpText:SetPoint("LEFT", c, "LEFT", 3, 0)
+    c.cmpText:SetPoint("RIGHT", c.icon, "LEFT", -2, 0)
+    -- The face goes on before the text: a FontString made this line has none yet, and SetText on it
+    -- throws "Font not set" on every cell of the first layout. Its size is the badge's own for this very
+    -- cell, so the narrow line writes its counts exactly as the cells above it do -- only beside the icon
+    -- instead of over it. A fixed twelve was a point larger than a badge, and that was enough to make the
+    -- row shout louder than the bags.
+    local txt = 11
+    if ns.BadgeSize then
+      local bs = ns.BadgeSize("count", row.size or 30)
+      txt = math.max(9, math.min(11, math.floor((tonumber(bs) or 11) + 0.5)))
+    end
+    ns.SetOutlined(c.cmpText, txt)
+    c.cmpText:SetText(Cur.CountText(r.q, 4))
+    -- The number is measured once its face is on and written one size down rather than cut: the chip
+    -- is wide for the counted text, but a locale's separator or a five-glyph fold can still push past
+    -- it, and a truncated "4..." says less than a smaller "4,500".
+    local fitW = CMP_W - 3 - 2 - (CMP_H - 6) - 2
+    if c.cmpText.GetStringWidth and (c.cmpText:GetStringWidth() or 0) > fitW then
+      ns.SetOutlined(c.cmpText, math.max(8, txt - 2))
+    end
+    c.cmpText:SetAlpha(1)
+    local cr, cg, cb = Theme:C((r.q or 0) > 0 and "text" or "gone")
+    c.cmpText:SetTextColor(cr, cg, cb)
+    c.wpeCell = sz
+    return
+  end
+  -- Back to the shipped cell: the badge string owns the corner again and the icon fills the frame.
+  c.cmpText:Hide()
+  c.text:Show()
+  c.icon:ClearAllPoints()
+  c.icon:SetAllPoints(c)
   -- No direct SetFont on this string, ever: the badge dress remembers faces by key, and a face set
   -- past it desyncs the cache -- every repaint after the first would keep the fallback size instead
   -- of the badge's. The fallback below goes through the same cache, so it stays consistent too.
@@ -1207,10 +1417,13 @@ end
 function Cur:Measure(size, gap, gridW, cols)
   local B = ns.Bags
   if not self.frame then return 0 end
-  self.size, self.gap = size, gap
   self.cols = math.max(1, math.floor(tonumber(cols) or 1))
   self.gridW = gridW
   self.dir = Cur.Dir()
+  self.cmp = Cur.Style() == "compact"
+  -- The style decides the size: an icon cell is a picture, a compact chip has its own fixed measure.
+  if not self.cmp then size = cellSize(size) end
+  self.size, self.gap = size, gap
   local rows = Cur.ReadWatched(C_CurrencyInfo, self.rows or {})
   self.rows = rows
   if B and B.curStrip == false then
@@ -1223,6 +1436,19 @@ function Cur:Measure(size, gap, gridW, cols)
     self.nRows = 0
     return 0
   end
+  if self.cmp then
+    -- The narrow line wraps by width, not by the grid's columns: one chip is its own measure, so the
+    -- band knows how many of them the window holds before it has to grow a second line.
+    self.stepX, self.stepY = CMP_W + CMP_GAP, CMP_H + CMP_GAP
+    self.gapX, self.gapY = CMP_GAP, CMP_GAP
+    self.perLine = math.max(1, math.floor((gridW + CMP_GAP) / (CMP_W + CMP_GAP)))
+    -- The middle has nothing to anchor a run of numbers to: the width of a count moves with every
+    -- coin spent, and a centred line would shift under the eye. It reads as the gold-side line.
+    self.dir = self.dir == "center" and "rtl" or self.dir
+    self.nRows = math.ceil((#rows + 1) / self.perLine)
+    return self.nRows * self.stepY - CMP_GAP
+  end
+  self.stepX, self.stepY, self.perLine, self.gapX, self.gapY = nil, nil, nil, nil, nil
   local step = size + gap
   -- The door takes the seat after the last coin; when that seat is the first of a new line the row grows
   -- by it, so the empty cell never hangs off the band.
@@ -1237,6 +1463,8 @@ end
 function Cur:Place(frame, x, top, size, gap, light)
   self.frame = frame
   self.x0, self.top = x, top
+  -- Same reduction as the Measure above: the seats and the cells are drawn from one size.
+  if Cur.Style() ~= "compact" then size = cellSize(size) end
   self.size, self.gap = size, gap
   self.lefts, self.tops = {}, {}
   local rows = self.rows or {}
@@ -1245,14 +1473,14 @@ function Cur:Place(frame, x, top, size, gap, light)
   local plus = door(self)
   for i = 1, #rows do
     local c = chip(self, i)
-    if not light then paintCell(self, c, rows[i], size) end
+    if not light then paintCell(self, c, rows[i], self.cmp and CMP_H or size) end
     local px, py = seatAt(self, i - 1)
     -- The held cell is placed by the drag pass while it is in the air; the next layout puts it back.
     if self.dragId ~= rows[i].id then
       c:ClearAllPoints()
       ns.SnapPoint(c, "TOPLEFT", frame, "TOPLEFT", px, -py)
     end
-    ns.SnapSize(c, size, size)
+    if self.cmp then ns.SnapSize(c, CMP_W, CMP_H) else ns.SnapSize(c, size, size) end
     c:Show()
     self.lefts[i], self.tops[i] = ns.SnapValue(frame, px), ns.SnapValue(frame, py)
   end
@@ -1262,7 +1490,7 @@ function Cur:Place(frame, x, top, size, gap, light)
     local px, py = seatAt(self, #rows)
     plus:ClearAllPoints()
     ns.SnapPoint(plus, "TOPLEFT", frame, "TOPLEFT", px, -py)
-    ns.SnapSize(plus, size, size)
+    if self.cmp then ns.SnapSize(plus, CMP_W, CMP_H) else ns.SnapSize(plus, size, size) end
     plus:Show()
     -- A row laid out under the pointer keeps the door lit only if the pointer really stands on the band:
     -- a window that closed while the hand was over the door never sees its leave, so the next layout
@@ -1364,6 +1592,8 @@ function Cur:Apply(force)
       self.rows = fresh
       Cur.Sort(self.rows)
       self:Repaint()
+      -- The first untracked currency can reveal the header button without adding a watched row.
+      if B.FitHeader then B:FitHeader() end
     end
     -- A repaint may have handed the seat under a still pointer another coin (a shift-untrack moves the
     -- whole tail down a seat) or a new count: re-own its tip for what it carries now, so the removed

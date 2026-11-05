@@ -522,7 +522,14 @@ function Fav:Apply(bags, x, top, size, gap)
     return 0
   end
   if not self.label then
-    local fs = Theme:Label(frame, 11, "dim")
+    -- The section names in the grid are accent (see the layout's SetTextColor), and these two are
+    -- typographic peers of them: same face, same FONT - 4, same one word above a run of cells. Left at
+    -- dim they were the only grey heads in a window painted in accent and azure, which read as a
+    -- switched-off control rather than a caption. The ink is the sections' own, softened by alpha --
+    -- the standing rule here is the same colour quieter, never a second colour -- so the four section
+    -- heads still lead the two list heads above them.
+    local fs = Theme:Label(frame, 11, "accent")
+    fs:SetAlpha(0.85)
     fs:SetJustifyH("LEFT")
     ns.LocalText(fs, "Favorites")
     self.label = fs
@@ -575,16 +582,11 @@ function Fav:Apply(bags, x, top, size, gap)
       if g then g:Hide() end
     else
       if g then
-        g.wpeMarkW = (size < 30) and 2 or 3
         ns.SnapBox(g, size, size)
         g:ClearAllPoints()
         ns.SnapPoint(g, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
         ns.PaintPin(g, pin, pins)
-        -- An empty cell wears the plus, including one that just lost its pin; PaintPin takes it off
-        -- again on a cell that holds one. The two skinned themes draw the empty slot with the game's
-        -- own slot art, where a mark laid over it reads as a label on that art rather than as an
-        -- invitation, so those go without and GhostPlus is what says so.
-        if not pin then ns.ShowMark(g, ns.GhostPlus()) end
+        ns.ShowMark(g, false)
         -- A ghost is never a search hit, so it wears the row's dim while a query runs; set here too so
         -- one freshly placed mid-search starts dimmed instead of flashing full until the next pass.
         g:SetAlpha((bags.filters and not bags.filters.empty) and 0.20 or 1)

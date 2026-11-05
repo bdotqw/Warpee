@@ -135,6 +135,13 @@ local function curDirSet(v)
   if ns.Cur and ns.Cur.Apply then ns.Cur:Apply(true) end
   relayout()
 end
+local CUR_STYLES = { "icons", "compact" }
+local function curStyleGet() return (WarpeeDB and WarpeeDB.curStyle) or "icons" end
+local function curStyleSet(v)
+  WarpeeDB.curStyle = v
+  if ns.Cur and ns.Cur.Apply then ns.Cur:Apply(true) end
+  relayout()
+end
 
 local aucGet, aucSet   = autoField("auction")
 local bankGet, bankSet = autoField("bank")
@@ -151,26 +158,26 @@ local cataGet, cataSet = autoField("catalyst")
 -- the Grid tab, where the bags it opens live.
 local GENERAL_PAGE = {
   list = {
-      { type = "select", name = "Theme", get = themeGet, set = themeSet,
+      { type = "select", name = "Theme", col = 1, of = 2, get = themeGet, set = themeSet,
         keys = function() return THEME_KEYS end, label = themeLabel,
         desc = "Color scheme for the whole addon." },
-      { type = "select", name = "Slot background",
+      { type = "select", name = "Slot background", col = 2, of = 2,
         get = styleGet, set = styleSet,
         keys = function() return STYLES end, label = function(k) return STYLE_LABELS[k] or k end,
         desc = "What sits behind every icon. Transparent shows the plate through the slot, Highlight lifts it out, Solid closes it off." },
+      { type = "select", name = "Language", col = 1, of = 2, get = localeGet, set = localeSet,
+        keys = localeKeys, label = localeLabel,
+        desc = "Language for the addon's own text. Item names always come from the game." },
+      { type = "select", name = "Font", col = 2, of = 2, get = fontGet,
+        set = function(v) fontSet(v); Options:ApplyFont() end,
+        keys = fontKeys, label = function(k) return k end,
+        desc = "Used for every label Warpee draws. Other addons can add to this list." },
       { type = "range", name = "Plate opacity", min = 0, max = 1, step = 0.01,
         get = gridAlphaGet, set = gridAlphaSet,
         desc = "The plate behind the items, over the window's own background. At 0 it is invisible; raised, it covers the window up to the header." },
       { type = "range", name = "Transparency", min = 0, max = 1, step = 0.01,
         get = winAlphaGet, set = winAlphaSet,
         desc = "See-through windows." },
-      { type = "select", name = "Language", get = localeGet, set = localeSet,
-        keys = localeKeys, label = localeLabel,
-        desc = "Language for the addon's own text. Item names always come from the game." },
-      { type = "select", name = "Font", get = fontGet,
-        set = function(v) fontSet(v); Options:ApplyFont() end,
-        keys = fontKeys, label = function(k) return k end,
-        desc = "Used for every label Warpee draws. Other addons can add to this list." },
       -- The bag windows' own search boxes, ahead of the lock that hangs the windows they search.
       { type = "toggle", name = "Clear search on close", col = 1, get = sClearGet, set = sClearSet,
         desc = "Empty the search box when the window closes, so it opens unfiltered next time." },
@@ -198,8 +205,8 @@ local GENERAL_PAGE = {
 local POCKET_PAGE = {
   { type = "toggle", name = "Pocket window", col = 1, get = fav.pkGet, set = fav.pkSet,
     desc = pinHint(
-      "A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and hovering a cell and pressing %s empties it.",
-      "A small window of bookmark cells beside the bags, opened by the grid button in the header. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and a cell under the pointer can be emptied with a key of its own." ) },
+      "A small window of bookmark cells beside the bags, opened by its own key. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and hovering a cell and pressing %s empties it.",
+      "A small window of bookmark cells beside the bags, opened by its own key. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and a cell under the pointer can be emptied with a key of its own." ) },
   { type = "toggle", name = "Lock the pocket", col = 2,
     get = fav.pkLockGet, set = fav.pkLockSet,
     disabled = function() return not fav.pkGet() end,
@@ -221,7 +228,7 @@ local POCKET_PAGE = {
   { type = "toggle", name = "Snap to windows", col = 2,
     get = fav.snapGet, set = fav.snapSet,
     disabled = function() return not fav.pkGet() end,
-    desc = "Near the bags or the bank, the pocket lines up with it and holds that seam when the window resizes. Dragging the bags never moves the pocket." },
+    desc = "Near the bags or the bank, the pocket lines up with it and holds that seam when the window resizes. When the bags or the bank are moved, the pocket keeps its offset and comes along." },
   { type = "toggle", name = "Two recent rows",
     get = fav.pkRecentTwoGet, set = fav.pkRecentTwoSet,
     disabled = function() return not fav.pkGet() or not fav.recentPocketGet() end,
@@ -253,35 +260,43 @@ local POCKET_PAGE = {
     desc = "A size of its own; a pocket without one follows the bag slot size." },
 }
 
+-- The marker switches, in pairs down the page: quality | quest, reagent | new, item level | unwearable,
+-- junk. Forever has a reagent bag of its own -- container five, the one its reagent and profession bags go
+-- in -- so the reagent border marks something there too and the row stays on both clients.
+local function markerRows()
+  local rows = {
+    { type = "toggle", name = "Reagent border", col = 1,
+      get = function() return Bags.reagentTint end,
+      set = function(v)
+        Bags.reagentTint = v
+        WarpeeDB.reagentTint = v
+        Bags.styleGen = (Bags.styleGen or 0) + 1
+        relayout()
+      end,
+      desc = "Tint the slots of the reagent bag and the reagent bank." },
+    { type = "toggle", name = "Quality border", col = 2, get = qBorderGet, set = qBorderSet,
+      desc = "A border in the item's quality color; quest items take the quest yellow. Reagent and unwearable borders come first." },
+    { type = "toggle", name = "Quest marker", col = 1, get = questGet, set = questSet,
+      desc = "The exclamation mark on items for quests you have not picked up yet. Not shown in the warband bank." },
+    { type = "toggle", name = "New item glow", col = 2, get = newGet, set = newSet,
+      desc = "Quality-colored glow on items the game still counts as new." },
+    { type = "toggle", name = "Item level by quality", col = 1, get = qColorGet, set = qColorSet,
+      disabled = function() return not ns.Badge("ilvl").on end,
+      desc = "Tint the item level number with the item's quality color." },
+    { type = "toggle", name = "Unwearable border", col = 2, get = unusableGet, set = unusableSet,
+      desc = "Red border around gear your character cannot wear." },
+    { type = "toggle", name = "Junk coin", col = 1, get = junkGet, set = junkSet,
+      desc = "A copper coin on gray junk: the coin the Sell button wears in gold, copper because the rules would sell it, not you." },
+    { type = "range", name = "Border thickness", min = 1, max = 6, step = 1,
+      get = edgeGet, set = edgeSet,
+      desc = "Thickness of the slot border." },
+  }
+  return rows
+end
+
 local ITEMS_PAGE = {
   subs = {
-    { name = "Markers", list = {
-  { type = "toggle", name = "Reagent border", col = 1,
-    get = function() return Bags.reagentTint end,
-    set = function(v)
-      Bags.reagentTint = v
-      WarpeeDB.reagentTint = v
-      Bags.styleGen = (Bags.styleGen or 0) + 1
-      relayout()
-    end,
-    desc = "Tint the slots of the reagent bag and the reagent bank." },
-  { type = "toggle", name = "Quality border", col = 2, get = qBorderGet, set = qBorderSet,
-    desc = "A border in the item's quality color; quest items take the quest yellow. Reagent and unwearable borders come first." },
-  { type = "toggle", name = "Quest marker", col = 1, get = questGet, set = questSet,
-    desc = "The exclamation mark on items for quests you have not picked up yet. Not shown in the warband bank." },
-  { type = "toggle", name = "New item glow", col = 2, get = newGet, set = newSet,
-    desc = "Quality-colored glow on items the game still counts as new." },
-  { type = "toggle", name = "Item level by quality", col = 1, get = qColorGet, set = qColorSet,
-    disabled = function() return not ns.Badge("ilvl").on end,
-    desc = "Tint the item level number with the item's quality color." },
-  { type = "toggle", name = "Unwearable border", col = 2, get = unusableGet, set = unusableSet,
-    desc = "Red border around gear your character cannot wear." },
-  { type = "toggle", name = "Junk coin", col = 1, get = junkGet, set = junkSet,
-    desc = "A copper coin on gray junk: the coin the Sell button wears in gold, copper because the rules would sell it, not you." },
-  { type = "range", name = "Border thickness", min = 1, max = 6, step = 1,
-    get = edgeGet, set = edgeSet,
-    desc = "Thickness of the slot border." },
-    } },
+    { name = "Markers", list = markerRows() },
     { name = "Badges", list = {
   { type = "badges", section = "badges",
     desc = "Drag a badge onto the preview, or click the spot on it. Left-click a name to show that badge, right-click to hide it." },
@@ -318,10 +333,8 @@ local ITEMS_PAGE = {
   },
 }
 
--- The three windows an option on this page can apply to, in the order they stand in the menu. The bags
--- are one entry because the bag window is one grid; the character bank and the Warband bank answer for
--- themselves, since either can be drawn as blocks or named without the other.
-local SURFACES = { "bags", "bank", "warband" }
+-- Forever has no Warband bank, so its split and name menus only offer bags and the character bank.
+local SURFACES = ns.IsForever and { "bags", "bank" } or { "bags", "bank", "warband" }
 -- The grouped view cannot offer the Warband bank on its own: the bank reads one flag for both of its tab
 -- sets, because the window shows either behind its mode picker, and a third tick here would be a switch the
 -- game has nothing to answer. So this row asks about the bags and the bank, and the bank's tick covers every
@@ -343,7 +356,7 @@ end
 -- since one row now answers for every window at once; the row keeps its place so the group keeps its shape.
 -- The grouped-view row carries no gate, so the way back out of a grouped pair of windows never sits behind
 -- the very state it set.
-local function surfaceRow(name, surfaces, desc, getters, setters, disable, off)
+local function surfaceRow(name, surfaces, desc, getters, setters, disable, off, col)
   -- The windows this row can still act on. A window that draws sections has no blocks to split and no names
   -- to put over them, so its box is not offered: a tick that does nothing is worse than no tick at all.
   -- With every window out of play the list is left whole, because the row is greyed by then and an empty
@@ -358,7 +371,7 @@ local function surfaceRow(name, surfaces, desc, getters, setters, disable, off)
     return #out > 0 and out or surfaces
   end
   return {
-    type = "select", name = name, multi = true, desc = desc,
+    type = "select", name = name, multi = true, desc = desc, col = col,
     disabled = disable,
     keys = offered,
     label = function(k) return SURFACE_WORDS[k] end,
@@ -402,26 +415,53 @@ local function unsplit(k)
 end
 local function namesGone()
   if flow.gridGone() then return true end
-  return not ((SPLIT_ON.bags and SPLIT_ON.bags())
-    or (SPLIT_ON.bank and SPLIT_ON.bank())
-    or (SPLIT_ON.warband and SPLIT_ON.warband()))
+  for _, k in ipairs(SURFACES) do
+    if SPLIT_ON[k] and SPLIT_ON[k]() then return false end
+  end
+  return true
+end
+
+-- The bank's rows. Two tab sets on retail, where the character bank and the Warband bank each keep their own
+-- width and their own icon size: the pairs then say which of the two banks a number belongs to. Forever has one
+-- bank, so those four numbers are two, and they are read together -- the size of a cell and how many of them a
+-- row holds describe the same grid. The count stands opposite the size it belongs to and the shape heading,
+-- which there would stand over nothing, leaves the page with the rows it named.
+local function bankRows()
+  local size = { type = "range", name = "Bank slot size", min = 24, max = 56, step = 1,
+    get = bankSizeGet, set = bankSizeSet, half = "left" }
+  local wbSize = { type = "range", name = "Warband slot size", min = 24, max = 56, step = 1,
+    get = wbSizeGet, set = wbSizeSet, half = "right", hidden = ns.ForeverOnly }
+  local cols = { type = "range", name = "Bank slots per row", min = 8, max = 40, step = 1,
+    get = bankColsGet, set = bankColsSet, half = "left" }
+  local wbCols = { type = "range", name = "Warband slots per row", min = 8, max = 40, step = 1,
+    get = wbColsGet, set = wbColsSet, half = "right", hidden = ns.ForeverOnly }
+  -- The window's place on the screen, ahead of the shape: a corner belongs to one window and answers to the tab
+  -- above, not to the shape below it. The lock holding both windows stands on the Layout list.
+  local corner = { type = "select", name = "Bank growth corner",
+    get = function() return angleGet("bankPos") end,
+    set = function(v) angleSet("bankPos", v) end,
+    keys = anchorKeys, label = anchorLabel,
+    desc = "The corner of the screen the bank window hangs from. It grows away from that corner as the tabs fill." }
+  if ns.IsForever then
+    cols.half = "right"
+    return { size, cols, corner }
+  end
+  return { size, wbSize, corner, { type = "header", name = "Grid shape" }, cols, wbCols }
 end
 
 local GRID_PAGE = {
   subs = {
     { name = "Layout", list = {
-      -- No heading over the block: every other sub opens on its rows, and a heading naming the whole page
-      -- would only repeat the tab. "Grid order" below keeps its own, since it names a group, not the page.
+      -- The tab names the page; headings below separate grid order from window placement.
       surfaceRow("Category view", VIEW_SURFACES,
         "Lay the containers out in labelled sections instead of one grid: equipment, consumables, reagents and the rest, with anything left over under Other. Tick each window you want it in.",
         VIEW_ON, VIEW_SET),
       surfaceRow("Separate bags and tabs", SURFACES,
         "Draw every bag and every bank tab on its own, with a gap between them, in the windows you tick. The reagent bag stands apart already and joins the row of blocks with the bags; one merged into them is separated again the moment the bags go on.",
-        SPLIT_ON, SPLIT_SET, flow.gridGone, grouped),
+        SPLIT_ON, SPLIT_SET, flow.gridGone, grouped, 1),
       surfaceRow("Name bags and tabs", SURFACES,
         "Name each one over its cells with the bag or tab it holds, in the windows you tick. A name needs them drawn apart: a window left as one grid has nothing to name, and its gap does the separating alone.",
-        NAME_ON, NAME_SET, namesGone, unsplit),
-      { type = "divider" },
+        NAME_ON, NAME_SET, namesGone, unsplit, 2),
       { type = "range", name = "Bags gap", min = flow.splitGapBagsMin, max = 40, step = 1,
         get = flow.splitGapBagsGet, set = flow.splitGapBagsSet,
         disabled = function() return (not Bags.splitBags) or flow.catGet() end, col = 1, of = 3,
@@ -434,27 +474,16 @@ local GRID_PAGE = {
       { type = "range", name = "Warband gap", min = flow.splitGapWbMin, max = 40, step = 1,
         get = flow.splitGapWbGet, set = flow.splitGapWbSet,
         disabled = function() return (not Bags.splitWb) or flow.bankCatGet() end,
-        col = 3, of = 3,
+        col = 3, of = 3, hidden = ns.ForeverOnly,
         desc = "The space between one tab and the next in the Warband bank. It starts at the room a name takes while that window draws its names." },
-      -- Cell rendering for every grid, beside the block gaps above: the spacing between slots and the
-      -- zoom inside them. One taste for all windows, so a single pair on the cross-window list rather
-      -- than one per window; sizes stay per window because tab counts dictate them.
+      { type = "divider" },
+      -- Spacing and zoom apply to every grid; sizes stay on each window's page.
       { type = "range", name = "Slot spacing", min = 0, max = 16, step = 1, get = gapGet, set = gapSet,
         half = "left", desc = "Gap between slots, in every grid." },
       { type = "range", name = "Icon zoom", min = 0.8, max = 1.2, step = 0.01,
         get = zoomGet, set = zoomSet, half = "right",
         desc = "1.00 fills the slot. Less shrinks the icon, more crops it." },
-      { type = "divider" },
-      -- The windows' place on the screen: the lock holds both windows at once, so it stands on the
-      -- cross-window list beside the corners that hang each of them, not on a window's own list.
-      { type = "toggle", name = "Lock bags and bank", col = 1, get = lockGet, set = lockSet,
-        desc = "Freeze the bags and the bank in place. Unlocked, they show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)." },
-      { type = "toggle", name = "Hide X/Y fields", col = 2, get = hideFieldsGet, set = hideFieldsSet,
-        disabled = function() return lockGet() end,
-        desc = "The windows stay movable by dragging, but the X/Y fields are not drawn." },
-      -- The order the plain grid draws in, with no window of its own to belong to: both grids read it, so the
-      -- rows grey out only when neither is left to arrange. With the split on, each block turns over on its own.
-      -- Everything under it re-sorts cells: the lock pair above hangs the windows, it does not arrange them.
+      -- Order switches apply to plain grids and grey out when both windows use categories.
       { type = "header", name = "Grid order",
         state = function()
           -- One pair of switches read by both plain grids, so the row says which grids those still are:
@@ -470,6 +499,12 @@ local GRID_PAGE = {
       { type = "toggle", name = "Reverse slot order", col = 2, of = 2,
         get = flow.revGet, set = flow.revSet, disabled = flow.gridGone,
         desc = "The bag slots run backwards, so the last slot of the last bag takes the first cell. Nothing moves inside your bags, only the order the slots are drawn in." },
+      { type = "header", name = "Window position" },
+      { type = "toggle", name = "Lock bags and bank", col = 1, get = lockGet, set = lockSet,
+        desc = "Freeze the bags and the bank in place. Unlocked, they show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)." },
+      { type = "toggle", name = "Hide X/Y fields", col = 2, get = hideFieldsGet, set = hideFieldsSet,
+        disabled = function() return lockGet() end,
+        desc = "The windows stay movable by dragging, but the X/Y fields are not drawn." },
     } },
     { name = "Bags", list = {
       { type = "range", name = "Slot size", min = 24, max = 56, step = 1, get = sizeGet, set = sizeSet,
@@ -495,15 +530,18 @@ local GRID_PAGE = {
         desc = pinHint(
           "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; hovering a slot and pressing %s clears it.",
           "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; a slot under the pointer can be cleared with a key of its own." ) },
-      { type = "keybind", name = "Clear the cell", binding = "WARPEE_UNPIN",
-        desc = "The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels." },
-      { type = "select", name = "Bags growth corner",
+      { type = "select", name = "Bags growth corner", col = 1, of = 2,
         get = function() return angleGet("pos") end,
         set = function(v) angleSet("pos", v) end,
         keys = anchorKeys, label = anchorLabel,
         desc = "The corner of the screen the bag window hangs from. It grows away from that corner as your bags fill." },
+      { type = "keybind", name = "Clear the cell", binding = "WARPEE_UNPIN", col = 2, of = 2,
+        desc = "The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels." },
       -- Where the reagent bag sits, under the window it belongs to. Every row here greys out in the grouped
       -- view, which files the reagent slots by category instead, so the subhead stays and still names them.
+      -- Forever has a reagent bag as well: container five, one bag with its own kind in it -- the client's
+      -- reagent bags, and its profession bags, which hold one kind of reagent each. It is a container that
+      -- can be hidden, merged or lifted like any other, so the block stands on this client too.
       { type = "header", name = "Reagents" },
       { type = "toggle", name = "Hide reagents", col = 1, of = 2,
         get = flow.hideGet, set = flow.hideSet, disabled = flow.catGet,
@@ -514,11 +552,9 @@ local GRID_PAGE = {
       { type = "toggle", name = "Reagents on top",
         get = flow.topGet, set = flow.topSet, disabled = function() return flow.offGet() or flow.catGet() end,
         desc = "Draw the reagent bag above the main bags instead of below them." },
-      -- The currency row, on its own list after the reagents: it is a band of the window's own making
-      -- that stands under the grid the way the reagent block stands over it. The direction sits beside
-      -- the switch, since it only says anything once the row is on.
+      -- The currency block follows the reagents, as in the bag window.
       { type = "header", name = "Currencies" },
-      { type = "toggle", name = "Hide currencies", col = 1, of = 2,
+      { type = "toggle", name = "Hide currencies",
         get = function() return Bags.curStrip == false end,
         set = function(v)
           -- The header switch writes the same key; the store lives on the window.
@@ -527,6 +563,11 @@ local GRID_PAGE = {
           relayout()
         end,
         desc = "The currencies the game tracks, in a row under the grid. Shift-click drops one, drag to reorder. The + at the end of the row, or a right-click on the header switch, opens the picker; a left-click shows or hides the row." },
+      { type = "select", name = "Currency appearance", col = 1, of = 2,
+        get = curStyleGet, set = curStyleSet,
+        keys = function() return CUR_STYLES end,
+        label = function(kk) return kk == "compact" and ns.L["Compact"] or ns.L["Icons"] end,
+        desc = "How the currency row is drawn: full cells with the icon, or a narrow line of number and small icon by the gold." },
       { type = "select", name = "Currencies direction", col = 2, of = 2,
         get = curDirGet, set = curDirSet,
         keys = function() return CUR_DIRS end, label = function(k) return CUR_DIR_LABELS[k] or k end,
@@ -536,24 +577,7 @@ local GRID_PAGE = {
     -- icon size, since the character bank and the Warband bank hold different counts and are looked at at
     -- different times. One group, so no heading and no paragraph: the tab above names the page, the paired rows
     -- say which of the two banks each belongs to, and the corner row says where the window hangs.
-    { name = "Bank", list = {
-      { type = "range", name = "Bank slot size", min = 24, max = 56, step = 1,        get = bankSizeGet, set = bankSizeSet,
-        half = "left" },
-      { type = "range", name = "Warband slot size", min = 24, max = 56, step = 1,
-        get = wbSizeGet, set = wbSizeSet, half = "right" },
-      -- The window's place on the screen, ahead of the shape: a corner belongs to one window and answers to the tab above,
-      -- not to the shape below it. The lock holding both windows stands on the Layout list.
-      { type = "select", name = "Bank growth corner",
-        get = function() return angleGet("bankPos") end,
-        set = function(v) angleSet("bankPos", v) end,
-        keys = anchorKeys, label = anchorLabel,
-        desc = "The corner of the screen the bank window hangs from. It grows away from that corner as the tabs fill." },
-      { type = "header", name = "Grid shape" },
-      { type = "range", name = "Bank slots per row", min = 8, max = 40, step = 1,
-        get = bankColsGet, set = bankColsSet, half = "left" },
-      { type = "range", name = "Warband slots per row", min = 8, max = 40, step = 1,
-        get = wbColsGet, set = wbColsSet, half = "right" },
-    } },
+    { name = "Bank", list = bankRows() },
     -- When the bags open on their own: beside the lock and the search pair that answer for the windows,
     -- and away from the addon's own switches.
     { name = "Auto-open bags", list = {
@@ -562,7 +586,8 @@ local GRID_PAGE = {
       -- Paired by kind down each row: the two banks, then mail and the auction house, then the two
       -- face-to-face windows, then the two item stations. Professions trails alone.
       { type = "toggle", name = "Bank", col = 1, get = bankGet, set = bankSet },
-      { type = "toggle", name = "Guild bank", col = 2, get = gbGet, set = gbSet },
+      { type = "toggle", name = "Guild bank", col = 2, get = gbGet, set = gbSet,
+        hidden = ns.ForeverOnly },
       { type = "toggle", name = "Mail", col = 1, get = mailGet, set = mailSet },
       { type = "toggle", name = "Auction house", col = 2,
         get = aucGet, set = aucSet },
@@ -573,8 +598,9 @@ local GRID_PAGE = {
       -- Upgrade window keeps one too, translated from the upgrader's own title, so the row reads the same in
       -- every client and the search index sees a plain label.
       { type = "toggle", name = "Item Upgrade", col = 1,
-        get = upgGet, set = upgSet },
-      { type = "toggle", name = "Catalyst", col = 2, get = cataGet, set = cataSet },
+        get = upgGet, set = upgSet, hidden = ns.ForeverOnly },
+      { type = "toggle", name = "Catalyst", col = 2, get = cataGet, set = cataSet,
+        hidden = ns.ForeverOnly },
       { type = "toggle", name = "Professions", col = 1,
         get = profGet, set = profSet },
     } },
@@ -599,6 +625,10 @@ local function goldMinSet(v) WarpeeDB.goldMin = math.max(0, math.floor(tonumber(
 -- alt to leave out -- and the entry would only make the list longer. The quarter steps are here because
 -- the gap between 100k and a million is where a player's own numbers actually land.
 local function goldMinKeys()
+  -- Forever's purses are counted in single coins: a few gold is what a character carries, a hundred is a
+  -- main, and the retail list starts at a thousand -- a threshold nobody there is under, which would hide
+  -- no one and read as the switch doing nothing. Its own scale, then, in whole gold, and no second row.
+  if ns.IsForever then return { 0, 1, 5, 10, 25, 50, 100 } end
   return { 0, 1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000 }
 end
 -- 0 is the "show everyone" entry and reads as a word. The rest are written the way the addon writes money
@@ -631,10 +661,12 @@ local CHARS_PAGE = {
     disabled = tipOff,
     desc = "Count each character's bank too. Off = bags only." },
   { type = "toggle", name = "Include Warband", col = 1, get = tipWbGet, set = tipWbSet,
-    disabled = tipOff,
+    disabled = tipOff, hidden = ns.ForeverOnly,
     desc = "Count the shared Warband bank on its own line." },
-  { type = "toggle", name = "Gold tooltip", col = 2, get = tipGoldGet, set = tipGoldSet,
-    desc = "Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price." },
+  { type = "toggle", name = "Gold tooltip", col = ns.IsForever and 1 or 2, get = tipGoldGet, set = tipGoldSet,
+    desc = ns.IsForever
+      and "Gold tooltip over the money in the window corner: every character's gold and the total."
+      or "Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price." },
   -- A list, not a number box: the thresholds that matter are few, a preset always fits the row, and a
   -- saved figure outside the list still reads back (its label falls through FormatNumber) instead of
   -- being snapped to the nearest entry behind the player's back. The left column, like every other
@@ -652,6 +684,7 @@ local CHARS_PAGE = {
   { type = "toggle", name = "Remember bank", col = 2, get = snap.bankGet, set = snap.bankSet,
     desc = "Save the character bank while you stand at a banker." },
   { type = "toggle", name = "Remember Warband bank", col = 1, get = snap.wbGet, set = snap.wbSet,
+    hidden = ns.ForeverOnly,
     desc = "Save the shared Warband bank while you stand at a banker." },
   { type = "header", name = "Characters" },
   { type = "description",
@@ -758,15 +791,22 @@ local VENDOR_PAGE = {
     get = vIlvlGet, set = vIlvlSet,
     desc = "Gear under this item level is sold. Zero keeps every piece." },
   { type = "toggle", name = "Legion relics", col = 1, get = V.relicGet, set = V.relicSet,
+    hidden = ns.ForeverOnly,
     desc = "Sell Legion artifact relics. Item level ignored." },
-  { type = "toggle", name = "Old consumables", col = 2, get = V.consumGet, set = V.consumSet,
+  -- In Forever this row's left neighbour is gone, so it moves to the left edge rather than leaving a
+  -- hole in the page where the relics switch used to stand.
+  -- Forever carries one expansion, so "older than the previous one" names nothing there: the switch would
+  -- sit on the page promising to sell a class of item the client cannot hold.
+  { type = "toggle", name = "Old consumables", col = 1, get = V.consumGet, set = V.consumSet,
+    hidden = ns.ForeverOnly,
     desc = "Sell potions, flasks, food and bandages older than the previous expansion." },
   { type = "toggle", name = "Tier tokens", col = 1, get = V.tokenGet, set = V.tokenSet,
+    hidden = ns.ForeverOnly,
     desc = "Sell raid armor tokens, item level ignored. Only from the expansions ticked below." },
   { type = "toggle", name = "Sell all of this automatically",
     get = V.autoGet, set = V.autoSet,
     desc = "Sell the list above at every merchant, without pressing the coin." },
-  { type = "header", name = "Token expansions", key = "tokenexp",
+  { type = "header", name = "Token expansions", key = "tokenexp", hidden = ns.ForeverOnly,
     state = function()
       if V.tokensOff() then return L["Off"] end
       local t = WarpeeDB.vendorTokenExp or {}
@@ -782,15 +822,19 @@ local VENDOR_PAGE = {
       end
       return (L["%d of %d"]):format(n, all)
     end },
-  { type = "description", section = "tokenexp",
+  { type = "description", section = "tokenexp", hidden = ns.ForeverOnly,
     name = "Which expansions tokens may be sold from. The four newest are kept by default. Expansions that never had tokens are not listed." },
   { type = "header", name = "Never sell",
     state = function() return onOf({ V.boeGet, V.wbGet, V.gemGet }) end },
   { type = "toggle", name = "Keep BoE", col = 1, get = V.boeGet, set = V.boeSet,
     desc = "Skip gear that is not bound yet, so it can go to the auction house." },
   { type = "toggle", name = "Keep warbound", col = 2, get = V.wbGet, set = V.wbSet,
+    hidden = ns.ForeverOnly,
     desc = "Skip warbound gear, since an alt can still use it." },
+  -- Nothing on the Forever gear is socketed or enchanted by the client: the rule would read every piece as
+  -- plain and the switch as broken, so it does not ride on the page there.
   { type = "toggle", name = "Keep socketed or enchanted", col = 1, get = V.gemGet, set = V.gemSet,
+    hidden = ns.ForeverOnly,
     desc = "Skip any piece with a gem socketed or an enchant applied." },
   { type = "header", name = "Marked for sale", key = "sellmarks",
     state = function() return ns.LN("%d items", (ns.Vendor and ns.Vendor:SellCount()) or 0) end },
@@ -809,7 +853,9 @@ do
   local rows = {}
   local none = ns.TOKEN_EXP_NONE or {}
   local slot = 0
-  for i = 0, cur do
+  -- Forever has no tier tokens and no expansion ladder to tick them against: no rows are built, so the
+  -- section stays empty behind its hidden heading instead of listing expansions the client cannot reach.
+  for i = 0, ns.IsForever and -1 or cur do
     if not none[i] then
       rows[#rows + 1] = {
         -- A function name, so the row re-reads its expansion on every refresh: the title is the addon's

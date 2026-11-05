@@ -11,8 +11,22 @@ local function idList(names)
   end
   return t
 end
-local CHAR_TABS = idList({ "CharacterBankTab_1", "CharacterBankTab_2", "CharacterBankTab_3",
-                           "CharacterBankTab_4", "CharacterBankTab_5", "CharacterBankTab_6" })
+-- The character bank's containers, probed rather than written out. Six was retail's count when this list
+-- was a literal, and a client that keeps more of them -- the one this port is for names nine -- would have
+-- had the last three read as no bag at all: their items would be missing from the grid, from the free-slot
+-- count and from every move the window makes. Probing stops at the first number the client does not name,
+-- so each client gets exactly its own set and neither has to be told which one it is.
+local function bankTabs()
+  local ids = {}
+  if not (Enum and Enum.BagIndex) then return ids end
+  for n = 1, 32 do
+    local id = Enum.BagIndex["CharacterBankTab_" .. n]
+    if id == nil then break end
+    ids[#ids + 1] = id
+  end
+  return ids
+end
+local CHAR_TABS = bankTabs()
 local LEGACY_BANK = idList({ "Bank", "BankBag_1", "BankBag_2", "BankBag_3", "BankBag_4",
                              "BankBag_5", "BankBag_6", "BankBag_7" })
 local BANK_TABS_MODE = #CHAR_TABS > 0
@@ -40,7 +54,7 @@ local fitBankLabel = ns.FitLabel
 
 local function applyDensity(size)
   local d = ns.Density(size)
-  PAD, DIV, HBTN = d.pad, d.div, d.hb
+  PAD, DIV, HBTN = d.pad + Theme:ContentPad("side"), d.div, d.hb
   FONT = d.font
   HBAND = d.headerBand
 end
@@ -58,6 +72,10 @@ local function footerH(base) return math.max(34, base + 16) end
 local FOOT_RIGHT = 12
 
 function ns.WarbandActive()
+  -- The account bank is switched off in Forever: the enum and its ids are there, the bank behind them is
+  -- not, so the window must not offer a tab that opens onto nothing. Every caller already asks this one
+  -- question -- the mode picker, the vault capture and the category rules -- so the gate lives here.
+  if ns.IsForever then return false end
   return C_Bank ~= nil and C_Bank.FetchPurchasedBankTabData ~= nil and #WARBAND > 0
 end
 
@@ -450,8 +468,10 @@ function View:Cols(mode)
   return n or (d and (wb and d.warbandCols or d.bankCols)) or (wb and 26 or 28)
 end
 function View:FontSize() return FONT - 2 end
-function View:HeaderH() return math.max(58, headerH(self:FontSize()) + 24) + Theme:TopInset() end
-function View:FooterH() return footerH(self:FontSize()) end
+function View:HeaderH()
+  return math.max(58, headerH(self:FontSize()) + 24) + Theme:TopInset() + Theme:ContentPad("top")
+end
+function View:FooterH() return footerH(self:FontSize()) + Theme:ContentPad("bottom") end
 
 function View:Sections(mode)
   -- The separate reagent section is gone with ns.reagentBank: it was drawn on the client
@@ -666,7 +686,7 @@ function View:Build()
 
   local money = Theme:Label(f, 16, "text")
   Theme:Money(money)
-  money:SetPoint("BOTTOMRIGHT", -(PAD + ns.FootInset(FOOT_RIGHT)), 7)
+  money:SetPoint("BOTTOMRIGHT", -(PAD + ns.FootInset(FOOT_RIGHT)), 7 + Theme:ContentPad("bottom"))
   self.money = money
   ns.AttachGoldTooltip(money, f, function() return self:CellSize() end)
 
@@ -806,7 +826,7 @@ end
 
 function View:FlowHeader()
   if not self.frame then return end
-  local row1 = ROW1_Y + Theme:TopInset() + Theme:HeadDrop()
+  local row1 = ROW1_Y + Theme:TopInset() + Theme:HeadDrop() + Theme:ContentPad("top")
   sizeGlyph(self.closeBtn, HBTN)
   sizeGlyph(self.gearBtn, HBTN)
   sizeGlyph(self.sortBtn, HBTN)
@@ -854,7 +874,7 @@ end
 
 function View:AnchorHeader()
   if not self.frame then return end
-  local top = Theme:TopInset()
+  local top = Theme:TopInset() + Theme:ContentPad("top")
   local row1 = ROW1_Y + top + Theme:HeadDrop()
   self:FlowHeader()
   if self.bankTab then
@@ -864,6 +884,14 @@ function View:AnchorHeader()
   Theme:HeaderBand(self.frame, HBAND)
   self:UpdateTabs()
   self:AnchorSearch()
+  if self.depositBtn then
+    self.depositBtn:ClearAllPoints()
+    self.depositBtn:SetPoint("BOTTOMLEFT", PAD, 7 + Theme:ContentPad("bottom"))
+  end
+  if self.hint then
+    self.hint:ClearAllPoints()
+    self.hint:SetPoint("BOTTOMLEFT", PAD, 10 + Theme:ContentPad("bottom"))
+  end
   -- Every layout arms the transfer chip, so the button follows a banker opened before this window was
   -- ever laid out, a tab switch, and a snapshot swap, without waiting for a keystroke.
   self:ArmTransfer()
@@ -872,7 +900,7 @@ end
 function View:AnchorSearch()
   if not self.search then return end
   local tx, b = self.txBtn, self.charBtn
-  local row = 34 + Theme:TopInset()
+  local row = 34 + Theme:TopInset() + Theme:ContentPad("top")
   -- Right to left: the character picker takes the edge while it stands, then the transfer chip, then
   -- the search box, each one claiming its place only while it is shown.
   local prev
@@ -1266,7 +1294,7 @@ function View:UpdateTabs()
   end
   paint(self.bankTab, self.mode == "bank")
   paint(self.wbTab, self.mode == "warband")
-  local row1 = ROW1_Y + Theme:TopInset() + Theme:HeadDrop()
+  local row1 = ROW1_Y + Theme:TopInset() + Theme:HeadDrop() + Theme:ContentPad("top")
   local bankOn = self:ModeAvailable("bank")
   if self.bankTab then self.bankTab:SetShown(bankOn) end
   local last = bankOn and self.bankTab or nil
@@ -1361,6 +1389,38 @@ function View:PlaceBuyCell(x)
   buy:SetShown(cost ~= nil)
 end
 
+-- On the Forever client every character bank tab after the first one is a bag socket: it holds no slots at
+-- all until a bag is dropped into it. The bags live as items in one container, one slot per tab, and the
+-- game's own pickup call is what moves a bag in, swaps it, or hands it back to the cursor. Nothing of the
+-- client's socket panel survives our window, so the tab itself is the place to drop one.
+local SOCKET_BAG = Enum.BagIndex and Enum.BagIndex.Characterbanktab
+local SOCKET_BASE = Enum.BagIndex and Enum.BagIndex.CharacterBankTab_1
+
+-- The socket a tab's bag lives in, or nil for a tab that has none: tab one is the fixed base bank the
+-- client opens with, and everything outside the Forever client keeps the bags it always had.
+function View:TabBagSocket(bag)
+  if not (ns.IsForever and bag and SOCKET_BAG and SOCKET_BASE) then return nil end
+  if self.mode ~= "bank" then return nil end
+  local socket = bag - SOCKET_BASE + 1
+  if socket < 2 then return nil end
+  return socket
+end
+
+function View:TabHasBag(socket)
+  if not socket then return nil end
+  local loc = ItemLocation and ItemLocation:CreateFromBagAndSlot(SOCKET_BAG, socket)
+  return (loc and C_Item.DoesItemExist(loc)) or nil
+end
+
+-- Both the drag off a tab and the drop onto it go through the same pickup: with an empty cursor it lifts the
+-- bag out, with a bag it places or swaps it, and with anything else the game itself refuses.
+function View:PickupTabBag(bag)
+  local socket = self:TabBagSocket(bag)
+  if not (socket and C_Container and C_Container.PickupContainerItem) then return end
+  if InCombatLockdown() then return end
+  C_Container.PickupContainerItem(SOCKET_BAG, socket)
+end
+
 function View:RefreshStrip()
   local f = self.frame
   if not f then return end
@@ -1402,10 +1462,24 @@ function View:RefreshStrip()
         if button == "RightButton" then self:OpenTabSettings(s.wpeBag)
         else self:SelectTab(s.wpeBag) end
       end)
-      ns.AddTip(b, function(s) return s.wpeTip end, "top", function()
+      if ns.IsForever then
+        b:RegisterForDrag("LeftButton")
+        b:SetScript("OnDragStart", function(s) self:PickupTabBag(s.wpeBag) end)
+        b:SetScript("OnReceiveDrag", function(s) self:PickupTabBag(s.wpeBag) end)
+      end
+      ns.AddTip(b, function(s) return s.wpeTip end, "top", function(s)
+        local lines = {}
         if self.bankerOpen and not self.snap then
-          return { { text = ns.L["Right-click to edit"], color = "dim" } }
+          if s and s.wpeSocket then
+            lines[#lines + 1] = { text = s.wpeHasBag and ns.L["Drop a bag here to swap it"]
+                                                   or ns.L["Drop a bag here to use this tab"], color = "dim" }
+            if s.wpeHasBag then
+              lines[#lines + 1] = { text = ns.L["Drag the bag off to remove it"], color = "dim" }
+            end
+          end
+          lines[#lines + 1] = { text = ns.L["Right-click to edit"], color = "dim" }
         end
+        return lines
       end)
       self.tabBtns[i] = b
     end
@@ -1428,6 +1502,8 @@ function View:RefreshStrip()
       else b.wpeTip = (ns.L["Tab %d"]):format(i - 1) end
     end
     b.wpeBag = e.bag
+    b.wpeSocket = self:TabBagSocket(e.bag)
+    b.wpeHasBag = self:TabHasBag(b.wpeSocket)
     b.wpeOn = (e.bag == sel) or nil
     paintStripTab(b)
     b:ClearAllPoints()
@@ -3300,7 +3376,7 @@ function View:UpdateFooter()
     -- sits the line closer to the window's edge), and the setting can be flipped while the window is up,
     -- so the line is re-anchored where it is written and not only where it is built.
     self.money:ClearAllPoints()
-    self.money:SetPoint("BOTTOMRIGHT", -(PAD + ns.FootInset(FOOT_RIGHT)), 7)
+    self.money:SetPoint("BOTTOMRIGHT", -(PAD + ns.FootInset(FOOT_RIGHT)), 7 + Theme:ContentPad("bottom"))
     -- The face the footer is written in goes with the amount: the coin in it is sized off that face (see
     -- coinSet in Bags.lua), so a bank footer whose font ever changes keeps the coin on the digits.
     local face = select(2, self.money:GetFont())

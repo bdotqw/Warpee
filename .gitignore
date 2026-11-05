@@ -2,3 +2,4 @@
 
 # Playwright MCP run artifacts
 .playwright-mcp/
+.cloud-attachments/

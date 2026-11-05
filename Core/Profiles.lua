@@ -12,6 +12,12 @@ local PREFIX = "!WPE1!"
 local SCHEMA = 1
 local MAX_NAME = 40
 local FALLBACK_NAME = "Imported"
+-- Which game is running, written on every profile code. A profile is a set of answers about one client's
+-- containers -- cell sizes, window places, the saved characters -- and half of those answers name things the
+-- other game does not have: warband slots and a reagent bank on retail, an item-level sell rule and a
+-- keystone badge on Forever. There is no honest way to translate one into the other, so a code carries the
+-- game it was written in and the other game refuses it.
+local GAME = ns.IsForever and "forever" or "retail"
 
 local function trim(s)
   s = tostring(s or "")
@@ -252,7 +258,7 @@ function P:Export(name)
   for k, v in pairs(data) do
     if not EXPORT_SKIP[k] then out[k] = ns.CopyDeep(v) end
   end
-  local body = packPayload({ _v = SCHEMA, _n = name, d = out })
+  local body = packPayload({ _v = SCHEMA, _n = name, _g = GAME, d = out })
   -- A codec that refuses is not a profile that came out empty. Answering with the prefix and
   -- nothing after it reads as a code and fails on the other end as a damaged one; the empty
   -- string is what the panel already takes as "nothing to copy".
@@ -269,6 +275,11 @@ function P:Import(str, name)
   local env, err = unpackPayload(str:sub(#PREFIX + 1))
   if not env then return false, err end
   if not env.d or type(env.d) ~= "table" then return false, "Not a profile code" end
+  -- A code from the other game is refused here, before a single key is looked at. A code with no game on it
+  -- is refused the same way: every export written before the stamp carried the same silence, so there is no
+  -- way to tell a retail profile from a Forever one, and a layout that lands in the wrong client costs more
+  -- than the paste it takes to try again.
+  if env._g ~= GAME then return false, "This profile code was not made for this client" end
   local data = upgrade(env.d, env._v)
   if not data then return false, "Saved by a newer version" end
   name = trim(name)
@@ -729,7 +740,6 @@ function P:BuildPanel()
   f.row2 = { exp, imp }
   f.row3 = { reset }
   f:SetHeight(PANEL_H)
-  self:Reflow()
   self:ApplySkin()
 
   return f
@@ -747,7 +757,7 @@ function P:Reflow()
     end
   end
   local W = math.max(need * widest + (widest - 1) * GAP, MIN_W) + PAD * 2
-  f:SetWidth(W)
+  f:SetWidth(W + Theme:ContentPad("side") * 2)
   local content = W - PAD * 2
   for _, row in ipairs(rows) do
     local w = math.floor((content - (#row - 1) * GAP) / #row)
@@ -777,29 +787,35 @@ end
 function P:ApplySkin()
   local f = self.panel
   if not f then return end
+  local side = Theme:ContentPad("side")
+  local pad, bottom = PAD + side, Theme:ContentPad("bottom")
   local drop = Theme:TitleDrop()
-  local shift = drop > 0 and (drop + PANEL_HEADER_EXTRA) or 0
+  local shift = (drop > 0 and (drop + PANEL_HEADER_EXTRA) or 0) + Theme:ContentPad("top")
   if f.title then
     f.title:ClearAllPoints()
-    ns.SnapPoint(f.title, "TOPLEFT", f, "TOPLEFT", PAD, -(10 + shift))
+    ns.SnapPoint(f.title, "TOPLEFT", f, "TOPLEFT", pad, -(10 + shift))
   end
   if f.closeBtn then
     f.closeBtn:ClearAllPoints()
-    ns.SnapPoint(f.closeBtn, "TOPRIGHT", f, "TOPRIGHT", -7, -(7 + shift))
+    ns.SnapPoint(f.closeBtn, "TOPRIGHT", f, "TOPRIGHT", -(7 + side), -(7 + shift))
   end
   if f.ddArrow then f.ddArrow:SetTint("accent") end
   if f.dd then
     f.dd:ClearAllPoints()
-    ns.SnapPoint(f.dd, "TOPLEFT", f, "TOPLEFT", PAD, -(DD_TOP + shift))
+    ns.SnapPoint(f.dd, "TOPLEFT", f, "TOPLEFT", pad, -(DD_TOP + shift))
   end
   if f.nameBox then
     f.nameBox:ClearAllPoints()
     if f.dd then
       ns.SnapPoint(f.nameBox, "TOPLEFT", f.dd, "BOTTOMLEFT", 0, -FIELD_GAP)
     end
-    ns.SnapPoint(f.nameBox, "TOPRIGHT", f, "TOPRIGHT", -PAD, -(FIELD_TOP + shift))
+    ns.SnapPoint(f.nameBox, "TOPRIGHT", f, "TOPRIGHT", -pad, -(FIELD_TOP + shift))
   end
-  f:SetHeight(PANEL_H + shift)
+  if f.str then
+    ns.SnapPoint(f.str, "BOTTOMRIGHT", f, "BOTTOMRIGHT", -pad, PAD + bottom)
+  end
+  f:SetHeight(PANEL_H + shift + bottom)
+  self:Reflow()
   if f:IsShown() then self:Place() end
 end
 

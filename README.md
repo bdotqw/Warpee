@@ -1,6 +1,10 @@
 # Warpee
 
-Bag and bank windows for World of Warcraft (Midnight, 12.x). Grid or categories, fast, themed.
+Bag and bank windows for World of Warcraft Retail (Midnight, 12.x) and WoW Forever. Grid or categories, fast, themed.
+
+Current addon version: **13.0**.
+
+Warband bank, guild bank skin and WoW Token features are Retail-only.
 
 ## Features
 

@@ -269,10 +269,12 @@ function factories.catlisthelp(env)
       end
     end
     local pad = HELP_PAD
+    local side, extraTop = Theme:ContentPad("side"), Theme:ContentPad("top")
+    local bottom = Theme:ContentPad("bottom")
     -- Read on every fill rather than once at creation: the skin can change while the sheet is open, and
     -- the theme pass refills it on the spot. A skin the table does not name gets the plain row.
     local top3 = HELP_TOP[Theme.skin] or HELP_TOP_PLAIN
-    local titleY, closeY, legendY = top3[1], top3[2], top3[3]
+    local titleY, closeY, legendY = top3[1] + extraTop, top3[2] + extraTop, top3[3] + extraTop
     -- The header scrolls with the list instead of sitting over it: a frozen header kept riding
     -- down over the top rows on its way past. Except in the flat skin, whose band art covers
     -- the top 32 of the window: there the title stays frozen inside the band and the scroll
@@ -298,7 +300,7 @@ function factories.catlisthelp(env)
 
     m.title:ClearAllPoints()
     m.close:ClearAllPoints()
-    m.close:SetPoint("TOPRIGHT", -4, -closeY)
+    m.close:SetPoint("TOPRIGHT", -(4 + side), -closeY)
     m.legend:ClearAllPoints()
     if flat then
       -- Frozen inside the band, full width like the scrolling title elsewhere.
@@ -351,14 +353,14 @@ function factories.catlisthelp(env)
     -- The bar starts below the close button: in the scrolling mode the list reaches the top
     -- of the window, and the bar would otherwise run under the ×. The close button is 22 tall.
     local barTop = math.max(scTop, closeY + 22 + 4)
-    local listH = math.max(HELP_ROWH * 3, math.min(y, HELP_MAXH - scTop - pad))
+    local listH = math.max(HELP_ROWH * 3, math.min(y, HELP_MAXH - (scTop - extraTop) - pad))
     m.sc:ClearAllPoints()
-    m.sc:SetPoint("TOPLEFT", pad, -scTop)
-    m.sc:SetPoint("BOTTOMRIGHT", -(pad + SCROLL_W + 2), pad)
+    m.sc:SetPoint("TOPLEFT", pad + side, -scTop)
+    m.sc:SetPoint("BOTTOMRIGHT", -(pad + side + SCROLL_W + 2), pad + bottom)
     m.bar:ClearAllPoints()
-    m.bar:SetPoint("TOPRIGHT", -pad, -barTop)
-    m.bar:SetPoint("BOTTOMRIGHT", -pad, pad)
-    ns.SnapSize(m, width, scTop + listH + pad)
+    m.bar:SetPoint("TOPRIGHT", -(pad + side), -barTop)
+    m.bar:SetPoint("BOTTOMRIGHT", -(pad + side), pad + bottom)
+    ns.SnapSize(m, width + side * 2, scTop + listH + pad + bottom)
     Theme:FitPlateOf(m)
     -- Showing is what places it: OnShow re-applies the spot the anchor above wrote, so a sheet already open
     -- keeps the place it has and only a fresh open reads the button again.

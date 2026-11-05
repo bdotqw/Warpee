@@ -36,7 +36,8 @@ local pocketSize = ns.PocketIconSize
 
 local function applyDensity()
   local d = ns.Density(pocketSize())
-  PAD, BAND, NUDGE_BAND = d.pocketPad, d.pocketBand, d.pocketNudge
+  PAD, BAND, NUDGE_BAND = d.pocketPad + Theme:ContentPad("side"),
+    d.pocketBand, d.pocketNudge + Theme:ContentPad("bottom")
   LABEL_H, LABEL_GAP = d.labelH, d.labelGap
   BOX_H, BOX_GAP = d.searchH, d.pocketGap
   PICK_SIZE, PICK_GAP, PICK_PAD = d.pickSize, d.pickGap, d.pickPad
@@ -648,8 +649,9 @@ function Pocket:Build()
   close.wpeIconPaint(close)
   self.closeBtn = close
 
-  -- The same cog the bags and the bank carry; the layout below sizes it off this window's header box.
-  local gear = ns.GearButton(w)
+  -- The cog that opens the settings: the shared helper the bags and the bank use, so the art, the ink
+  -- and the tip key are one. It stands second from the right, between the cross and the lock.
+  local gear = ns.GearButton(w, close)
   self.gearBtn = gear
 
   local plus = ns.CreateGlyphButton(w, "+")
@@ -684,7 +686,10 @@ function Pocket:Build()
 
   self.nudge = ns.CreateNudgeRow(w, "pocketPos")
 
-  local rec = Theme:Label(w, 11, "dim")
+  -- The same ink as the bags row: the pocket's Recent head is the same caption over the same kind of
+  -- cells, and a grey one beside an accent title read as something switched off.
+  local rec = Theme:Label(w, 11, "accent")
+  rec:SetAlpha(0.85)
   rec:SetJustifyH("LEFT")
   ns.LocalText(rec, "Recent")
   rec:Hide()
@@ -897,7 +902,8 @@ function Pocket:Layout()
   if (self.warmed or 0) < n or (self.recWarmed or 0) < recCount then self:Warm() end
   local band = Theme:HeaderBand(w, BAND)
   local head = band and (band + 6) or (30 + Theme:TopInset())
-  local mid = (band or head) / 2 + Theme:TitleDrop()
+  local mid = (band or head) / 2 + Theme:TitleDrop() + Theme:ContentPad("top")
+  head = head + Theme:ContentPad("top")
   local path = ns.Fonts:Current()
   self.title:SetFont(path, FONT - 1, ns.OutlineFlags())
   paintTitle()
@@ -909,14 +915,13 @@ function Pocket:Layout()
   sizeGlyph(self.lockBtn, hb)
   sizeGlyph(self.plusBtn, hb)
   self.closeBtn:ClearAllPoints()
-  ns.SnapPoint(self.closeBtn, "RIGHT", w, "TOPRIGHT", -6, -mid)
-  local rightBtn = self.closeBtn
-  if self.gearBtn then
-    self.gearBtn:ClearAllPoints()
-    ns.SnapPoint(self.gearBtn, "RIGHT", rightBtn, "LEFT", -4, 0)
-    rightBtn = self.gearBtn
-  end
-  -- The lock sits between the gear and the plus, so the plus keeps the outermost slot it has
+  ns.SnapPoint(self.closeBtn, "RIGHT", w, "TOPRIGHT", -(6 + Theme:ContentPad("side")), -mid)
+  -- The row is the close, the cog, the lock and the plus: the cog stands second from the right, on the
+  -- cross's own chain, and the other two keep their places left of it.
+  self.gearBtn:ClearAllPoints()
+  ns.SnapPoint(self.gearBtn, "RIGHT", self.closeBtn, "LEFT", -4, 0)
+  local rightBtn = self.gearBtn
+  -- The lock sits between the close and the plus, so the plus keeps the outermost slot it has
   -- always had and the new button is the one that moves in.
   if self.lockBtn then
     self.lockBtn:ClearAllPoints()
@@ -1107,6 +1112,8 @@ function Pocket:PickPaint()
   local p = self.picksFrame
   if not (p and self.pickBtns) then return end
   applyDensity()
+  local side = Theme:ContentPad("side")
+  local pad = PICK_PAD + side
   local list = self:List()
   local n = #POCKET_PICKS
   local path = ns.Fonts:Current()
@@ -1114,24 +1121,25 @@ function Pocket:PickPaint()
   local size, gap = ns.GridMetrics(self.frame, ns.PocketIconSize(), Bags and Bags.gap or 4)
   local band = Theme:HeaderBand(p, BAND)
   local head = band and (band + 6) or (30 + Theme:TopInset())
-  local mid = (band or head) / 2 + Theme:TitleDrop()
+  local mid = (band or head) / 2 + Theme:TitleDrop() + Theme:ContentPad("top")
+  head = head + Theme:ContentPad("top")
   if self.picksTitle then
     self.picksTitle:SetFont(path, FONT - 1, ns.OutlineFlags())
     self.picksTitle:ClearAllPoints()
-    ns.SnapPoint(self.picksTitle, "LEFT", p, "TOPLEFT", PICK_PAD, -mid)
+    ns.SnapPoint(self.picksTitle, "LEFT", p, "TOPLEFT", pad, -mid)
   end
   if self.picksClose then
     sizeGlyph(self.picksClose, math.min(ns.Density(pocketSize()).pocketBand - 4, 24))
     self.picksClose:ClearAllPoints()
-    ns.SnapPoint(self.picksClose, "RIGHT", p, "TOPRIGHT", -6, -mid)
+    ns.SnapPoint(self.picksClose, "RIGHT", p, "TOPRIGHT", -(6 + side), -mid)
   end
   if self.idField then
     -- Density first: the field stands 6 taller than its box, the room the border takes.
     self.idField:SetBoxHeight(BOX_H)
     self.idField:ApplyFont(path, FONT - 2, FONT - 3)
     self.idField:ClearAllPoints()
-    ns.SnapPoint(self.idField, "TOPLEFT", p, "TOPLEFT", PICK_PAD, -head)
-    ns.SnapPoint(self.idField, "TOPRIGHT", p, "TOPRIGHT", -PICK_PAD, -head)
+    ns.SnapPoint(self.idField, "TOPLEFT", p, "TOPLEFT", pad, -head)
+    ns.SnapPoint(self.idField, "TOPRIGHT", p, "TOPRIGHT", -pad, -head)
   end
   local gridTop = head + BOX_H + 6 + BOX_GAP
   for i = 1, n do
@@ -1166,12 +1174,13 @@ function Pocket:PickPaint()
   local step = Layout.Step(size, gap)
   local gridH = rows > 0 and Layout.GridHeight(rows, step, size) or 0
   local pickW = Layout.WindowWidth(PICK_PAD, cols, step, gap)
-  ns.SnapSize(p, math.max(pickW, PICK_MINW), gridTop + gridH + PICK_PAD)
+  ns.SnapSize(p, math.max(pickW, PICK_MINW) + side * 2,
+    gridTop + gridH + PICK_PAD + Theme:ContentPad("bottom"))
   for i = 1, n do
     local b = self.pickBtns[i]
     ns.SnapSize(b, size, size)
     b:ClearAllPoints()
-    local px, py = Layout.Point(i, cols, PICK_PAD, gridTop, step)
+    local px, py = Layout.Point(i, cols, pad, gridTop, step)
     ns.SnapPoint(b, "TOPLEFT", p, "TOPLEFT", px, -py)
   end
   local w = self.frame
@@ -1216,6 +1225,11 @@ end
 function Pocket:Open()
   if not self:Enabled() then return end
   local w = self:Build()
+  -- A player's own open outranks a list's hiding: the record goes, and that list may not send it away
+  -- again for as long as it stands.
+  local h = self.hidden
+  self.hidden = nil
+  if h then self.exposed = h.by end
   w:ClearAllPoints()
   local pp = WarpeeDB and WarpeeDB.pocketPos
   local anchor = ns.Bags and ns.Bags.frame
@@ -1234,6 +1248,10 @@ function Pocket:Open()
   -- Layout runs before the frame is shown, so its cooldown pass sees nothing visible.
   -- One pass after Show picks up a cooldown that started while the window was closed.
   self:Cooldowns()
+  -- The corner the record carries is the pocket's own; the edge it shared with the bags or the bank is
+  -- not in it. Once the window is at its real size, the pair is measured again, so a session that
+  -- starts with both open finds the pocket on the seam it was left on instead of a few points off it.
+  if ns.PocketSeam then ns.PocketSeam() end
 end
 
 function Pocket:Close(keep)
@@ -1249,6 +1267,66 @@ function Pocket:Toggle()
   else
     self.solo = nil
     self:Open()
+  end
+end
+
+-- A list never moves the pocket: the pocket is the player's own HUD, and a HUD that steps aside and
+-- comes back is a HUD that can be left shifted. A list that opens over it takes it off the screen
+-- instead -- hidden, not closed, so the profile's open flag and the saved corner are untouched -- and
+-- the same corner is where it comes back. The window it belongs to may have been dragged while the
+-- list stood, so the corner travels by that delta on the way back; nothing else about the pocket is
+-- written.
+--
+-- `hidden` names the list that hid it and both rectangles at that moment; the two lists never stand
+-- together (each toggle closes the other first), so the record is one list deep and a stale close
+-- cannot show the pocket early. `exposed` is the player's own hand: opening the pocket while a list
+-- stands is a decision, and that list no longer sends it away.
+local function pocketRect(w)
+  if not (w and w.GetLeft and w.GetBottom) then return nil end
+  return w:GetLeft(), w:GetBottom()
+end
+
+function Pocket:Hold(list, win)
+  local w = self.frame
+  if not (w and list and w:IsShown()) then return end
+  -- Never out of the player's hand: a hide mid-drag would swallow the drop.
+  if w.wpeMoving then return end
+  if self.hidden or self.exposed == list then return end
+  local l, b = pocketRect(w)
+  -- Only a pocket that really belongs to that window travels with it: the same pair of questions the
+  -- drag asks -- snap on, and the pocket standing within reach of the window. One parked across the
+  -- screen keeps its own corner, whether or not the window was dragged while the list stood.
+  local follow = false
+  if win and ns.PocketSnapOn and ns.PocketSnapOn() and ns.CarryNear then
+    follow = ns.CarryNear(w, win) and true or false
+  end
+  self.hidden = {
+    by = list,
+    win = win,
+    follow = follow,
+    wl = win and win.GetLeft and win:GetLeft(),
+    wt = win and win.GetTop and win:GetTop(),
+    pl = l, pb = b,
+  }
+  w:Hide()
+end
+
+function Pocket:Unhold(list)
+  if self.exposed == list then self.exposed = nil end
+  local h = self.hidden
+  if not (h and h.by == list) then return end
+  self.hidden = nil
+  local w = self.frame
+  if not w then return end
+  local dx, dy = 0, 0
+  local win = h.win
+  if h.follow and win and h.wl and h.wt and win.GetLeft and win.GetTop then
+    local wl, wt = win:GetLeft(), win:GetTop()
+    if wl and wt then dx, dy = wl - h.wl, wt - h.wt end
+  end
+  w:Show()
+  if h.pl and h.pb and ns.PlaceRect then
+    ns.PlaceRect(w, "pocketPos", nil, h.pl + dx, h.pb + dy)
   end
 end
 
@@ -1311,9 +1389,9 @@ local function defaultKey()
   -- the key spliced in, not from an English string glued to an English tail.
   local line
   if key then
-    line = (ns.L["The pocket is a small window of bookmark cells beside the bags. Open it with %s or the grid button in the header."]):format(key)
+    line = (ns.L["The pocket is a small window of bookmark cells beside the bags. Open it with %s."]):format(key)
   else
-    line = ns.L["The pocket is a small window of bookmark cells beside the bags. Open it with the grid button in the header, or bind a key in the settings."]
+    line = ns.L["The pocket is a small window of bookmark cells beside the bags. Open it with a key bound in the settings."]
   end
   WarpeeDB.pocketBind = true
   print("|cffd9a85fWarpee|r |cffffffff" .. line .. "|r")
