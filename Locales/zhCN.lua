@@ -451,6 +451,7 @@ local STRINGS = {
     "把钥匙环移出窗口。钥匙仍留在钥匙环中，客户端自带窗口照常打开。",
   ["BAGS"] = "背包",
   ["Bag Slots"] = "背包栏位",
+  ["Bank slots"] = "银行背包栏位",
   ["WARBAND BANK"] = "战团银行",
   ["ON HAND"] = "随身",
   ["(min)"] = "(最小)",
@@ -528,7 +529,7 @@ local STRINGS = {
   ["FANNY PACK"] = "腰包",
   ["Pocket"] = "口袋",
   ["Pocket window"] = "口袋窗口",
-  ["LMB: Bags"] = "左键：背包",
+  ["LMB: bag slots"] = "左键：背包栏位",
   ["RMB: grid/cat"] = "右键：网格/分类", -- ?
   ["Pocket rows"] = "口袋行数",
   ["Pocket size"] = "口袋大小",

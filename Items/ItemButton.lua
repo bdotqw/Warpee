@@ -740,14 +740,19 @@ function ns.CreateItemButton(parent, bagID, slotIndex)
   local cd = b.Cooldown or _G[nm .. "Cooldown"]
   if cd then
     b.cd = cd
-    cd:SetHideCountdownNumbers(true)
+    -- The digit is the client's own countdown text and not a string of ours: it is drawn from the
+    -- cooldown's start and duration by the game, so it is correct the moment a cell is shown again
+    -- after the window was shut, it costs nothing per tick in Lua, and a cell keeps no state of its
+    -- own to lose. A string of ours had to be fed by a ticker that stopped with the window, and a
+    -- long cooldown answers no event while the window is away -- the client only speaks when one
+    -- starts or ends -- so the number stayed gone until something else repainted the cell. What is
+    -- ours is only how it looks (colour, font, outline and size, all in cdFont), plus the one case
+    -- where the number goes away: the wand's own global cooldown, cleared with the swirl.
+    cd:SetHideCountdownNumbers(false)
     cd:SetDrawEdge(true)
     cd:Clear()
-    b.cdText = b.borderFrame:CreateFontString(nil, "OVERLAY")
-    b.cdText:SetDrawLayer("OVERLAY", 7)
-    b.cdText:SetFontObject(ns.Fonts:Object(14, ns.OutlineFlags()))
-    b.cdText:SetPoint("CENTER")
-    b.cdText:SetTextColor(Theme:C("text"))
+    -- The countdown text itself is looked for on the first paint (cdFont), not here: some clients
+    -- create it only once a cooldown has been set, and a cell is built before that ever happens.
   end
   b:RegisterForClicks(unpack(ns.CLICKS_SLOT))
   b.wpeClicks = ns.CLICKS_SLOT
@@ -1481,110 +1486,81 @@ function ns.FitIlvl(b, lvl)
   ns.SetOutlined(b.ilvl, ns.BadgeSize("ilvl", cellOf(b)))
 end
 
-local function fmtCooldown(s)
-  if s >= 3600 then return math.floor(s / 3600 + 0.5) .. "h"
-  elseif s >= 60 then return math.floor(s / 60 + 0.5) .. "m"
-  else return tostring(math.floor(s + 0.5)) end
-end
-
+-- The countdown text is the client's, restyled to the cell it sits in: the font and outline come
+-- from the badge size of the cell, which the player can change at any moment, so this is written on
+-- every paint. ns.SetOutlined carries its own cache, so an unchanged font costs one table lookup, and
+-- the number itself is never touched here -- the client keeps it current, which is also why a cell
+-- that comes back after the window was shut shows the right time with no state of its own to restore.
 local function cdFont(b)
-  if not b.cdText then return end
-  ns.SetOutlined(b.cdText, ns.BadgeSize("count", cellOf(b)))
-end
-
-local function cdSay(b, text)
   local fs = b.cdText
-  if not fs or b.wpeCdText == text then return end
-  b.wpeCdText = text
-  fs:SetText(text)
-end
-
--- One ticker for every slot, because a script on the game's Cooldown frame would
--- put addon code on an object the secure click path also touches.
-local ticking = setmetatable({}, { __mode = "k" })
-local ticker = CreateFrame("Frame")
-ticker:Hide()
-ticker:SetScript("OnUpdate", function(self, elapsed)
-  self.acc = (self.acc or 0) + elapsed
-  if self.acc < 0.1 then return end
-  self.acc = 0
-  local live = false
-  for b in pairs(ticking) do
-    local left = (b.cdEnd or 0) - GetTime()
-    if left > 0 then
-      -- A cell whose window is closed keeps its place in the list, since the swirl runs off
-      -- the time it was given, but nobody is looking at it: it is not worth a font and a
-      -- string every tick, and it is not a reason to keep the ticker running either. Its
-      -- digit is cleared so a reopened window never shows the number it had. Every row
-      -- re-arms on show, so the digit comes back the moment the cell is looked at again.
-      if b:IsVisible() then
-        cdFont(b)
-        cdSay(b, fmtCooldown(left))
-        live = true
-      else
-        cdSay(b, "")
-      end
-    else
-      ticking[b] = nil
-      b.cdEnd = nil
-      cdSay(b, "")
+  if not fs and b.cd then
+    -- The frame hands back the swipe and the countdown text, and the text can be created late (on
+    -- some clients only once a cooldown has been set), so it is looked for again until it turns up.
+    -- A client that keeps it elsewhere leaves the number in the game's own look, which is the way it
+    -- looked before this restyle: nothing breaks, nothing is hidden.
+    for _, r in ipairs({ b.cd:GetRegions() }) do
+      if r and r.GetObjectType and r:GetObjectType() == "FontString" then fs = r; break end
+    end
+    fs = fs or b.cd.cooldownText
+    if fs then
+      b.cdText = fs
+      fs:SetTextColor(Theme:C("text"))
     end
   end
-  if not live then self:Hide() end
-end)
+  if fs then ns.SetOutlined(fs, ns.BadgeSize("count", cellOf(b))) end
+end
 
-local function tick(b, on)
-  if not on then ticking[b] = nil; return end
-  ticking[b] = true
-  ticker:Show()
+-- Which cells may show a cooldown at all. GetContainerItemCooldown answers for every slot it is
+-- asked about, and on this client it hands the global cooldown to gear and materials as readily as
+-- to a potion: an item with no use spell can never start a cooldown of its own, so a swirl on such a
+-- cell is always the global one borrowed from a spell just cast -- a wand's shot, a heal, anything --
+-- and that is the swirl the bags must not draw. An item that can be used keeps whatever the client
+-- reports, global or not: that countdown belongs to the thing the player is looking at, and hiding it
+-- while a wand fires was hiding a real answer. The question is about the item, not the slot, so the
+-- answer is kept by item id; the cooldown call itself is skipped for the cells that fail it.
+local SPELL = {}
+local function canCooldown(bag, slot)
+  local id = C_Container.GetContainerItemID and C_Container.GetContainerItemID(bag, slot)
+  if not id then return true end
+  local v = SPELL[id]
+  if v ~= nil then return v end
+  -- The item's data arrives on its own schedule; until it does, the cell is left with what it shows
+  -- rather than losing a cooldown the item may really have.
+  if not C_Item.GetItemInfo(id) then return true end
+  v = (C_Item.GetItemSpell(id) and true) or false
+  SPELL[id] = v
+  return v
 end
 
 -- Using one item puts every item that shares its cooldown category on cooldown too, so a
--- single potion brings one of these calls for each of them, and the row keeps calling on
--- every SPELL_UPDATE_COOLDOWN after that. Restarting a swirl that is already running the
--- same countdown costs the same as starting it, so an unchanged pair is left alone.
--- Every cooldown gets the swirl, the global one included: that sweep is the only thing that
--- says the press landed. What the short ones do not get is a digit: a counting number is
--- one SetText every second for as long as it runs, and that shows up as a frame spike on
--- its own. Under ten seconds the swirl alone says everything, so those stay out of the
--- ticker entirely.
-local DIGITS_ABOVE = 10
-
+-- single potion brings one of these calls for each of them, and the row keeps calling on every
+-- SPELL_UPDATE_COOLDOWN after that. Restarting a swirl that is already running the same
+-- countdown costs the same as starting it, so an unchanged pair is left alone.
 function ns.UpdateCooldown(b)
   local cd = b.cd
   if not cd then return end
-  local start, duration, enable = C_Container.GetContainerItemCooldown(b.wpeBagID, b:GetID())
+  -- An item that cannot be used never carries a cooldown of its own, so its slot is not even asked
+  -- (below): the client would only report someone else's global cooldown there.
+  local start, duration, enable
+  if canCooldown(b.wpeBagID, b:GetID()) then
+    start, duration, enable = C_Container.GetContainerItemCooldown(b.wpeBagID, b:GetID())
+  end
   if start and start > 0 and duration and duration > 0 and enable and enable ~= 0 then
     if b.wpeCdStart ~= start or b.wpeCdDur ~= duration then
       b.wpeCdStart, b.wpeCdDur = start, duration
       cd:SetCooldown(start, duration)
     end
-    if duration > DIGITS_ABOVE then
-      b.cdEnd = start + duration
-      if b:IsVisible() then
-        cdFont(b)
-        cdSay(b, fmtCooldown(b.cdEnd - GetTime()))
-      end
-      tick(b, true)
-    else
-      b.cdEnd = nil
-      cdSay(b, "")
-      tick(b, false)
-    end
-  elseif b.cdEnd or b.wpeCdStart then
+    cdFont(b)
+  elseif b.wpeCdStart then
     cd:Clear()
-    b.cdEnd, b.wpeCdStart, b.wpeCdDur = nil, nil, nil
-    cdSay(b, "")
-    tick(b, false)
+    b.wpeCdStart, b.wpeCdDur = nil, nil
   end
 end
 
 function ns.StopCooldown(b)
   if not b.cd then return end
   b.cd:Clear()
-  b.cdEnd, b.wpeCdStart, b.wpeCdDur = nil, nil, nil
-  cdSay(b, "")
-  tick(b, false)
+  b.wpeCdStart, b.wpeCdDur = nil, nil
 end
 
 local LOCK_ATLAS = { "bags-icon-lock", "Garr_LockedBuilding" }
@@ -2695,6 +2671,90 @@ function ns.CreateBagButton(parent, bagID, size)
       ns.OpenBagFilterMenu(s, s.wpeBagID)
     end
   end)
+  return b
+end
+
+-- A bank bag slot on the client whose bank tabs are bag slots (Forever). The bag is not worn and has
+-- no bag id of its own: it is an item in the container the client keeps for those slots, one slot per
+-- tab, with the first tab being the bank itself and needing no bag. The cell is the bag window's own
+-- shape (ns.CreateBagButton) and asks the same client, so the two read alike; what differs is that a
+-- slot can be unbought, and the game moves a bag in or out of it through the container, not through
+-- PutItemInBag. Read-only everywhere: no protected call, and the click is the game's own pickup.
+local CB = Enum and Enum.BagIndex
+local BANK_SLOTS = CB and CB.Characterbanktab
+local BANK_TAB_1 = CB and CB.CharacterBankTab_1
+
+function ns.BankSlotBought(slot)
+  if not (BANK_SLOTS and C_Bank and C_Bank.FetchPurchasedBankTabData and Enum.BankType) then return false end
+  local ok, data = pcall(C_Bank.FetchPurchasedBankTabData, Enum.BankType.Character)
+  if not (ok and data) then return false end
+  return data[slot] ~= nil
+end
+
+function ns.UpdateBankBagSlot(b)
+  if not b or not b.slot then return end
+  local bought = ns.BankSlotBought(b.slot)
+  local info = bought and C_Container.GetContainerItemInfo(BANK_SLOTS, b.slot) or nil
+  b.hasBag = info and true or false
+  b.icon:SetTexture(info and info.iconFileID or [[Interface\PaperDoll\UI-PaperDoll-Slot-Bag]])
+  b.icon:SetDesaturated(not bought)
+  b.icon:SetAlpha(bought and 1 or 0.35)
+  local free = info and BANK_TAB_1 and select(1, C_Container.GetContainerNumFreeSlots(BANK_TAB_1 + b.slot - 1))
+  b.count:SetText((free and free > 0) and free or "")
+end
+
+function ns.CreateBankBagSlot(parent, slot, size)
+  size = size or 22
+  local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
+  ns.SnapBox(b, size, size)
+  ns.PixelBackdrop(b)
+  ns.SetBg(b, Theme:C("slot"))
+  ns.SetEdge(b, Theme:C("stroke"))
+  Theme:Track(b, function(s)
+    ns.SetBg(s, Theme:C("slot"))
+    ns.SetEdge(s, Theme:C(s.wpeHover and "accent" or "stroke"))
+  end)
+  b.slot = slot
+  local icon = b:CreateTexture(nil, "ARTWORK")
+  icon:SetPoint("TOPLEFT", 1, -1); icon:SetPoint("BOTTOMRIGHT", -1, 1)
+  icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+  b.icon = icon
+  local cf = math.max(10, math.floor(size * 0.30))
+  local cnt = Theme:Label(b, cf, "text")
+  cnt:SetPoint("BOTTOMRIGHT", -1, 1)
+  b.count = cnt
+  b.cntFontSize = cf
+  -- One gesture in both directions: with a bag under the cursor the game swaps it into the slot, and with
+  -- a bag already there it comes up on the cursor instead. Nothing is picked up from an unbought tab.
+  local function take()
+    if ns.BankSlotBought(slot) then C_Container.PickupContainerItem(BANK_SLOTS, slot) end
+  end
+  b:SetScript("OnEnter", function(s)
+    s.wpeHover = true
+    ns.SetEdge(s, Theme:C("accent"))
+    -- Over the cell rather than beside it: the row is a strip at the top of the screen as often as not,
+    -- and a tooltip hanging to the right runs off the edge there.
+    GameTooltip:SetOwner(s, "ANCHOR_TOP")
+    if s.hasBag then
+      GameTooltip:SetBagItem(BANK_SLOTS, slot)
+    elseif ns.BankSlotBought(slot) then
+      GameTooltip:SetText(_G.BANK_BAG or "Empty bank bag slot")
+    else
+      GameTooltip:SetText(_G.BANK_BAG_PURCHASE or "Buy bank bag slot")
+    end
+    GameTooltip:Show()
+  end)
+  b:SetScript("OnLeave", function(s)
+    s.wpeHover = nil
+    ns.SetEdge(s, Theme:C("stroke"))
+    GameTooltip:Hide()
+  end)
+  b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  b:RegisterForDrag("LeftButton")
+  b:SetScript("OnClick", take)
+  b:SetScript("OnDragStart", take)
+  b:SetScript("OnReceiveDrag", take)
+  ns.UpdateBankBagSlot(b)
   return b
 end
 

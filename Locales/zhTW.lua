@@ -434,6 +434,7 @@ local STRINGS = {
     "把鑰匙圈移出視窗。鑰匙仍留在鑰匙圈中，用戶端自帶視窗照常開啟。",
   ["BAGS"] = "背包",
   ["Bag Slots"] = "背包欄位",
+  ["Bank slots"] = "銀行背包欄位",
   ["WARBAND BANK"] = "戰隊銀行",
   ["ON HAND"] = "隨身",
   ["(min)"] = "(最小)",
@@ -511,7 +512,7 @@ local STRINGS = {
   ["FANNY PACK"] = "腰包",
   ["Pocket"] = "口袋",
   ["Pocket window"] = "口袋視窗",
-  ["LMB: Bags"] = "左鍵：背包",
+  ["LMB: bag slots"] = "左鍵：背包欄位",
   ["RMB: grid/cat"] = "右鍵：網格/分類", -- ?
   ["Pocket rows"] = "口袋行數",
   ["Pocket size"] = "口袋大小",

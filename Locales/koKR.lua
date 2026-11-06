@@ -438,6 +438,7 @@ local STRINGS = {
     "열쇠고리를 창에서 뺍니다. 열쇠는 열쇠고리에 그대로 남고, 기본 창에서는 계속 열 수 있습니다.",
   ["BAGS"] = "가방",
   ["Bag Slots"] = "가방 보관함",
+  ["Bank slots"] = "은행 가방 슬롯",
   ["WARBAND BANK"] = "전투부대 은행",
   ["ON HAND"] = "소지",
   ["(min)"] = "(최소)",
@@ -515,7 +516,7 @@ local STRINGS = {
   ["FANNY PACK"] = "허리춤 가방",
   ["Pocket"] = "주머니",
   ["Pocket window"] = "주머니 창",
-  ["LMB: Bags"] = "좌클릭: 가방",
+  ["LMB: bag slots"] = "좌클릭: 가방 슬롯",
   ["RMB: grid/cat"] = "우클릭: 격자/분류", -- ?
   ["Pocket rows"] = "주머니 줄 수",
   ["Pocket size"] = "주머니 크기",

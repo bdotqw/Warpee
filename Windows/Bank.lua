@@ -625,6 +625,29 @@ function View:Build()
   ns.IconSilhouette(sort, sortIcon)
   self.sortBtn = sort
 
+  -- Bank bag slots: on the client whose bank tabs are bag slots (Forever), a bought tab holds nothing until
+  -- a bag is put in it, and the client's own bank frame stays hidden behind this window. This is the bag
+  -- window's own mark and its own gesture -- the mark opens the slots, the slots take the bags -- placed in
+  -- the header row of the window it belongs to. Clients with real tabs have nothing to put in, so no button.
+  if ns.IsForever and Enum and Enum.BagIndex and Enum.BagIndex.Characterbanktab then
+    local slots = ns.CreateGlyphButton(f, "", HBTN, "icon")
+    slots:SetScript("OnClick", function() self:ToggleBankSlots() end)
+    -- The slot panel's name alone, in the player's own language: there is one action on this mark.
+    addTip(slots, ns.L["Bank slots"])
+    local slotsIcon = slots:CreateTexture(nil, "ARTWORK")
+    slotsIcon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\bags.tga]])
+    slotsIcon:SetPoint("CENTER")
+    slots.icon = slotsIcon
+    slots.iconPct = 72
+    slots.wpeIconPaint = function(s)
+      local hot = s.wpeHot and not s.offDuty
+      s.icon:SetVertexColor(Theme:C(hot and "text" or "dim"))
+    end
+    slots.wpeIconPaint(slots)
+    ns.IconSilhouette(slots, slotsIcon)
+    self.slotsBtn = slots
+  end
+
   local bankTab = ns.CreateButton(f, ns.L["Bank"], 52, HBTN)
   ns.LocalText(bankTab, "Bank")
   bankTab:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -ROW1_Y)
@@ -810,6 +833,9 @@ function View:ApplySnap()
   if self.snap == want then return false end
   self.snap = want
   self:HideSlots()
+  -- The slot panel reads the bank that is open here, so a view of anyone else's bank takes it off the
+  -- screen with the cells: there is nothing live behind it to show.
+  if want and self.slotsWin then self.slotsWin:Hide() end
   return true
 end
 
@@ -830,6 +856,7 @@ function View:FlowHeader()
   sizeGlyph(self.closeBtn, HBTN)
   sizeGlyph(self.gearBtn, HBTN)
   sizeGlyph(self.sortBtn, HBTN)
+  sizeGlyph(self.slotsBtn, HBTN)
   -- The three glyphs sit at the right edge. Sort is only dropped when the bank has no live container, so
   -- the flow skips it there and the gear closes up to the X. Left of the glyphs comes the deposit button,
   -- and left of that the checkbox with its label to the checkbox's left, so the row
@@ -838,8 +865,9 @@ function View:FlowHeader()
   -- deposit button and the reagents check are tested on their own, so a narrow window drops whichever
   -- does not fit rather than both. UpdateFooter sets depWant/reagWant (the bank type wants them); the
   -- fit test here has the final say on shown state.
+  -- Right to left: the X, the gear, the bank's bag slots, the sort.
   local edge = ns.FlowRow(self.frame, -PAD, -row1, 4,
-    { self.closeBtn, self.gearBtn, self.sortBtn })
+    { self.closeBtn, self.gearBtn, self.slotsBtn, self.sortBtn })
   local bound = 0
   local tabEdge = self.wbTab and self.wbTab:IsShown() and self.wbTab:GetRight()
   if tabEdge then bound = tabEdge + 8 end
@@ -870,6 +898,10 @@ function View:FlowHeader()
     end
   end
   self.headEdge = prev
+  -- The bag window's slot panel reads the containers, and this pass is what a bank change lands on: the
+  -- cells are refreshed here while that panel is up, so a bag taken out or put in shows without a reopen.
+  if self.slotsBtn then self.slotsBtn:SetShown(self.bankerOpen and not self.snap) end
+  if self.slotsWin and self.slotsWin:IsShown() then self:RefreshBankSlots() end
 end
 
 function View:AnchorHeader()
@@ -949,6 +981,143 @@ function View:UpdateCharBtn()
   if not label and on and #ns.Vault:Chars(false, "bank") == 0 then label = ns.L["Hidden"] end
   ns.PaintCharTag(b, label or (key and key:match("^(.-)%-")) or "?", class)
   self:AnchorSearch()
+end
+
+-- The bank's bag slots, on the client whose bank tabs are bag slots: the tab is bought and then holds
+-- nothing until a bag is put in it, and the bags themselves are items in one container of their own. The
+-- panel is the bag window's twin -- same plate, same cells, same drag and close -- so a player who has
+-- opened one of them has opened both.
+function View:BuildBankSlots()
+  if self.slotsWin then return self.slotsWin end
+  local w = CreateFrame("Frame", "WarpeeBankSlots", UIParent, "BackdropTemplate")
+  Theme:Panel(w, "bg", "stroke")
+  Theme:WindowArt(w)
+  Theme:Plate(w)
+  w:SetFrameStrata("MEDIUM")
+  w:SetToplevel(true)
+  w:SetClampedToScreen(true)
+  w:SetMovable(true); w:EnableMouse(true)
+  w:RegisterForDrag("LeftButton")
+  w:SetScript("OnDragStart", function(s) ns.DragStart(s) end)
+  w:SetScript("OnDragStop", function(s)
+    if not s.wpeMoving then return end
+    s.wpeMoving = nil
+    s:StopMovingOrSizing()
+    local pp, rp, x, y = ns.SnapFrame(s)
+    if pp then WarpeeDB.bankSlotsPos = { p = pp, rp = rp, x = x, y = y } end
+  end)
+  ns.EscClose(w)
+
+  self.slotsTitle = Theme:Title(w, FONT - 1, "accent")
+  ns.LocalText(self.slotsTitle, "Bank slots")
+
+  local close = ns.CreateGlyphButton(w, "×")
+  close:SetScript("OnClick", function() w:Hide() end)
+  close.wpeIconPaint = function(s)
+    local hot = s.wpeHot and not s.offDuty
+    ns.TintMarkX(s, hot and "text" or "dim")
+  end
+  close.wpeIconPaint(close)
+  self.slotsClose = close
+
+  self.slotsCells = {}
+  w:SetScript("OnShow", function() self:RefreshBankSlots() end)
+  w:Hide()
+  self.slotsWin = w
+  if ns.Theme and ns.Theme.ApplyWindowAlpha then ns.Theme:ApplyWindowAlpha() end
+  self:LayoutBankSlots()
+  return w
+end
+
+-- How many slots the character bank has, the free first one included; the game answers, so a client that
+-- grows the row needs no number here.
+function View:BankSlotMax()
+  if not (C_Bank and C_Bank.FetchMaxNumBankTabs and Enum and Enum.BankType) then return 0 end
+  local ok, n = pcall(C_Bank.FetchMaxNumBankTabs, Enum.BankType.Character)
+  return (ok and tonumber(n)) or 0
+end
+
+function View:RefreshBankSlots()
+  local w = self.slotsWin
+  if not (w and self.slotsCells) then return end
+  local size = self:CellSize()
+  -- Slot 1 is the bank itself and takes no bag; the row is the tabs after it.
+  local n = 0
+  for slot = 2, self:BankSlotMax() do
+    n = n + 1
+    local b = self.slotsCells[n]
+    if not b then
+      b = ns.CreateBankBagSlot(w, slot, size)
+      self.slotsCells[n] = b
+    end
+    b.slot = slot
+    b:SetSize(size, size)
+    ns.UpdateBankBagSlot(b)
+    b:Show()
+  end
+  for i = n + 1, #self.slotsCells do self.slotsCells[i]:Hide() end
+  self:LayoutBankSlots()
+end
+
+-- The bag window's own arithmetic, so the two panels are laid out by one set of rules: the skin's
+-- header band sizes the top, the content padding sits between the band and the cells and under them,
+-- and the plate is fitted to the frame the cells need.
+function View:LayoutBankSlots()
+  local w = self.slotsWin
+  if not (w and self.slotsCells) then return end
+  sizeGlyph(self.slotsClose, HBTN - 4)
+  -- A little more air than the bag window keeps: eight slots in one row read as a strip, and the name
+  -- over them needs the band and the cells apart. Everything is measured off the skin, the bank window
+  -- and the cell size, so a bigger font or a bigger cell takes the room it needs.
+  local AIR = 6
+  local gap = 6
+  local pad = PAD + AIR + Theme:ContentPad("side")
+  local size = self:CellSize()
+  local band = Theme:HeaderBand(w, 26)
+  local top = Theme:ContentPad("top")
+  local head = band and (band + AIR + 4) or (34 + Theme:TopInset())
+  local mid = (band or head) / 2 + Theme:TitleDrop() + top
+  head = head + top + AIR
+  if self.slotsTitle then
+    self.slotsTitle:ClearAllPoints()
+    self.slotsTitle:SetPoint("LEFT", w, "TOPLEFT", pad, -mid)
+  end
+  if self.slotsClose then
+    self.slotsClose:ClearAllPoints()
+    ns.SnapPoint(self.slotsClose, "RIGHT", w, "TOPRIGHT", -(6 + Theme:ContentPad("side")), -mid)
+  end
+  local prev, n = nil, 0
+  for _, b in ipairs(self.slotsCells) do
+    if b:IsShown() then
+      n = n + 1
+      b:SetSize(size, size)
+      b:ClearAllPoints()
+      if prev then b:SetPoint("LEFT", prev, "RIGHT", gap, 0)
+      else b:SetPoint("TOPLEFT", pad, -head) end
+      prev = b
+    end
+  end
+  local cols = math.max(n, 1)
+  w:SetSize(Layout.WindowWidth(pad, cols, Layout.Step(size, gap), gap),
+    head + size + PAD + AIR + Theme:ContentPad("bottom"))
+  Theme:FitPlateOf(w)
+end
+
+function View:ToggleBankSlots()
+  local w = self:BuildBankSlots()
+  if w:IsShown() then w:Hide(); return end
+  w:ClearAllPoints()
+  local pp = WarpeeDB and WarpeeDB.bankSlotsPos
+  if pp then
+    ns.SnapPoint(w, pp.p, UIParent, pp.rp, pp.x, pp.y)
+  elseif self.frame then
+    ns.SnapPoint(w, "BOTTOMLEFT", self.frame, "TOPLEFT", 0, 6)
+  else
+    w:SetPoint("CENTER")
+  end
+  self:RefreshBankSlots()
+  w:Show()
+  ns.Theme:Raise(w)
 end
 
 function View:BuildBuyButtons()
@@ -3764,7 +3933,11 @@ function View:OpenSnapshot(mode)
     mode = self:ModeAvailable("warband") and "warband" or "bank"
   end
   self:Build()
-  if not self.snap then self.snap = true; self:HideSlots() end
+  if not self.snap then
+    self.snap = true
+    self:HideSlots()
+    if self.slotsWin then self.slotsWin:Hide() end
+  end
   self.mode = mode
   self:UpdateTabs()
   self:Place()

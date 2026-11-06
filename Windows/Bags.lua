@@ -724,7 +724,7 @@ function Bags:Build()
     if button == "RightButton" then switchView(); return end
     Bags:ToggleBagWindow()
   end)
-  addTip(bagsToggle, "LMB: Bags", function() return { { text = "RMB: grid/cat", color = "dim" } } end)
+  addTip(bagsToggle, ns.L["LMB: bag slots"], function() return { { text = "RMB: grid/cat", color = "dim" } } end)
   -- Warpee's own backpack, baked at 64px with its own soft edge so the shape survives the header's
   -- downscale to ~22px instead of collapsing to the grey smudge a hard 16px silhouette becomes. White
   -- RGB with the shape in the alpha, so the quiet paint below tints it like the row's other marks.
