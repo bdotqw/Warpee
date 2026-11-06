@@ -75,6 +75,18 @@ local function store()
   return v
 end
 
+-- Forever gives a character two names: UnitName returns the first as its first value and the
+-- surname as its second, where retail puts the realm. The key stays first name and realm -- that
+-- is the spelling every save already uses -- and the surname is kept beside the class for the
+-- lists that show a character in full. On retail the second value is a realm, so it is not read.
+-- The surname can only be read on that character's own login, so an entry saved before this
+-- field existed shows its first name alone until that character is next captured.
+local function surnameNow()
+  if not ns.IsForever or not UnitName then return nil end
+  local _, surname = UnitName("player")
+  if type(surname) == "string" and surname ~= "" then return surname end
+end
+
 function Vault:Owner()
   if ownerKey then return ownerKey end
   local name = UnitName("player")
@@ -82,6 +94,16 @@ function Vault:Owner()
   local realm = (GetNormalizedRealmName and GetNormalizedRealmName()) or GetRealmName()
   ownerKey = name .. "-" .. (realm or "?")
   return ownerKey
+end
+
+-- A row's name as the picker and the settings list read it: both parts in Forever, the one name
+-- everywhere else. The bags' own tag keeps reading e.name, so the window stays first-name-only.
+function Vault:FullName(e)
+  if not e then return nil end
+  local surname = e.surname
+  if e.key == self:Owner() then surname = surnameNow() or surname end
+  if surname and surname ~= "" then return e.name .. " " .. surname end
+  return e.name
 end
 
 local function invalidate()
@@ -212,6 +234,21 @@ function Vault:OwnerBox(mode, create)
   return (charSub(v, key, mode, create))
 end
 
+-- How a realm is named in a heading. Forever spells its realms after the run they answer, in a
+-- run-prefixed form -- CAMWOWEU4REALM2PVP, CAMWOWEU4REALM10RP, CAMWOWEU5REALM9RPPVP -- and the middle
+-- figures mean nothing without the client's realm table. A player picks a character by the run he plays
+-- on, so the heading carries the tail alone, and the one run that spells two words together gets its gap
+-- back because "RPPVP" reads as a single word at heading size. A realm spelled any other way -- retail,
+-- or a name a later client brings -- is returned whole. Display only: every key built from a realm keeps
+-- the client's spelling.
+function ns.ShortRealm(realm)
+  if type(realm) ~= "string" then return realm end
+  local tail = realm:upper():match("^CAMWOWEU%d+REALM%d+(%u+)$")
+  if not tail then return realm end
+  if tail == "RPPVP" then return "RP PVP" end
+  return tail
+end
+
 local function byRealmName(a, b)
   local ra, rb = (a.realm or ""):lower(), (b.realm or ""):lower()
   if ra ~= rb then return ra < rb end
@@ -230,7 +267,9 @@ function Vault:Chars(includeHidden, mode)
       local hidden = v.hidden[key] and true or false
       if includeHidden or not hidden then
         local name, realm = key:match("^(.-)%-(.*)$")
-        out[#out + 1] = { key = key, name = name or key, realm = realm, class = c.class,
+        local surname = c.surname
+        if key == self:Owner() then surname = surnameNow() or surname end
+        out[#out + 1] = { key = key, name = name or key, surname = surname, realm = realm, class = c.class,
                           at = (c.bank and c.bank.at) or (c.inv and c.inv.at), hidden = hidden }
       end
     end
@@ -258,7 +297,7 @@ function Vault:WithOwner(list)
   if not found then
     local name, realm = key:match("^(.-)%-(.*)$")
     local _, class = UnitClass("player")
-    list[#list + 1] = { key = key, name = name or key, realm = realm, class = class }
+    list[#list + 1] = { key = key, name = name or key, surname = surnameNow(), realm = realm, class = class }
   end
   table.sort(list, function(a, b)
     if (a.key == key) ~= (b.key == key) then return a.key == key end
@@ -396,6 +435,8 @@ local function stampClass(mode)
   if not c then return end
   local _, class = UnitClass("player")
   if class then c.class = class end
+  local surname = surnameNow()
+  if surname then c.surname = surname end
 end
 
 -- The warband coins are readable only while the account bank is in reach. A missed read must never

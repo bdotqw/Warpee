@@ -16,6 +16,14 @@ local SHARED = {
   faint      = { 0.392, 0.427, 0.482, 1.00 },
   azure      = { 0.435, 0.706, 0.831, 1.00 },
   reagent    = { 0.353, 0.804, 0.616, 1.00 },
+  -- The two inks of the client's extra containers: a bronze-gold for the quiver or ammo pouch and a soft
+  -- violet for the keyring, each naming one container wherever it stands -- the caption over its run and the
+  -- ring on its cells read as one thing. Both are measured against the kit the way the coin ink is: no nearer
+  -- than 0.23 to any theme's palette in use as a line or a fill, and far above every slot's own fill, so a
+  -- ring of theirs never reads as a bare cell's edge. The warm themes take a deeper bronze (and blood a
+  -- coppery one) below, where a bright gold would sit on top of the theme's own accent.
+  ammo       = { 0.769, 0.604, 0.333, 1.00 },
+  keys       = { 0.608, 0.510, 0.835, 1.00 },
   -- The currency row's own ink: one colour for every tracked currency, so a ring on that row never reads as
   -- an item quality (the grid's language two rows above), as the reagent mint (a meaning of its own), as
   -- the hover accent or as the danger red. A muted steel-blue, measured against the whole kit: its nearest
@@ -41,7 +49,8 @@ Theme.THEMES = {
     accent = { 0.918, 0.706, 0.325, 1 }, accentInk = { 0.965, 0.835, 0.596, 1 },
     text = { 0.925, 0.918, 0.949, 1 }, dim = { 0.643, 0.627, 0.694, 1 },
     faint = { 0.435, 0.420, 0.494, 1 }, emptyLine = { 0.322, 0.259, 0.408, 1 },
-    azure = { 0.451, 0.667, 0.902, 1 }, reagent = { 0.353, 0.804, 0.616, 1 } },
+    azure = { 0.451, 0.667, 0.902, 1 }, reagent = { 0.353, 0.804, 0.616, 1 },
+    ammo = { 0.702, 0.510, 0.255, 1 } },
   void = { label = "Void",
     bg = { 0.020, 0.020, 0.024, 0.97 }, panel = { 0.047, 0.051, 0.059, 1 },
     panelHi = { 0.095, 0.105, 0.122, 1 }, slot = { 0.024, 0.027, 0.031, 1 },
@@ -57,7 +66,9 @@ Theme.THEMES = {
     accent = { 0.949, 0.320, 0.520, 1 }, accentInk = { 0.973, 0.600, 0.680, 1 },
     text = { 0.949, 0.910, 0.910, 1 }, dim = { 0.706, 0.627, 0.627, 1 },
     faint = { 0.494, 0.427, 0.427, 1 }, emptyLine = { 0.337, 0.239, 0.243, 1 },
-    azure = { 0.847, 0.588, 0.353, 1 }, reagent = { 0.400, 0.827, 0.612, 1 } },
+    azure = { 0.847, 0.588, 0.353, 1 }, reagent = { 0.400, 0.827, 0.612, 1 },
+    -- This palette's own azure is already a sand-gold, so the bronze goes coppery to stay its own thing.
+    ammo = { 0.659, 0.471, 0.231, 1 } },
   nord = { label = "Nord",
     bg = { 0.086, 0.098, 0.129, 0.96 }, panel = { 0.149, 0.169, 0.216, 1 },
     panelHi = { 0.204, 0.231, 0.290, 1 }, slot = { 0.114, 0.129, 0.165, 1 },
@@ -73,7 +84,8 @@ Theme.THEMES = {
     accent = { 0.878, 0.702, 0.416, 1 }, accentInk = { 0.937, 0.827, 0.627, 1 },
     text = { 0.906, 0.929, 0.914, 1 }, dim = { 0.635, 0.686, 0.651, 1 },
     faint = { 0.443, 0.494, 0.459, 1 }, emptyLine = { 0.243, 0.337, 0.278, 1 },
-    azure = { 0.400, 0.670, 0.940, 1 }, reagent = { 0.451, 0.878, 0.812, 1 } },
+    azure = { 0.400, 0.670, 0.940, 1 }, reagent = { 0.451, 0.878, 0.812, 1 },
+    ammo = { 0.702, 0.510, 0.255, 1 } },
   nightbloom = { label = "Nightbloom",
     bg = { 0.075, 0.043, 0.106, 0.96 }, panel = { 0.137, 0.086, 0.192, 1 },
     panelHi = { 0.192, 0.134, 0.262, 1 }, slot = { 0.076, 0.058, 0.100, 1 },
@@ -81,7 +93,9 @@ Theme.THEMES = {
     accent = { 0.910, 0.545, 0.835, 1 }, accentInk = { 0.949, 0.769, 0.918, 1 },
     text = { 0.925, 0.886, 0.957, 1 }, dim = { 0.686, 0.627, 0.757, 1 },
     faint = { 0.478, 0.427, 0.553, 1 }, emptyLine = { 0.310, 0.276, 0.392, 1 },
-    azure = { 0.400, 0.667, 0.941, 1 }, reagent = { 0.400, 0.870, 0.690, 1 } },
+    azure = { 0.400, 0.667, 0.941, 1 }, reagent = { 0.400, 0.870, 0.690, 1 },
+    -- A shade deeper than the shared violet: this palette's secondary ink is itself a pale lilac.
+    keys = { 0.588, 0.471, 0.871, 1 } },
   blizzard = { label = "Blizzard", skin = "blizzard",
     bg = { 0.114, 0.110, 0.106, 0.95 }, panel = { 0.169, 0.165, 0.157, 1 },
     panelHi = { 0.298, 0.286, 0.267, 1 }, slot = { 0.129, 0.125, 0.118, 1 },
@@ -90,7 +104,8 @@ Theme.THEMES = {
     text = { 0.965, 0.949, 0.906, 1 }, dim = { 0.741, 0.718, 0.663, 1 },
     faint = { 0.545, 0.522, 0.475, 1 },
     emptyLine = { 0.300, 0.280, 0.250, 1.00 },
-    azure = { 0.478, 0.729, 0.906, 1 }, reagent = { 0.353, 0.804, 0.616, 1 } },
+    azure = { 0.478, 0.729, 0.906, 1 }, reagent = { 0.353, 0.804, 0.616, 1 },
+    ammo = { 0.702, 0.510, 0.255, 1 } },
   blizzardflat = { label = "Blizzard Flat", skin = "blizzardflat",
     bg = { 0.055, 0.053, 0.050, 0.95 }, panel = { 0.141, 0.137, 0.129, 1 },
     panelHi = { 0.243, 0.235, 0.220, 1 }, slot = { 0.110, 0.106, 0.100, 1 },
@@ -98,7 +113,8 @@ Theme.THEMES = {
     accent = { 0.918, 0.741, 0.404, 1 }, accentInk = { 0.961, 0.867, 0.647, 1 },
     text = { 0.949, 0.945, 0.937, 1 }, dim = { 0.741, 0.733, 0.714, 1 },
     faint = { 0.525, 0.518, 0.498, 1 }, emptyLine = { 0.278, 0.271, 0.255, 1 },
-    azure = { 0.478, 0.729, 0.906, 1 }, reagent = { 0.353, 0.804, 0.616, 1 } },
+    azure = { 0.478, 0.729, 0.906, 1 }, reagent = { 0.353, 0.804, 0.616, 1 },
+    ammo = { 0.702, 0.510, 0.255, 1 } },
   -- Named for what the accent does rather than for a place: it follows the player's class. Still a name,
   -- not a label: theme names stay in English in every language (see themeLabel in Options.lua).
   flatdark = { label = "Class color", classAccent = true,
@@ -140,7 +156,9 @@ Theme.THEMES = {
     accent = { 0.880, 0.420, 0.250, 1.000 }, accentInk = { 0.940, 0.630, 0.460, 1.000 },
     text = { 0.930, 0.950, 0.910, 1.000 }, dim = { 0.680, 0.730, 0.670, 1.000 },
     faint = { 0.500, 0.550, 0.490, 1.000 }, emptyLine = { 0.240, 0.330, 0.220, 1.000 },
-    azure = { 0.500, 0.600, 0.880, 1.000 }, reagent = { 0.400, 0.800, 0.580, 1.000 } },
+    azure = { 0.500, 0.600, 0.880, 1.000 }, reagent = { 0.400, 0.800, 0.580, 1.000 },
+    -- Lifted a little away from this palette's own azure, which is the nearest violet in the kit.
+    keys = { 0.690, 0.545, 0.929, 1.000 } },
   reef = { label = "Reef",
     bg = { 0.004, 0.144, 0.157, 0.960 }, panel = { 0.059, 0.186, 0.199, 1.000 },
     panelHi = { 0.130, 0.255, 0.270, 1.000 }, slot = { 0.035, 0.133, 0.145, 1.000 },
@@ -617,6 +635,57 @@ function ns.AlignToScreen(frame)
     local p, rel, rp, x, y = frame:GetPoint(i)
     if not p then return end
     pts[i] = { p, rel, rp, (x or 0) + dx, (y or 0) + dy }
+  end
+  frame:ClearAllPoints()
+  for i = 1, n do
+    local t = pts[i]
+    frame:SetPoint(t[1], t[2] or frame:GetParent(), t[3] or t[1], t[4], t[5])
+  end
+end
+
+-- Move a region's rect onto the physical pixel grid: every edge is rounded to a whole pixel and the
+-- points that name it move by the remainder, so the size absorbs the difference and the frame does not
+-- slide off its neighbours. A backdrop border is only as sharp as the rect under it -- an edge between
+-- two pixels is smeared over both -- and this is the one pass that puts a border there when the client
+-- rounds nothing for us. Retail's engine snaps every frame itself; a client without SetSnapToPixelGrid
+-- does not, and there an integer offset in ui units lands between pixels whenever the ui scale is not
+-- the pixel-perfect one. On retail the deltas are zero and this returns without touching a point.
+function ns.SnapRect(frame)
+  if not (frame and frame.GetNumPoints and frame.GetLeft) then return end
+  local s = frame:GetEffectiveScale()
+  if not s or s <= 0 then return end
+  local per = s * (physH / 768)
+  if per <= 0 then return end
+  local n = frame:GetNumPoints()
+  if n == 0 then return end
+  local l, b = frame:GetLeft(), frame:GetBottom()
+  local w, h = frame:GetWidth(), frame:GetHeight()
+  if not (l and b and w and h) then return end
+  local function delta(v, size)
+    local vp, sp = v * per, size * per
+    return (math.floor(vp + 0.5) - vp) / per, (math.floor(sp + 0.5) - sp) / per
+  end
+  local dx, dw = delta(l, w)
+  local dy, dh = delta(b, h)
+  -- A fifty-fifth of a pixel is a settled layout, not a rounding error worth stirring: the callers run
+  -- this on every refresh, and a frame already on the grid has to stay where it is.
+  if math.abs(dx) < 0.02 / per and math.abs(dy) < 0.02 / per
+     and math.abs(dw) < 0.02 / per and math.abs(dh) < 0.02 / per then return end
+  local pts = {}
+  for i = 1, n do
+    local p, rel, rp, x, y = frame:GetPoint(i)
+    if not p then return end
+    pts[i] = { p, rel, rp, tonumber(x) or 0, tonumber(y) or 0 }
+  end
+  for i = 1, n do
+    local t = pts[i]
+    local p = t[1]
+    if p:find("LEFT", 1, true) then t[4] = t[4] + dx
+    elseif p:find("RIGHT", 1, true) then t[4] = t[4] + dx + dw
+    else t[4] = t[4] + dx + dw / 2 end
+    if p:find("TOP", 1, true) then t[5] = t[5] + dy + dh
+    elseif p:find("BOTTOM", 1, true) then t[5] = t[5] + dy
+    else t[5] = t[5] + dy + dh / 2 end
   end
   frame:ClearAllPoints()
   for i = 1, n do

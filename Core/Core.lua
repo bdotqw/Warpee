@@ -24,6 +24,11 @@ local DEFAULTS = {
   favShow = true, recentBags = true, recentPocket = true,
   qualityColorIlvl = true, qualityBorder = true, mergeReagents = false,
   reagentTop = false, hideReagents = false,
+  -- The other two containers of the window, one switch each plus the quiver's own merge. They live here
+  -- and not as bare reads off WarpeeDB so that a reset to the shipped settings puts them back like every
+  -- other switch: a value only ever read where it is used has no default to return to. The keyring ships
+  -- out of sight; the quiver shows and stays in its own block.
+  hideAmmo = false, mergeAmmo = false, hideKeys = true,
   -- One block per container in the plain grid, per window, off by default.
   splitBags = false, splitBank = false, splitWb = false, splitGapBags = 12, splitGapBank = 12,
   splitGapWb = 12,
@@ -47,7 +52,7 @@ local DEFAULTS = {
   -- way the junk badge always did; ns.MarkJunk reads Bags.junkCoin, and the login path below carries
   -- the old badge/junkIcon state into it.
   junkCoin = true,
-  reagentTint = true, unusableBorder = true,
+  reagentTint = true, ammoTint = true, unusableBorder = true,
   bagView = "grid", bankView = "grid", categories = {},
   catSort = "ilvl",
   -- Flat pixel values, not NONE: the grouped view ships with the sections packed tight rather than
@@ -251,6 +256,7 @@ function ns.PushConfig()
   Bags.newItemGlow      = WarpeeDB.newItemGlow
   Bags.junkCoin         = WarpeeDB.junkCoin
   Bags.reagentTint      = WarpeeDB.reagentTint
+  Bags.ammoTint         = WarpeeDB.ammoTint
   Bags.unusableBorder   = WarpeeDB.unusableBorder
   Bags.bagView          = WarpeeDB.bagView
   Bags.catGapX          = WarpeeDB.catGapX
@@ -700,6 +706,7 @@ for _, e in ipairs({ "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CH
                      "UPDATE_FACTION", "PLAYER_SPECIALIZATION_CHANGED", "PVP_RATING_UPDATE",
                      "EQUIPMENT_SETS_CHANGED", "EQUIPMENT_SWAP_FINISHED",
                      "PLAYER_EQUIPMENT_CHANGED",
+                     "GUILDBANKFRAME_OPENED", "GUILDBANKFRAME_CLOSED",
                      "PLAYER_INTERACTION_MANAGER_FRAME_SHOW",
                      "PLAYER_INTERACTION_MANAGER_FRAME_HIDE",
                      "CURRENT_SPELL_CAST_CHANGED", "UNIT_SPELLCAST_SUCCEEDED",
@@ -1047,6 +1054,21 @@ local function onProfessionsOpened()
   autoOpenBags("professions")
 end
 
+-- The guild bank on the classic client. That client has no interaction manager, so the banker never
+-- arrives as Enum.PlayerInteractionType.GuildBanker and the switch above never hears of it: the guild
+-- bank announces itself on its own event instead, and the same switch is answered here. Retail is left
+-- alone -- it reports the same visit through the manager, and answering both events there would take one
+-- open for two and read the window shut while it is still up.
+local function onGuildBankOpened()
+  if not ns.IsForever then return end
+  autoOpenBags("guildbank")
+end
+
+local function onGuildBankClosed()
+  if not ns.IsForever then return end
+  autoCloseBags("guildbank")
+end
+
 local function onProfessionsClosed()
   autoCloseBags("professions")
 end
@@ -1134,6 +1156,8 @@ on.BANKFRAME_OPENED = onBankOpened
 on.BANKFRAME_CLOSED = onBankClosed
 on.TRADE_SKILL_SHOW = onProfessionsOpened
 on.TRADE_SKILL_CLOSE = onProfessionsClosed
+on.GUILDBANKFRAME_OPENED = onGuildBankOpened
+on.GUILDBANKFRAME_CLOSED = onGuildBankClosed
 on.PLAYER_INTERACTION_MANAGER_FRAME_SHOW = onInteractionOpened
 on.PLAYER_INTERACTION_MANAGER_FRAME_HIDE = onInteractionClosed
 on.PLAYERBANKSLOTS_CHANGED = onBankSlots

@@ -29,46 +29,90 @@ function ns.IsPlayerBag(id)
   return OWN_BAGS[id] == true
 end
 
--- What a bag item is, by the client's own class number: a quiver and an ammo pouch are class 11, and the
--- class is a property of the bag, not of the slot it stands in -- the player may move a quiver to another
--- bag slot at any time, so nothing here may key off the slot. Only the equipped item answers it, and that
--- read is a cache hit on the client's item table, not a tooltip scan.
+-- What a bag item is, by the client's own class and subclass: a quiver and an ammo pouch are class 11 and
+-- a soul bag is class 1 (Container), subclass 1 (Soul Bag) -- the class alone is not enough to tell a soul
+-- bag from an ordinary bag. Both are a property of the bag, not of the slot it stands in -- the player may
+-- move a quiver to another bag slot at any time, so nothing here may key off the slot. Only the equipped
+-- item answers it, and that read is a cache hit on the client's item table, not a tooltip scan.
 local AMMO_CLASS = (Enum and Enum.ItemClass and Enum.ItemClass.Quiver) or 11
+local BAG_CLASS = (Enum and Enum.ItemClass and Enum.ItemClass.Container) or 1
+local SOUL_SUBCLASS = 1
 
 -- The item equipped in a bag slot: the id off the equipped slot, which the client keeps whether or not the
 -- item itself has been seen. nil for the backpack, an empty slot, and a client without the reader.
 local function bagItemID(bag)
-  if not (bag and bag >= 1 and GetInventoryItemID) then return nil end
+  if not (bag and bag >= 1) then return nil end
   local toInv = (C_Container and C_Container.ContainerIDToInventoryID) or ContainerIDToInventoryID
   if not toInv then return nil end
   local ok, inv = pcall(toInv, bag)
   if not (ok and inv) then return nil end
-  return GetInventoryItemID("player", inv)
+  -- A client may keep the equipped id for a frame and answer nothing by it, and one of the readers is
+  -- missing altogether on some builds; the link is the read that both of them ultimately write into, so
+  -- the id is taken from whichever answers first.
+  if GetInventoryItemID then
+    local okId, id = pcall(GetInventoryItemID, "player", inv)
+    if okId and id then return id end
+  end
+  if GetInventoryItemLink then
+    local okLink, link = pcall(GetInventoryItemLink, "player", inv)
+    if okLink and link then
+      local id = tonumber(link:match("item:(%d+)"))
+      if id then return id end
+    end
+  end
+  return nil
 end
 
 -- The class of a bag item is kept per id: a bag's own item never changes without the bag itself changing,
 -- and a layout pass asks the same four slots again on every change the bags see.
-local ammoByItem = {}
+local runByItem = {}
 
-local function bagHoldsAmmo(bag)
-  local id = bagItemID(bag)
-  if not id then return false end
-  local known = ammoByItem[id]
-  if known == nil then
-    local get = (C_Item and C_Item.GetItemInfo) or GetItemInfo
-    if not get then return false end
-    -- name, link, quality, item level, required level, class, subclass: the class is the sixth answer and
-    -- the one field of the set that says what the bag can hold.
-    local ok, _, _, _, _, _, classID = pcall(get, id)
-    if not (ok and type(classID) == "number") then return false end
-    known = (classID == AMMO_CLASS)
-    ammoByItem[id] = known
+-- The class and the subclass of an item in one read: the instant door answers both as its sixth and seventh
+-- answers, and the full read as the twelfth and thirteenth. A miss is a miss at both doors, and the caller
+-- leaves it uncached so the next pass asks again.
+local function itemClassSub(id)
+  local instant = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
+  if instant then
+    local ok, _, _, _, _, _, classID, subID = pcall(instant, id)
+    if ok and type(classID) == "number" then return classID, subID end
   end
-  return known
+  local get = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+  if get then
+    local ok, _, _, _, _, _, _, _, _, _, _, _, classID, subID = pcall(get, id)
+    if ok and type(classID) == "number" then return classID, subID end
+  end
+  return nil
 end
 
--- Named for the cells as well: an item button asks this of its own bag to know whether to wear the ammo
--- run's outline, and the answer has to be the same one the layout grouped the run by.
+-- Which run a bag makes, if any: "ammo" for a quiver or an ammo pouch, "soul" for a soul bag. Two kinds and
+-- not a yes or no, because the run they draw is the same and the caption over it is not: one is ammunition,
+-- the other is a warlock's shards, and a player reading "Ammo" over a bag of shards would be told a lie.
+local function bagRun(bag)
+  local id = bagItemID(bag)
+  if not id then return nil end
+  local known = runByItem[id]
+  if known == nil then
+    local classID, subID = itemClassSub(id)
+    -- Nothing answered: left uncached, so the next pass asks again instead of remembering a miss as a no.
+    if classID == nil then return nil end
+    if classID == AMMO_CLASS then known = "ammo"
+    elseif classID == BAG_CLASS and subID == SOUL_SUBCLASS then known = "soul"
+    else known = false end
+    runByItem[id] = known
+  end
+  return known or nil
+end
+
+-- Named for the cells as well: an item button asks this of its own bag to know whether to wear the run's
+-- outline, and the answer has to be the same one the layout grouped the run by. Both kinds wear it: the
+-- outline is what names the run once its caption is gone.
+function ns.BagRun(bag)
+  return bagRun(bag)
+end
+
+local function bagHoldsAmmo(bag)
+  return bagRun(bag) ~= nil
+end
 ns.IsAmmoBag = bagHoldsAmmo
 
 local SIZE_DEFAULT, PAD = 37, 10
@@ -164,7 +208,7 @@ local Bags = { pool = {}, vpool = {}, cols = COLS_DEFAULT, gap = GAP_DEFAULT, ic
                slotStyle = "tile", showGauge = true, goldLetters = false, goldOnly = false,
                font = ns.Fonts.DEFAULT, query = "", dirty = {},
                badge = ns.BadgeDefaults(),
-               qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, junkCoin = true, reagentTint = true, unusableBorder = true,
+               qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, junkCoin = true, reagentTint = true, ammoTint = true, unusableBorder = true,
                revFill = false, fillUp = false, newOnTop = false, reagentTop = false, hideReagents = false,
                splitBags = false, splitGapBags = 12, splitGapBank = 12, splitGapWb = 12,
                nameBags = true,
@@ -523,7 +567,7 @@ function Bags:Build()
     ns.Cur:Attach(f)
     if not self.reagentLabel then
       local rlabel = Theme:Label(self.content, FONT - 4, "reagent")
-      ns.LocalText(rlabel, "REAGENTS")
+      ns.LocalText(rlabel, "Reagents")
       rlabel:Hide()
       self.reagentLabel = rlabel
     end
@@ -985,7 +1029,7 @@ function Bags:Build()
   ns.Cur:Attach(f)
 
   local rlabel = Theme:Label(content, FONT - 4, "reagent")
-  ns.LocalText(rlabel, "REAGENTS")
+  ns.LocalText(rlabel, "Reagents")
   rlabel:Hide()
   self.reagentLabel = rlabel
 
@@ -1375,7 +1419,7 @@ end
 local function bagCaption(bag, live)
   local name = live and bagName(bag) or snapBagName(bag)
   if name then return name end
-  if bag == ns.reagentBag then return ns.L["REAGENTS"] end
+  if bag == ns.reagentBag then return ns.L["Reagents"] end
   if bag == 0 then return _G.BACKPACK or "Backpack" end
   return (ns.L["Bag %d"]):format(bag)
 end
@@ -1653,17 +1697,43 @@ function Bags:Layout(capture, light)
     -- the slot it stands in -- moving the quiver to another slot moves its block, it does not lose it.
     -- Retail has none of these: one sheet, and the reagent bag as the only block of its own.
     local ammoOn = (ns.IsForever and not splitEach and not self.snap) and true or false
-    local ammoList, keyList = {}, {}
+    -- Two switches, one container each, and both mean the container is simply not drawn: a hidden quiver
+    -- draws no cell in either view -- it is not folded into the sheet, which is a different thing to ask
+    -- for and left the arrows sitting there under no name -- and a hidden keyring draws no key cell, the way
+    -- the client's own window draws none while it is shut. The items are not touched: they stay in the bag,
+    -- and the client's own window still shows that bag.
+    local hideAmmo = (WarpeeDB and WarpeeDB.hideAmmo) and true or false
+    -- A second state beside the switch: the quiver laid out with the sheet instead of under a caption of its
+    -- own. It only ever means anything in the one sheet -- the split view gives every bag a block, and a
+    -- hidden run has nothing to lay out -- and the bronze ring stays either way, since that is what names
+    -- the run once its caption is gone.
+    local mergeAmmo = (ammoOn and WarpeeDB and WarpeeDB.mergeAmmo) and true or false
+    -- The keyring is not a bag, so the split view has no block of its own for it: it takes one, and the same
+    -- one the sheet gives it, which is why this switch does not follow the sheet's.
+    local showKeys = (ns.IsForever and not self.snap and not (WarpeeDB and WarpeeDB.hideKeys)) and true or false
+    -- Two runs of their own, one per kind of container: the same block on screen, different captions.
+    local ammoList, soulList, keyList = {}, {}, {}
     local mainList, reagList, blocks = {}, {}, {}
     for _, bag in ipairs(ns.playerBags) do
       local num = self:Slots(bag)
       self.bagSlots[bag] = num
-      total = total + num
-      used = used + self:Taken(bag)
-      local ammo = ammoOn and bagHoldsAmmo(bag)
-      local list = (splitEach and {}) or (ammo and ammoList or mainList)
-      for slot = 1, num do list[#list + 1] = { bag, slot } end
-      if splitEach and #list > 0 then blocks[#blocks + 1] = { list = list, bag = bag } end
+      -- A quiver or an ammo pouch is an ordinary bag carried in a bag slot, so a run switched off takes its
+      -- slots out of the window whole, and out of the figures with them -- the same way a hidden reagent
+      -- bag takes part in neither. The bag keeps its recorded slot count, since every other pass over the
+      -- bags reads that table.
+      -- Retail has no such bag to look for, so the question is not even asked there.
+      local run = ns.IsForever and bagRun(bag)
+      if not (run and hideAmmo) then
+        total = total + num
+        used = used + self:Taken(bag)
+        local list
+        if splitEach then list = {}
+        elseif run == "ammo" and not mergeAmmo then list = ammoList
+        elseif run == "soul" and not mergeAmmo then list = soulList
+        else list = mainList end
+        for slot = 1, num do list[#list + 1] = { bag, slot } end
+        if splitEach and #list > 0 then blocks[#blocks + 1] = { list = list, bag = bag } end
+      end
     end
     if rnum > 0 then
       total = total + rnum
@@ -1678,7 +1748,7 @@ function Bags:Layout(capture, light)
     if merge then
       for i = 1, #reagList do mainList[#mainList + 1] = reagList[i] end
     end
-    if ammoOn and KEYRING then
+    if showKeys and KEYRING then
       local knum = keyringSize()
       self.bagSlots[KEYRING] = knum
       -- Keys take no part in the count: the header figure, the gauge and the free-slot number keep reading
@@ -1694,28 +1764,36 @@ function Bags:Layout(capture, light)
       if a then blocks[#blocks + 1] = a end
       if b then blocks[#blocks + 1] = b end
     end
+    local keyBlock = #keyList > 0 and { list = keyList, keys = true } or nil
     if ammoOn then
-      -- Each run after the first is seamed off by a rule in the block loop below, which is what tells one
-      -- container's cells from the next without a caption over every one of them.
-      local ammoBlock = #ammoList > 0 and { list = ammoList, ammo = true } or nil
-      local keyBlock = #keyList > 0 and { list = keyList, keys = true } or nil
+      -- The runs are named by their captions rather than seamed off by a rule: a hairline between two runs
+      -- said only that something changed, and an empty run under the sheet read as a stray row of slots.
+      local ammoBlock = #ammoList > 0 and { list = ammoList, run = "ammo" } or nil
+      local soulBlock = #soulList > 0 and { list = soulList, run = "soul" } or nil
       -- "Reagents on top" still means the head of the grid, so that setting keeps its one meaning here: the
       -- reagent run moves in front of the sheet rather than to the front of a section order it no longer has.
-      local seq = onTop and { reagBlock, sheet, ammoBlock, keyBlock }
-                         or { sheet, ammoBlock, reagBlock, keyBlock }
-      for si = 1, #seq do
-        local sb = seq[si]
-        if sb then
-          sb.rule = #blocks > 0
-          blocks[#blocks + 1] = sb
-        end
+      -- Put down one at a time, never as one list with holes in it: a merged quiver leaves ammoBlock nil, and
+      -- the length of a table with a nil in the middle is whatever the engine decides that pass -- which took
+      -- the reagent block and the keys below it out of the window with it.
+      if onTop then
+        put(reagBlock, sheet)
+        put(ammoBlock, soulBlock)
+      else
+        put(sheet, ammoBlock)
+        put(soulBlock, reagBlock)
       end
-    elseif onTop and splitEach then
-      table.insert(blocks, 1, reagBlock)
-    elseif onTop then
-      put(reagBlock, sheet)
+      if keyBlock then blocks[#blocks + 1] = keyBlock end
     else
-      put(sheet, reagBlock)
+      if onTop and splitEach then
+        table.insert(blocks, 1, reagBlock)
+      elseif onTop then
+        put(reagBlock, sheet)
+      else
+        put(sheet, reagBlock)
+      end
+      -- The keys take the last block in this view too: with the split on, every bag above is a block of its
+      -- own, so the keyring is simply one more, after the bags and the reagent block alike.
+      if keyBlock then blocks[#blocks + 1] = keyBlock end
     end
 
     -- The cell flow of one block: every slot in physical order, so the items pack from the origin corner
@@ -1733,6 +1811,16 @@ function Bags:Layout(capture, light)
       -- the blocks apart. With the split off there is nothing here to name, and the reagent block keeps
       -- the label it has always had. A captioned block widens its own gap to hold the caption.
       local capText = (showNames and blk.bag ~= nil) and bagCaption(blk.bag, not self.snap) or nil
+      -- The client's two extra containers are named where they stand. The names come out of the locale
+      -- tables, so a translated client reads its own word for them, and they carry a capital first
+      -- letter only -- the same face as the reagent caption beside them.
+      -- Each run names the container it came from: a quiver and an ammo pouch are ammunition, a soul bag
+      -- is a warlock's shards, and a caption saying the wrong one of the two would be a lie over the bag.
+      if not capText then
+        if blk.run == "ammo" then capText = ns.L["Ammo"]
+        elseif blk.run == "soul" then capText = ns.L["Soul shards"]
+        elseif blk.keys then capText = ns.L["Keys"] end
+      end
       -- The room a caption needs is only owed where one is actually drawn: with the names off the blocks
       -- stand the slider's gap apart but never closer than the slot spacing, so a grid whose cells are
       -- spread on the slot-spacing slider keeps the same air between one bag's block and the next instead
@@ -1748,7 +1836,12 @@ function Bags:Layout(capture, light)
         lbl = self:BagLabel(capN)
         lbl:ClearAllPoints()
         lbl:SetText(capText)
-        lbl:SetTextColor(Theme:C(blk.reagent and "reagent" or "accent"))
+        -- The ammo and the key runs wear the very ink their cells are ringed in -- bronze and violet, one
+        -- container each -- so a caption and the outline under it read as one thing; every other block keeps
+        -- the accent (or the reagent green).
+        local colKey = blk.reagent and "reagent" or "accent"
+        if blk.run then colKey = "ammo" elseif blk.keys then colKey = "keys" end
+        lbl:SetTextColor(Theme:C(colKey))
         capH = math.ceil(lbl:GetStringHeight() or 0)
         if capH <= 0 then capH = FONT end
       elseif reagName and bi == 1 then
@@ -2669,8 +2762,8 @@ function Bags:EmptyTile(i)
   if not t then
     t = CreateFrame("Frame", nil, self.content)
     -- A sample empty cell, cell-sized so it sits in the grid like any slot: a faint plate, its free
-    -- count centred, and a border. Two are drawn, the plain-bag one and the reagent one, so the two
-    -- pools each show their own free number without folding into one. The count in the section caption
+    -- count centred, and a border. Up to three are drawn -- plain bags, the quiver, the reagent bag -- so
+    -- each pool shows its own free number without folding into one. The count in the section caption
     -- is the total; these name where that room is. The section drop zone lies over them and a release
     -- is the unfile.
     -- The faint plate. Its low alpha is baked into the vertex colour and re-applied through the theme
@@ -2716,17 +2809,22 @@ function Bags:EmptyTile(i)
   return t
 end
 
--- Paint the border for this layout: reagent tint on the reagent sample cell, a neutral mid tone on the
--- plain one, close in weight to the reagent border so the two read as a pair. Written fresh every
--- layout, so a theme change (which re-lays the grid) repaints it and nothing can stick lit.
-function Bags:EmptyTileBorder(t, on)
+-- Paint the border for this layout: the cell edge's own tone on the plain sample, and a container's hue
+-- on the two that have one. Written fresh every layout, so a theme change (which re-lays the grid)
+-- repaints it and nothing can stick lit.
+function Bags:EmptyTileBorder(t, kind)
   if not t.edges then return end
-  -- An empty cell is room, not an item, and the reagent mint at full strength is brighter than most of
-  -- the rings on the items beside it: a row of free room outshone the things the player came for. Two
-  -- thirds of it still draws the cell and no longer competes with one. Written on the vertex colour, so
-  -- the layout pass repaints it and a theme change cannot leave it lit.
-  local r, g, b = Theme:C(on and "reagent" or "faint")
-  local a = on and 0.62 or 0.55
+  -- These are cells saying how much room is left, and the plain one used to be drawn in a softer tone at
+  -- half strength -- a square whose fill is nearly invisible and whose edge went with it, so the three
+  -- read as numbers floating in the plate rather than as slots. It now wears the very colour a real empty
+  -- cell's edge wears (emptyLine), at full strength, which is what makes it read as a cell. The tinted
+  -- two keep their container's hue a shade under the item rings' 0.9: a row of free room must not outshine
+  -- the things the player came for.
+  local key, a = "emptyLine", 1
+  -- The quiver and the soul bag share the run's bronze: one kind of block, two captions.
+  if kind == "ammo" or kind == "soul" then key, a = "ammo", 0.85
+  elseif kind == "reagent" then key, a = "reagent", 0.85 end
+  local r, g, b = Theme:C(key)
   for _, e in ipairs(t.edges) do
     e:SetVertexColor(r, g, b, a)
     e:Show()
@@ -2957,9 +3055,10 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
   -- buckets on its own list position and lays out in this same pass as the rest: it packs onto a
   -- shelf and repacks like any section, and the player can move or delete it from the editor. It
   -- stands in for the free space the grid shows as trailing blank cells: grouped view has none to
-  -- eyeball, so this names it. Its bucket carries b.empty and owns no slots; it draws two display
-  -- tiles instead, bound to nothing so they carry no bag or slot and stay taint-free: the normal bags'
-  -- free count, and the reagent bag's under its green border (dropped when no reagent bag is worn). It
+  -- eyeball, so this names it. Its bucket carries b.empty and owns no slots; it draws display tiles
+  -- instead, bound to nothing so they carry no bag or slot and stay taint-free: the normal bags' free
+  -- count, the quiver's under the ammo run's hue, and the reagent bag's under its green (either
+  -- container's tile dropped when the player carries no such bag). It
   -- doubles as the unfile target: EMPTY_ID owns no items, so a drop here clears the piece's manual
   -- home, which is exactly the unpin.
   local free = math.max(0, (total or 0) - (used or 0))
@@ -2971,8 +3070,34 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
     regSlots = self:Slots(ns.reagentBag)
     if regSlots > 0 then freeReg = regSlots - self:Taken(ns.reagentBag) end
   end
-  local freeMain = math.max(0, free - freeReg)
-  local emptyTiles = (regSlots > 0) and 2 or 1
+  -- Quiver room, read the same way. This view groups the whole inventory and never hides a container, so a
+  -- quiver is counted here whatever the two switches say, exactly as the reagent bag is.
+  local freeAmmo, ammoSlots, freeSoul, soulSlots = 0, 0, 0, 0
+  if ns.IsForever then
+    for _, bag in ipairs(ns.playerBags) do
+      local num = self:Slots(bag)
+      if num > 0 then
+        local run = bagRun(bag)
+        local room = num - self:Taken(bag)
+        if run == "ammo" then
+          ammoSlots = ammoSlots + num
+          freeAmmo = freeAmmo + room
+        elseif run == "soul" then
+          soulSlots = soulSlots + num
+          freeSoul = freeSoul + room
+        end
+      end
+    end
+  end
+  local freeMain = math.max(0, free - freeReg - freeAmmo - freeSoul)
+  -- The samples the Empty section draws, in the order the window runs its own blocks: the plain bags, then
+  -- the quiver, then the reagent bag. A container the player does not carry has no sample -- there is no
+  -- room to point at -- and the total in the caption is the same sum it always was.
+  local emptySamples = { { count = freeMain } }
+  if ammoSlots > 0 then emptySamples[#emptySamples + 1] = { count = freeAmmo, kind = "ammo" } end
+  if soulSlots > 0 then emptySamples[#emptySamples + 1] = { count = freeSoul, kind = "soul" } end
+  if regSlots > 0 then emptySamples[#emptySamples + 1] = { count = freeReg, kind = "reagent" } end
+  local emptyTiles = #emptySamples
   local shownTiles = 0
   -- Bands: a run of sections that share the marker heading them. The marker is the entry in the saved
   -- list the whole layout walks — a group header, a divider, or nothing at all for the run before the
@@ -3210,28 +3335,20 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
     head:Show()
     local secH
     if isEmpty then
-      -- Sample empty cells on the shelf like a section's slots: the plain-bag one with its free count,
-      -- and when a reagent bag exists a reagent-bordered one beside it with the reagent free count. The
-      -- caption already totals the free room; these two say where it is, in the grid's own cell shape.
-      -- They live inside secH so the Empty drop zone covers them, and a release here is the unfile.
+      -- Sample empty cells on the shelf like a section's slots: the plain bags' free count, then the
+      -- quiver's under the ammo run's own hue, then the reagent bag's under its green. The caption already
+      -- totals the free room; these say where it is, in the grid's own cell shape. They live inside secH so
+      -- the Empty drop zone covers them, and a release here is the unfile.
       local cellsTop = sy + capH
-      local t1 = self:EmptyTile(1)
-      ns.SnapSize(t1, size, size)
-      t1.count:SetText(tostring(freeMain))
-      self:EmptyTileBorder(t1, false)
-      self:FitEmptyCount(t1, size)
-      t1:ClearAllPoints()
-      ns.SnapPoint(t1, "TOPLEFT", self.content, "TOPLEFT", sx, -cellsTop)
-      t1:Show()
-      if emptyTiles > 1 then
-        local t2 = self:EmptyTile(2)
-        ns.SnapSize(t2, size, size)
-        t2.count:SetText(tostring(freeReg))
-        self:EmptyTileBorder(t2, true)
-        self:FitEmptyCount(t2, size)
-        t2:ClearAllPoints()
-        ns.SnapPoint(t2, "TOPLEFT", self.content, "TOPLEFT", sx + step, -cellsTop)
-        t2:Show()
+      for k, sample in ipairs(emptySamples) do
+        local t = self:EmptyTile(k)
+        ns.SnapSize(t, size, size)
+        t.count:SetText(tostring(sample.count))
+        self:EmptyTileBorder(t, sample.kind)
+        self:FitEmptyCount(t, size)
+        t:ClearAllPoints()
+        ns.SnapPoint(t, "TOPLEFT", self.content, "TOPLEFT", sx + (k - 1) * step, -cellsTop)
+        t:Show()
       end
       shownTiles = emptyTiles
       secH = capH + size
@@ -3535,10 +3652,6 @@ function Bags:FormatMoney()
     return m and ns.FormatMoney(m, nil, Theme:IsLight(), nil, face) or "—"
   end
   return ns.FormatMoney(GetMoney(), nil, Theme:IsLight(), nil, face)
-end
-
-function ns.FormatGold(copper, deep, plain)
-  return coinSeg(ns.FormatNumber(math.floor((copper or 0) / 10000)), "g", deep, plain)
 end
 
 function Bags:UpdateBagBar()
@@ -3876,7 +3989,10 @@ function Bags:FitHeader()
   self:FlowHeader()
   local w = self.frame:GetWidth()
   self.search:Show()
-  local showReag = not ns.IsForever and not self:CatMode() and self:Slots(ns.reagentBag) > 0
+  -- The reagent switch follows the container, not the client: this client keeps a reagent bag as well
+  -- (container five), so a player with one has the same switch for it there, and a player without one is
+  -- never shown a switch for a block that is not in the window.
+  local showReag = not self:CatMode() and self:Slots(ns.reagentBag) > 0
   local showCur = not self.snap and self:HasCurrencies()
   if self.curBtn then self.curBtn:SetShown(showCur) end
   if self.reagentBtn then self.reagentBtn:SetShown(showReag) end

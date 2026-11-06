@@ -180,9 +180,12 @@ local function makeCatcher(parent, index)
   c:SetScript("OnReceiveDrag", function(s) Fav:PinFromCursor(s.favIndex) end)
   c:SetScript("OnClick", function(s, button)
     if button == "MiddleButton" then
-      -- Direct click, not a binding: mouse chords never reach us, and a
-      -- key-bound middle keeps its owner.
-      if (GetBindingAction("BUTTON3") or "") == "" then Fav:Unpin(s.favIndex) end
+      -- Direct click, not a binding, and the cell keeps the click either way. The addon's own default
+      -- sits on this very button -- a mouse chord over a cell never reaches the game's key settings, so
+      -- the addon is the only thing that can bind it -- and that owner is Warpee's own action, which is
+      -- no reason to refuse the click. A middle button somebody else has spoken for is left alone.
+      local act = (GetBindingAction and GetBindingAction("BUTTON3")) or ""
+      if act == "" or act == "WARPEE_UNPIN" then Fav:Unpin(s.favIndex) end
       return
     end
     if button ~= "LeftButton" then return end

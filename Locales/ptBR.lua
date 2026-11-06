@@ -341,6 +341,9 @@ local STRINGS = {
   ["New item glow"] = "Brilho de item novo",
   ["Junk coin"] = "Moeda na sucata",
   ["Reagent border"] = "Borda de reagentes",
+  ["Ammo / soul border"] = "Borda de munição / almas",
+  ["Tint the slots of the quiver, the ammo pouch and the soul bag, in the grouped view too."] =
+    "Colore os espaços da aljava, da bolsa de munição e da bolsa de almas, inclusive na visão por categorias.",
   ["Unwearable border"] = "Borda de item não equipável",
   ["Border thickness"] = "Espessura da borda",
   ["Item level by quality"] = "Nível do item por qualidade",
@@ -486,7 +489,17 @@ local STRINGS = {
   ["Bank / Warband"] = "Banco / Bando de Guerra",
   ["Sell now"] = "Vender agora",
   ["Bags of another character"] = "Bolsas de outro personagem",
-  ["REAGENTS"] = "REAGENTES",
+  -- The two containers Forever's client keeps beside the bags, and the switches that show or hide them.
+  ["Containers"] = "Recipientes",
+  ["Hide ammo / souls"] = "Ocultar munição / fragmentos",
+  ["Merge ammo / souls"] = "Unir munição / fragmentos",
+  ["Hide keys"] = "Ocultar chaves",
+  ["Lay the quiver, the ammo pouch or the soul bag out with the main bags, without its caption. Their cells keep their bronze outline, so they still read as one run in the sheet."] =
+    "Dispor a aljava, a bolsa de munição ou a bolsa de almas junto das bolsas, sem o título dela. Os espaços mantêm o contorno de bronze, então o bloco continua legível na grade.",
+  ["Leave the quiver, the ammo pouch or the soul bag out of the window. Their slots still count in the header, and the client's own window still shows them."] =
+    "Deixar a aljava, a bolsa de munição ou a bolsa de almas fora da janela. Seus espaços continuam contando no cabeçalho, e a janela do cliente continua mostrando-os.",
+  ["Leave the keyring out of the window. The keys stay in the keyring, and the client's own window still opens it."] =
+    "Deixar o chaveiro fora da janela. As chaves ficam no chaveiro e a janela do cliente continua abrindo-o.",
   ["BAGS"] = "BOLSAS",
   ["Bag Slots"] = "Espaços para bolsas",
   ["WARBAND BANK"] = "BANCO DO BANDO DE GUERRA",
@@ -547,8 +560,6 @@ local STRINGS = {
   ["Alt + LMB to mark it for sale: a coin appears, and it is sold at the next merchant who buys wares. A second Alt + LMB locks it from sale, a third clears it. Works in the bags, the bank, the favorites row and the pocket."] = "Alt + BE em um item marca-o para venda: uma moeda aparece, e ele é vendido no próximo comerciante que compra itens. Um segundo Alt + BE protege contra venda, um terceiro tira a marca. Funciona nas bolsas, no banco, na linha de favoritos e no bolso.",
   ["Alt + LMB on an item in your bags to mark it for sale."] = "Alt + BE em um item nas bolsas marca-o para venda.",
   ["%d items could not be sold and stayed in the bags"] = {
-    "%d item não pôde ser vendido e permaneceu nas bolsas",
-    "%d itens não puderam ser vendidos e permaneceram nas bolsas",
   },
   ["repaired for %s from %s"] = "reparado por %s usando %s",
   ["guild funds"] = "fundos da guilda",
@@ -662,9 +673,9 @@ local STRINGS = {
   ["ilvl <%d"] = "nvl. item <%d",
   ["ilvl %s %d"] = "nvl. item %s %d",
   ["Clear the cell"] = "Limpar o espaço",
-  ["Right-click to unbind"] = "Clique com o botão direito para remover a atribuição",
   ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "«Limpar o espaço» não pode usar botões do mouse, o jogo os engole sobre as células. A tecla do teclado continua funcionando, só a do mouse foi removida.",
   ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] = "«Limpar o espaço» não pode usar botões do mouse, o jogo os engole sobre as células. Agora não há nada atribuído, escolha qualquer tecla do teclado nas configurações de teclas.",
+  ["Right-click to unbind"] = "Clique com o botão direito para remover a atribuição",
   ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "A tecla que limpa uma célula de favorito ou do bolso sob o cursor. Clique e pressione uma tecla, um botão do mouse ou a roda; o clique com o botão direito apaga a atribuição, Esc cancela.",
   ["Keystone"] = "Chave",
   ["Potions"] = "Poções",
@@ -808,6 +819,7 @@ local STRINGS = {
   ["Open the transfer window"] = "Abre a janela de transferência",
   ["Two recent rows"] = "Duas linhas de recentes",
   ["A second row of recent items in the pocket, so a narrow pocket still has room. Off leaves one row."] = "Uma segunda linha de itens recentes no bolso, para que um bolso estreito tenha espaço. Desativado deixa uma linha.",
+  ["Soul shards"] = "Fragmentos de alma",
 }
 
 ns.AddLocale("ptBR", "Portuguese", {

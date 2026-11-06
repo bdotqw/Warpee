@@ -109,9 +109,13 @@ function factories.keybind(parent, spec)
 
   local function keyText()
     -- GetBindingKey returns BOTH slots; take the first non-empty so a key set only in the second
-    -- slot still reads as bound instead of "Not bound".
-    local k1, k2 = GetBindingKey and GetBindingKey(spec.binding)
-    local k = (k1 and k1 ~= "" and k1) or (k2 and k2 ~= "" and k2) or nil
+    -- slot still reads as bound instead of "Not bound". Called on its own line: `GetBindingKey and
+    -- GetBindingKey(...)` keeps one value of the call, and the second slot is lost on the way.
+    local k1, k2
+    if GetBindingKey then k1, k2 = GetBindingKey(spec.binding) end
+    if k1 == "" then k1 = nil end
+    if k2 == "" then k2 = nil end
+    local k = k1 or k2
     if k then return k end
     return T("Not bound")
   end
@@ -181,7 +185,10 @@ function factories.keybind(parent, spec)
     if capturing then stop() return end
     if button == "RightButton" then
       if InCombatLockdown() then return end
-      local k1, k2 = GetBindingKey and GetBindingKey(spec.binding)
+      local k1, k2
+      if GetBindingKey then k1, k2 = GetBindingKey(spec.binding) end
+      if k1 == "" then k1 = nil end
+      if k2 == "" then k2 = nil end
       if k1 then SetBinding(k1) end
       if k2 then SetBinding(k2) end
       if k1 or k2 then save() end

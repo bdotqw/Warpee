@@ -309,6 +309,9 @@ local STRINGS = {
   ["New item glow"] = "새 아이템 반짝임",
   ["Junk coin"] = "잡동사니 동전",
   ["Reagent border"] = "재료 테두리",
+  ["Ammo / soul border"] = "탄약 / 영혼 테두리",
+  ["Tint the slots of the quiver, the ammo pouch and the soul bag, in the grouped view too."] =
+    "화살통, 탄약 주머니, 영혼의 조각 주머니 칸을 색으로 표시합니다. 분류 보기에서도 적용됩니다.",
   ["Unwearable border"] = "착용 불가 테두리",
   ["Border thickness"] = "테두리 두께",
   ["Item level by quality"] = "등급별 아이템 레벨 색",
@@ -422,7 +425,17 @@ local STRINGS = {
   ["Bank / Warband"] = "은행 / 전투부대",
   ["Sell now"] = "지금 판매",
   ["Bags of another character"] = "다른 캐릭터의 가방",
-  ["REAGENTS"] = "재료",
+  -- The two containers Forever's client keeps beside the bags, and the switches that show or hide them.
+  ["Containers"] = "보관함",
+  ["Hide ammo / souls"] = "탄약 / 영혼의 파편 숨기기",
+  ["Merge ammo / souls"] = "탄약 / 영혼의 파편 합치기",
+  ["Hide keys"] = "열쇠 숨기기",
+  ["Lay the quiver, the ammo pouch or the soul bag out with the main bags, without its caption. Their cells keep their bronze outline, so they still read as one run in the sheet."] =
+    "화살통, 탄약 주머니, 영혼의 조각 주머니를 가방과 함께 펼치고 제목은 두지 않습니다. 칸은 청동 테두리를 유지하므로 격자 안에서도 한 묶음으로 읽힙니다.",
+  ["Leave the quiver, the ammo pouch or the soul bag out of the window. Their slots still count in the header, and the client's own window still shows them."] =
+    "화살통, 탄약 주머니, 영혼의 조각 주머니를 창에서 숨깁니다. 칸 수는 머리글에 그대로 잡히고, 게임 자체 창에서는 계속 보입니다.",
+  ["Leave the keyring out of the window. The keys stay in the keyring, and the client's own window still opens it."] =
+    "열쇠고리를 창에서 뺍니다. 열쇠는 열쇠고리에 그대로 남고, 기본 창에서는 계속 열 수 있습니다.",
   ["BAGS"] = "가방",
   ["Bag Slots"] = "가방 보관함",
   ["WARBAND BANK"] = "전투부대 은행",
@@ -588,9 +601,9 @@ local STRINGS = {
   ["expansion sl"] = "어둠땅", ["expansion df"] = "용군단",
   ["expansion tww"] = "내부 전쟁", ["expansion midnight"] = "한밤",
   ["Clear the cell"] = "칸 비우기",
-  ["Right-click to unbind"] = "우클릭으로 바인딩 해제",
   ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "「칸 비우기」는 마우스 버튼을 쓸 수 없습니다. 게임이 칸 위에서 먹어버립니다. 키보드 키는 그대로 됩니다.",
   ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] = "「칸 비우기」는 마우스 버튼을 쓸 수 없습니다. 게임이 칸 위에서 먹어버립니다. 지금은 지정된 키가 없으니 키 설정에서 아무 키나 고르세요.",
+  ["Right-click to unbind"] = "우클릭으로 바인딩 해제",
   ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "마우스 아래 즐겨찾기/주머니 칸을 비우는 키. 클릭 후 키보드, 마우스, 휠 입력. 우클릭은 해제, Esc는 취소.",
   ["Categories"] = "카테고리",
   ["Sort within a section"] = "섹션 안 정렬",
@@ -760,6 +773,7 @@ local STRINGS = {
   ["Open the transfer window"] = "이전 창을 엽니다",
   ["Two recent rows"] = "최근 아이템 두 줄",
   ["A second row of recent items in the pocket, so a narrow pocket still has room. Off leaves one row."] = "좁은 주머니에도 자리가 있도록 최근 아이템을 한 줄 더 표시합니다. 끄면 한 줄만 표시합니다.",
+  ["Soul shards"] = "영혼의 파편",
 }
 
 ns.AddLocale("koKR", "Korean", {

@@ -569,6 +569,8 @@ function factories.catlist(parent, spec)
       local span = wspan()
       sf:SetVerticalScroll(math.min(span, math.max(0, v)))
       paintWBar()
+      -- Same as the page scroll: the sheet's rows ride the child and come off the pixel grid as it moves.
+      if Options.SnapSoon then Options:SnapSoon() end
     end
     sf:EnableMouseWheel(true)
     sf:SetScript("OnMouseWheel", function(s, d) wscroll((s:GetVerticalScroll() or 0) - d * PROWH * 2) end)

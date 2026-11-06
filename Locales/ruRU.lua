@@ -413,6 +413,9 @@ local STRINGS = {
   ["New item glow"] = "Свечение новых предметов",
   ["Junk coin"] = "Монета на хламе",
   ["Reagent border"] = "Рамка реагентов",
+  ["Ammo / soul border"] = "Рамка боеприпасов / душ",
+  ["Tint the slots of the quiver, the ammo pouch and the soul bag, in the grouped view too."] =
+    "Подсвечивать ячейки колчана, патронташа и сумки душ, в том числе в виде категорий.",
   ["Unwearable border"] = "Рамка «нельзя надеть»",
   ["Border thickness"] = "Толщина рамки",
   ["Item level by quality"] = "Уровень предмета по качеству",
@@ -558,7 +561,17 @@ local STRINGS = {
   ["Bank / Warband"] = "Банк и банк отряда",
   ["Sell now"] = "Продать сейчас",
   ["Bags of another character"] = "Сумки другого персонажа",
-  ["REAGENTS"] = "РЕАГЕНТЫ",
+  -- The two containers Forever's client keeps beside the bags, and the switches that show or hide them.
+  ["Containers"] = "Контейнеры",
+  ["Hide ammo / souls"] = "Скрыть боеприпасы / души",
+  ["Merge ammo / souls"] = "Объединить боеприпасы / души",
+  ["Hide keys"] = "Скрыть ключи",
+  ["Lay the quiver, the ammo pouch or the soul bag out with the main bags, without its caption. Their cells keep their bronze outline, so they still read as one run in the sheet."] =
+    "Показывать колчан, патронташ или сумку душ вместе с основными, без отдельного заголовка. Ячейки сохраняют бронзовую обводку, поэтому блок читается и внутри сетки.",
+  ["Leave the quiver, the ammo pouch or the soul bag out of the window. Their slots still count in the header, and the client's own window still shows them."] =
+    "Колчан, патронташ или сумка душ не рисуется в окне. Их ячейки по-прежнему учитываются в шапке, и штатное окно клиента их показывает.",
+  ["Leave the keyring out of the window. The keys stay in the keyring, and the client's own window still opens it."] =
+    "Связка ключей не рисуется в окне. Ключи остаются в связке, и штатное окно клиента её по-прежнему открывает.",
   ["BAGS"] = "СУМКИ",
   ["Bag Slots"] = "Ячейки для сумок",
   ["WARBAND BANK"] = "БАНК ОТРЯДА",
@@ -619,9 +632,6 @@ local STRINGS = {
   ["Alt + LMB to mark it for sale: a coin appears, and it is sold at the next merchant who buys wares. A second Alt + LMB locks it from sale, a third clears it. Works in the bags, the bank, the favorites row and the pocket."] = "Alt + ЛКМ по предмету отмечает его на продажу: появляется монета, и предмет продаётся при следующем открытии торговца, который скупает вещи. Второй Alt + ЛКМ запрещает продажу, третий снимает метку. Работает в сумках, банке, ряду избранного и кармане.",
   ["Alt + LMB on an item in your bags to mark it for sale."] = "Alt + ЛКМ по предмету в сумках отмечает его на продажу.",
   ["%d items could not be sold and stayed in the bags"] = {
-    "Не удалось продать %d предмет, он остался в сумках",
-    "Не удалось продать %d предмета, они остались в сумках",
-    "Не удалось продать %d предметов, они остались в сумках",
   },
   ["repaired for %s from %s"] = "ремонт за %s %s",
   ["guild funds"] = "из кассы гильдии",
@@ -687,6 +697,8 @@ local STRINGS = {
   ["Drag an item here for quick access"] =
     "Перетащите предмет сюда для быстрого доступа",
   ["Clear the cell"] = "Освободить ячейку",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "Действие «Освободить ячейку» не берёт кнопки мыши: игра съедает их над ячейками. Клавиша клавиатуры осталась, снята только мышиная.",
+  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] = "Действие «Освободить ячейку» не берёт кнопки мыши: игра съедает их над ячейками. Сейчас не назначено ничего, выбери любую клавишу клавиатуры в настройках.",
   ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "Клавиша, освобождающая ячейку избранного или кармана под курсором. Нажмите кнопку, затем клавишу, кнопку мыши или колесо; правый клик очищает поле, Escape отменяет.",
   ["%s clears the slot"] = "%s освобождает ячейку",
   ["Middle-click to clear the slot"] = "Средняя кнопка мыши освобождает ячейку",
@@ -740,8 +752,6 @@ local STRINGS = {
   ["ilvl %d+"] = "илвл %d+",
   ["ilvl <%d"] = "илвл <%d",
   ["ilvl %s %d"] = "илвл %s %d",
-  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "Действие «Освободить ячейку» не берёт кнопки мыши: игра съедает их над ячейками. Клавиша клавиатуры осталась, снята только мышиная.",
-  ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] = "Действие «Освободить ячейку» не берёт кнопки мыши: игра съедает их над ячейками. Сейчас не назначено ничего, выбери любую клавишу клавиатуры в настройках.",
   ["Right-click to unbind"] = "ПКМ — снять бинд",
   ["Keystone"] = "Ключ",
   ["Potions"] = "Зелья",
@@ -868,6 +878,7 @@ local STRINGS = {
   ["Open the transfer window"] = "Открыть окно передачи",
   ["Two recent rows"] = "Два ряда недавних",
   ["A second row of recent items in the pocket, so a narrow pocket still has room. Off leaves one row."] = "Второй ряд недавних предметов в кармане, чтобы место было и в узком кармане. Выключено — один ряд.",
+  ["Soul shards"] = "Осколки душ",
 }
 
 ns.AddLocale("ruRU", "Russian", {

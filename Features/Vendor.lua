@@ -780,8 +780,11 @@ function Vendor:Repair()
   if not by then return end
   RepairAllItems(guild)
   self.repaired = true
+  -- The whole bill, not its gold: a repair on Forever is a handful of silver, and a line that wrote the
+  -- gold figure alone said "repaired for 0" for a cost the player had paid. FormatMoney drops the coins
+  -- that are zero, so a bill under a gold piece reads as the silver and copper that were spent.
   print("|cffd9a85fWarpee|r |cffffffff" .. (L["repaired for %s from %s"])
-        :format(ns.FormatGold(cost, nil, true), by) .. "|r")
+        :format(ns.FormatMoney(cost, false, nil, true), by) .. "|r")
 end
 ev:RegisterEvent("MERCHANT_SHOW")
 ev:RegisterEvent("MERCHANT_CLOSED")

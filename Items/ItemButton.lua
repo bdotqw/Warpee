@@ -2029,12 +2029,18 @@ function ns.UpdateItemButton(b)
     -- killed at build time pays one table read.
     suppress(b.EmptyBagIcon); suppress(_G[(b:GetName() or "") .. "EmptyBagIcon"])
     ns.SetSlotBorder(b, Theme:C("emptyLine"))
-    -- The ammo run is a container of its own in the grid, so its cells wear an outline of its own rather
-    -- than the empty line: its hue is what tells a quiver's slots from the sheet's at a glance, and an empty
-    -- cell in it is still a cell of that run, so it is drawn like the full ones rather than left bare. On a
-    -- client without the run there is no ammo bag to name, and the branch never opens.
-    if not b.wpeCat and ns.IsAmmoBag and ns.IsAmmoBag(bagID) then
-      local r = Theme.colors.azure
+    -- The ammo run is a container of its own, so its cells wear an outline of its own rather than the empty
+    -- line: the bronze is what tells a quiver's slots from the sheet's at a glance, and it holds whether the
+    -- run stands under its caption or is laid out with the bags. An empty cell in it is still a cell of that
+    -- run, so it is drawn like the full ones rather than left bare. The grouped view wears it too: a cell
+    -- there is still the quiver's own slot, wherever its item has been filed. The keyring keeps no ring at
+    -- all: its cells are never part of the sheet, so the violet on its caption is the whole of the marking
+    -- it needs. On a client without a quiver no bag can be named, and the branch never opens. The ring is a
+    -- marker like the reagent bag's, so it has a switch of its own in the Markers page: off, the run's cells
+    -- wear whatever every other cell wears, and Hide ammo / souls still takes the run out of the window.
+    if ns.Bags.ammoTint and not (WarpeeDB and WarpeeDB.hideAmmo)
+       and ns.IsAmmoBag and ns.IsAmmoBag(bagID) then
+      local r = Theme.colors.ammo
       ns.SetRarityRing(b, r[1], r[2], r[3], RING_A)
     -- An empty slot has no class to read, so the reagent ring on it only ever means the reagent bag,
     -- and that is a grid idea: the grouped view rings by class and never tints an empty cell.
@@ -2136,11 +2142,14 @@ function ns.UpdateItemButton(b)
   else
     reagentRing = (bagID == ns.reagentBag)
   end
-  if not b.wpeCat and ns.IsAmmoBag and ns.IsAmmoBag(bagID) then
+  if ns.Bags.ammoTint and not (WarpeeDB and WarpeeDB.hideAmmo)
+     and ns.IsAmmoBag and ns.IsAmmoBag(bagID) then
     -- The ammo run's hue, ahead of every other ring: a quiver or an ammo pouch is a container the player
     -- pointed at on purpose, and the run it makes is what the cells in it belong to. Same colour the empty
-    -- cells of that run wear, so a half-filled quiver reads as one block.
-    local r = Theme.colors.azure
+    -- cells of that run wear, so a half-filled quiver reads as one block. The grouped view keeps it as
+    -- well: its cells are filed by category, and this is the one ring that still says which bag an item
+    -- came out of.
+    local r = Theme.colors.ammo
     ns.SetRarityRing(b, r[1], r[2], r[3], RING_A)
   elseif ns.Bags.reagentTint and not b.wpeNoReagent and reagentRing then
     local r = Theme.colors.reagent
@@ -3149,9 +3158,11 @@ end
 
 function ns.PinKeyName()
   -- Both slots: the key settings hand a second binding a slot of its own, and a player who
-  -- put theirs in the second one is as bound as any other.
-  local k1, k2 = GetBindingKey and GetBindingKey("WARPEE_UNPIN")
-  local k = (k1 ~= "" and k1) or (k2 ~= "" and k2) or nil
+  -- put theirs in the second one is as bound as any other. Read through the one reader that asks
+  -- the client on its own line, because the `and` form of the call keeps a single value.
+  if not GetBindingKey then return nil end
+  local k1, k2 = GetBindingKey("WARPEE_UNPIN")
+  local k = (k1 and k1 ~= "" and k1) or (k2 and k2 ~= "" and k2) or nil
   if not k then return nil end
   local out = {}
   for part in tostring(k):gmatch("[^-]+") do
@@ -3200,30 +3211,80 @@ function ns.PinWatch(catcher, remove)
   end
 end
 
--- The key arrives set on the first login that has this code, and only when Delete is free:
--- a Delete already spoken for is left where it was. The mark is written either way, the way
--- the pocket writes its own: the question is asked once and there is nothing to say later.
-local function defaultPinKey()
-  if not WarpeeDB or WarpeeDB.pinBind then return end
-  if InCombatLockdown() then return end
-  WarpeeDB.pinBind = true
-  if not (GetBindingKey and GetBindingAction and SetBinding and SaveBindings) then return end
-  if GetBindingKey("WARPEE_UNPIN") then return end
-  if (GetBindingAction("DELETE") or "") ~= "" then return end
-  SetBinding("DELETE", "WARPEE_UNPIN")
-  SaveBindings((GetCurrentBindingSet and GetCurrentBindingSet()) or 1)
+-- An action nobody has bound comes back as nothing at all on one build and as the empty string on
+-- another, and an empty string is true in Lua: read that way, a row with no key on it answers as
+-- bound. One reading for both builds, both slots, so "no key" never passes for a key.
+local function pinKeys()
+  -- Called on its own line and not through `and`: that form keeps one value of a call, and the second
+  -- slot of a binding would be dropped on the floor with it.
+  if not GetBindingKey then return nil end
+  local k1, k2 = GetBindingKey("WARPEE_UNPIN")
+  if k1 == "" then k1 = nil end
+  if k2 == "" then k2 = nil end
+  return k1, k2
 end
 
--- Mouse chords never reach this binding: the client eats them over our
--- cells, so any such bind is cleared with a warning, not left to fail quiet.
+-- Either slot: a key the game keeps in the second one is as bound as the first, and a check that looked
+-- at the first alone read that row as empty.
+local function pinBound()
+  local k1, k2 = pinKeys()
+  return k1 or k2
+end
+
+-- The key arrives set on the first login that has this code, and the middle mouse button is asked for
+-- first: it is the one a player cannot put on this row by hand, because a mouse chord over the cells
+-- belongs to the cells and the game's key settings never see it -- the addon is the only thing that can
+-- write it. A middle button somebody else has spoken for is left where it is, and Delete is asked for
+-- next; a player who has bound both keeps both. The mark is written only once a key is really on the
+-- row, because the binding itself lives in the client's own cache and not in this addon's saved
+-- variables: a profile carried to another client brings the mark and no key, and a mark written before
+-- an attempt that did not land left the row empty for good. Until a key is there, every login asks again.
+local DEFAULT_PIN_KEYS = { "BUTTON3", "DELETE" }
+
+-- The middle button this session's default wrote, if it wrote one. A mouse chord over the cells belongs to
+-- the cells and never reaches the game's key settings, so the default has to be written from here -- and
+-- that one binding is not a rebind: the guard below leaves it alone for the session it was written in.
+-- Nothing about it is saved, so a profile that carries no such key gets no exception either.
+local ownMouse
+
+local function defaultPinKey()
+  if not WarpeeDB then return end
+  if InCombatLockdown() then return end
+  if not (GetBindingKey and GetBindingAction and SetBinding and SaveBindings) then return end
+  if WarpeeDB.pinBind then
+    if pinBound() then return end
+    -- A profile that carries the mark without a key: it was written by a build that read an empty
+    -- binding as a bound one, and the row it left empty has to fill in without the profile being
+    -- wiped. Asked once, so a player who clears the key himself keeps it cleared.
+    if WarpeeDB.pinFix then return end
+    WarpeeDB.pinFix = true
+    WarpeeDB.pinBind = nil
+  end
+  if pinBound() then WarpeeDB.pinBind = true; return end
+  for _, key in ipairs(DEFAULT_PIN_KEYS) do
+    if (GetBindingAction(key) or "") == "" then
+      SetBinding(key, "WARPEE_UNPIN")
+      SaveBindings((GetCurrentBindingSet and GetCurrentBindingSet()) or 1)
+      if key:find("BUTTON[345]") then ownMouse = key end
+      break
+    end
+  end
+  if pinBound() then WarpeeDB.pinBind = true end
+end
+
+-- Mouse chords never reach this binding over the cells: the client eats them there, so a key set in the
+-- row (or in the game's own key list) fires everywhere except where it is meant to, and the player is left
+-- with a key that looks bound and does nothing. Such a binding is cleared with a warning, not left to fail
+-- quiet. The middle button the default wrote this session is the one exception -- that one is not a
+-- rebind, and the cell answers the click itself.
 local function guardPinKey()
   if InCombatLockdown() then return end
   if not (GetBindingKey and GetBindingAction and SetBinding and SaveBindings) then return end
-  local keys = { GetBindingKey("WARPEE_UNPIN") }
+  local k1, k2 = pinKeys()
   local dirty = false
-  for i = 1, #keys do
-    local k = keys[i]
-    if k and k:find("BUTTON[345]") and (GetBindingAction(k) or "") == "WARPEE_UNPIN" then
+  for i = 1, 2 do
+    local k = (i == 1) and k1 or k2
+    if k and k ~= ownMouse and k:find("BUTTON[345]") and (GetBindingAction(k) or "") == "WARPEE_UNPIN" then
       SetBinding(k)
       dirty = true
     end
@@ -3231,9 +3292,7 @@ local function guardPinKey()
   if dirty then
     SaveBindings((GetCurrentBindingSet and GetCurrentBindingSet()) or 1)
     -- Either slot counts as "still bound", so the message is right when the key lives in the second.
-    local k1, k2 = GetBindingKey("WARPEE_UNPIN")
-    local keep = (k1 and k1 ~= "") or (k2 and k2 ~= "")
-    if keep then
+    if pinBound() then
       print("|cffd9a85fWarpee|r |cffffffff" .. ns.L["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] .. "|r")
     else
       print("|cffd9a85fWarpee|r |cffffffff" .. ns.L["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] .. "|r")

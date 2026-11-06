@@ -2,7 +2,7 @@
 ## Title: Warpee
 ## Notes: One-bag inventory with categories, snapshots and smart selling
 ## Author: Naavo
-## Version: 13.0
+## Version: 13.1
 ## SavedVariables: WarpeeDB
 ## X-Category: Inventory
 ## IconTexture: Interface\AddOns\Warpee\Media\Icons\logo.tga
@@ -46,7 +46,7 @@ Features\MinimapIcon.lua
 Windows\Vault.lua
 Windows\CharPicker.lua
 Windows\Bank.lua
-Windows\GuildBank.lua [AllowLoadGameType standard]
+Windows\GuildBank.lua
 Features\Options.lua
 Features\CatListHeader.lua
 Features\CatListRow.lua

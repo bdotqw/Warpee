@@ -252,7 +252,7 @@ function factories.chars(parent, spec)
         h:ClearAllPoints()
         h:SetPoint("TOPLEFT", 0, -y)
         h:SetPoint("TOPRIGHT", 0, -y)
-        h.Text:SetText(ns.Upper(realm or "?"))
+        h.Text:SetText(ns.Upper(ns.ShortRealm(realm) or "?"))
         h.Text:SetFont(path, math.max(7, BASE_FONT - 3), ns.OutlineFlags())
         h:Show()
         y = y + CHAR_HEAD_H + 2
@@ -265,7 +265,7 @@ function factories.chars(parent, spec)
       c:SetPoint("TOPLEFT", col * (colW + 8), -y)
       local cc = e.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
       c.wpeClassColor = cc
-      c.Text:SetText(e.name)
+      c.Text:SetText(ns.Vault:FullName(e))
       c.Text:SetFont(path, math.max(7, BASE_FONT - 2), ns.OutlineFlags())
       c:Paint()
       c:Show()

@@ -260,9 +260,11 @@ local POCKET_PAGE = {
     desc = "A size of its own; a pocket without one follows the bag slot size." },
 }
 
--- The marker switches, in pairs down the page: quality | quest, reagent | new, item level | unwearable,
--- junk. Forever has a reagent bag of its own -- container five, the one its reagent and profession bags go
--- in -- so the reagent border marks something there too and the row stays on both clients.
+-- The marker switches, in pairs down the page: reagent | ammo, quality | quest, new | item level,
+-- unwearable | junk. Forever has a reagent bag of its own -- container five, the one its reagent and
+-- profession bags go in -- so the reagent border marks something there too and the row stays on both
+-- clients; the ammo marker is a Forever idea, since retail carries no such container at all, so its
+-- switch stands where the client can use it.
 local function markerRows()
   local rows = {
     { type = "toggle", name = "Reagent border", col = 1,
@@ -274,18 +276,30 @@ local function markerRows()
         relayout()
       end,
       desc = "Tint the slots of the reagent bag and the reagent bank." },
-    { type = "toggle", name = "Quality border", col = 2, get = qBorderGet, set = qBorderSet,
+    -- The ammo run's ring is a marker like the reagent bag's, so it wears the same switch: one toggle for a
+    -- quiver, an ammo pouch and a soul bag, because they are one block under two captions. Off, those cells
+    -- keep the ordinary edge; Hide ammo / souls is a different question and still takes the run out whole.
+    { type = "toggle", name = "Ammo / soul border", col = 2, hidden = function() return not ns.IsForever end,
+      get = function() return Bags.ammoTint end,
+      set = function(v)
+        Bags.ammoTint = v
+        WarpeeDB.ammoTint = v
+        Bags.styleGen = (Bags.styleGen or 0) + 1
+        relayout()
+      end,
+      desc = "Tint the slots of the quiver, the ammo pouch and the soul bag, in the grouped view too." },
+    { type = "toggle", name = "Quality border", col = 1, get = qBorderGet, set = qBorderSet,
       desc = "A border in the item's quality color; quest items take the quest yellow. Reagent and unwearable borders come first." },
-    { type = "toggle", name = "Quest marker", col = 1, get = questGet, set = questSet,
+    { type = "toggle", name = "Quest marker", col = 2, get = questGet, set = questSet,
       desc = "The exclamation mark on items for quests you have not picked up yet. Not shown in the warband bank." },
-    { type = "toggle", name = "New item glow", col = 2, get = newGet, set = newSet,
+    { type = "toggle", name = "New item glow", col = 1, get = newGet, set = newSet,
       desc = "Quality-colored glow on items the game still counts as new." },
-    { type = "toggle", name = "Item level by quality", col = 1, get = qColorGet, set = qColorSet,
+    { type = "toggle", name = "Item level by quality", col = 2, get = qColorGet, set = qColorSet,
       disabled = function() return not ns.Badge("ilvl").on end,
       desc = "Tint the item level number with the item's quality color." },
-    { type = "toggle", name = "Unwearable border", col = 2, get = unusableGet, set = unusableSet,
+    { type = "toggle", name = "Unwearable border", col = 1, get = unusableGet, set = unusableSet,
       desc = "Red border around gear your character cannot wear." },
-    { type = "toggle", name = "Junk coin", col = 1, get = junkGet, set = junkSet,
+    { type = "toggle", name = "Junk coin", col = 2, get = junkGet, set = junkSet,
       desc = "A copper coin on gray junk: the coin the Sell button wears in gold, copper because the rules would sell it, not you." },
     { type = "range", name = "Border thickness", min = 1, max = 6, step = 1,
       get = edgeGet, set = edgeSet,
@@ -537,21 +551,52 @@ local GRID_PAGE = {
         desc = "The corner of the screen the bag window hangs from. It grows away from that corner as your bags fill." },
       { type = "keybind", name = "Clear the cell", binding = "WARPEE_UNPIN", col = 2, of = 2,
         desc = "The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels." },
-      -- Where the reagent bag sits, under the window it belongs to. Every row here greys out in the grouped
-      -- view, which files the reagent slots by category instead, so the subhead stays and still names them.
-      -- Forever has a reagent bag as well: container five, one bag with its own kind in it -- the client's
-      -- reagent bags, and its profession bags, which hold one kind of reagent each. It is a container that
-      -- can be hidden, merged or lifted like any other, so the block stands on this client too.
-      { type = "header", name = "Reagents" },
+      -- The containers the window draws, under one heading each client names its own way. Forever has a
+      -- reagent bag as well -- container five, one bag with its own kind in it, plus the client's profession
+      -- bags which hold one kind each -- so the block stands on both clients, and the quiver and the keyring
+      -- stand beside it there. Retail carries one
+      -- of them -- the reagent bag -- so its heading stays as it was and its three switches stand in two
+      -- columns: hide and merge on one row, "on top" under the hide. Forever carries two more, the quiver and
+      -- the keyring, and there the same five switches share one heading: two headings and five rows would
+      -- push the page past the window, and no page of this window is made to scroll. The rows are the same
+      -- objects on both clients; only their places and the heading above them differ, so nothing of
+      -- Forever's layout moves.
+      { type = "header", name = "Reagents", hidden = function() return ns.IsForever end },
+      { type = "header", name = "Containers", hidden = function() return not ns.IsForever end },
+      -- Pair by pair, the hide and the merge of each container, so the columns of a row belong together: the
+      -- bag row, then the quiver's, then whatever is left. Retail has one pair, so hide and merge share its
+      -- first row. Every row here greys out in the grouped view, which files the containers' slots by
+      -- category instead and draws no block of its own for them.
       { type = "toggle", name = "Hide reagents", col = 1, of = 2,
         get = flow.hideGet, set = flow.hideSet, disabled = flow.catGet,
         desc = "Leave the reagent bag out of the window. Its slots still count in the header, and reagents still go into it." },
-      { type = "toggle", name = "Merge reagents", col = 2, of = 2, get = mergeGet, set = mergeSet,
+      -- One switch for both kinds of run the client keeps: the quiver's ammunition and a warlock's soul
+      -- shards are the same block with a different caption, so they are hidden and laid out together.
+      { type = "toggle", name = "Hide ammo / souls", col = 2, of = 2, hidden = function() return not ns.IsForever end,
+        get = function() return WarpeeDB.hideAmmo == true end,
+        set = function(v) WarpeeDB.hideAmmo = v and true or false; relayout() end,
+        disabled = flow.catGet,
+        desc = "Leave the quiver, the ammo pouch or the soul bag out of the window. Their slots still count in the header, and the client's own window still shows them." },
+      { type = "toggle", name = "Merge reagents", col = ns.IsForever and 1 or 2, of = 2, get = mergeGet, set = mergeSet,
         disabled = function() return flow.noMerge() or flow.catGet() end,
         desc = "Lay the reagent bag out with the main bags, without its caption." },
-      { type = "toggle", name = "Reagents on top",
+      -- The quiver's merge is refused for the reason the bag's is, and for one of its own: the split view
+      -- makes every bag a block, so there is nothing to lay into the sheet.
+      { type = "toggle", name = "Merge ammo / souls", col = 2, of = 2, hidden = function() return not ns.IsForever end,
+        get = function() return WarpeeDB.mergeAmmo == true end,
+        set = function(v) WarpeeDB.mergeAmmo = v and true or false; relayout() end,
+        disabled = function() return WarpeeDB.hideAmmo == true or Bags.splitBags or flow.catGet() end,
+        desc = "Lay the quiver, the ammo pouch or the soul bag out with the main bags, without its caption. Their cells keep their bronze outline, so they still read as one run in the sheet." },
+      -- The first of a pair on Forever, where the keyring's switch closes the group beside it; on retail it
+      -- opens the second row alone, under the hide and merge above.
+      { type = "toggle", name = "Reagents on top", col = 1, of = 2,
         get = flow.topGet, set = flow.topSet, disabled = function() return flow.offGet() or flow.catGet() end,
         desc = "Draw the reagent bag above the main bags instead of below them." },
+      { type = "toggle", name = "Hide keys", col = 2, of = 2, hidden = function() return not ns.IsForever end,
+        get = function() return WarpeeDB.hideKeys == true end,
+        set = function(v) WarpeeDB.hideKeys = v and true or false; relayout() end,
+        disabled = flow.catGet,
+        desc = "Leave the keyring out of the window. The keys stay in the keyring, and the client's own window still opens it." },
       -- The currency block follows the reagents, as in the bag window.
       { type = "header", name = "Currencies" },
       { type = "toggle", name = "Hide currencies",
@@ -586,8 +631,9 @@ local GRID_PAGE = {
       -- Paired by kind down each row: the two banks, then mail and the auction house, then the two
       -- face-to-face windows, then the two item stations. Professions trails alone.
       { type = "toggle", name = "Bank", col = 1, get = bankGet, set = bankSet },
-      { type = "toggle", name = "Guild bank", col = 2, get = gbGet, set = gbSet,
-        hidden = ns.ForeverOnly },
+      -- The guild bank keeps this row on both clients: retail reports the banker through the interaction
+      -- manager and the classic client on its own event, and either way the switch behind it is this one.
+      { type = "toggle", name = "Guild bank", col = 2, get = gbGet, set = gbSet },
       { type = "toggle", name = "Mail", col = 1, get = mailGet, set = mailSet },
       { type = "toggle", name = "Auction house", col = 2,
         get = aucGet, set = aucSet },

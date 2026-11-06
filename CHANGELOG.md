@@ -1,53 +1,39 @@
 # Warpee
 
-## 13.0
+## 13.1
 
 ENG
 
-- Added support for WoW Forever.
-- The pocket now hides when the character list or the currency list opens, and comes back when they close.
-- With Snap to windows on, the pocket now moves together with the bags.
-- The pocket button is gone from the bags header.
-- The currency row has a Compact view.
-- The currency switch in the bags header now opens the currency list when no currency is tracked yet.
-- Ctrl + LMB and currency transfers are fixed: double transfers, windows closing and the wrong tab opening.
-- The duplicate currency switch is gone from the currency list's header.
-- The Recent and Favorites headers now take the accent color.
-- Stray counts and capitals are gone from the category names.
-- Quality borders and empty cells are dimmer in every bags view.
-- Category sections read better: widths, spacing and the gap between headers and cells are adjusted.
-- The window is shorter when there are many categories.
-- The bank and bags icons in the header are redrawn.
-- Recent and Favorites sit better in the grid: a shared accent divider and adjusted spacing.
-- Empty Recent cells are no longer drawn.
-- The Recent row now hides itself when it runs empty and comes back when a new item arrives.
-- Clear now takes the whole Recent row down at once, its header with it.
-- The item tooltip no longer throws an error while another character's snapshots are updated.
-- The unwearable border works on gear your character cannot wear.
-- The unwearable border no longer appears late after logging in.
-- The pocket no longer reopens a few points off the edge it was docked to; the seam is restored when it comes back.
+**Retail / Forever**
 
+- Borders in the settings window now stay one pixel wide at whole-number ui scales from 0.65 to 1, as well as at fractional values (0.7111 or 0.5333), and stay sharp while the list is scrolled.
+- The reagent bag switch in the header is shown only while a reagent bag is in the reagent slot, and is gone when the slot is empty.
+- The settings search no longer lists options from the other game version when the current client does not have them.
+- Fixed the settings search: matching options now appear as you type, without errors.
+
+**Forever**
+
+- Realm headings in the character list and on the settings character tab show the ruleset alone (PVE, PVP, RP, RP PVP) instead of the full server name.
+- The character picker and the settings character list now remember and show the character's full name -- the first name and the surname the client gives it.
+- The ammo bag and the soul bag stand as blocks of their own now, with bronze frames and captions of their own: Ammo and Soul shards.
+- The repair message shows the full cost, gold, silver and copper included.
+- The keyring is drawn as a block of its own in the split view now as well.
+- The guild bank is skinned on Forever again, as it is on Retail.
 
 RU
 
-- Добавлена поддержка WoW Forever.
-- Карман теперь прячется, когда открывается список персонажей или список валют, и возвращается, когда они закрываются.
-- С включённым прилипанием к окнам карман теперь едет вместе с сумками.
-- Кнопка кармана убрана из шапки сумок.
-- У строки валют появился вид «Компактно».
-- Переключатель валют в шапке сумок теперь открывает список валют, если ни одна валюта ещё не отслеживается.
-- Исправлены сбои Ctrl + ЛКМ и переноса валют: двойные переносы, закрытие окон и открытие тултипа вместо трансфера валюты.
-- Дублирующий переключатель валют убран из шапки списка валют.
-- Заголовки «Недавнее» и «Избранное» теперь берут цвет акцента.
-- Убраны лишние счётчики и заглавные буквы в названиях категорий.
-- Рамки качества и пустые ячейки стали тусклее во всех видах сумок.
-- Категории стали читаться лучше: скорректированы ширина, отступы и промежуток между заголовками и ячейками.
-- Окно стало ниже, когда категорий много.
-- Иконки банка и сумок в шапке перерисованы.
-- «Недавнее» и «Избранное» лучше стоят в сетке: общий разделитель в цвет акцента и скорректированные отступы.
-- Пустые ячейки «Недавнее» больше не показываются.
-- Строка «Недавнее» теперь прячется сама, когда в ней пусто, и возвращается, когда приходит новый предмет.
-- «Очистить» теперь убирает всю строку «Недавнее» сразу, вместе с заголовком.
-- Подсказка предмета больше не выдаёт ошибку, пока обновляются сохранённые данные других персонажей.
-- Исправлена работа рамки «нельзя надеть» на вещах, которые персонаж не может надеть.
-- Карман больше не открывается на несколько точек выше края, к которому прилип: стык с сумками и банком восстанавливается при возврате.
+**Retail / Форель**
+
+- Рамки в окне настроек теперь остаются толщиной в один пиксель при целочисленном масштабе интерфейса от 0.65 до 1, как и при дробных значениях (0.7111 или 0.5333), и сохраняют чёткость при прокрутке списка.
+- Кнопка сумки реагентов в шапке показывается только тогда, когда сумка реагентов стоит в ячейке реагентов, и исчезает, когда её там нет.
+- Поиск в настройках больше не показывает параметры другой версии игры, если на текущем клиенте их нет.
+- Исправлен поиск в настройках: подходящие параметры теперь отображаются при вводе без ошибок.
+
+**Форель**
+
+- Заголовки серверов в списке персонажей и на вкладке персонажей в настройках показывают только Ruleset (PVE, PVP, RP, RP PVP) вместо полного названия сервера.
+- Выбор персонажа и список персонажей в настройках теперь запоминают и показывают полное имя персонажа — имя и фамилию, как их называет клиент.
+- Сумки боеприпасов и душ теперь отображаются отдельными блоками с бронзовыми рамками и собственными подписями «Боеприпасы» и «Осколки душ».
+- Сообщение о ремонте теперь показывает полную стоимость, включая золото, серебро и медь.
+- Исправлено отображение связки ключей: теперь она тоже отображается отдельным блоком в режиме разделённых сумок.
+- Банк гильдии снова скинится на Forever, как и на Retail.

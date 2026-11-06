@@ -1814,7 +1814,7 @@ function View:PaintKey(size)
   -- flag names. In the key, the switch rebuilds every cell once, whatever else the view moved.
   return table.concat({ size, Bags.slotStyle or "tile", Bags.styleGen or 0,
                         Bags.qualityBorder and 1 or 0, Bags.qualityColorIlvl and 1 or 0,
-                        Bags.junkCoin and 1 or 0, Bags.reagentTint and 1 or 0,
+                        Bags.junkCoin and 1 or 0, Bags.reagentTint and 1 or 0, Bags.ammoTint and 1 or 0,
                         Bags.unusableBorder and 1 or 0, self:CatMode() and "cat" or "grid",
                         (self.tabSel and self.tabSel[self.mode]) or 0 }, ":")
 end

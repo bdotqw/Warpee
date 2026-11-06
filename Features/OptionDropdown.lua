@@ -264,5 +264,8 @@ function factories.optiondropdown(env)
     showDropdown(anchor, spec, onPick)
   end
 
-  return openDropdown, closeDropdown, isDropdownOpen
+  -- showDropdown goes out as well: it opens the menu without the second-press toggle, which is what the
+  -- settings search needs -- it reopens the same menu under the search box on every keystroke, and the
+  -- toggle would read that as a second press and shut it.
+  return openDropdown, closeDropdown, isDropdownOpen, showDropdown
 end

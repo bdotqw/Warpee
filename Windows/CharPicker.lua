@@ -201,7 +201,7 @@ function Picker:RealmRow(n, y, realm, path)
   h.Text:SetPoint("RIGHT", -6, 0)
   h.Text:SetFont(path, FONT - 3, ns.OutlineFlags())
   h.Text:SetTextColor(Theme:C("faint"))
-  h.Text:SetText(ns.Upper(realm or "?"))
+  h.Text:SetText(ns.Upper(ns.ShortRealm(realm) or "?"))
   h:Show()
 end
 
@@ -219,7 +219,7 @@ function Picker:CharRow(n, y, e, path)
   r.Text:SetPoint("RIGHT", -8, 0)
   r.Text:SetFont(path, FONT - 1, ns.OutlineFlags())
   local col = classColor(e.class)
-  r.Text:SetText(e.name)
+  r.Text:SetText(ns.Vault:FullName(e))
   if col then r.Text:SetTextColor(col.r, col.g, col.b)
   else r.Text:SetTextColor(Theme:C("overlay")) end
   r:SetAlpha(e.hidden and 0.4 or 1)
@@ -248,7 +248,7 @@ function Picker:Paint(keepScroll)
   local q = self.query
   local n, y, widest, realm = 0, 0, MIN_W, nil
   for _, e in ipairs(list) do
-    local pass = not (q and q ~= "" and not e.name:lower():find(q, 1, true))
+    local pass = not (q and q ~= "" and not ns.Vault:FullName(e):lower():find(q, 1, true))
     if pass then
       if e.realm ~= realm then
         realm = e.realm

@@ -24,6 +24,7 @@ local rows = env.rows
 local fonts = env.fonts
 local makeScrollArea = env.makeScrollArea
 local closeDropdown = env.closeDropdown
+local showDropdown = env.showDropdown
 local dropdownFont = env.dropdownFont
 local localeGet = env.localeGet
 local sectionOpen = env.sectionOpen
@@ -94,6 +95,7 @@ function Options:Select(index)
   area:ScrollTo(0)
   area:PaintBar()
   self:Refresh()
+  self:SnapSoon()
 end
 
 -- The sub buttons switch lists; the pick is remembered per page.
@@ -163,6 +165,7 @@ function Options:ReflowPages()
     area:ScrollTo(area:GetVerticalScroll())
     area:PaintBar()
   end
+  self:SnapSoon()
 end
 
 -- The rows on screen; Select fills it, so hidden lists wait their turn.
@@ -223,6 +226,7 @@ function Options:RefreshOpen()
     area.page.Relayout()
     area:PaintBar()
   end
+  self:SnapSoon()
 end
 
 -- Crude inflection stripper: Russian cases and plurals, Latin plurals, German -en.
@@ -375,7 +379,12 @@ function Options:SearchIndex()
         local label = spec.name
         if type(label) == "function" then label = label() end
         -- A description row is a paragraph, not a setting: its words are not a name to look for.
-        if type(label) == "string" and label ~= "" and spec.type ~= "description" then
+        -- A row the page itself leaves out is not a setting on this client at all: the quiver and the
+        -- keyring live on one client and not the other, so their switches must not answer a search with a
+        -- hit that walks to a row which is not there. The gate is the row's own, asked here the way the
+        -- page asks it, so the two can never disagree.
+        local off = spec.hidden and spec.hidden()
+        if type(label) == "string" and label ~= "" and spec.type ~= "description" and not off then
           local loc = T(label)
           local tip = type(spec.desc) == "string" and spec.desc or ""
           -- SearchFold and not :lower(): the client folds ASCII alone, so a Russian label only answered a
@@ -881,6 +890,37 @@ function Options:Open()
   f:Show()
   ns.AlignToScreen(f)
   Theme:Raise(f)
+  self:SnapSoon()
+end
+
+-- Every border in this window is a backdrop edge, and a backdrop is only as sharp as the rect it is drawn
+-- on: half a pixel of drift smears a one pixel line over two. The bags and the bank measure their cells
+-- and snap each frame as they build it; these rows are placed on whole ui units, which are whole pixels
+-- only at the pixel-perfect ui scale. Retail's engine rounds every frame onto the grid on its own, a
+-- client without SetSnapToPixelGrid does not, so the pass below does it here -- and on retail, where the
+-- frames are already on the grid, ns.SnapRect leaves every point alone.
+function Options:SnapBorders()
+  local f = self.frame
+  if not (f and f:IsShown()) then return end
+  local function walk(parent, depth)
+    if depth > 6 or not parent.GetChildren then return end
+    for _, c in ipairs({ parent:GetChildren() }) do
+      if c.wpeEdge and c:IsShown() then ns.SnapRect(c) end
+      walk(c, depth + 1)
+    end
+  end
+  walk(f, 0)
+end
+
+-- One pass per frame at most: a page build puts hundreds of frames down at once, and the rows that
+-- follow land a beat later.
+function Options:SnapSoon()
+  if self.snapQ then return end
+  self.snapQ = true
+  C_Timer.After(0, function()
+    self.snapQ = nil
+    self:SnapBorders()
+  end)
 end
 
 function Options:Close()

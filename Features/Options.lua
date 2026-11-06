@@ -524,6 +524,9 @@ local function dropdownApi()
   return dd
 end
 local function openDropdown(anchor, spec, onPick) return dropdownApi()[1](anchor, spec, onPick) end
+-- The same menu, opened without the second-press toggle: the settings search repaints it under the box on
+-- every keystroke, and a toggle would take the second keystroke for a second press and close it.
+local function showDropdown(anchor, spec) return dropdownApi()[4](anchor, spec) end
 local function closeDropdown() if dd then dd[2]() end end
 local function isDropdownOpen(frame) return dd ~= nil and dd[3](frame) end
 ns.OpenDropdown, ns.CloseDropdown = openDropdown, closeDropdown
@@ -676,6 +679,10 @@ local function makeScrollArea(parent, list)
     v = math.min(span, math.max(0, v))
     sf:SetVerticalScroll(math.min(span, ns.SnapScroll(sf, v)))
     paintBar()
+    -- The child rides a fractional number of ui units whenever the scale is not the pixel-perfect one, so
+    -- the rows it carries land between pixels and their one pixel borders smear. The border pass puts them
+    -- back on the grid; coalesced, so a wheel burst costs one pass per frame.
+    if Options.SnapSoon then Options:SnapSoon() end
   end
   sf.ScrollTo = function(_, v) scrollTo(v) end
 
@@ -890,6 +897,7 @@ ns.OptionShellEnv = {
   fonts = fonts,
   makeScrollArea = makeScrollArea,
   closeDropdown = closeDropdown,
+  showDropdown = showDropdown,
   dropdownFont = dropdownFont,
   localeGet = localeGet,
   sectionOpen = sectionOpen,

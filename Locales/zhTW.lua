@@ -305,6 +305,9 @@ local STRINGS = {
   ["New item glow"] = "新物品光效",
   ["Junk coin"] = "垃圾硬幣",
   ["Reagent border"] = "材料邊框",
+  ["Ammo / soul border"] = "彈藥 / 靈魂邊框",
+  ["Tint the slots of the quiver, the ammo pouch and the soul bag, in the grouped view too."] =
+    "為箭袋、彈藥袋和靈魂袋的格子著色，分類檢視中同樣適用。",
   ["Unwearable border"] = "無法裝備邊框",
   ["Border thickness"] = "邊框粗細",
   ["Item level by quality"] = "物品等級按品質著色",
@@ -418,7 +421,17 @@ local STRINGS = {
   ["Bank / Warband"] = "銀行 / 戰隊",
   ["Sell now"] = "立即出售",
   ["Bags of another character"] = "其他角色的背包",
-  ["REAGENTS"] = "材料",
+  -- The two containers Forever's client keeps beside the bags, and the switches that show or hide them.
+  ["Containers"] = "容器",
+  ["Hide ammo / souls"] = "隱藏彈藥 / 靈魂碎片",
+  ["Merge ammo / souls"] = "合併彈藥 / 靈魂碎片",
+  ["Hide keys"] = "隱藏鑰匙",
+  ["Lay the quiver, the ammo pouch or the soul bag out with the main bags, without its caption. Their cells keep their bronze outline, so they still read as one run in the sheet."] =
+    "把箭袋、彈藥袋或靈魂袋與背包一起排列，不帶標題。格子保留青銅描邊，所以在網格中仍讀作一塊。",
+  ["Leave the quiver, the ammo pouch or the soul bag out of the window. Their slots still count in the header, and the client's own window still shows them."] =
+    "把箭袋、彈藥袋或靈魂袋移出視窗。它們的格子仍計入頂部，遊戲自帶視窗仍然顯示。",
+  ["Leave the keyring out of the window. The keys stay in the keyring, and the client's own window still opens it."] =
+    "把鑰匙圈移出視窗。鑰匙仍留在鑰匙圈中，用戶端自帶視窗照常開啟。",
   ["BAGS"] = "背包",
   ["Bag Slots"] = "背包欄位",
   ["WARBAND BANK"] = "戰隊銀行",
@@ -584,9 +597,9 @@ local STRINGS = {
   ["expansion sl"] = "暗影之境", ["expansion df"] = "巨龍崛起",
   ["expansion tww"] = "地心之戰", ["expansion midnight"] = "至暗之夜",
   ["Clear the cell"] = "清空格子",
-  ["Right-click to unbind"] = "右鍵點擊取消綁定",
   ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "「清空格子」不能用滑鼠鍵，遊戲會在格子上吃掉它們。鍵盤按鍵仍然可用，只清掉了滑鼠鍵。",
   ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] = "「清空格子」不能用滑鼠鍵，遊戲會在格子上吃掉它們。現在沒有綁定任何按鍵，在按鍵設定裡選一個鍵盤按鍵。",
+  ["Right-click to unbind"] = "右鍵點擊取消綁定",
   ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "清空滑鼠指向的收藏或口袋格子的按鍵。點一下，然後按鍵盤、滑鼠鍵或滾輪；右鍵點擊清除綁定，Esc 取消。",
   ["Categories"] = "分類",
   ["Sort within a section"] = "分類內排序",
@@ -756,6 +769,7 @@ local STRINGS = {
   ["Open the transfer window"] = "開啟轉移視窗",
   ["Two recent rows"] = "兩列最近物品",
   ["A second row of recent items in the pocket, so a narrow pocket still has room. Off leaves one row."] = "在口袋中多顯示一列最近物品，讓狹窄的口袋也有位置。關閉後只顯示一列。",
+  ["Soul shards"] = "靈魂碎片",
 }
 
 ns.AddLocale("zhTW", "Chinese (Traditional)", {

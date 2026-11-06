@@ -357,6 +357,9 @@ local STRINGS = {
   ["New item glow"] = "Leuchten neuer Gegenstände",
   ["Junk coin"] = "Münze auf Schund",
   ["Reagent border"] = "Reagenzien-Rahmen",
+  ["Ammo / soul border"] = "Munition / Seelen-Rahmen",
+  ["Tint the slots of the quiver, the ammo pouch and the soul bag, in the grouped view too."] =
+    "Die Zellen von Köcher, Munitionsbeutel und Seelenbeutel tönen, auch in der Kategorienansicht.",
   ["Unwearable border"] = "Nicht-tragbar-Rahmen",
   ["Border thickness"] = "Rahmenstärke",
   ["Item level by quality"] = "Gegenstandsstufe nach Qualität",
@@ -502,7 +505,17 @@ local STRINGS = {
   ["Bank / Warband"] = "Bank / Kriegsmeute",
   ["Sell now"] = "Jetzt verkaufen",
   ["Bags of another character"] = "Taschen eines anderen Charakters",
-  ["REAGENTS"] = "REAGENZIEN",
+  -- The two containers Forever's client keeps beside the bags, and the switches that show or hide them.
+  ["Containers"] = "Behälter",
+  ["Hide ammo / souls"] = "Munition / Seelensplitter ausblenden",
+  ["Merge ammo / souls"] = "Munition / Seelensplitter zusammenlegen",
+  ["Hide keys"] = "Schlüssel ausblenden",
+  ["Lay the quiver, the ammo pouch or the soul bag out with the main bags, without its caption. Their cells keep their bronze outline, so they still read as one run in the sheet."] =
+    "Köcher, Munitionsbeutel oder Seelenbeutel bei den Taschen auslegen, ohne eigene Beschriftung. Die Plätze behalten ihre bronzene Umrandung, damit der Block auch im Raster lesbar bleibt.",
+  ["Leave the quiver, the ammo pouch or the soul bag out of the window. Their slots still count in the header, and the client's own window still shows them."] =
+    "Köcher, Munitionsbeutel oder Seelenbeutel aus dem Fenster lassen. Ihre Plätze zählen weiter im Kopf, und das Fenster des Clients zeigt sie weiter.",
+  ["Leave the keyring out of the window. The keys stay in the keyring, and the client's own window still opens it."] =
+    "Den Schlüsselring aus dem Fenster lassen. Die Schlüssel bleiben am Ring, und das Fenster des Clients öffnet ihn weiter.",
   ["BAGS"] = "TASCHEN",
   ["Bag Slots"] = "Taschenplätze",
   ["WARBAND BANK"] = "KRIEGSMEUTENBANK",
@@ -563,8 +576,6 @@ local STRINGS = {
   ["Alt + LMB to mark it for sale: a coin appears, and it is sold at the next merchant who buys wares. A second Alt + LMB locks it from sale, a third clears it. Works in the bags, the bank, the favorites row and the pocket."] = "Alt + LM markiert einen Gegenstand für den Verkauf: eine Münze erscheint, und er wird beim nächsten Händler verkauft, der Waren ankauft. Ein zweiter Alt + LM sperrt ihn vom Verkauf, ein dritter löscht die Markierung. Funktioniert in den Taschen, der Bank, der Favoritenzeile und der Ablage.",
   ["Alt + LMB on an item in your bags to mark it for sale."] = "Alt + LM auf einen Gegenstand in den Taschen markiert ihn für den Verkauf.",
   ["%d items could not be sold and stayed in the bags"] = {
-    "%d Gegenstand ließ sich nicht verkaufen und blieb in den Taschen",
-    "%d Gegenstände ließen sich nicht verkaufen und blieben in den Taschen",
   },
   ["repaired for %s from %s"] = "Reparatur für %s aus %s",
   ["guild funds"] = "der Gildenkasse",
@@ -678,9 +689,9 @@ local STRINGS = {
   ["ilvl <%d"] = "GS unter %d",
   ["ilvl %s %d"] = "GS %s %d",
   ["Clear the cell"] = "Platz leeren",
-  ["Right-click to unbind"] = "Rechtsklick hebt die Belegung auf",
   ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] = "„Platz leeren“ lässt sich nicht auf Maustasten legen, das Spiel schluckt sie über den Feldern. Die Tastaturtaste funktioniert weiter, nur die Maustaste wurde entfernt.",
   ["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] = "„Platz leeren“ lässt sich nicht auf Maustasten legen, das Spiel schluckt sie über den Feldern. Jetzt ist nichts belegt, wähle eine beliebige Tastaturtaste in den Tasteneinstellungen.",
+  ["Right-click to unbind"] = "Rechtsklick hebt die Belegung auf",
   ["The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels."] = "Die Taste, die einen Favoriten- oder Ablageplatz unter dem Zeiger leert. Klicke, dann drücke eine Taste, eine Maustaste oder das Rad; ein Rechtsklick hebt die Belegung auf, Escape bricht ab.",
   ["Keystone"] = "Schlüssel",
   ["WuE"] = "KbA",
@@ -825,6 +836,7 @@ local STRINGS = {
   ["Open the transfer window"] = "Öffnet das Übertragungsfenster",
   ["Two recent rows"] = "Zwei Reihen für Neuzugänge",
   ["A second row of recent items in the pocket, so a narrow pocket still has room. Off leaves one row."] = "Eine zweite Reihe kürzlich erhaltener Gegenstände in der Ablage, damit auch eine schmale Ablage Platz hat. Aus lässt eine Reihe.",
+  ["Soul shards"] = "Seelensplitter",
 }
 
 ns.AddLocale("deDE", "German", {
