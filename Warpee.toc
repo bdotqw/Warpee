@@ -2,7 +2,7 @@
 ## Title: Warpee
 ## Notes: One-bag inventory with categories, snapshots and smart selling
 ## Author: Naavo
-## Version: 13.1
+## Version: 13.2
 ## SavedVariables: WarpeeDB
 ## X-Category: Inventory
 ## IconTexture: Interface\AddOns\Warpee\Media\Icons\logo.tga
