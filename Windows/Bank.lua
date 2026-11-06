@@ -2052,7 +2052,7 @@ function View:PlanCats(st, size, cols, gap, light)
       self:CatGCount(st, gi):Hide()
       local headH
       if isHead then
-        fitBankLabel(glabel, ns.Categories:GroupName(band.key), gridW - labelX)
+        fitBankLabel(glabel, ns.Categories:GroupName(band.key), gridW - labelX, true)
         glabel:ClearAllPoints()
         ns.SnapPoint(glabel, "TOPLEFT", st.content, "TOPLEFT", labelX, -textY)
         glabel:Show()

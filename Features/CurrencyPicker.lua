@@ -67,19 +67,24 @@ end
 -- The row's own numbers are the step's too, and a pooled row is dressed again when the step moves: the
 -- frame is built once, so nothing here may be baked in at birth.
 local function dressRow(r)
-  local key = ICON .. ":" .. BOX .. ":" .. ROW_H
+  local key = ICON .. ":" .. BOX .. ":" .. ROW_H .. ":" .. ns.PixelUnit(r)
   if r.wpeDress == key then return end
   r.wpeDress = key
+  ns.SnapBox(r.box, BOX, BOX, true)
+  r.box:ClearAllPoints()
+  ns.SnapPoint(r.box, "RIGHT", r, "RIGHT", -2, 0)
+  ns.SnapBox(r.xfer, ROW_H, ROW_H, true)
+  r.xfer:ClearAllPoints()
+  ns.SnapPoint(r.xfer, "LEFT", r, "LEFT", 2, 0)
   r.icon:ClearAllPoints()
-  r.icon:SetPoint("RIGHT", r.box, "LEFT", -6, 0)
-  r.icon:SetSize(ICON, ICON)
+  ns.SnapPoint(r.icon, "RIGHT", r.box, "LEFT", -6, 0)
+  local icon = ns.SnapEven(r, ICON)
+  r.icon:SetSize(icon, icon)
   r.count:ClearAllPoints()
-  r.count:SetPoint("RIGHT", r.icon, "LEFT", -6, 0)
+  ns.SnapPoint(r.count, "RIGHT", r.icon, "LEFT", -6, 0)
   r.name:ClearAllPoints()
-  r.name:SetPoint("LEFT", r.xfer, "RIGHT", 4, 0)
-  r.name:SetPoint("RIGHT", r.count, "LEFT", -6, 0)
-  r.box:SetSize(BOX, BOX)
-  r.xfer:SetSize(ROW_H, ROW_H)
+  ns.SnapPoint(r.name, "LEFT", r.xfer, "RIGHT", 4, 0)
+  ns.SnapPoint(r.name, "RIGHT", r.count, "LEFT", -6, 0)
   ns.MarkArrow(r.xfer, true)
 end
 
@@ -378,20 +383,20 @@ function Pick:Paint(keepScroll)
       -- is told apart from the client's own sections.
       local cr, cg, cb = Theme:C(e.tracked and "coin" or "faint")
       r.name:ClearAllPoints()
-      r.name:SetPoint("LEFT", r.xfer, "RIGHT", 4, 0)
-      r.name:SetPoint("RIGHT", r.count, "LEFT", -6, 0)
+      ns.SnapPoint(r.name, "LEFT", r.xfer, "RIGHT", 4, 0)
+      ns.SnapPoint(r.name, "RIGHT", r.count, "LEFT", -6, 0)
       r.name:SetFont(path, HDR_FONT, ns.OutlineFlags())
       r.name:SetTextColor(cr, cg, cb)
       r.name:SetText(ns.Upper(e.name or ""))
-      r:SetHeight(HEAD_H)
+      r:SetHeight(ns.SnapEven(r, HEAD_H))
       r.count:SetText("")
     else
       -- Every name shares one left offset: the arrow's slot stands whether the arrow is drawn or not, so a
       -- currency another character can send over starts on the mark and one that cannot starts on empty
       -- space at the very same column.
       r.name:ClearAllPoints()
-      r.name:SetPoint("LEFT", r.xfer, "RIGHT", 4, 0)
-      r.name:SetPoint("RIGHT", r.count, "LEFT", -6, 0)
+      ns.SnapPoint(r.name, "LEFT", r.xfer, "RIGHT", 4, 0)
+      ns.SnapPoint(r.name, "RIGHT", r.count, "LEFT", -6, 0)
       if e.transfer then
         -- A quiet ink, a step under the row's own white: the mark reads as a secondary note, not a second
         -- name. The palette key (not a raw alpha) keeps it right on every skin and lets the 1px silhouette
@@ -425,20 +430,20 @@ function Pick:Paint(keepScroll)
       -- different from one below it here, so the number never turns into a red warning of its own.
       local dr, dg, db = Theme:C("text")
       r.count:SetTextColor(dr, dg, db)
-      r:SetHeight(ROW_H)
+      r:SetHeight(ns.SnapEven(r, ROW_H))
     end
     r:ClearAllPoints()
-    r:SetPoint("TOPLEFT", self.child, "TOPLEFT", 0, -y)
-    r:SetPoint("TOPRIGHT", self.child, "TOPRIGHT", 0, -y)
+    ns.SnapPoint(r, "TOPLEFT", self.child, "TOPLEFT", 0, -y)
+    ns.SnapPoint(r, "TOPRIGHT", self.child, "TOPRIGHT", 0, -y)
     r:Show()
     -- The light is re-derived rather than trusted from the last enter: the row's own pass reads the
     -- pointer (see Pick:Row), so a paint and a theme pass can never disagree about it.
     r:wpeLight()
-    y = y + r:GetHeight()
+    y = ns.SnapValue(r, y + r:GetHeight())
   end
   for i = #rows + 1, #self.rows do self.rows[i]:Hide() end
-  self.child:SetHeight(math.max(1, y))
-  self.listH = math.min(MAX_LIST, math.max(ROW_H * 6, y))
+  self.child:SetHeight(ns.SnapValue(self.child, math.max(1, y)))
+  self.listH = ns.SnapValue(self.sf, math.min(MAX_LIST, math.max(ROW_H * 6, y)))
   -- The panel's own width: the step's minimum, or wide enough for the longest name the walk has shown,
   -- with ninety points of slack as the ceiling -- one enormous localized name must not push the panel off
   -- the screen. The widest name is remembered, so narrowing the list with a search cannot make the panel
@@ -468,31 +473,29 @@ function Pick:Paint(keepScroll)
   if self.title then
     self.title:SetFontObject(ns.Fonts:Object(FONT, ns.OutlineFlags()))
     self.title:ClearAllPoints()
-    self.title:SetPoint("LEFT", w, "TOPLEFT", pad, btnTop - BTN / 2)
+    ns.SnapPoint(self.title, "LEFT", w, "TOPLEFT", pad, btnTop - BTN / 2)
   end
   if self.close then
     self.close:ClearAllPoints()
-    self.close:SetPoint("TOPRIGHT", -(pad - 2), btnTop)
+    ns.SnapPoint(self.close, "TOPRIGHT", w, "TOPRIGHT", -(pad - 2), btnTop)
   end
   if self.filter then
     self.filter:ClearAllPoints()
-    self.filter:SetPoint("TOPLEFT", pad, -searchTop)
-    self.filter:SetPoint("TOPRIGHT", -pad, -searchTop)
-    self.filter:SetHeight(SEARCH_H)
+    ns.SnapPoint(self.filter, "TOPLEFT", w, "TOPLEFT", pad, -searchTop)
+    ns.SnapPoint(self.filter, "TOPRIGHT", w, "TOPRIGHT", -pad, -searchTop)
+    ns.SnapBox(self.filter, nil, SEARCH_H, true)
     self.filter:SetFont(path, FONT, ns.OutlineFlags())
     if self.filter.Hint then
       self.filter.Hint:SetFontObject(ns.Fonts:Object(FONT, ns.OutlineFlags()))
     end
   end
   self.sf:ClearAllPoints()
-  self.sf:SetPoint("TOPLEFT", pad, -head)
-  self.sf:SetPoint("TOPRIGHT", -(pad + BAR_W + 2), -head)
+  ns.SnapPoint(self.sf, "TOPLEFT", w, "TOPLEFT", pad, -head)
+  ns.SnapPoint(self.sf, "TOPRIGHT", w, "TOPRIGHT", -(pad + BAR_W + 2), -head)
   self.sf:SetHeight(self.listH)
-  self.child:SetWidth(w0 - PAD - (PAD + BAR_W + 2))
+  self.child:SetWidth(ns.SnapValue(self.child, w0 - PAD - (PAD + BAR_W + 2)))
   ns.SnapSize(w, w0 + side * 2, h)
   Theme:FitPlateOf(w)
-  if not keepScroll then self.sf:SetVerticalScroll(0) end
-  Pick:PaintBar()
   -- The panel takes its side of the window, level with the bags' own head where the currency switch that
   -- summoned it stands. The character picker takes the same top line, and the two panels never stand
   -- together (Toggle takes the other down), so the line is free. A window low enough that the panel would
@@ -516,6 +519,7 @@ function Pick:Paint(keepScroll)
     ns.SidePlace(w, self.win, self.side or "left", align)
   end
   ns.AlignToScreen(w)
+  self:ScrollTo(keepScroll and self.sf:GetVerticalScroll() or 0)
   -- A hidden panel has no rect to measure, and its first open lays it out before Show: only a standing
   -- list takes the pocket off the screen, and it asks again on every repaint.
   if ns.Pocket and w:IsShown() then ns.Pocket:Hold(w, self.win) end
@@ -635,11 +639,50 @@ function Pick:PaintBar()
   if not h then bar:Hide(); return end
   bar:Show()
   bar:ClearAllPoints()
-  bar:SetPoint("TOPLEFT", sf, "TOPRIGHT", 2, 0)
-  bar:SetPoint("BOTTOMLEFT", sf, "BOTTOMRIGHT", 2, 0)
+  ns.SnapPoint(bar, "TOPLEFT", sf, "TOPRIGHT", 2, 0)
+  ns.SnapPoint(bar, "BOTTOMLEFT", sf, "BOTTOMRIGHT", 2, 0)
+  bar:SetWidth(ns.SnapValue(bar, BAR_W))
+  thumb:SetWidth(ns.SnapValue(thumb, BAR_W))
+  h = math.min(view, ns.SnapValue(thumb, h))
+  drop = math.min(view - h, ns.SnapValue(thumb, drop))
   thumb:SetHeight(h)
   thumb:ClearAllPoints()
-  thumb:SetPoint("TOP", bar, "TOP", 0, -drop)
+  ns.SnapPoint(thumb, "TOP", bar, "TOP", 0, -drop)
+end
+
+function Pick:ScrollTo(v)
+  local sf = self.sf
+  if not (sf and self.child) then return end
+  local span = math.max(0, self.child:GetHeight() - sf:GetHeight())
+  v = math.min(span, math.max(0, v or 0))
+  sf:SetVerticalScroll(math.min(span, ns.SnapScroll(sf, v)))
+  self:PaintBar()
+  self:SnapSoon()
+end
+
+-- Like the settings, snap after layout settles; texture-edged checkboxes need the pass too.
+function Pick:SnapBorders()
+  if not (self.frame and self.frame:IsShown()) then return end
+  for _, c in ipairs({ self.close, self.onlyBtn, self.filter, self.sf, self.bar, self.thumb }) do
+    if c:IsShown() then ns.SnapRect(c) end
+  end
+  for _, r in ipairs(self.rows) do
+    if r:IsShown() then
+      ns.SnapRect(r)
+      if r.xfer:IsShown() then ns.SnapRect(r.xfer) end
+      if r.box:IsShown() then ns.SnapRect(r.box) end
+      if r.icon:IsShown() then ns.AlignToScreen(r.icon) end
+    end
+  end
+end
+
+function Pick:SnapSoon()
+  if self.snapQ then return end
+  self.snapQ = true
+  C_Timer.After(0, function()
+    self.snapQ = nil
+    self:SnapBorders()
+  end)
 end
 
 -- The theme-switch pass for the panel: repaint the shell through Panel (which retakes the theme's
@@ -667,7 +710,7 @@ function Pick:Build()
   w:EnableMouse(true)
   w:SetClampedToScreen(true)
   ns.EscClose(w)
-  ns.PixelJob(w, function(s) ns.AlignToScreen(s) end, "align")
+  ns.PixelJob(w, function(s) ns.AlignToScreen(s); self:SnapSoon() end, "align")
   -- One tracked function repaints and lays out together (see the strip): Panel retakes the theme's
   -- single slot, so the wrapper repaints through it, takes the slot back, and repaints the list -- fonts
   -- and the hover light included.
@@ -702,7 +745,7 @@ function Pick:Build()
   -- drawn in code the way the cross and the lock are -- the kit is square textures, and no atlas of the
   -- client's reads as a transfer at this size.
   local only = ns.CreateButton(w, "", BTN, BTN)
-  only:SetPoint("TOPRIGHT", close, "TOPLEFT", -6, 0)
+  ns.SnapPoint(only, "TOPRIGHT", close, "TOPLEFT", -6, 0)
   only.wpeArrowScale = 0.82
   ns.MarkArrow(only, true)
   -- The arrow takes the header's own white ink -- lit while the filter is on or under the pointer, the
@@ -746,11 +789,7 @@ function Pick:Build()
   child:SetWidth(W - PAD - (PAD + BAR_W + 2))
   sf:SetScrollChild(child)
   local function listSpan() return math.max(0, child:GetHeight() - sf:GetHeight()) end
-  local function listScroll(v)
-    sf:SetVerticalScroll(math.min(listSpan(), math.max(0, v or 0)))
-    -- The thumb follows its own scroll, whether the wheel turned it or the hand dragged it.
-    if Pick.PaintBar then Pick:PaintBar() end
-  end
+  local function listScroll(v) Pick:ScrollTo(v) end
   sf:SetScript("OnMouseWheel", function(s, d) listScroll((s:GetVerticalScroll() or 0) - d * ROW_H * 3) end)
   self.sf, self.child = sf, child
 

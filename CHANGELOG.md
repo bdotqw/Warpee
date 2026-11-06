@@ -6,7 +6,7 @@ ENG
 
 **Retail / Forever**
 
-- Borders in the settings window now stay one pixel wide at whole-number ui scales from 0.65 to 1, as well as at fractional values (0.7111 or 0.5333), and stay sharp while the list is scrolled.
+- Borders in the settings and currency picker windows now remain one pixel wide at whole-number UI scales from 0.65 to 1, just as they do at fractional values (0.7111 or 0.5333), and stay sharp while scrolling.
 - The reagent bag switch in the header is shown only while a reagent bag is in the reagent slot, and is gone when the slot is empty.
 - The settings search no longer lists options from the other game version when the current client does not have them.
 - Fixed the settings search: matching options now appear as you type, without errors.
@@ -24,7 +24,7 @@ RU
 
 **Retail / Форель**
 
-- Рамки в окне настроек теперь остаются толщиной в один пиксель при целочисленном масштабе интерфейса от 0.65 до 1, как и при дробных значениях (0.7111 или 0.5333), и сохраняют чёткость при прокрутке списка.
+- Рамки в окнах настроек и выбора валют теперь остаются толщиной в один пиксель при целочисленном масштабе интерфейса от 0.65 до 1, как и при дробных значениях (0.7111 или 0.5333), и сохраняют чёткость при прокрутке списка.
 - Кнопка сумки реагентов в шапке показывается только тогда, когда сумка реагентов стоит в ячейке реагентов, и исчезает, когда её там нет.
 - Поиск в настройках больше не показывает параметры другой версии игры, если на текущем клиенте их нет.
 - Исправлен поиск в настройках: подходящие параметры теперь отображаются при вводе без ошибок.

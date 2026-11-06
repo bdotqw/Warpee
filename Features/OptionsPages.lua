@@ -260,11 +260,7 @@ local POCKET_PAGE = {
     desc = "A size of its own; a pocket without one follows the bag slot size." },
 }
 
--- The marker switches, in pairs down the page: reagent | ammo, quality | quest, new | item level,
--- unwearable | junk. Forever has a reagent bag of its own -- container five, the one its reagent and
--- profession bags go in -- so the reagent border marks something there too and the row stays on both
--- clients; the ammo marker is a Forever idea, since retail carries no such container at all, so its
--- switch stands where the client can use it.
+-- Skipping Forever's ammo switch must not leave an empty half-row on Retail.
 local function markerRows()
   local rows = {
     { type = "toggle", name = "Reagent border", col = 1,
@@ -305,6 +301,13 @@ local function markerRows()
       get = edgeGet, set = edgeSet,
       desc = "Thickness of the slot border." },
   }
+  local col = 1
+  for _, spec in ipairs(rows) do
+    if spec.col and not (spec.hidden and spec.hidden()) then
+      spec.col = col
+      col = 3 - col
+    end
+  end
   return rows
 end
 

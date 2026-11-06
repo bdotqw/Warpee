@@ -455,10 +455,7 @@ end
 -- label's own font so a font swap or resize re-cuts on the next layout.
 -- `name or ""` guards a nil the way the bank copy did; the bags copy passed a caption that was always
 -- a string, so taking the safer form loses nothing.
--- Capitals used to be the one shape of every caption. A category heading still takes them -- that is what
--- says "this is a shelf" without spending a colour on it -- but a section caption reads as a name in the
--- player's own case, which keepCase asks for; the fold is skipped so the glyph count searched over is the
--- name's own.
+-- keepCase preserves localized and custom names instead of forcing capitals.
 function ns.FitLabel(label, name, maxW, keepCase)
   local up = keepCase and (name or "") or ns.Upper(name or "")
   label:SetText(up)

@@ -3253,7 +3253,7 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
         -- the first word the eye takes on the page.
         glabel:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 1, ns.OutlineFlags())
         glabel:SetTextColor(Theme:C("azure"))
-        fitLabel(glabel, Cats:GroupName(band.key), gridW - labelX)
+        fitLabel(glabel, Cats:GroupName(band.key), gridW - labelX, true)
         glabel:ClearAllPoints()
         ns.SnapPoint(glabel, "TOPLEFT", self.content, "TOPLEFT", labelX, -textY)
         glabel:Show()
