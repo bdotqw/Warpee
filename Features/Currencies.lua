@@ -839,7 +839,12 @@ local function dropSlot(row)
   -- The row starts at the content's left edge, not at the window's own: without taking `x0` out the
   -- whole index sat a fraction of a cell to the right of the hand, so the mark and the drop both landed
   -- one seat past the point the player was pointing at.
-  local p = math.floor((cx - (row.x0 or 0) - off + gapX / 2) / stepX)
+  -- Half a step, not half a gap: the boundary between two seats stands a hair past the middle of the
+  -- seat under the pointer, so a carry crosses the same distance left and right. Measured from the gap,
+  -- the left boundary sat on the near seat's trailing edge -- a third of a cell was enough to swap with
+  -- the seat on the left -- while the right one sat past the far seat's edge, so the whole row had to be
+  -- cleared to move it there.
+  local p = math.floor((cx - (row.x0 or 0) - off + stepX / 2) / stepX)
   if p < 0 then p = 0 elseif p > cnt then p = cnt end
   local slot
   if dir == "rtl" then slot = line * cols + (cnt - p) + 1 else slot = line * cols + p + 1 end

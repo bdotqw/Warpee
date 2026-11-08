@@ -63,9 +63,9 @@ local function bagItemID(bag)
   return nil
 end
 
--- The class of a bag item is kept per id: a bag's own item never changes without the bag itself changing,
--- and a layout pass asks the same four slots again on every change the bags see.
-local runByItem = {}
+-- What kind of container a bag item is, kept per id: a bag's own item never changes without the bag
+-- itself changing, and a layout pass asks the same four slots again on every change the bags see.
+local kindByItem = {}
 
 -- The class and the subclass of an item in one read: the instant door answers both as its sixth and seventh
 -- answers, and the full read as the twelfth and thirteenth. A miss is a miss at both doors, and the caller
@@ -84,36 +84,61 @@ local function itemClassSub(id)
   return nil
 end
 
--- Which run a bag makes, if any: "ammo" for a quiver or an ammo pouch, "soul" for a soul bag. Two kinds and
--- not a yes or no, because the run they draw is the same and the caption over it is not: one is ammunition,
--- the other is a warlock's shards, and a player reading "Ammo" over a bag of shards would be told a lie.
-local function bagRun(bag)
-  local id = bagItemID(bag)
-  if not id then return nil end
-  local known = runByItem[id]
+-- What kind of container an item is, by the client's own word for it: "ammo" for a quiver or an ammo
+-- pouch, "soul" for a soul bag, "prof" for any other bag it built for one trade -- the herb, enchanting,
+-- gem, mining, leatherworking, inscription, fishing and cooking bags, which it tells apart by subclass
+-- alone. nil for an ordinary bag, and nil for a miss the client cannot answer. All three answer one
+-- question, what may be put in the bag standing in a slot, so they are read and cached together.
+local function kindOfItem(id)
+  local known = kindByItem[id]
   if known == nil then
     local classID, subID = itemClassSub(id)
     -- Nothing answered: left uncached, so the next pass asks again instead of remembering a miss as a no.
     if classID == nil then return nil end
     if classID == AMMO_CLASS then known = "ammo"
     elseif classID == BAG_CLASS and subID == SOUL_SUBCLASS then known = "soul"
+    -- An ordinary bag is subclass 0, so every container past the soul bag's own subclass is a bag made for
+    -- something in particular, whatever that something is: no list of trades is kept here, the client keeps
+    -- it already, and a bag no one has met yet is marked like the rest.
+    elseif classID == BAG_CLASS and type(subID) == "number" and subID > SOUL_SUBCLASS then known = "prof"
     else known = false end
-    runByItem[id] = known
+    kindByItem[id] = known
   end
   return known or nil
 end
 
--- Named for the cells as well: an item button asks this of its own bag to know whether to wear the run's
--- outline, and the answer has to be the same one the layout grouped the run by. Both kinds wear it: the
--- outline is what names the run once its caption is gone.
-function ns.BagRun(bag)
-  return bagRun(bag)
+-- The same question asked of a slot: what the bag standing in it is. nil for the backpack, an empty slot
+-- and an ordinary bag.
+local function bagKind(bag)
+  local id = bagItemID(bag)
+  if not id then return nil end
+  return kindOfItem(id)
 end
 
-local function bagHoldsAmmo(bag)
-  return bagRun(bag) ~= nil
+-- Which run a bag makes, if any: "ammo" for a quiver or an ammo pouch, "soul" for a soul bag. Two kinds and
+-- not a yes or no, because the run they draw is the same and the caption over it is not: one is ammunition,
+-- the other is a warlock's shards, and a player reading "Ammo" over a bag of shards would be told a lie. A
+-- profession bag is no run at all: it draws no block and no caption of its own, only the ring its cells wear.
+local function bagRun(bag)
+  local kind = bagKind(bag)
+  return (kind == "ammo" or kind == "soul") and kind or nil
 end
-ns.IsAmmoBag = bagHoldsAmmo
+
+-- Asked by a cell's paint about the bag it stands in to know which ring to wear, and named for the cells
+-- as well as the layout: the answer has to be the same one the layout grouped the runs by. All three kinds
+-- answer here -- a profession bag's cells wear the reagent bag's ring, because a slot in one of them is a
+-- slot of a container that takes its own kind and refuses the rest, and the ring is the whole of what tells
+-- it apart inside a grid of otherwise identical cells.
+function ns.BagKind(bag)
+  return bagKind(bag)
+end
+
+-- The same answer for a bag item known by its id rather than by a slot: a snapshot holds another character's
+-- bags and no live container to read, so it classifies a bag by the item the record remembered beside the
+-- bag's name. Nothing is asked of the client's containers here, only of the item's own class and subclass.
+function ns.BagItemKind(id)
+  return kindOfItem(id)
+end
 
 local SIZE_DEFAULT, PAD = 37, 10
 -- Air a captioned block needs over its own cells: the reagent bag is the one block in the bags grid that
@@ -501,6 +526,11 @@ function Bags:AnchorHeader()
   sizeGlyph(self.sellBtn, HB)
   if self.charTag then ns.SnapBox(self.charTag, nil, HB) end
   if self.search then ns.SnapBox(self.search, nil, SEARCH) end
+  -- The bag slots are this character's own bar, and a snapshot shows another character's bags: the mark
+  -- would open the viewer's slots over a picture that is not theirs, so it stands down with the clean-up
+  -- brush while the view is someone else's, and the row closes up through the hidden button. The gear
+  -- stays: the settings still belong to this window, whoever's bags it is showing.
+  if self.bagsToggle then self.bagsToggle:SetShown(not self.snap) end
   self:FlowHeader()
   if self.title then
     self.title:ClearAllPoints()
@@ -637,6 +667,7 @@ function Bags:Build()
   end)
   self.frame = f
   self.content = CreateFrame("Frame", nil, f)
+  self.content.wpePixelSkip = true
   ns.CreateMoveBar(f, "pos")
 
   local title = Theme:Title(f, FONT, "accent")
@@ -1102,7 +1133,8 @@ function Bags:LayoutBagWindow()
   sizeGlyph(self.bagWinClose, HB - 4)
   local BGAP, BPAD = BAGGAP, BAGPAD + Theme:ContentPad("side")
   local BBAND = 26
-  local size = self:BagWinButtonSize()
+  local size, pxGap, step = ns.GridMetrics(w, self:BagWinButtonSize(), BGAP)
+  BGAP = pxGap
   local cf = ns.Badge("count").s
   local band = Theme:HeaderBand(w, BBAND)
   local top = Theme:ContentPad("top")
@@ -1119,10 +1151,10 @@ function Bags:LayoutBagWindow()
   end
   local prev
   for _, b in ipairs(self.bagButtons) do
-    b:SetSize(size, size)
+    ns.SnapSize(b, size, size)
     b:ClearAllPoints()
-    if prev then b:SetPoint("LEFT", prev, "RIGHT", BGAP, 0)
-    else b:SetPoint("TOPLEFT", BPAD, -BHEAD) end
+    if prev then ns.SnapPoint(b, "LEFT", prev, "RIGHT", BGAP, 0)
+    else ns.SnapPoint(b, "TOPLEFT", w, "TOPLEFT", BPAD, -BHEAD) end
     b.cntFontSize = cf
     if b.count then
       b.count:ClearAllPoints()
@@ -1131,10 +1163,11 @@ function Bags:LayoutBagWindow()
     prev = b
   end
   local n = #self.bagButtons
-  w:SetSize(Layout.WindowWidth(BPAD, n, Layout.Step(size, BGAP), BGAP),
+  ns.SnapSize(w, Layout.WindowWidth(BPAD, n, step, BGAP),
     BHEAD + size + BAGPAD + Theme:ContentPad("bottom"))
   Theme:FitPlateOf(w)
   self:UpdateBagBar()
+  ns.SnapWindowSoon(w)
 end
 
 function Bags:ToggleBagWindow()
@@ -1565,6 +1598,26 @@ function Bags:Layout(capture, light)
   -- cell's own below rather than asked per cell.
   local cat = self:CatMode()
 
+  -- What kind of run each bag makes, filled by the bag loop below before any cell is placed. The colour a
+  -- cell is ringed in is read off its bag, and not off the item in it: a player who swaps a quiver or a soul
+  -- bag into a slot the sheet already covers changes nothing the cell's own key can see, so without this the
+  -- empty cells of the new run kept the bare edge they wore as an ordinary bag's slots. Read once per bag and
+  -- not once per cell, since bagRun asks the client for the bag's item every time it is called.
+  local runOf = {}
+  -- What the ring a cell wears is decided by: the run the bag makes, or the trade it was built for. Read
+  -- here beside the run so the paint and the cell key ask the client once per bag and not once per cell.
+  local kindOf = {}
+
+  -- The trade a bag was built for, for the cells of one bag. A snapshot draws another character's bags and
+  -- has no live container to read, so the kind comes off the item id the box remembered beside the bag's
+  -- name; a live slot asks its own bag. Read once per bag, never per cell.
+  local function ringKind(bag)
+    if not ns.IsForever then return nil end
+    if not self.snap then return bagKind(bag) end
+    local rec = ns.Vault and ns.Vault.Bag and ns.Vault:Bag("bags", bag)
+    return rec and ns.BagItemKind and ns.BagItemKind(rec.id) or nil
+  end
+
   local function place(bag, slot, x, y, forceCount)
     i = i + 1
     local b = self:Acquire(i)
@@ -1600,13 +1653,22 @@ function Bags:Layout(capture, light)
     -- that keeps its slot and its recipe is compared and left alone. That is the whole cost of a pass over
     -- a window that is not changing, and it is what lets a transfer re-lay the view out as it goes instead
     -- of hiding the passes behind a timer. Dropped only when something the key cannot see has moved: another
-    -- slot bound to this cell, the view the cell is drawn in (the reagent ring reads it), or the folded
-    -- count standing in for the slot's own. A style change (theme, font, badges, markers) bumps styleGen,
+    -- slot bound to this cell, the view the cell is drawn in (the reagent ring reads it), the folded
+    -- count standing in for the slot's own, or the run the cell's bag makes (the quiver and the soul bag
+    -- wear a ring of their own). A style change (theme, font, badges, markers) bumps styleGen,
     -- and Layout drops every link once for it. A snapshot cell repaints off its own key, so it keeps the
     -- drop: its record carries more than the live cell's key spells out.
-    if rebound or self.snap or b.wpeCat ~= cat or b.wpeForce ~= forceCount then
+    local run, kind = runOf[bag], kindOf[bag]
+    if rebound or self.snap or b.wpeCat ~= cat or b.wpeForce ~= forceCount
+       or b.wpeRun ~= run or b.wpeKind ~= kind then
       b.link = nil
     end
+    -- The run is kept on the cell for the same reason the view is: the next pass compares it against the
+    -- bag the cell then stands for, so a bag that turns into a quiver or a soul bag repaints its cells even
+    -- though neither the bag, nor the slot, nor the item in it has moved. The kind beside it does the same
+    -- for a bag that turns into one of a trade, which changes nothing the run can see.
+    b.wpeRun = run
+    b.wpeKind = kind
     -- Combine-stacks: the cell binds one real bag slot (so the secure click is untouched) but draws the
     -- summed count of every folded slot. wpeForce overrides only the number UpdateItemButton shows; nil
     -- clears it, so a cell reused from a merged layout in the plain grid shows its own slot count again.
@@ -1617,7 +1679,7 @@ function Bags:Layout(capture, light)
     b.wpeCat = cat
     h:Show(); b:Show()
     if self.snap then
-      ns.PaintVaultButton(b, ns.Vault:Slot("bags", bag, slot), bag, forceCount)
+      ns.PaintVaultButton(b, ns.Vault:Slot("bags", bag, slot), bag, forceCount, kind)
     else
       ns.UpdateItemButton(b)
     end
@@ -1722,7 +1784,14 @@ function Bags:Layout(capture, light)
       -- bag takes part in neither. The bag keeps its recorded slot count, since every other pass over the
       -- bags reads that table.
       -- Retail has no such bag to look for, so the question is not even asked there.
-      local run = ns.IsForever and bagRun(bag)
+      -- A snapshot draws another character's bags, and it draws no run of its own: read here, the run would
+      -- be the player's own live bag's, and a cell filed under a block a snapshot never makes is a cell the
+      -- window loses. So the runs are a live question, and a snapshot asks only what its bags were made for.
+      local run = (ns.IsForever and not self.snap) and bagRun(bag)
+      runOf[bag] = run
+      -- The ring these cells wear is the run's or the trade's, and swapping a bag for one of another kind
+      -- moves neither the slot nor the cells, so the cell key needs to see this as well as the run.
+      kindOf[bag] = run or ringKind(bag)
       if not (run and hideAmmo) then
         total = total + num
         used = used + self:Taken(bag)
@@ -3133,7 +3202,7 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
   -- only when it saves a whole row of cells, never on points alone: a squeezed shelf two cells tall
   -- beside two shelves of one is the block of squares a player reads as a bug.
   local MAXK = 2
-  local catW, catOver = {}, {}
+  local catW = {}
   do
     -- Columns a section stands in at row limit kk: its cell count, cut by kk when the shelf is
     -- squeezed, and capped at the grid's own width either way.
@@ -3190,20 +3259,16 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
           local tightCost, tightPick = packBand(items, cnt, MAXK)
           if tightCost <= plainCost - step then pick = tightPick end
         end
-        -- Bank the chosen shelves: each member's columns, and for the shelf's last member the room the
-        -- shelf left unused, which its caption is allowed to run into.
+        -- Bank the chosen shelves: each member's columns. The room a shelf leaves unused is read in the
+        -- layout itself, from the shelf the sections really land on; the packing and the layout can part
+        -- when a tall section is given a shelf of its own here but still fits beside its neighbour there.
         local i = 1
         while i <= cnt do
           local p = pick[i]
-          local x = 0
           for j = i, p[1] do
             local it = items[j]
-            local w = colsAt(it, math.min(p[2], it.capk))
-            catW[it.bi] = w
-            catOver[it.bi] = 0
-            x = x + (j > i and GUTX or 0) + w * step - gap
+            catW[it.bi] = colsAt(it, math.min(p[2], it.capk))
           end
-          catOver[items[p[1]].bi] = math.max(0, gridW - x)
           i = p[1] + 1
         end
       end
@@ -3306,12 +3371,6 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
     local w = catW[bi] or math.min(n, cols)
     if w > cols then w = cols end
     local sw = gridWidth(size, w, gap)
-    -- The caption's room: its own cells, half the gutter to its right, and -- on the last section of a
-    -- shelf -- whatever that shelf left free. Half the gutter, not all of it: a caption that used the
-    -- whole gap ended its ellipsis against the next caption's first glyph, and two names touching read
-    -- as one run of letters rather than as two sections. The last section of a shelf is the one that can
-    -- afford the room, because there is nothing after it to crowd.
-    local truncated = fitLabel(label, name, sw - capX + math.min(GUTX, 4) + (catOver[bi] or 0), true)
     -- Wrap to a new shelf when this section would run past the grid's right edge. The 0.5 absorbs the
     -- rounding in the density-scaled widths so an exact fit is not bumped to the next row.
     if shelfX > 0 and shelfX + GUTX + sw > gridW + 0.5 then
@@ -3320,6 +3379,22 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
     end
     local sx = (shelfX == 0) and 0 or (shelfX + GUTX)
     local sy = shelfY
+    -- The caption's room, read off the shelf it actually landed on rather than off the packing's
+    -- shelves: the two can part when the packing gives a tall section a shelf of its own. A section
+    -- with another beside it may reach half the gutter between them -- the whole gutter ended its
+    -- ellipsis against the next caption's first glyph, and two names touching read as one run of
+    -- letters rather than as two sections. The section that closes a shelf may use whatever that
+    -- shelf left free, since there is nothing after it to crowd.
+    local beside = false
+    if bi < band.to then
+      local nw = catW[bi + 1]
+      if nw then
+        if nw > cols then nw = cols end
+        beside = (sx + sw + GUTX + gridWidth(size, nw, gap)) <= gridW + 0.5
+      end
+    end
+    local room = beside and (sw - capX + math.floor(GUTX / 2)) or (gridW - sx - capX)
+    local truncated = fitLabel(label, name, room, true)
     label:ClearAllPoints()
     ns.SnapPoint(label, "TOPLEFT", self.content, "TOPLEFT", sx + capX, -sy)
     label:Show()
@@ -3505,8 +3580,8 @@ end
 function Bags:Resize(contentH)
   local seam = ns.SeamWatch(self.frame)
   local gw = gridWidth(self.pxSize or self.iconSize, self.cols, self.pxGap or self.gap)
-  self.content:SetSize(gw, contentH)
-  self.frame:SetSize(PAD * 2 + gw, self:TopOffset() + contentH + FOOTER)
+  ns.SnapSize(self.content, gw, contentH)
+  ns.SnapSize(self.frame, PAD * 2 + gw, self:TopOffset() + contentH + FOOTER)
   -- The plate is the extra surface the items stand on, over the window's own background, and it runs
   -- the whole window: header, grid and footer are covered alike, and only a skin's own header band is
   -- left alone (Theme:FitPlate). A plate that stopped at the grid would leave the window's background
@@ -3514,6 +3589,7 @@ function Bags:Resize(contentH)
   Theme:FitPlate(self.gridBg, self.frame)
   ns.Rebase(self.frame, "pos")
   ns.SeamHeal(seam)
+  ns.SnapWindowSoon(self.frame)
 end
 
 local function groupNumber(n, sep)

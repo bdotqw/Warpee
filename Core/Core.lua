@@ -713,6 +713,11 @@ for _, e in ipairs({ "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CH
                      "ITEM_CHANGED" }) do
   pcall(ev.RegisterEvent, ev, e)
 end
+-- Forever's bank bag slots are a container of their own, and a bag put into one or taken out of one moves no
+-- slot count: the client says so with this event alone, so the panel that draws those slots has to hear it or
+-- it keeps the picture it had before the bag was moved. The name is not one a retail client knows, and
+-- registering an event a client does not have is an error, so the call belongs to the client that has it.
+if ns.IsForever then pcall(ev.RegisterEvent, ev, "BAG_CONTAINER_UPDATE") end
 local SCALE_CVARS = { uiscale = true, useuiscale = true }
 
 -- The event handler is one function per group of events plus a table that says which event goes where.
@@ -1167,6 +1172,9 @@ on.REAGENTBANK_UPDATE = onBankSlots
 on.BANK_TABS_CHANGED = onBankSlots
 on.BANK_TAB_SETTINGS_UPDATED = onBankSlots
 on.PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED = onBankSlots
+-- The bag slots of a bank tab are that one container, and a bag moved in or out of them leaves every tab's
+-- own slot count where it was: the layout this asks for is what redraws them, together with the bank.
+on.BAG_CONTAINER_UPDATE = onBankSlots
 
 ev:SetScript("OnEvent", function(_, event, a1, a2)
   local h = on[event]

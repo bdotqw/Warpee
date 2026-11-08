@@ -134,6 +134,21 @@ local function retryLater(link, bag, slot)
   C_Timer.After(RETRY_DELAY, function() askNextFrame(link, bag, slot) end)
 end
 
+-- The client's own answer, when it has one: whether this character can use the item at all -- its level,
+-- class, proficiency, profession and reputation in one call. C_PlayerInfo.CanUseItem is the modern name
+-- (10.0.5+, and the 12.1 engine Forever runs has it too); C_Item.IsUsableItem and the bare global are the
+-- older ones, and the global went away in 12.1.5. nil means no client API could answer, which is not a
+-- verdict either way.
+local function clientCanUse(link)
+  local id = tonumber((link or ""):match("item:(%d+)"))
+  if not id then return nil end
+  local info = _G.C_PlayerInfo
+  if info and info.CanUseItem then return info.CanUseItem(id) == true end
+  if C_Item and C_Item.IsUsableItem then return C_Item.IsUsableItem(link) == true end
+  if _G.IsUsableItem then return _G.IsUsableItem(link) == true end
+  return nil
+end
+
 -- Red lines an item says for reasons that are not "you cannot wear this now". Everything else red is a
 -- block, in whatever words the client chooses: the sentences a requirement is written in are the part of
 -- a tooltip every patch rewrites, and a list of the ones we know is a list that is always one patch
@@ -146,8 +161,8 @@ local function nonBlocking()
   -- Read by name, not by value: a nil in a table constructor ends ipairs at that hole, so one missing
   -- global in one locale would silently drop every name after it.
   for _, key in ipairs({ "ITEM_SCRAPABLE_NOT", "CANNOT_UNEQUIP_COMBAT", "ITEM_DISENCHANT_NOT_DISENCHANTABLE",
-                         "ITEM_CANT_BE_DISENCHANTED", "ITEM_UNIQUE_EQUIPPED", "ITEM_ALREADY_KNOWN",
-                         "ITEM_CANT_BE_REFUNDED", "ITEM_WONT_BE_TRADABLE" }) do
+                         "ITEM_CANT_BE_DISENCHANTED", "ITEM_UNIQUE", "ITEM_UNIQUE_EQUIPPED",
+                         "ITEM_ALREADY_KNOWN", "ITEM_CANT_BE_REFUNDED", "ITEM_WONT_BE_TRADABLE" }) do
     local g = _G[key]
     if type(g) == "string" and g ~= "" then
       notBlocking[g] = true
@@ -202,6 +217,12 @@ function ns.IsItemUnusable(bag, slot, link)
   local hit = knownVerdict(link)
   if hit ~= nil then return hit end
   if unknownItem(link) then retryLater(link, bag, slot); return false end
+  -- A yes from the client is the end of the question. The raw tooltip data keeps a "Requires Level N"
+  -- line even when the character has long passed N -- the default tooltip hides it, the data does not --
+  -- and keeps it red, because that is what an unmet requirement looks like. Reading every red line as a
+  -- block rang the border on ordinary food whose only red line was a requirement already met. So when
+  -- the client says the item can be used, it is usable, whatever colour the data carries.
+  if clientCanUse(link) then keepVerdict(link, false); return false end
   if not (C_TooltipInfo and C_TooltipInfo.GetBagItem) then return false end
   if ns.OutOfTime() then askNextFrame(link, bag, slot); return false end
   local data = C_TooltipInfo.GetBagItem(bag, slot)
@@ -221,6 +242,9 @@ function ns.IsLinkUnusable(link)
   local hit = knownVerdict(link)
   if hit ~= nil then return hit end
   if unknownItem(link) then retryLater(link); return false end
+  -- Same yes as the bag read: see IsItemUnusable. A link is asked about for cells with no slot behind
+  -- them, and the hidden requirement line lives in the link's tooltip data as well.
+  if clientCanUse(link) then keepVerdict(link, false); return false end
   if not (C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return false end
   if ns.OutOfTime() then askNextFrame(link); return false end
   local data = C_TooltipInfo.GetHyperlink(link)

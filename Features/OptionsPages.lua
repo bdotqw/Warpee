@@ -271,7 +271,7 @@ local function markerRows()
         Bags.styleGen = (Bags.styleGen or 0) + 1
         relayout()
       end,
-      desc = "Tint the slots of the reagent bag and the reagent bank." },
+      desc = "Tint the slots of the reagent bag, the reagent bank and a profession bag." },
     -- The ammo run's ring is a marker like the reagent bag's, so it wears the same switch: one toggle for a
     -- quiver, an ammo pouch and a soul bag, because they are one block under two captions. Off, those cells
     -- keep the ordinary edge; Hide ammo / souls is a different question and still takes the run out whole.

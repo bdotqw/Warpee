@@ -438,8 +438,8 @@ local STRINGS = {
     "Восклицательный знак на предметах, дающих ещё не принятое задание. В банке отряда не показывается.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Свечение цвета качества на предметах, которые игра ещё считает новыми.",
-  ["Tint the slots of the reagent bag and the reagent bank."] =
-    "Подсвечивать ячейки сумки реагентов и банка реагентов.",
+  ["Tint the slots of the reagent bag, the reagent bank and a profession bag."] =
+    "Подсвечивать ячейки сумки реагентов, банка реагентов и сумки профессии.",
   ["Red border around gear your character cannot wear."] =
     "Красная рамка вокруг вещей, которые персонаж не может надеть.",
   ["Thickness of the slot border."] = "Толщина рамки ячейки.",

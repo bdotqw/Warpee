@@ -29,9 +29,10 @@ function factories.optiondropdown(env)
 
   local function makeMenuRow(parent, index, rowH)
     local r = CreateFrame("Button", nil, parent)
+    r.wpePixelRect = true
     r:SetHeight(rowH)
-    r:SetPoint("TOPLEFT", 0, -(index - 1) * rowH)
-    r:SetPoint("TOPRIGHT", 0, -(index - 1) * rowH)
+    ns.SnapPoint(r, "TOPLEFT", parent, "TOPLEFT", 0, -(index - 1) * rowH)
+    ns.SnapPoint(r, "TOPRIGHT", parent, "TOPRIGHT", 0, -(index - 1) * rowH)
 
     local bg = Theme:Rect(r, "panelHi", "BACKGROUND")
     bg:SetAllPoints(r)
@@ -90,8 +91,9 @@ function factories.optiondropdown(env)
     m:SetClampedToScreen(true)
 
     local sf = CreateFrame("ScrollFrame", nil, m)
-    sf:SetPoint("TOPLEFT", 4, -4)
-    sf:SetPoint("BOTTOMRIGHT", -4, 4)
+    sf.wpePixelRect = true
+    ns.SnapPoint(sf, "TOPLEFT", m, "TOPLEFT", 4, -4)
+    ns.SnapPoint(sf, "BOTTOMRIGHT", m, "BOTTOMRIGHT", -4, 4)
     local child = CreateFrame("Frame", nil, sf)
     child:SetPoint("TOPLEFT")
     sf:SetScrollChild(child)
@@ -109,6 +111,7 @@ function factories.optiondropdown(env)
     local thumbTex = Theme:Rect(thumb, "faint", "ARTWORK")
     thumbTex:SetAllPoints(thumb)
     m.bar, m.thumb = bar, thumb
+    bar.wpePixelRect, thumb.wpePixelRect = true, true
 
     local function menuSpan() return math.max(0, child:GetHeight() - sf:GetHeight()) end
     local function paintBar()
@@ -117,16 +120,12 @@ function factories.optiondropdown(env)
       bar:Show()
       local ch = child:GetHeight()
       local h = math.max(20, view * view / (ch > 0 and ch or view))
-      thumb:SetHeight(h)
-      local frac = sf:GetVerticalScroll() / span
-      thumb:ClearAllPoints()
-      thumb:SetPoint("TOP", bar, "TOP", 0, -frac * (view - h))
+      local frac = math.max(0, math.min(1, sf:GetVerticalScroll() / span))
+      ns.FitScrollThumb(thumb, bar, h, frac * (view - h))
     end
     m.PaintBar = paintBar
     local function menuScroll(v)
-      local span = menuSpan()
-      v = math.min(span, math.max(0, v))
-      sf:SetVerticalScroll(math.min(span, ns.SnapScroll(sf, v)))
+      ns.ScrollPixels(sf, v, m)
       paintBar()
     end
     m.MenuScroll = menuScroll
@@ -159,7 +158,7 @@ function factories.optiondropdown(env)
   local function showDropdown(anchor, spec, onPick)
     local m = ensureDropdown()
     local keys = spec.keys()
-    local rowH = BASE_FONT + 11
+    local rowH = ns.SnapValue(m, BASE_FONT + 11)
     -- Not `spec.multi and nil or spec.get()`: with the middle nil the `or` falls through and calls get()
     -- anyway, which a multi spec has not got.
     local cur
@@ -169,7 +168,10 @@ function factories.optiondropdown(env)
       local r = m.rows[i]
       if not r then r = makeMenuRow(m.child, i, rowH); m.rows[i] = r end
       r:SetHeight(rowH)
-      r.dot:SetSize(3, rowH - 8)
+      r:ClearAllPoints()
+      ns.SnapPoint(r, "TOPLEFT", m.child, "TOPLEFT", 0, -(i - 1) * rowH)
+      ns.SnapPoint(r, "TOPRIGHT", m.child, "TOPRIGHT", 0, -(i - 1) * rowH)
+      ns.SnapSize(r.dot, 3, rowH - 8)
       r.Text:SetFont(dropdownFont(), BASE_FONT - 1, ns.OutlineFlags())
       r.Text:SetText(T(spec.label(key)))
       -- A "#" key is a section header: no dot, drawn faint. It still takes a click, because the token
@@ -234,10 +236,7 @@ function factories.optiondropdown(env)
     -- When the list overflows its 9-row cap the scrollbar shows on the right, so the rows give it room
     -- (its width plus a little air); a list that fits keeps the full width.
     local overflow = #keys > visible
-    m.child:SetSize(w - 8 - (overflow and (SCROLL_W + 4) or 0), #keys * rowH)
-
-    local span = math.max(0, #keys * rowH - visible * rowH)
-    m.sf:SetVerticalScroll(math.min(span, ns.SnapScroll(m.sf, (curIndex - 1) * rowH - rowH * 3)))
+    ns.SnapSize(m.child, w - 8 - (overflow and (SCROLL_W + 4) or 0), #keys * rowH)
 
     m.owner = anchor
     m.desc = spec.desc
@@ -255,7 +254,7 @@ function factories.optiondropdown(env)
     m:Raise()
     -- Size and scroll are set now, so paint the bar: it shows only when the list overflows and sits at
     -- the scroll position the current pick was brought to.
-    if m.PaintBar then m:PaintBar() end
+    m.MenuScroll((curIndex - 1) * rowH - rowH * 3)
   end
 
   -- The ordinary way in: a second press on the control closes it.

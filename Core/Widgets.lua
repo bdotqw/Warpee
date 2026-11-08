@@ -437,6 +437,7 @@ function ns.PlaceRect(frame, dbKey, angle, l, b, fallback)
     WarpeeDB[dbKey] = { p = angle, rp = angle, x = rx or x, y = ry or y }
   end
   if frame.wpeBar then frame.wpeBar:Refresh() end
+  ns.SnapWindowSoon(frame)
 end
 
 -- The record a window standing on `l, b` would be filed under, under the corner it already

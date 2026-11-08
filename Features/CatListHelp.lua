@@ -123,6 +123,7 @@ function factories.catlisthelp(env)
     child:SetSize(160, HELP_ROWH)
     sc:SetScrollChild(child)
     sc:EnableMouseWheel(true)
+    sc.wpePixelRect = true
     m.sc, m.child = sc, child
 
     -- Two pools, because a row's colour is its kind: an axis name keeps the accent, a word keeps the text
@@ -158,6 +159,7 @@ function factories.catlisthelp(env)
     local thumbTex = Theme:Rect(thumb, "faint", "ARTWORK")
     thumbTex:SetAllPoints(thumb)
     m.bar, m.thumb, m.thumbTex = bar, thumb, thumbTex
+    bar.wpePixelRect, thumb.wpePixelRect = true, true
     local function span() return math.max(0, m.child:GetHeight() - sc:GetHeight()) end
     local function paintBar()
       local sp, view = span(), sc:GetHeight()
@@ -165,17 +167,15 @@ function factories.catlisthelp(env)
       bar:Show()
       local ch = m.child:GetHeight()
       local h = math.max(20, view * view / (ch > 0 and ch or view))
-      thumb:SetHeight(h)
-      local frac = (sc:GetVerticalScroll() or 0) / sp
-      thumb:ClearAllPoints()
-      thumb:SetPoint("TOP", bar, "TOP", 0, -frac * math.max(0, (bar:GetHeight() or view) - h))
+      local frac = math.max(0, math.min(1, (sc:GetVerticalScroll() or 0) / sp))
+      ns.FitScrollThumb(thumb, bar, h, frac * math.max(0, (bar:GetHeight() or view) - h))
     end
     m.PaintBar = paintBar
     local function scroll(v)
-      local sp = span()
-      sc:SetVerticalScroll(math.min(sp, math.max(0, v)))
+      ns.ScrollPixels(sc, v, m)
       paintBar()
     end
+    m.ScrollTo = scroll
     local function wheel(d) scroll((sc:GetVerticalScroll() or 0) - d * HELP_ROWH * 2) end
     sc:SetScript("OnMouseWheel", function(s, d) wheel(d) end)
     -- The whole window takes the wheel, not only the list: the sheet floats over the settings page, and a
@@ -295,7 +295,7 @@ function factories.catlisthelp(env)
                                      math.floor((UIParent:GetWidth() or 1000) * 0.7)))
     -- The text ends 12 short of the bar, not 4, so wrapped lines do not sit against it,
     -- and the scrolling title stays clear of the close button on its way past.
-    local innerW = width - pad * 2 - SCROLL_W - 12
+    local innerW = ns.SnapValue(m.child, width - pad * 2 - SCROLL_W - 12)
     m.child:SetWidth(innerW)
 
     m.title:ClearAllPoints()
@@ -309,7 +309,7 @@ function factories.catlisthelp(env)
       m.title:SetPoint("TOPLEFT", 0, 0)
     end
     m.title:SetWidth(innerW)
-    m.legend:SetPoint("TOPLEFT", 10, -(legendY - scTop))
+    ns.SnapPoint(m.legend, "TOPLEFT", m.child, "TOPLEFT", 10, -(legendY - scTop))
     m.legend:SetWidth(innerW - 10)
     m.legend:SetText((T("Type several words: an item must match all of them. %s = space, %s = |, %s = !. For example, (mount | toy) !quest means mounts or toys, but no quest items. More forms: id:6948; 400; ilvl400; ilvl>400; ilvl>=400; ilvl<400; ilvl<=400; ilvl400-450.")):format(T("All"), T("Any"), T("Not")))
     local legendH = math.ceil(m.legend:GetStringHeight() or 0)
@@ -322,10 +322,10 @@ function factories.catlisthelp(env)
       local label = T(AXIS_LABEL[ax] or ax)
       r:SetText(label)
       r:ClearAllPoints()
-      r:SetPoint("TOPLEFT", 10, -y)
+      ns.SnapPoint(r, "TOPLEFT", m.child, "TOPLEFT", 10, -y)
       r:SetWidth(innerW - 10)
       r:Show()
-      y = y + HELP_ROWH
+      y = ns.SnapValue(m.child, y + HELP_ROWH)
       -- One row per group, holding the whole group, so a group takes as many lines as its list needs and
       -- no more: a wrapped row is measured from its own text in the font it is drawn in.
       n = n + 1
@@ -336,18 +336,18 @@ function factories.catlisthelp(env)
       if row.SetSpacing then row:SetSpacing(3) end
       row:SetText(helpList(byAxis[ax]))
       row:ClearAllPoints()
-      row:SetPoint("TOPLEFT", 40, -y)
+      ns.SnapPoint(row, "TOPLEFT", m.child, "TOPLEFT", 40, -y)
       row:SetWidth(innerW - 40)
       row:Show()
       -- A full step of air after each list: in some languages the next header sat on the
       -- previous synonyms, so the gap is a real one, not a hairline.
-      y = y + math.max(HELP_ROWH, math.ceil(row:GetStringHeight() or 0) + 2) + 12
+      y = ns.SnapValue(m.child, y + math.max(HELP_ROWH, math.ceil(row:GetStringHeight() or 0) + 2) + 12)
     end
     -- pairs, not a range: both pools are indexed by the shared row counter, so they hold holes and # has
     -- no answer for them. A row past this fill's last index is one an earlier, longer list built.
     for i, r in pairs(m.hdrRows) do if i > n then r:Hide() end end
     for i, r in pairs(m.wordRows) do if i > n then r:Hide() end end
-    m.child:SetHeight(math.max(HELP_ROWH, y))
+    m.child:SetHeight(ns.SnapValue(m.child, math.max(HELP_ROWH, y)))
 
     -- The scroll starts at scTop; the window fits what stands above plus the visible list.
     -- The bar starts below the close button: in the scrolling mode the list reaches the top
@@ -355,11 +355,11 @@ function factories.catlisthelp(env)
     local barTop = math.max(scTop, closeY + 22 + 4)
     local listH = math.max(HELP_ROWH * 3, math.min(y, HELP_MAXH - (scTop - extraTop) - pad))
     m.sc:ClearAllPoints()
-    m.sc:SetPoint("TOPLEFT", pad + side, -scTop)
-    m.sc:SetPoint("BOTTOMRIGHT", -(pad + side + SCROLL_W + 2), pad + bottom)
+    ns.SnapPoint(m.sc, "TOPLEFT", m, "TOPLEFT", pad + side, -scTop)
+    ns.SnapPoint(m.sc, "BOTTOMRIGHT", m, "BOTTOMRIGHT", -(pad + side + SCROLL_W + 2), pad + bottom)
     m.bar:ClearAllPoints()
-    m.bar:SetPoint("TOPRIGHT", -(pad + side), -barTop)
-    m.bar:SetPoint("BOTTOMRIGHT", -(pad + side), pad + bottom)
+    ns.SnapPoint(m.bar, "TOPRIGHT", m, "TOPRIGHT", -(pad + side), -barTop)
+    ns.SnapPoint(m.bar, "BOTTOMRIGHT", m, "BOTTOMRIGHT", -(pad + side), pad + bottom)
     ns.SnapSize(m, width + side * 2, scTop + listH + pad + bottom)
     Theme:FitPlateOf(m)
     -- Showing is what places it: OnShow re-applies the spot the anchor above wrote, so a sheet already open
@@ -370,9 +370,7 @@ function factories.catlisthelp(env)
     -- clipping once, and the list then drew straight over the title and the legend on its way past.
     -- A repaint keeps the reader's place, but the list it lands back on can be shorter (a language with
     -- tighter words), so the old offset is pulled in before the bar is drawn from it.
-    local span = math.max(0, m.child:GetHeight() - m.sc:GetHeight())
-    m.sc:SetVerticalScroll(keepScroll and math.min(span, m.sc:GetVerticalScroll() or 0) or 0)
-    m.PaintBar()
+    m.ScrollTo(keepScroll and m.sc:GetVerticalScroll() or 0)
   end
 
   local function showCatHelp(anchor)

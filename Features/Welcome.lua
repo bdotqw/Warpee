@@ -227,6 +227,7 @@ function Welcome:FitLayout()
   -- blurs the border. AlignToScreen nudges the frame's own offsets so its edges sit on the physical grid,
   -- the same pass every other Warpee window runs after it is sized.
   ns.AlignToScreen(m)
+  ns.SnapWindowSoon(m)
 end
 
 -- Show the chooser. committed is the view in force now: hovering previews the other, leaving restores this,

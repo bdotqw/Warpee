@@ -535,6 +535,7 @@ function factories.catlist(parent, spec)
     -- Right column scrolls past PMAX rows; a faint thumb (lit on hover/drag) shows more, hidden when all fit.
     local WBAR = SCROLL_W
     local sf = CreateFrame("ScrollFrame", nil, m)
+    sf.wpePixelRect = true
     sf:SetPoint("TOPLEFT", AXW + 10, -4)
     sf:SetPoint("BOTTOMRIGHT", -4 - WBAR - 2, 4)
     local child = CreateFrame("Frame", nil, sf)
@@ -551,6 +552,7 @@ function factories.catlist(parent, spec)
     local wthumbTex = Theme:Rect(wthumb, "faint", "ARTWORK")
     wthumbTex:SetAllPoints(wthumb)
     m.wbar, m.wthumb = wbar, wthumb
+    wbar.wpePixelRect, wthumb.wpePixelRect = true, true
 
     local function wspan() return math.max(0, child:GetHeight() - sf:GetHeight()) end
     local function paintWBar()
@@ -559,19 +561,15 @@ function factories.catlist(parent, spec)
       wbar:Show()
       local ch = child:GetHeight()
       local h = math.max(20, view * view / (ch > 0 and ch or view))
-      wthumb:SetHeight(h)
-      local frac = (sf:GetVerticalScroll() or 0) / span
-      wthumb:ClearAllPoints()
-      wthumb:SetPoint("TOP", wbar, "TOP", 0, -frac * (view - h))
+      local frac = math.max(0, math.min(1, (sf:GetVerticalScroll() or 0) / span))
+      ns.FitScrollThumb(wthumb, wbar, h, frac * (view - h))
     end
     m.PaintWBar = paintWBar
     local function wscroll(v)
-      local span = wspan()
-      sf:SetVerticalScroll(math.min(span, math.max(0, v)))
+      ns.ScrollPixels(sf, v, m)
       paintWBar()
-      -- Same as the page scroll: the sheet's rows ride the child and come off the pixel grid as it moves.
-      if Options.SnapSoon then Options:SnapSoon() end
     end
+    m.ScrollWords = wscroll
     sf:EnableMouseWheel(true)
     sf:SetScript("OnMouseWheel", function(s, d) wscroll((s:GetVerticalScroll() or 0) - d * PROWH * 2) end)
     ns.ScrollThumb(wthumb, wthumbTex, sf, wscroll, wspan)
@@ -693,7 +691,8 @@ function factories.catlist(parent, spec)
     local r = pool[i]
     if r then return r end
     r = CreateFrame("Button", nil, parent)
-    r:SetHeight(PROWH)
+    r.wpePixelRect = true
+    r:SetHeight(ns.SnapValue(r, PROWH))
     local bg = Theme:Rect(r, "panelHi", "BACKGROUND")
     bg:SetAllPoints(r)
     bg:Hide()
@@ -735,6 +734,7 @@ function factories.catlist(parent, spec)
       m.levelPane:Show()
       m.levelBuild = true
       m.wordCount = 0
+      ns.SnapWindowSoon(m)
       return
     end
     m.levelPane:Hide()
@@ -751,19 +751,19 @@ function factories.catlist(parent, spec)
       r.bg:Hide()
       r.Text:SetText(e.text)
       r:ClearAllPoints()
-      r:SetPoint("TOPLEFT", 0, -y)
-      r:SetWidth(m.wordW or WORDW)
+      ns.SnapPoint(r, "TOPLEFT", m.wordChild, "TOPLEFT", 0, -y)
+      r:SetWidth(ns.SnapValue(r, m.wordW or WORDW))
+      r:SetHeight(ns.SnapValue(r, PROWH))
       r:SetScript("OnClick", function()
         if m.wpeOnPick then m.wpeOnPick(e.ins) end
         m:Hide()
       end)
       r:Show()
-      y = y + PROWH
+      y = ns.SnapValue(r, y + r:GetHeight())
     end
     for i = #entries + 1, #m.wordRows do m.wordRows[i]:Hide() end
-    m.wordChild:SetHeight(math.max(PROWH, y))
-    m.sf:SetVerticalScroll(0)
-    if m.PaintWBar then m:PaintWBar() end
+    m.wordChild:SetHeight(ns.SnapValue(m.wordChild, math.max(PROWH, y)))
+    m.ScrollWords(0)
     m.wordCount = #entries
   end
 
@@ -829,11 +829,12 @@ function factories.catlist(parent, spec)
       r.wpeAxis = a.key
       r.Text:SetText(T(a.label))
       r:ClearAllPoints()
-      r:SetPoint("TOPLEFT", 4, -(4 + y))
-      r:SetWidth(axisW - 4)
+      ns.SnapPoint(r, "TOPLEFT", m, "TOPLEFT", 4, -(4 + y))
+      r:SetWidth(ns.SnapValue(r, axisW - 4))
+      r:SetHeight(ns.SnapValue(r, PROWH))
       r:SetScript("OnClick", function() showWords(m, a.key) end)
       r:Show()
-      y = y + PROWH
+      y = ns.SnapValue(r, y + r:GetHeight())
     end
     for i = #axes + 1, #m.axisRows do m.axisRows[i]:Hide() end
     local axisH = y
@@ -846,7 +847,7 @@ function factories.catlist(parent, spec)
     showWords(m, axes[1] and axes[1].key or "armor")
     -- The level builder is two rows tall (operator cells over the number box), so its column needs that
     -- much even though it lists no words; every other axis sizes off its word count.
-    local rightH = m.levelBuild and (PROWH * 4) or (math.min(m.wordCount, PMAX) * PROWH)
+    local rightH = (m.levelBuild and 4 or math.min(m.wordCount, PMAX)) * ns.SnapValue(m, PROWH)
     local h = math.max(axisH, rightH) + 8
     -- Width holds both columns plus the word column's scrollbar track (SCROLL_W + a little air), so a
     -- scrolling axis does not draw its bar over the last letters of its words.
@@ -865,6 +866,7 @@ function factories.catlist(parent, spec)
     end
     m:Show()
     m:Raise()
+    m.ScrollWords(0)
   end
 
   -- The words the search takes, as a list to read rather than a menu to pick from: the band's "+" picks a

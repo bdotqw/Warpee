@@ -423,6 +423,7 @@ function View:State(mode)
   end
   if not st.content and self.frame then
     local c = CreateFrame("Frame", nil, self.frame)
+    c.wpePixelSkip = true
     c:SetSize(100, 100)
     c:Hide()
     st.content = c
@@ -865,6 +866,11 @@ function View:FlowHeader()
   -- deposit button and the reagents check are tested on their own, so a narrow window drops whichever
   -- does not fit rather than both. UpdateFooter sets depWant/reagWant (the bank type wants them); the
   -- fit test here has the final say on shown state.
+  -- The bag window's slot panel reads the containers of the bank that is open, and a snapshot of another
+  -- character's bank has none behind it: the mark stands down with the panel while the view is someone
+  -- else's. Set before the flow below, so the row chains straight from the sort to the gear and no hole is
+  -- left where the mark stood.
+  if self.slotsBtn then self.slotsBtn:SetShown(self.bankerOpen and not self.snap) end
   -- Right to left: the X, the gear, the bank's bag slots, the sort.
   local edge = ns.FlowRow(self.frame, -PAD, -row1, 4,
     { self.closeBtn, self.gearBtn, self.slotsBtn, self.sortBtn })
@@ -900,7 +906,6 @@ function View:FlowHeader()
   self.headEdge = prev
   -- The bag window's slot panel reads the containers, and this pass is what a bank change lands on: the
   -- cells are refreshed here while that panel is up, so a bag taken out or put in shows without a reopen.
-  if self.slotsBtn then self.slotsBtn:SetShown(self.bankerOpen and not self.snap) end
   if self.slotsWin and self.slotsWin:IsShown() then self:RefreshBankSlots() end
 end
 
@@ -1072,7 +1077,8 @@ function View:LayoutBankSlots()
   local AIR = 6
   local gap = 6
   local pad = PAD + AIR + Theme:ContentPad("side")
-  local size = self:CellSize()
+  local size, pxGap, step = ns.GridMetrics(w, self:CellSize(), gap)
+  gap = pxGap
   local band = Theme:HeaderBand(w, 26)
   local top = Theme:ContentPad("top")
   local head = band and (band + AIR + 4) or (34 + Theme:TopInset())
@@ -1090,17 +1096,18 @@ function View:LayoutBankSlots()
   for _, b in ipairs(self.slotsCells) do
     if b:IsShown() then
       n = n + 1
-      b:SetSize(size, size)
+      ns.SnapSize(b, size, size)
       b:ClearAllPoints()
-      if prev then b:SetPoint("LEFT", prev, "RIGHT", gap, 0)
-      else b:SetPoint("TOPLEFT", pad, -head) end
+      if prev then ns.SnapPoint(b, "LEFT", prev, "RIGHT", gap, 0)
+      else ns.SnapPoint(b, "TOPLEFT", w, "TOPLEFT", pad, -head) end
       prev = b
     end
   end
   local cols = math.max(n, 1)
-  w:SetSize(Layout.WindowWidth(pad, cols, Layout.Step(size, gap), gap),
+  ns.SnapSize(w, Layout.WindowWidth(pad, cols, step, gap),
     head + size + PAD + AIR + Theme:ContentPad("bottom"))
   Theme:FitPlateOf(w)
+  ns.SnapWindowSoon(w)
 end
 
 function View:ToggleBankSlots()
@@ -3410,6 +3417,7 @@ function View:Resize(st)
   Theme:FitPlate(self.gridBg, self.frame)
   ns.Rebase(self.frame, "bankPos")
   ns.SeamHeal(seam)
+  ns.SnapWindowSoon(self.frame)
 end
 
 function View:FitHeader()

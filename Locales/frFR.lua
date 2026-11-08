@@ -380,8 +380,8 @@ local STRINGS = {
     "Le point d'exclamation sur les objets des quêtes que vous n'avez pas encore acceptées. Il ne s'affiche pas dans la banque de bataillon.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Lueur de la couleur de qualité sur les objets que le jeu considère encore comme nouveaux.",
-  ["Tint the slots of the reagent bag and the reagent bank."] =
-    "Colore les emplacements du sac de composants et de la banque de composants.",
+  ["Tint the slots of the reagent bag, the reagent bank and a profession bag."] =
+    "Colore les emplacements du sac de composants, de la banque de composants et d'un sac de métier.",
   ["Red border around gear your character cannot wear."] =
     "Bordure rouge autour de l'équipement que votre personnage ne peut pas porter.",
   ["Thickness of the slot border."] = "Épaisseur de la bordure des emplacements.",

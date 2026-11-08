@@ -382,8 +382,8 @@ local STRINGS = {
     "Das Ausrufezeichen auf Gegenständen für Quests, die du noch nicht angenommen hast. In der Kriegsmeutenbank wird es nicht gezeigt.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Leuchten in der Qualitätsfarbe auf Gegenständen, die das Spiel noch als neu zählt.",
-  ["Tint the slots of the reagent bag and the reagent bank."] =
-    "Färbt die Plätze der Reagenzientasche und der Reagenzienbank.",
+  ["Tint the slots of the reagent bag, the reagent bank and a profession bag."] =
+    "Färbt die Plätze der Reagenzientasche, der Reagenzienbank und einer Berufstasche.",
   ["Red border around gear your character cannot wear."] =
     "Roter Rahmen um Ausrüstung, die dein Charakter nicht tragen kann.",
   ["Thickness of the slot border."] = "Stärke des Platzrahmens.",

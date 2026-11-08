@@ -423,6 +423,7 @@ function ns.SizeGlyph(btn, size)
 end
 
 function ns.PixelLine(t, n, axis)
+  t.wpePixelLine = true
   return ns.PixelJob(t, function(x)
     local v = ns.PX(x:GetParent(), n or 1)
     if axis == "w" then x:SetWidth(v) else x:SetHeight(v) end
@@ -684,6 +685,8 @@ function ns.SnapRect(frame)
     elseif p:find("BOTTOM", 1, true) then t[5] = t[5] + dy
     else t[5] = t[5] + dy + dh / 2 end
   end
+  if math.abs(dw) >= 0.02 / per then frame:SetWidth(w + dw) end
+  if math.abs(dh) >= 0.02 / per then frame:SetHeight(h + dh) end
   frame:ClearAllPoints()
   for i = 1, n do
     local t = pts[i]
@@ -706,6 +709,96 @@ function ns.SnapScroll(sf, v)
     end
   end
   return math.max(0, v)
+end
+
+-- A second pass catches anchors resolved after layout without touching item templates or guest UI.
+function ns.SnapWindow(frame, done)
+  if not (frame and frame:IsShown()) or frame.wpeGuest or frame.wpePixelBusy then return end
+  if frame.IsProtected and frame:IsProtected() then return end
+  done = done or {}
+  if done[frame] then return end
+  done[frame] = true
+  frame.wpePixelQ = nil
+  frame.wpePixelBusy = true
+  local targets, order, visited = {}, {}, {}
+  local function collect(parent, depth)
+    if depth > 8 or parent.wpePixelSkip or parent.wpeGuest or not parent:IsShown() then return end
+    if parent.IsProtected and parent:IsProtected() then return end
+    if parent.holder or (parent.GetObjectType and parent:GetObjectType() == "ItemButton") then return end
+    targets[parent] = parent == frame or parent.wpeEdge or parent.wpePixelRect or (parent.edges and parent.mark) or false
+    order[#order + 1] = parent
+    if parent.GetRegions then
+      for _, r in ipairs({ parent:GetRegions() }) do
+        if r:IsShown() then
+          targets[r] = r.wpePixelLine or false
+          if r.wpePixelLine then order[#order + 1] = r end
+        end
+      end
+    end
+    if parent.GetChildren then
+      for _, c in ipairs({ parent:GetChildren() }) do collect(c, depth + 1) end
+    end
+  end
+  local function fit(obj)
+    if not obj or visited[obj] then return end
+    visited[obj] = true
+    if targets[obj] == nil then
+      local owner = obj
+      while owner and not owner.wpePixelWindow do owner = owner:GetParent() end
+      if owner and owner ~= frame then ns.SnapWindow(owner, done) end
+      return
+    end
+    fit(obj:GetParent())
+    -- Creation order need not match anchor order: move the reference before its dependants.
+    for i = 1, obj:GetNumPoints() do
+      local _, rel = obj:GetPoint(i)
+      fit(rel)
+    end
+    if targets[obj] then ns.SnapRect(obj) end
+  end
+  collect(frame, 0)
+  for _, obj in ipairs(order) do fit(obj) end
+  frame.wpePixelBusy = nil
+end
+
+function ns.SnapWindowSoon(frame)
+  if not (frame and frame.wpePixelWindow and frame:IsShown()) or frame.wpePixelBusy or frame.wpePixelQ then return end
+  frame.wpePixelQ = true
+  C_Timer.After(0, function()
+    if not frame.wpePixelQ then return end
+    frame.wpePixelQ = nil
+    ns.SnapWindow(frame)
+  end)
+end
+
+function ns.PixelWindow(frame)
+  if not frame or frame.wpePixelWindow or frame.wpeGuest or frame.wpeSkin then return frame end
+  frame.wpePixelWindow = true
+  frame:HookScript("OnShow", ns.SnapWindowSoon)
+  frame:HookScript("OnSizeChanged", ns.SnapWindowSoon)
+  frame:HookScript("OnDragStop", ns.SnapWindowSoon)
+  ns.PixelJob(frame, ns.SnapWindowSoon, "window")
+  return frame
+end
+
+function ns.ScrollPixels(sf, v, frame)
+  local child = sf:GetScrollChild()
+  if not child then return end
+  local span = math.max(0, child:GetHeight() - sf:GetHeight())
+  v = math.min(span, math.max(0, v or 0))
+  -- The viewport snaps after layout; carrying its old subpixel phase into the scroll would undo that.
+  sf:SetVerticalScroll(math.min(span, ns.SnapValue(sf, v)))
+  ns.SnapWindowSoon(frame)
+end
+
+function ns.FitScrollThumb(thumb, bar, height, drop)
+  ns.SnapRect(bar)
+  local track = bar:GetHeight()
+  height = math.min(track, ns.SnapValue(thumb, height))
+  drop = math.min(math.max(0, track - height), ns.SnapValue(thumb, drop))
+  ns.SnapSize(thumb, bar:GetWidth(), height)
+  thumb:ClearAllPoints()
+  ns.SnapPoint(thumb, "TOP", bar, "TOP", 0, -drop)
 end
 
 local function restoreFont(fs)
@@ -864,6 +957,7 @@ function Theme:Restyle(name)
   -- above moves its art to the new theme but leaves the numbers the last fill chose, and a sheet left
   -- open across a switch then showed the old theme's offsets until it was closed and reopened.
   if ns.RefreshSearchWords then ns.RefreshSearchWords() end
+  for frame in pairs(WINDOWS) do ns.SnapWindowSoon(frame) end
 end
 
 function Theme:GridAlpha()
@@ -1577,6 +1671,7 @@ function Theme:Panel(frame, bgKey, strokeKey, opaque)
   end
   ns.PixelBackdrop(frame, paint)
   track(frame, paint)
+  ns.PixelWindow(frame)
   return frame
 end
 

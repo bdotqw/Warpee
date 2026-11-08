@@ -33,10 +33,13 @@ function Picker:PaintBar()
   bar:SetPoint("TOPLEFT", sf, "TOPRIGHT", 2, 0)
   bar:SetPoint("BOTTOMLEFT", sf, "BOTTOMRIGHT", 2, 0)
   local h = math.max(16, view * view / self.child:GetHeight())
-  thumb:SetHeight(h)
-  local frac = sf:GetVerticalScroll() / span
-  thumb:ClearAllPoints()
-  thumb:SetPoint("TOP", bar, "TOP", 0, -frac * (view - h))
+  local frac = math.max(0, math.min(1, self.sf:GetVerticalScroll() / span))
+  ns.FitScrollThumb(thumb, bar, h, frac * (view - h))
+end
+
+function Picker:ScrollTo(v)
+  ns.ScrollPixels(self.sf, v, self.frame)
+  self:PaintBar()
 end
 
 local function classColor(class)
@@ -107,6 +110,7 @@ function Picker:Build()
   self.filter = filter
 
   local sf = CreateFrame("ScrollFrame", nil, m)
+  sf.wpePixelRect = true
   sf:SetPoint("TOPLEFT", PAD, -(PAD + HEAD_H))
   sf:SetPoint("BOTTOMRIGHT", -PAD, PAD)
   local child = CreateFrame("Frame", nil, sf)
@@ -116,18 +120,17 @@ function Picker:Build()
   -- How far this list can travel, and how it takes a new offset: the two halves the shared scrollbar thumb
   -- asks its owner for. The wheel goes through the same pair, so a wheel and a drag cannot land apart.
   local function listSpan() return math.max(0, child:GetHeight() - sf:GetHeight()) end
-  local function listScroll(v)
-    sf:SetVerticalScroll(math.min(listSpan(), math.max(0, v or 0)))
-    if Picker.PaintBar then Picker:PaintBar() end
-  end
+  local function listScroll(v) self:ScrollTo(v) end
   sf:SetScript("OnMouseWheel", function(s, d) listScroll((s:GetVerticalScroll() or 0) - d * ROW_H * 2) end)
   self.sf, self.child = sf, child
 
   local bar = CreateFrame("Frame", nil, m)
+  bar.wpePixelRect = true
   bar:SetWidth(BAR_W)
   local trackTex = Theme:Rect(bar, "panel", "BACKGROUND")
   trackTex:SetAllPoints(bar)
   local thumb = CreateFrame("Frame", nil, bar)
+  thumb.wpePixelRect = true
   thumb:SetWidth(BAR_W)
   local thumbTex = Theme:Rect(thumb, "faint", "ARTWORK")
   thumbTex:SetAllPoints(thumb)
@@ -142,6 +145,7 @@ function Picker:Row(i)
   local r = self.rows[i]
   if r then return r end
   r = CreateFrame("Button", nil, self.child)
+  r.wpePixelRect = true
   r:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   local bg = Theme:Rect(r, "panelHi", "BACKGROUND")
   bg:SetAllPoints(r)
@@ -190,10 +194,10 @@ end
 function Picker:RealmRow(n, y, realm, path)
   local h = self:Row(n)
   h.kind, h.key = "realm", nil
-  h:SetHeight(HDR_H)
+  h:SetHeight(ns.SnapValue(h, HDR_H))
   h:ClearAllPoints()
-  h:SetPoint("TOPLEFT", 0, -y)
-  h:SetPoint("TOPRIGHT", 0, -y)
+  ns.SnapPoint(h, "TOPLEFT", self.child, "TOPLEFT", 0, -y)
+  ns.SnapPoint(h, "TOPRIGHT", self.child, "TOPRIGHT", 0, -y)
   h:SetAlpha(1)
   h.dot:Hide(); h.bg:Hide(); h.line:Show()
   h.Text:ClearAllPoints()
@@ -208,11 +212,11 @@ end
 function Picker:CharRow(n, y, e, path)
   local r = self:Row(n)
   r.kind, r.key = "char", e.key
-  r:SetHeight(ROW_H)
-  r.dot:SetSize(3, ROW_H - 8)
+  r:SetHeight(ns.SnapValue(r, ROW_H))
+  ns.SnapSize(r.dot, 3, ROW_H - 8)
   r:ClearAllPoints()
-  r:SetPoint("TOPLEFT", 0, -y)
-  r:SetPoint("TOPRIGHT", 0, -y)
+  ns.SnapPoint(r, "TOPLEFT", self.child, "TOPLEFT", 0, -y)
+  ns.SnapPoint(r, "TOPRIGHT", self.child, "TOPRIGHT", 0, -y)
   r.line:Hide()
   r.Text:ClearAllPoints()
   r.Text:SetPoint("LEFT", 8, 0)
@@ -254,11 +258,11 @@ function Picker:Paint(keepScroll)
         realm = e.realm
         n = n + 1
         self:RealmRow(n, y, realm, path)
-        y = y + HDR_H + 2
+        y = ns.SnapValue(self.child, y + self.rows[n]:GetHeight() + 2)
       end
       n = n + 1
       widest = math.max(widest, self:CharRow(n, y, e, path))
-      y = y + ROW_H + 3
+      y = ns.SnapValue(self.child, y + self.rows[n]:GetHeight() + 3)
     end
   end
   for i = n + 1, #self.rows do self.rows[i]:Hide() end
@@ -280,7 +284,7 @@ function Picker:Paint(keepScroll)
     self.hideBtn.Text:SetFont(path, FONT - 2, ns.OutlineFlags())
     local w = math.max(68, math.ceil(self.hideBtn.Text:GetStringWidth()) + 18)
     self.hideBtn.wpeBoxW = w
-    self.hideBtn:SetWidth(w)
+    ns.SnapBox(self.hideBtn, w, 23)
   end
   if self.close then
     self.close:ClearAllPoints()
@@ -289,23 +293,21 @@ function Picker:Paint(keepScroll)
   self:UpdateHiddenBorder()
 
   self.sf:ClearAllPoints()
-  self.sf:SetPoint("TOPLEFT", PAD + outer, -(PAD + HEAD_H + drop + extraTop))
-  self.sf:SetPoint("BOTTOMRIGHT", -(PAD + BAR_W + 2 + outer), PAD + extraBottom)
+  ns.SnapPoint(self.sf, "TOPLEFT", self.frame, "TOPLEFT", PAD + outer, -(PAD + HEAD_H + drop + extraTop))
+  ns.SnapPoint(self.sf, "BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -(PAD + BAR_W + 2 + outer), PAD + extraBottom)
   local maxRows = math.max(3, PICK_ROWS)
   local bodyH = math.max(ROW_H, math.min(y, MAX_ROWS * ROW_H, maxRows * ROW_H))
   if self.capH then bodyH = math.min(bodyH, self.capH) end
   ns.SnapSize(self.frame, widest + PAD * 2 + wide + BAR_W + 2 + outer * 2,
     PAD * 2 + HEAD_H + bodyH + drop + extraTop + extraBottom)
   Theme:FitPlateOf(self.frame)
-  self.child:SetSize(widest + wide, math.max(1, y))
-  local span = math.max(0, y - bodyH)
-  self.sf:SetVerticalScroll(math.min(span, math.max(0, scroll)))
-  self:PaintBar()
+  ns.SnapSize(self.child, widest + wide, math.max(1, y))
   -- This one takes its side of the window. The two side panels are mutually exclusive (Toggle takes the
   -- other down), so no sibling frame is handed to the helper -- anchoring to it is what built the cycle.
   if self.win then
     ns.SidePlace(self.frame, self.win, self.side or "left", "top")
   end
+  self:ScrollTo(scroll)
   -- Paint runs while the frame may still be hidden (the first open lays it out before Show), and a
   -- hidden frame has no rect to measure: only a standing list can ask the pocket to step aside.
   if ns.Pocket and self.frame:IsShown() then ns.Pocket:Hold(self.frame, self.win) end

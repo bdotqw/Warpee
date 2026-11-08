@@ -1109,6 +1109,7 @@ function Pocket:Layout()
     if rl and wl then free = rl - wl - PAD - 4 end
   end
   self.title:SetShown(free <= 0 or self.title:GetStringWidth() <= free)
+  ns.SnapWindowSoon(w)
 end
 
 function Pocket:PickPaint()
@@ -1191,6 +1192,7 @@ function Pocket:PickPaint()
     p:ClearAllPoints()
     ns.SnapPoint(p, "TOPRIGHT", w, "TOPLEFT", -6, 0)
   end
+  ns.SnapWindowSoon(p)
 end
 
 function Pocket:TogglePicks()

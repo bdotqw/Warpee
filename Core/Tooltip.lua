@@ -107,6 +107,7 @@ function ns.ShowTip(owner, entries, side)
     ns.SnapPoint(t, "TOPLEFT", owner, "TOPRIGHT", 6, 0)
   end
   t:Show()
+  ns.SnapWindowSoon(t)
 end
 
 -- The entries a tip is made of, read fresh every time they are asked for: the title and the extra lines
@@ -312,10 +313,11 @@ local function showGoldTip(anchor)
   end
 
   for i = n + 1, #t.rows do t.rows[i]:Hide() end
-  t:SetSize(widest + TIP_PAD * 2, y + TIP_PAD)
+  t:SetSize(ns.SnapEven(t, widest + TIP_PAD * 2), ns.SnapValue(t, y + TIP_PAD))
   t:ClearAllPoints()
-  t:SetPoint("BOTTOMRIGHT", anchor, "TOPRIGHT", 0, 6)
+  ns.SnapPoint(t, "BOTTOMRIGHT", anchor, "TOPRIGHT", 0, 6)
   t:Show()
+  ns.SnapWindowSoon(t)
 end
 
 function ns.AttachGoldTooltip(region, parent, size)

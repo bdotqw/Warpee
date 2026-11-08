@@ -2005,6 +2005,9 @@ function ns.UpdateItemButton(b)
     -- killed at build time pays one table read.
     suppress(b.EmptyBagIcon); suppress(_G[(b:GetName() or "") .. "EmptyBagIcon"])
     ns.SetSlotBorder(b, Theme:C("emptyLine"))
+    -- The bag the cell stands in, read once for both rings below: what kind of container it is, nil for an
+    -- ordinary bag and for a cell that stands in no container of the player's.
+    local kind = ns.BagKind and ns.BagKind(bagID)
     -- The ammo run is a container of its own, so its cells wear an outline of its own rather than the empty
     -- line: the bronze is what tells a quiver's slots from the sheet's at a glance, and it holds whether the
     -- run stands under its caption or is laid out with the bags. An empty cell in it is still a cell of that
@@ -2015,12 +2018,15 @@ function ns.UpdateItemButton(b)
     -- marker like the reagent bag's, so it has a switch of its own in the Markers page: off, the run's cells
     -- wear whatever every other cell wears, and Hide ammo / souls still takes the run out of the window.
     if ns.Bags.ammoTint and not (WarpeeDB and WarpeeDB.hideAmmo)
-       and ns.IsAmmoBag and ns.IsAmmoBag(bagID) then
+       and (kind == "ammo" or kind == "soul") then
       local r = Theme.colors.ammo
       ns.SetRarityRing(b, r[1], r[2], r[3], RING_A)
-    -- An empty slot has no class to read, so the reagent ring on it only ever means the reagent bag,
-    -- and that is a grid idea: the grouped view rings by class and never tints an empty cell.
-    elseif ns.Bags.reagentTint and not b.wpeCat and bagID == ns.reagentBag then
+    -- An empty slot has no class to read, so the reagent ring on it only ever means the bag it stands in: the
+    -- reagent bag, or a bag the client built for one trade, whose slots take their own kind and refuse the
+    -- rest just the same. That is a grid idea -- the grouped view rings by class and never tints an empty
+    -- cell.
+    elseif ns.Bags.reagentTint and not b.wpeCat
+           and (bagID == ns.reagentBag or kind == "prof") then
       local r = Theme.colors.reagent
       ns.SetRarityRing(b, r[1], r[2], r[3], RING_A)
     else
@@ -2112,14 +2118,17 @@ function ns.UpdateItemButton(b)
   ns.SetSlotBorder(b, Theme:C("emptyLine"))
   -- In the grid the reagent ring means "sits in the reagent bag"; in the grouped view it means "is a
   -- reagent" by item class, so a Reagents section reads with one ring whatever bag each item came from.
+  -- A profession bag is the same cell as the reagent bag's: its slots take their own kind and refuse the
+  -- rest, so they wear the reagent ring too, and the switch that turns that ring off turns both off.
+  local kind = ns.BagKind and ns.BagKind(bagID)
   local reagentRing
   if b.wpeCat then
     reagentRing = (iClassID == Enum.ItemClass.Tradegoods or iClassID == Enum.ItemClass.Reagent)
   else
-    reagentRing = (bagID == ns.reagentBag)
+    reagentRing = (bagID == ns.reagentBag or kind == "prof")
   end
   if ns.Bags.ammoTint and not (WarpeeDB and WarpeeDB.hideAmmo)
-     and ns.IsAmmoBag and ns.IsAmmoBag(bagID) then
+     and (kind == "ammo" or kind == "soul") then
     -- The ammo run's hue, ahead of every other ring: a quiver or an ammo pouch is a container the player
     -- pointed at on purpose, and the run it makes is what the cells in it belong to. Same colour the empty
     -- cells of that run wear, so a half-filled quiver reads as one block. The grouped view keeps it as
@@ -2195,7 +2204,7 @@ function ns.UpdateItemButton(b)
   return b.itemName, true
 end
 
-function ns.PaintVaultButton(b, d, bagID, forceCount)
+function ns.PaintVaultButton(b, d, bagID, forceCount, kind)
   local link = (d and d.l) or false
   -- forceCount is the combine-stacks sum a grouped snapshot cell draws in place of its own slot count;
   -- it joins the paint key so a fold whose total changed repaints even when the bound slot's own count did
@@ -2276,13 +2285,14 @@ function ns.PaintVaultButton(b, d, bagID, forceCount)
     end
   end
   ns.SetSlotBorder(b, Theme:C("emptyLine"))
-  -- Grouped view rings a reagent by its item class; the grid rings the reagent bag. Snapshot cells have
-  -- no live bag to read, so grid mode rings only what was captured under the reagent bag (bagID here).
+  -- Grouped view rings a reagent by its item class; the grid rings the bag the cell stands in. A snapshot cell
+  -- has no live container to read, so the kind of bag comes in from the layout, which classified it off the
+  -- item the record remembered; the reagent bag itself is still read by the slot it stands in.
   local reagentRing
   if b.wpeCat then
     reagentRing = (classID == Enum.ItemClass.Tradegoods or classID == Enum.ItemClass.Reagent)
   else
-    reagentRing = (bagID == ns.reagentBag)
+    reagentRing = (bagID == ns.reagentBag or kind == "prof")
   end
   if ns.Bags.reagentTint and reagentRing then
     local r = Theme.colors.reagent

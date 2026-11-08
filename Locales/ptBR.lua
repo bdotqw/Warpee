@@ -366,8 +366,8 @@ local STRINGS = {
     "O ponto de exclamação nos itens de missões que você ainda não aceitou. Não aparece no Banco do Bando de Guerra.",
   ["Quality-colored glow on items the game still counts as new."] =
     "Brilho na cor da qualidade em itens que o jogo ainda considera novos.",
-  ["Tint the slots of the reagent bag and the reagent bank."] =
-    "Colore os espaços da bolsa e do banco de reagentes.",
+  ["Tint the slots of the reagent bag, the reagent bank and a profession bag."] =
+    "Colore os espaços da bolsa e do banco de reagentes e de uma bolsa de profissão.",
   ["Red border around gear your character cannot wear."] =
     "Borda vermelha em equipamentos que seu personagem não pode usar.",
   ["Thickness of the slot border."] = "Espessura da borda do espaço.",

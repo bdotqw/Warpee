@@ -766,6 +766,7 @@ function P:Reflow()
   f.dd:SetWidth(content - DD_H - GAP)
   f.str:SetWidth(content)
   self:Paint()
+  ns.SnapWindowSoon(f)
 end
 
 function P:Place()
@@ -778,6 +779,7 @@ function P:Place()
   else
     f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
   end
+  ns.SnapWindowSoon(f)
 end
 
 -- The blizzard art draws its band lower than the plain themes do, so the header block
