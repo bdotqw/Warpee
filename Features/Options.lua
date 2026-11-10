@@ -632,6 +632,9 @@ local function buildPage(parent, list)
       end
     end
     page:SetHeight(ns.SnapValue(page, y + 4))
+    -- The page just changed height under whatever scroll it is holding, so the offset the scroll frame
+    -- cached for its last request was measured against the old one.
+    if parent and parent.GetVerticalScroll then ns.SnapScrollForget(parent) end
   end
   page.Relayout()
   return page
@@ -682,8 +685,13 @@ local function makeScrollArea(parent, list)
     -- The child rides a fractional number of ui units whenever the scale is not the pixel-perfect one, so
     -- the rows it carries land between pixels and their one pixel borders smear. The border pass puts them
     -- back on the grid; coalesced, so a wheel burst costs one pass per frame.
-    if Options.SnapSoon then Options:SnapSoon() end
+    -- The border pass is not run mid-gesture: a thumb drag lands a new scroll offset every frame, and a
+    -- pass that rewrites the points of the rows the drag is carrying can only fight it. One pass after the
+    -- drag settles is enough, and a wheel tick still gets its own.
+    if Options.SnapSoon and not sf.wpeScrolling then Options:SnapSoon() end
   end
+  -- Called by ns.ScrollThumb when the thumb is released: the one border pass the drag skipped.
+  sf.ScrollSettled = function() if Options.SnapSoon then Options:SnapSoon() end end
   sf.ScrollTo = function(_, v) scrollTo(v) end
 
   sf:EnableMouseWheel(true)

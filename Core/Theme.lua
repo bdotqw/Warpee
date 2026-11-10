@@ -279,13 +279,23 @@ function ns.PX(region, n)
     local ok, v = pcall(PixelUtil.GetNearestPixelSize, n, s, 1)
     if ok and v and v > 0 then return v end
   end
-  local unit = (768 / physH) / s
+  -- One pixel's length is ns.PixelUnit's answer: the fallback is written once, not twice.
+  local unit = ns.PixelUnit(region)
   return math.max(1, math.floor(n / unit + 0.5)) * unit
+end
+
+-- A length in whole physical pixels: the count every snap works in, so the epsilon that decides a value
+-- sitting exactly on a half pixel lives in one place. SnapValue, SnapEven, SnapOdd and SnapScroll each
+-- carried their own rounding, and only one of them nudged the exact half -- so a box and the offset that
+-- placed it could disagree by a whole pixel.
+local function pixelCount(unit, v)
+  if not unit or unit <= 0 then return tonumber(v) or 0 end
+  return math.floor((tonumber(v) or 0) / unit + 0.5 + 0.001)
 end
 
 function ns.SnapValue(region, v)
   local unit = ns.PixelUnit(region)
-  return math.floor((tonumber(v) or 0) / unit + 0.5 + 0.001) * unit
+  return pixelCount(unit, v) * unit
 end
 
 function ns.SnapSize(frame, w, h)
@@ -307,14 +317,14 @@ end
 
 function ns.SnapEven(region, v)
   local px = ns.PixelUnit(region)
-  local n = math.max(2, math.floor((tonumber(v) or 0) / px + 0.5))
+  local n = math.max(2, pixelCount(px, v))
   if n % 2 == 1 then n = n + 1 end
   return n * px
 end
 
 function ns.SnapOdd(region, v)
   local px = ns.PixelUnit(region)
-  local n = math.max(3, math.floor((tonumber(v) or 0) / px + 0.5))
+  local n = math.max(3, pixelCount(px, v))
   if n % 2 == 0 then n = n + 1 end
   return n * px
 end
@@ -397,7 +407,10 @@ function ns.SizeIcon(host, icon, pct, pctY)
       n = (math.abs((n - 1) - target) <= math.abs((n + 1) - target)) and (n - 1) or (n + 1)
     end
     if n < 2 then n = (box % 2 == 0) and 2 or 3 end
-    if n > box then n = n - 2 end
+    -- A percentage above 100 asks for an icon wider than the button it is centred in. The parity is the
+    -- button's already, so its own count is the largest that still fits; stepping down by two left the
+    -- icon a size too big and hanging over the edges.
+    if n > box then n = box end
     return n
   end
   icon:SetSize(fit(bw, pct) * u, fit(bh, pctY or pct) * u)
@@ -614,6 +627,37 @@ function ns.SnapFrame(frame)
   return fp or p, frp or rp or p, fx or 0, fy or 0
 end
 
+-- The shift itself, in one place: both passes that round a rect onto the grid end the same way, and each
+-- used to carry its own copy of this loop. `dx, dy` are the remainders of the rect's left and bottom edge,
+-- `dw, dh` those of its size -- a point that names an edge takes that edge's remainder, a centred one takes
+-- half the size's. Answers false when a point could not be read, leaving the frame untouched.
+local function shiftPoints(frame, dx, dy, dw, dh)
+  local n = frame:GetNumPoints()
+  if n == 0 then return false end
+  local pts = {}
+  for i = 1, n do
+    local p, rel, rp, x, y = frame:GetPoint(i)
+    if not p then return false end
+    pts[i] = { p, rel, rp, tonumber(x) or 0, tonumber(y) or 0 }
+  end
+  for i = 1, n do
+    local t = pts[i]
+    local p = t[1]
+    if p:find("LEFT", 1, true) then t[4] = t[4] + dx
+    elseif p:find("RIGHT", 1, true) then t[4] = t[4] + dx + dw
+    else t[4] = t[4] + dx + dw / 2 end
+    if p:find("TOP", 1, true) then t[5] = t[5] + dy + dh
+    elseif p:find("BOTTOM", 1, true) then t[5] = t[5] + dy
+    else t[5] = t[5] + dy + dh / 2 end
+  end
+  frame:ClearAllPoints()
+  for i = 1, n do
+    local t = pts[i]
+    frame:SetPoint(t[1], t[2] or frame:GetParent(), t[3] or t[1], t[4], t[5])
+  end
+  return true
+end
+
 function ns.AlignToScreen(frame)
   if not (frame and frame.GetLeft and frame.GetNumPoints) then return end
   local s = frame:GetEffectiveScale()
@@ -626,19 +670,9 @@ function ns.AlignToScreen(frame)
   local dx = (math.floor(px + 0.5) - px) / per
   local dy = (math.floor(py + 0.5) - py) / per
   if math.abs(dx) < 0.0005 and math.abs(dy) < 0.0005 then return end
-  local n = frame:GetNumPoints()
-  if n == 0 then return end
-  local pts = {}
-  for i = 1, n do
-    local p, rel, rp, x, y = frame:GetPoint(i)
-    if not p then return end
-    pts[i] = { p, rel, rp, (x or 0) + dx, (y or 0) + dy }
-  end
-  frame:ClearAllPoints()
-  for i = 1, n do
-    local t = pts[i]
-    frame:SetPoint(t[1], t[2] or frame:GetParent(), t[3] or t[1], t[4], t[5])
-  end
+  -- A move, not a resize: this pass only carries the rect onto the grid, and SnapRect is where the size's
+  -- own remainders are corrected.
+  shiftPoints(frame, dx, dy, 0, 0)
 end
 
 -- Move a region's rect onto the physical pixel grid: every edge is rounded to a whole pixel and the
@@ -650,12 +684,15 @@ end
 -- the pixel-perfect one. On retail the deltas are zero and this returns without touching a point.
 function ns.SnapRect(frame)
   if not (frame and frame.GetNumPoints and frame.GetLeft) then return end
+  -- A scrolled viewport is rounded like any other rect, but its offset is held across the move and put back
+  -- after it: this client drops the offset a scroll frame is holding when its points move, which is what
+  -- made the character list move and come back on every wheel tick.
+  local heldScroll = frame.GetVerticalScroll and frame:GetVerticalScroll()
   local s = frame:GetEffectiveScale()
   if not s or s <= 0 then return end
   local per = s * (physH / 768)
   if per <= 0 then return end
-  local n = frame:GetNumPoints()
-  if n == 0 then return end
+  if frame:GetNumPoints() == 0 then return end
   local l, b = frame:GetLeft(), frame:GetBottom()
   local w, h = frame:GetWidth(), frame:GetHeight()
   if not (l and b and w and h) then return end
@@ -669,35 +706,26 @@ function ns.SnapRect(frame)
   -- this on every refresh, and a frame already on the grid has to stay where it is.
   if math.abs(dx) < 0.02 / per and math.abs(dy) < 0.02 / per
      and math.abs(dw) < 0.02 / per and math.abs(dh) < 0.02 / per then return end
-  local pts = {}
-  for i = 1, n do
-    local p, rel, rp, x, y = frame:GetPoint(i)
-    if not p then return end
-    pts[i] = { p, rel, rp, tonumber(x) or 0, tonumber(y) or 0 }
-  end
-  for i = 1, n do
-    local t = pts[i]
-    local p = t[1]
-    if p:find("LEFT", 1, true) then t[4] = t[4] + dx
-    elseif p:find("RIGHT", 1, true) then t[4] = t[4] + dx + dw
-    else t[4] = t[4] + dx + dw / 2 end
-    if p:find("TOP", 1, true) then t[5] = t[5] + dy + dh
-    elseif p:find("BOTTOM", 1, true) then t[5] = t[5] + dy
-    else t[5] = t[5] + dy + dh / 2 end
-  end
   if math.abs(dw) >= 0.02 / per then frame:SetWidth(w + dw) end
   if math.abs(dh) >= 0.02 / per then frame:SetHeight(h + dh) end
-  frame:ClearAllPoints()
-  for i = 1, n do
-    local t = pts[i]
-    frame:SetPoint(t[1], t[2] or frame:GetParent(), t[3] or t[1], t[4], t[5])
-  end
+  if not shiftPoints(frame, dx, dy, dw, dh) then return end
+  -- What the move dropped, handed straight back (see the note at the top of this pass).
+  if heldScroll and heldScroll > 0 and frame.SetVerticalScroll then frame:SetVerticalScroll(heldScroll) end
+  -- True says "this pass moved something": the caller needs it to tell a layout catching up from a window
+  -- that keeps nudging itself (see SnapWindowSoon).
+  return true
 end
 
 function ns.SnapScroll(sf, v)
-  v = math.max(0, tonumber(v) or 0)
   local unit = ns.PixelUnit(sf)
-  v = math.floor(v / unit + 0.5) * unit
+  local asked = math.max(0, pixelCount(unit, v)) * unit
+  -- The same request has to get the same answer. The offset below is read off where the scroll child
+  -- stands right now, and a held thumb asks for one value every frame: measure, move, measure again landed
+  -- one pixel apart each time, so the whole page shook while the thumb was only being held (and a drag that
+  -- paused did the same). Caching the pair against the request ends that; a request that actually changes
+  -- still measures, so a page that grew or a window that moved is followed as before.
+  if sf.wpeSnapIn ~= nil and sf.wpeSnapIn == asked then return sf.wpeSnapOut end
+  local out = asked
   local child = sf.GetScrollChild and sf:GetScrollChild()
   if child then
     local top = child:GetTop()
@@ -705,10 +733,18 @@ function ns.SnapScroll(sf, v)
     if top and s and s > 0 then
       local per = s * (physH / 768)
       local py = top * per
-      v = v + (py - math.floor(py + 0.5)) / per
+      out = out + (py - math.floor(py + 0.5)) / per
     end
   end
-  return math.max(0, v)
+  out = math.max(0, out)
+  sf.wpeSnapIn, sf.wpeSnapOut = asked, out
+  return out
+end
+
+-- Forget the answer a scroll frame cached for its last request: called where the child moved without a
+-- scroll of its own (a page that grew, a window that was dragged), so the next request measures again.
+function ns.SnapScrollForget(sf)
+  if sf then sf.wpeSnapIn, sf.wpeSnapOut = nil, nil end
 end
 
 -- A second pass catches anchors resolved after layout without touching item templates or guest UI.
@@ -721,11 +757,15 @@ function ns.SnapWindow(frame, done)
   frame.wpePixelQ = nil
   frame.wpePixelBusy = true
   local targets, order, visited = {}, {}, {}
+  local moved = false
   local function collect(parent, depth)
     if depth > 8 or parent.wpePixelSkip or parent.wpeGuest or not parent:IsShown() then return end
     if parent.IsProtected and parent:IsProtected() then return end
     if parent.holder or (parent.GetObjectType and parent:GetObjectType() == "ItemButton") then return end
-    targets[parent] = parent == frame or parent.wpeEdge or parent.wpePixelRect or (parent.edges and parent.mark) or false
+    -- A boolean, not the marker table itself: fit() asks this for nil ("not collected yet") as well as for
+    -- true, and a table in that field answers a different question than the one it looks like.
+    targets[parent] = (parent == frame or parent.wpeEdge or parent.wpePixelRect
+      or (parent.edges and parent.mark)) and true or false
     order[#order + 1] = parent
     if parent.GetRegions then
       for _, r in ipairs({ parent:GetRegions() }) do
@@ -754,15 +794,39 @@ function ns.SnapWindow(frame, done)
       local _, rel = obj:GetPoint(i)
       fit(rel)
     end
-    if targets[obj] then ns.SnapRect(obj) end
+    if targets[obj] then
+      if ns.SnapRect(obj) then moved = true end
+    end
   end
   collect(frame, 0)
   for _, obj in ipairs(order) do fit(obj) end
   frame.wpePixelBusy = nil
+  -- How many snaps in a row have moved this window. One that keeps moving is not catching up: it is the
+  -- window changing the size the hooks watch, and the next snap then finding it off-grid again. Two in a
+  -- row is a normal layout settling; three with no snap in between that found nothing is a loop, and
+  -- SnapWindowSoon spaces those out instead of walking the whole window every frame.
+  if moved then
+    frame.wpeSnapRepeat = (frame.wpeSnapRepeat or 0) + 1
+    frame.wpeSnapMovedAt = GetTime()
+  else
+    frame.wpeSnapRepeat, frame.wpeSnapMovedAt = nil, nil
+  end
 end
+
+-- How long a window that keeps nudging itself waits between snaps once it is clearly in a loop.
+local SNAP_HOLD, SNAP_LOOP = 0.5, 3
 
 function ns.SnapWindowSoon(frame)
   if not (frame and frame.wpePixelWindow and frame:IsShown()) or frame.wpePixelBusy or frame.wpePixelQ then return end
+  -- The measured fault this guards against: a snapshot window was walked whole thirty times a second, 1.5 ms
+  -- each, every pass nudging it half a pixel, the nudge changing the size the OnSizeChanged hook watches, and
+  -- that re-arming the snap -- 45 ms of a 33 ms frame budget spent on a window that never landed. A snap that
+  -- found nothing to move keeps asking at once (that is still a wrong layout); one that has moved the window
+  -- three times in a row without settling waits half a second.
+  if (frame.wpeSnapRepeat or 0) >= SNAP_LOOP and frame.wpeSnapMovedAt
+     and (GetTime() - frame.wpeSnapMovedAt) < SNAP_HOLD then
+    return
+  end
   frame.wpePixelQ = true
   C_Timer.After(0, function()
     if not frame.wpePixelQ then return end
@@ -781,14 +845,22 @@ function ns.PixelWindow(frame)
   return frame
 end
 
+-- The offset is snapped as a value, and the layout standing on it is snapped right after: a row placed on
+-- the grid and a scroll left between two pixels are the two halves of one picture, and the window snap is
+-- what finishes it. The value is SnapValue's rather than SnapScroll's: every row is placed at a whole-pixel
+-- offset from the child, so the child's own origin is what has to stay on the grid. The viewport is snapped
+-- with its offset handed back around the move -- see SnapRect.
 function ns.ScrollPixels(sf, v, frame)
   local child = sf:GetScrollChild()
   if not child then return end
   local span = math.max(0, child:GetHeight() - sf:GetHeight())
   v = math.min(span, math.max(0, v or 0))
-  -- The viewport snaps after layout; carrying its old subpixel phase into the scroll would undo that.
-  sf:SetVerticalScroll(math.min(span, ns.SnapValue(sf, v)))
+  local want = math.min(span, ns.SnapValue(sf, v))
+  sf:SetVerticalScroll(want)
   ns.SnapWindowSoon(frame)
+  -- The value it landed on, so a caller that has to hold it across a snap knows what to ask for rather
+  -- than reading GetVerticalScroll back, which this client may already have dropped.
+  return want
 end
 
 function ns.FitScrollThumb(thumb, bar, height, drop)

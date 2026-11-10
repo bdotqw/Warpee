@@ -4,7 +4,7 @@ local factories = Options.factories
 local Theme = ns.Theme
 local L = ns.L
 
--- The list of items marked for sale: one row per mark with its icon, its name and the cross that unmarks
+-- The list of items marked for sale: one row per mark with its icon, its name and the minus that unmarks
 -- it, and the list that lays them out. It is the only row on the sell page that is a plain list, so it
 -- keeps its own small pool here. The shared values come from Options.lua through ns.OptionControlsEnv.
 local env = ns.OptionControlsEnv
@@ -24,7 +24,9 @@ local function sellRow(row, i)
   ic:SetSize(16, 16)
   ic:SetPoint("LEFT", 1, 0)
   c.icon = ic
-  local x = ns.CreateGlyphButton(c, "×", 18)
+  -- A minus, as on the category rows: a straight bar, because a cross's turned strokes change thickness with
+  -- the row's own sub-pixel position and the list is rebuilt every time a piece is marked or unmarked.
+  local x = ns.CreateGlyphButton(c, "-", 18)
   x:SetPoint("RIGHT", -1, 0)
   x:SetScript("OnClick", function()
     if c.key and ns.Vendor then ns.Vendor:Unmark(c.key) end

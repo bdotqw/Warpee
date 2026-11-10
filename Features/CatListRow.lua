@@ -51,12 +51,15 @@ function factories.catlistrow(list, env)
     c.grip = grip
 
     -- Default right anchor for a marker row; a category row re-anchors del next to its name each pass.
-    local del = ns.CreateGlyphButton(c, "\195\151", 18)
-    -- The delete cross reads "removes" by colour, not by having a border the way the plus does: the plus
-    -- wears an accent border when its panel is open (active), so a cross that showed its own state in a
+    -- A minus, not a cross: this row's mark is redrawn on every rebuild, and a cross is two strokes turned
+    -- 45 degrees, whose thickness shifts with the row's own sub-pixel position -- it changed when a panel
+    -- opened or the list was relaid out. A straight bar has no such phase.
+    local del = ns.CreateGlyphButton(c, "-", 18)
+    -- The delete mark reads "removes" by colour, not by having a border the way the plus does: the plus
+    -- wears an accent border when its panel is open (active), so a mark that showed its own state in a
     -- border would be the same language saying a different thing. Instead the whole mark and its frame
-    -- carry the kit's one red (Theme danger), dangerHi on hover -- a red cross is delete, an accent border
-    -- is active, two colours for two meanings. A red-filled cross still beats a red-framed white one here:
+    -- carry the kit's one red (Theme danger), dangerHi on hover -- a red mark is delete, an accent border
+    -- is active, two colours for two meanings. A red-filled mark still beats a red-framed white one here:
     -- the glyph is what the eye lands on. Faded rows (Empty/Other hide this) keep the base paint.
     -- One pooled row deletes a category and a marker (divider/group head) alike, so this covers dividers.
     local baseDel = del.Repaint

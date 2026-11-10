@@ -380,8 +380,15 @@ function ns.PaintVerdicts(links)
     end
   end
   local bank = ns.Bank
-  if bank and bank.frame and bank.frame:IsShown() and bank.RepaintLinks then
-    painted = painted + (bank:RepaintLinks(links) or 0)
+  if bank and bank.frame then
+    if bank.frame:IsShown() and bank.RepaintLinks then
+      painted = painted + (bank:RepaintLinks(links) or 0)
+    elseif bank.Repaint then
+      -- The bank is shut and its cells are not there to repaint, though their links still are. Dropping them
+      -- costs one walk of the pools and the pass that draws the window on the next open repaints them; without
+      -- it the guard inside the paint found every key unchanged and the stale ring stayed until a move.
+      bank:Repaint()
+    end
   end
   -- The guild bank draws the same rings off the same verdicts: it has no pool of cells to hand a link
   -- to, so it repaints the slots it shows.
@@ -826,14 +833,15 @@ local function onLogin()
   -- older or short custom list gets them restored at the tail here, on every login.
   -- The upgrades sit between them because they are about the shipped rules rather than the shape of the
   -- list: two shipped rules were rewritten so the rule editor can show them as chips, the four gear rows
-  -- gained an item-level floor after saves existed, and five rule words were later spelled the way the
-  -- picker spells them, so their chips read as words the player can pick back and a language can
-  -- translate. Each carries its change onto those rows alone where they are still exactly as shipped,
-  -- leaving written rules alone.
+  -- gained an item-level floor after saves existed and later dropped it again, and five rule words were
+  -- later spelled the way the picker spells them, so their chips read as words the player can pick back
+  -- and a language can translate. Each carries its change onto those rows alone where they are still
+  -- exactly as shipped, leaving written rules alone.
   if ns.Categories then
     ns.Categories:Migrate()
     ns.Categories:UpgradePresetRules()
     ns.Categories:UpgradeFloor()
+    ns.Categories:UpgradeFloorOff()
     ns.Categories:UpgradeRuleWords()
     ns.Categories:EnsureEmpty()
     ns.Categories:EnsureOther()

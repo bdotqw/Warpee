@@ -526,11 +526,11 @@ function Bags:AnchorHeader()
   sizeGlyph(self.sellBtn, HB)
   if self.charTag then ns.SnapBox(self.charTag, nil, HB) end
   if self.search then ns.SnapBox(self.search, nil, SEARCH) end
-  -- The bag slots are this character's own bar, and a snapshot shows another character's bags: the mark
-  -- would open the viewer's slots over a picture that is not theirs, so it stands down with the clean-up
-  -- brush while the view is someone else's, and the row closes up through the hidden button. The gear
-  -- stays: the settings still belong to this window, whoever's bags it is showing.
-  if self.bagsToggle then self.bagsToggle:SetShown(not self.snap) end
+  -- The mark stands in a snapshot too: its right click is the switch between the plain grid and the category
+  -- view, and that is a way of reading someone else's bags, not an action on them. Its left click opens the
+  -- viewer's own bag bar -- a window of its own, over a picture that is not the viewer's -- so the mark is
+  -- shown and the left click keeps its ordinary meaning.
+  if self.bagsToggle then self.bagsToggle:Show() end
   self:FlowHeader()
   if self.title then
     self.title:ClearAllPoints()
@@ -652,6 +652,9 @@ function Bags:Build()
     if ns.Pocket and not ns.Pocket.solo then ns.Pocket:Close(true)
     elseif ns.Pocket and ns.Pocket.ApplySearch then ns.Pocket:ApplySearch() end
     if ns.Vault:SetView("bags", nil) then
+      -- The same hand-back, for the window closing while a saved box was on screen: the next open lays the live
+      -- cells out again, and they have to redo their own rings rather than keep the ones from before the visit.
+      if ns.ClearItemPaint then ns.ClearItemPaint() end
       Bags.snap = nil
       Bags:UpdateCharTag()
     end
@@ -1394,6 +1397,19 @@ function Bags:RepaintLinks(links)
     end
   end
   return painted
+end
+
+-- Snapshot cells the paint could not answer for: the client had not described their item when they were drawn,
+-- so they carry no ring and no verdict. Counted here so the ring's own retry knows whether another pass can
+-- still change anything, and stops when it cannot.
+function Bags:SnapUnanswered()
+  local n = 0
+  local snap = self.vpool or {}
+  for i = 1, #snap do
+    local b = snap[i]
+    if b and b.link and b.wpeCU == nil and b.holder and b.holder:IsShown() then n = n + 1 end
+  end
+  return n
 end
 
 function Bags:Slots(bag)
@@ -3834,8 +3850,16 @@ end
 
 function Bags:SelectChar(key)
   if not ns.Vault:SetView("bags", key) then return end
+  local wasSnap = self.snap
   self.snap = (ns.Vault:ViewKey("bags") ~= ns.Vault:Owner()) or nil
   if self.snap and ns.CurPicker then ns.CurPicker:Close() end
+  -- Back from someone else's bags: the live cells were only hidden while the saved box stood (the layout parks
+  -- the pool it is not using), so each one still carries the link and count its last paint wrote. The pass that
+  -- lays them out again then finds "nothing changed" in every one of them and leaves the ring that paint drew --
+  -- while the verdicts moved on in the meantime (a level, an item whose data landed, a red that arrived from the
+  -- queued read after that paint). Dropping the keys makes this one pass redraw them, which is exactly what
+  -- moving the piece by hand does. The bank has always done this: View:Repaint clears every pool's links.
+  if wasSnap and not self.snap and ns.ClearItemPaint then ns.ClearItemPaint() end
   self:UpdateCharTag()
   if self.frame and self.frame:IsShown() then self:Layout(true) end
 end
@@ -3910,22 +3934,30 @@ function Bags:BrowseState()
   end
 end
 
--- While the auction house is open, an item that cannot be listed reads as unavailable, the same grey
--- the search gives a miss: a soulbound piece, a quest item, or anything with no sale value can never
--- go on the block, so dimming it points the eye straight at what can. The test is deliberately cheap
--- and per-slot — the bound flag and hasNoValue off the container info, plus the quest class — so it
--- costs a layout no tooltip scan, in keeping with the addon's no-scan-per-slot rule. An item bound to
--- the player is the common uncase; a BoE stays lit until it binds.
+-- While the auction house is open, an item the house will not take reads as unavailable, the same grey
+-- the search gives a miss, so the eye goes to what can go on the block. The house is asked rather than
+-- guessed at: C_AuctionHouse.IsSellItemValid is the call its own sell slot makes, and the guesses this
+-- function used to make were wrong in both directions — an item with no vendor price (dust, an essence)
+-- and a plain quest item are both listable here, while the bound flag alone leaves every other refusal
+-- lit. The call is per-slot and cheap, and the answer is cached on the cell with the rest of the blocked
+-- chain (ApplyToButton), so a layout asks it once per piece, not once per pass. There is no fallback: a
+-- piece the house has no answer for stays lit, because the bound flag is not the house's rule — quest
+-- items, soulbound pieces and materials are all decided by that call, and a guess only greys the wrong
+-- cells.
 local auctionOpen = false
 function ns.AuctionBlocked(b)
   if not auctionOpen then return false end
   if not (b and b.wpeBagID and b.GetID) then return false end
   local info = C_Container.GetContainerItemInfo(b.wpeBagID, b:GetID())
   if not info then return false end
-  if info.hasNoValue then return true end
-  if info.isBound then return true end
-  local m = b.meta
-  if m and m.classID == Enum.ItemClass.Questitem then return true end
+  if C_AuctionHouse and C_AuctionHouse.IsSellItemValid and ItemLocation then
+    local loc = ItemLocation:CreateFromBagAndSlot(b.wpeBagID, b:GetID())
+    if loc and loc:IsValid() then
+      -- displayError off: the answer is wanted, not the client's own error line.
+      local ok, valid = pcall(C_AuctionHouse.IsSellItemValid, loc, false)
+      if ok and valid ~= nil then return not valid end
+    end
+  end
   return false
 end
 

@@ -806,11 +806,20 @@ function ns.RefreshCellTip(frame, cell)
   local info = C_Container.GetContainerItemInfo(b.wpeBagID, b:GetID())
   if not (info and (info.hyperlink or info.itemID)) then return end
   if GameTooltip:IsShown() and GameTooltip:GetOwner() == b then return end
+  -- The entry rebuilds the whole tip through the game's own UpdateTooltip, and a recipe's materials and
+  -- requirement lines are streamed in after that build: calling it again on the next pass wipes them and the
+  -- tip visibly jumps. A resting pointer over a repainting grid asks for this many times a second, so a cell
+  -- gets one build per window and keeps it.
+  local now = GetTime and GetTime() or 0
+  if b.wpeTipAt and now - b.wpeTipAt < 0.5 then return end
+  b.wpeTipAt = now
   local enter = b.GetScript and b:GetScript("OnEnter")
-  if enter then
-    enter(b)
-    if GameTooltip:IsShown() and GameTooltip:GetOwner() == b then return end
-  end
+  if enter then enter(b) end
+  -- A tip that is already up is left alone, whoever owns it. Rebuilding it a frame after it appeared costs
+  -- more than a redraw: the client fills the crafting half of a recipe's tip asynchronously (the materials
+  -- list, the profession requirement), and a rebuild that lands before those lines stream in shows the tip
+  -- without them -- which is the line that jumps while the pointer rests on a recipe.
+  if GameTooltip:IsShown() then return end
   GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
   GameTooltip:SetBagItem(b.wpeBagID, b:GetID())
   GameTooltip:Show()
@@ -2127,6 +2136,21 @@ function ns.UpdateItemButton(b)
   else
     reagentRing = (bagID == ns.reagentBag or kind == "prof")
   end
+  -- Whether this cell's piece is unusable for the character looking at it. A cell painted from a record is
+  -- not a live slot: the container may hold nothing there, or another item entirely, so asking it answers
+  -- about the wrong piece -- which is why a whole snapshot of another character wore no rings at all. The
+  -- record's own verdict through the same function is what the ring means.
+  local liveLink = (C_Container and C_Container.GetContainerItemLink) and C_Container.GetContainerItemLink(bagID, slot)
+  local unusable = false
+  if hl then
+    if liveLink == hl then
+      unusable = ns.IsItemUnusable(bagID, slot, hl) and true or false
+    else
+      unusable = (ns.SnapshotCanUse
+                  and ns.SnapshotCanUse(hl, select(2, UnitClass("player")),
+                       UnitLevel and UnitLevel("player") or nil, true) == false) and true or false
+    end
+  end
   if ns.Bags.ammoTint and not (WarpeeDB and WarpeeDB.hideAmmo)
      and (kind == "ammo" or kind == "soul") then
     -- The ammo run's hue, ahead of every other ring: a quiver or an ammo pouch is a container the player
@@ -2139,9 +2163,13 @@ function ns.UpdateItemButton(b)
   elseif ns.Bags.reagentTint and not b.wpeNoReagent and reagentRing then
     local r = Theme.colors.reagent
     ns.SetRarityRing(b, r[1], r[2], r[3], RING_A)
-  elseif ns.Bags.unusableBorder and hl and ns.IsItemUnusable(bagID, slot, hl) then
+  elseif ns.Bags.unusableBorder and unusable then
     local R = RED_FONT_COLOR
     ns.SetRarityRing(b, R.r, R.g, R.b, 1)
+    -- The stamp beside the ring: a cell painted through this path can be a snapshot cell, and the correction
+    -- pass reads the stamp. The ring itself is what it decides on, but a stamp that lies about this pass is
+    -- what the next reader believes.
+    b.wpeSnapRed = hl
   elseif ns.Bags.qualityBorder
          -- A quest item ranks above its quality, and it is named as one two ways: the container says so for
          -- a live slot (qi), and the item's own class says so wherever the container cannot be asked. Only
@@ -2157,6 +2185,9 @@ function ns.UpdateItemButton(b)
   else
     ns.SetRarityRing(b)
   end
+  -- Any other ring means this paint did not draw the red, and the pass that corrects a stale one has to know
+  -- that: a cell painted back to its quality colour keeps no claim on the red it wore before.
+  if not (ns.Bags.unusableBorder and unusable) then b.wpeSnapRed = nil end
   ns.PaintSlotBg(b)
   local nm = hl and hl:match("%[(.-)%]") or nil
   b.itemName = nm
@@ -2204,14 +2235,209 @@ function ns.UpdateItemButton(b)
   return b.itemName, true
 end
 
+-- A saved cell painted before the client described its item keeps no verdict, and nothing asks it again: the
+-- pass that asked ran once, and the event about the data may have fired long before the view was opened. This
+-- queues a few passes of its own -- the link is dropped so the paint really re-asks -- and stops when nothing is
+-- left unanswered. A link the client never describes costs those few passes and no more.
+-- Whose answer the ring draws: the character logged in, whichever saved box is on screen. The class weighs
+-- the armour type, the level weighs a required level, and `own` lets the verdict use the client's own can-use.
+-- The stamp the callers build from these three is what makes a cell re-ask when the character levels up.
+local function snapViewer()
+  return select(2, UnitClass("player")), (UnitLevel and UnitLevel("player") or nil), true
+end
+
+-- One saved cell: the verdict for the character logged in, and the ring that verdict earns. Shared by the
+-- bags and the bank, so a record cannot be answered one way in one window and another way in the other.
+-- Returns "left" when the client has not described the item yet, "drawn" when the ring was set (or the cell was
+-- put back through its own paint), and nil when there was nothing to do.
+-- Whether the cell is wearing the red ring right now. ns.SetRarityRing keeps the colour on the cell, so this is
+-- what the player sees rather than a stamp of what an earlier pass decided. A red can be put on a snapshot cell
+-- by the window's own paint (a verdict that said no while the item's data was still streaming in) and by a cell
+-- handed another record out of the pool, and neither of those writes the stamp -- so a correction that trusted
+-- the stamp alone left the red standing until the cell's paint key changed, which the player saw as a red on a
+-- piece the character can wear, gone after switching the box away and back.
+local function ringIsRed(cell)
+  local R = RED_FONT_COLOR
+  return cell.ringOn and cell.ringR == R.r and cell.ringG == R.g and cell.ringB == R.b
+end
+
+local function ringSavedCell(cell, mode, key, whoClass, whoLvl, own, sig)
+  if not (cell and cell.link) then return nil end
+  local V = ns.Vault
+  local canUse = cell.wpeCU
+  -- A verdict belongs to the item it was made for: a cell the layout handed another piece is asked again,
+  -- or it would wear the answer for whatever stood there before. And it belongs to a class and a level: a
+  -- level gained since the cell was painted changes the answer for the very same link, so the stamp is part
+  -- of the question, not only the link.
+  if canUse == nil or cell.wpeSnapFor ~= cell.link or cell.wpeSnapWho ~= sig then
+    canUse = ns.SnapshotCanUse and ns.SnapshotCanUse(cell.link, whoClass, whoLvl, own)
+    cell.wpeSnapFor, cell.wpeSnapWho, cell.wpeCU, cell.wpeCanUse = cell.link, sig, canUse, canUse
+    -- The whole paint key, not just the verdict: the layout's own paint compares link, count and answer, and
+    -- a cell missing its count looked like one never drawn -- it was redrawn, the quality ring came back over
+    -- the red, and this pass put the red back, which is a ring flickering.
+    if cell.wpeCount == nil then
+      local bag, slot = math.floor(key / 1000), key % 1000
+      local rec = V and V.Slot and V:Slot(mode, bag, slot) or nil
+      cell.wpeCount = cell.wpeForce or (rec and rec.c) or 0
+    end
+  end
+  if canUse == nil then return "left" end
+  if canUse == false then
+    -- Always, not only when the stamp says this cell was already ringed: a cell handed back by the pool keeps
+    -- whatever ring it wore, and a pass that trusts its own stamp leaves a quality ring on a piece that is
+    -- owed a red one. Re-setting the same ring costs nothing.
+    local R = RED_FONT_COLOR
+    ns.SetRarityRing(cell, R.r, R.g, R.b, 1)
+    cell.wpeSnapRed = cell.link
+    return "drawn"
+  end
+  if ringIsRed(cell) then
+    -- The answer is yes, so the cell must not wear the red: the paint that draws a quality ring ran before the
+    -- answer changed, or the red came from the window's own paint or from another record's pool cell. Whichever
+    -- of the three drew it, the ring is what the player sees -- so the test is the ring, not a stamp of what this
+    -- pass drew. Put the cell back through its own paint so the red is replaced by the ring the record deserves.
+    cell.wpeSnapRed = nil
+    local bag, slot = math.floor(key / 1000), key % 1000
+    local rec = V and V.Slot and V:Slot(mode, bag, slot) or nil
+    if rec and rec.l == cell.link then
+      cell.link = nil
+      ns.PaintVaultButton(cell, rec, bag, cell.wpeForce, cell.wpeKind)
+      return "drawn"
+    end
+  end
+  return nil
+end
+
+-- The ring of every cell of the box on screen, drawn from the verdict for the character logged in. Called at
+-- the end of the layout, in the same frame as the cells themselves, so a piece is never shown in its quality
+-- colour first and turned red a moment later. Only the ring is touched: the picture, the badges and the craft
+-- tier the game drew on the cell stay exactly as they are.
+-- Returns how many cells still have no answer, which is what the deferred pass waits for.
+function ns.SnapRingFill()
+  local B = ns.Bags
+  if not (B and B.byKey and B.snap) then return 0 end
+  local mode = (ns.Vault and ns.Vault.LastMode and ns.Vault:LastMode()) or "bags"
+  local whoClass, whoLvl, own = snapViewer()
+  local sig = tostring(whoClass) .. "|" .. tostring(whoLvl) .. "|" .. tostring(own)
+  local painted, left = 0, 0
+  for key, cell in pairs(B.byKey) do
+    local r = ringSavedCell(cell, mode, key, whoClass, whoLvl, own, sig)
+    if r == "left" then left = left + 1 elseif r == "drawn" then painted = painted + 1 end
+  end
+  return left
+end
+
+-- The bank's own saved box, the same question asked of the cells the bank laid out. The bank keeps a state per
+-- type (the character bank and the warband), each with its own pool, its own byKey and the mode that names its
+-- records, so the walk is per state and the record is read from the mode the state was drawn for. Covered here
+-- because this window painted those cells with the same function and nothing ever asked them again when the
+-- client had not described the item at paint time -- the bags had their retry pass and the bank had none.
+-- The ring of the live bank's own grid, checked against the answer the rule gives now. Not a repaint: the icon,
+-- the count and the badges are left exactly as they are and only the four edge lines are touched, so a cell the
+-- late verdict never reached is corrected without the flicker a redraw costs. This is the hole the bags had in
+-- the other direction: the paint guard compares the link and the count and nothing about the verdict, so a cell
+-- painted before its answer was known kept the quality ring until a move changed its key. The answer is read from
+-- the verdict cache, which the paint filled for every cell it drew, so a pass over the whole window costs one
+-- table read a cell. Returns how many cells it corrected.
+function ns.BankRingFill()
+  local K = ns.Bank
+  local st = K and K.cur
+  if not (K and not K.snap and st and st.live and ns.Bags.unusableBorder) then return 0 end
+  local R = RED_FONT_COLOR
+  local painted = 0
+  for i = 1, (st.shown or 0) do
+    local b = st.live[i]
+    if b and b.link and b.holder and b.holder:IsShown() and b.wpeBagID then
+      local bag, slot = b.wpeBagID, b.GetID and b:GetID()
+      local want = (bag and slot and ns.IsItemUnusable(bag, slot, b.link)) and true or false
+      local red = (b.ringOn and b.ringR == R.r and b.ringG == R.g and b.ringB == R.b) and true or false
+      if want and not red then
+        ns.SetRarityRing(b, R.r, R.g, R.b, 1)
+        b.wpeLiveRed = b.link
+        painted = painted + 1
+      elseif red and not want and b.wpeLiveRed == b.link then
+        -- Ours to take back: the answer moved from no to yes, and the paint that would draw the quality ring ran
+        -- before it changed. The red has no other owner, so the cell goes back through its own paint once.
+        b.wpeLiveRed = nil
+        b.link = nil
+        ns.UpdateItemButton(b)
+        painted = painted + 1
+      end
+    end
+  end
+  return painted
+end
+
+function ns.BankSnapRingFill()
+  local K = ns.Bank
+  local st = K and K.cur
+  if not (K and K.snap and st and st.byKey and st.mode) then return 0 end
+  local whoClass, whoLvl, own = snapViewer()
+  local sig = tostring(whoClass) .. "|" .. tostring(whoLvl) .. "|" .. tostring(own)
+  local painted, left = 0, 0
+  for key, cell in pairs(st.byKey) do
+    -- Only what is on screen: a cell the pass could not place is not something the player is reading.
+    if cell and cell.holder and cell.holder:IsShown() then
+      local r = ringSavedCell(cell, st.mode, key, whoClass, whoLvl, own, sig)
+      if r == "left" then left = left + 1 elseif r == "drawn" then painted = painted + 1 end
+    end
+  end
+  return left
+end
+
+-- Cells the client had not described when the box was drawn: the layout runs again a few times, since the item's
+-- data can land between two passes, and stops once nothing is left unanswered.
+local snapRingQ, snapRingTries
+function ns.SnapRingSoon()
+  if snapRingQ then return end
+  snapRingQ = true
+  C_Timer.After(0.25, function()
+    snapRingQ = nil
+    -- Both boxes: only one of them can be on screen at a time, and the window that is not up answers zero.
+    local left = (ns.SnapRingFill and ns.SnapRingFill() or 0)
+                 + (ns.BankSnapRingFill and ns.BankSnapRingFill() or 0)
+    snapRingTries = (left > 0) and ((snapRingTries or 0) + 1) or nil
+    if left > 0 and (snapRingTries or 0) < 8 then ns.SnapRingSoon() end
+  end)
+end
+
 function ns.PaintVaultButton(b, d, bagID, forceCount, kind)
   local link = (d and d.l) or false
+  -- The answer is computed for whoever is looking, out of the item's own facts: its class, its slot, the
+  -- required level against this character, and the client's own can-use. The verdict a capture once wrote
+  -- down is deliberately not read -- it described the character at the moment it was taken, so after a level
+  -- it is a lie about a piece the character can now wear. Nothing about the record can be stale if the record
+  -- is not asked.
+  local mode = (ns.Vault and ns.Vault.LastMode and ns.Vault:LastMode()) or nil
+  -- The ring answers for the character logged in, whichever bags are on screen: its class weighs the armour
+  -- type, its level weighs a required level, and the client's own can-use is asked about it too. A snapshot of
+  -- another character is shown so the player can decide what to send or keep, and the question it answers is
+  -- still "could I wear this".
+  local myClass, myLvl, ownBox = snapViewer()
+  local canUse = link and ns.SnapshotCanUse
+                  and ns.SnapshotCanUse(link, myClass, myLvl, ownBox)
+                  or nil
+  -- No answer is left as no answer, deliberately. The live rule reads every red line of the tooltip broadly and
+  -- would ring a worn piece whose restriction the character has already met -- the raw data keeps such a line,
+  -- and keeps it red. The saved-box rule above names the evidence it uses, so an answer it does not have is a
+  -- ring that waits for the data instead of a ring that is wrong.
   -- forceCount is the combine-stacks sum a grouped snapshot cell draws in place of its own slot count;
   -- it joins the paint key so a fold whose total changed repaints even when the bound slot's own count did
   -- not. nil falls back to the record's stored count, the plain per-slot number.
   local count = forceCount or (d and d.c) or 0
-  if b.link == link and b.wpeCount == count then return b.itemName end
-  b.link, b.wpeCount = link, count
+  -- The verdict belongs to the key: a cell first painted while the item's data was still streaming in has no
+  -- ring, and the same link and count afterwards looked like "already drawn" -- which is how a whole snapshot
+  -- stayed quietly unringed. Redrawing on a changed answer is what puts the ring on without a move.
+  -- The raw answer is kept beside the key so the correction passes can tell a cell that decided "cannot use"
+  -- from one that never got an answer.
+  b.wpeCU = canUse
+  if canUse == nil then ns.SnapRingSoon() end
+  -- A nil answer never counts as "already drawn": it means the item's data had not landed yet, and the cell has
+  -- to be reconsidered on the next pass, which is what puts the ring on once it has.
+  if canUse ~= nil and b.link == link and b.wpeCount == count and b.wpeCanUse == canUse then
+    return b.itemName
+  end
+  b.link, b.wpeCount, b.wpeCanUse = link, count, canUse
   b.vaultLink = d and d.l or nil
   local q = d and d.q
   local iconID, classID, gear, subID, itemID, equipLoc, iType, iSub
@@ -2247,6 +2473,11 @@ function ns.PaintVaultButton(b, d, bagID, forceCount, kind)
   -- over from a live paint, or ApplySearchToButton would OR it back on over a cached character's item.
   b.wpeItemLocked = nil
   if link then
+    -- The craft tier the game draws is kept beside the link its own quality call was given: ns.FitOverlays reads
+    -- this to tell a mirror that belongs to this piece from one the cell carried over from the last. A saved
+    -- cell never wrote it, so the mirror was judged "the piece before" and hidden -- which is why the snapshot
+    -- lost the quality tier while the live grid kept it.
+    b.wpeQualityLink = link
     SetItemButtonQuality(b, q, link, false, d.b)
     ns.FitOverlays(b)
     ns.MarkQuestItem(b)
@@ -2294,12 +2525,21 @@ function ns.PaintVaultButton(b, d, bagID, forceCount, kind)
   else
     reagentRing = (bagID == ns.reagentBag or kind == "prof")
   end
+  -- The stamp beside the ring: the red below sets it, and every other branch leaves it cleared, so a cell the
+  -- pass put back to its quality colour keeps no claim on the red it wore before.
+  b.wpeSnapRed = nil
   if ns.Bags.reagentTint and reagentRing then
     local r = Theme.colors.reagent
     ns.SetRarityRing(b, r[1], r[2], r[3], RING_A)
-  elseif link and ns.Bags.unusableBorder and ns.IsLinkUnusable(link) then
+  -- The unusable ring on a snapshot, judged for the character logged in, whichever record is on screen: the
+  -- question a saved box answers here is "could I wear this". The record's own verdict is not read, since it
+  -- described whoever was logged in when the capture was taken.
+  elseif ns.Bags.unusableBorder and canUse == false then
     local R = RED_FONT_COLOR
     ns.SetRarityRing(b, R.r, R.g, R.b, 1)
+    -- The ring and the stamp go together: ns.SnapRingFill/BankSnapRingFill read the stamp, and the correction
+    -- they make is safe either way now, but a stamp that lies about this pass is what the next reader believes.
+    b.wpeSnapRed = link
   elseif ns.Bags.qualityBorder and classID == Enum.ItemClass.Questitem then
     ns.SetRarityRing(b, QUEST_YELLOW[1], QUEST_YELLOW[2], QUEST_YELLOW[3], RING_QUEST_A)
   elseif ns.Bags.qualityBorder and q and q >= 0 and ITEM_QUALITY_COLORS[q]
@@ -3369,6 +3609,44 @@ local function guardPinKey()
     end
   end
 end
+
+-- The rings of a saved box are drawn at the end of the layout that placed its cells, in the same frame: the
+-- window never shows a piece in its quality colour and turns it red a moment later. The call is a hook, not an
+-- edit, because the layout is the bags window's own.
+local snapRingEv = CreateFrame("Frame")
+snapRingEv:RegisterEvent("PLAYER_LOGIN")
+snapRingEv:SetScript("OnEvent", function()
+  local B = ns.Bags
+  if not (B and ns.SnapRingFill) then return end
+  -- Every way a saved box can come back on screen: the layout that places its cells, and the resume that draws
+  -- one already open. The ring is set at the end of each, in the same frame, and a deferred pass covers the items
+  -- whose data is still on its way.
+  local function after()
+    if not B.snap then return end
+    local left = ns.SnapRingFill()
+    if left and left > 0 then ns.SnapRingSoon() end
+  end
+  if B.Layout then hooksecurefunc(B, "Layout", after) end
+  if B.Resume then hooksecurefunc(B, "Resume", after) end
+  -- The bank and the warband draw their saved box with the same paint and had no pass of their own: a cell
+  -- painted while the client had not described its item stayed unringed, and nothing ever asked it again. Its
+  -- cells are placed a slice at a time, so the hook is the end of the pass (HideUnclaimed) rather than its
+  -- start -- by then every cell of the plan has been drawn.
+  local K = ns.Bank
+  if K and ns.BankSnapRingFill then
+    local function afterBank()
+      if K.snap then
+        local left = ns.BankSnapRingFill()
+        if left and left > 0 then ns.SnapRingSoon() end
+      elseif ns.BankRingFill then
+        -- The live grid: the ring each cell should wear now, drawn on the cell that already stands there (see
+        -- ns.BankRingFill for why the paint guard cannot answer this on its own).
+        ns.BankRingFill()
+      end
+    end
+    if K.HideUnclaimed then hooksecurefunc(K, "HideUnclaimed", afterBank) end
+  end
+end)
 
 local pinEv = CreateFrame("Frame")
 pinEv:RegisterEvent("PLAYER_LOGIN")

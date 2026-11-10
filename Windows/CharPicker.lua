@@ -25,7 +25,7 @@ ns.CharPicker = Picker
 function Picker:PaintBar()
   local sf, bar, thumb = self.sf, self.bar, self.thumb
   if not (sf and bar and thumb and self.frame) then return end
-  local span = math.max(0, self.child:GetHeight() - sf:GetHeight())
+  local span = self:Span()
   local view = sf:GetHeight()
   if span <= 0 or not sf:IsShown() then bar:Hide(); return end
   bar:Show()
@@ -33,12 +33,32 @@ function Picker:PaintBar()
   bar:SetPoint("TOPLEFT", sf, "TOPRIGHT", 2, 0)
   bar:SetPoint("BOTTOMLEFT", sf, "BOTTOMRIGHT", 2, 0)
   local h = math.max(16, view * view / self.child:GetHeight())
-  local frac = math.max(0, math.min(1, self.sf:GetVerticalScroll() / span))
+  local frac = math.max(0, math.min(1, (self.scrollWant or 0) / span))
   ns.FitScrollThumb(thumb, bar, h, frac * (view - h))
 end
 
+function Picker:Span()
+  if not (self.sf and self.child) then return 0 end
+  return math.max(0, (self.child:GetHeight() or 0) - (self.sf:GetHeight() or 0))
+end
+
+-- The offset is not rounded. A wheel step is a row plus the gap under it, which is a whole number of pixels
+-- only when the density happens to give one, and the rows inside are already placed on the grid -- rounding
+-- the offset as well made the list land between the two positions it was meant to take. The viewport is
+-- kept out of the pixel pass (wpePixelSkip, see Build) because that pass re-anchors and resizes what it
+-- rounds, and this client takes a scroll frame's offset away when its points move: at a fractional UI
+-- scale the pass moved the viewport on every snapshot and the list never got to hold an offset at all.
 function Picker:ScrollTo(v)
-  ns.ScrollPixels(self.sf, v, self.frame)
+  local sf = self.sf
+  if not (sf and self.child) then return end
+  local want = math.min(self:Span(), math.max(0, tonumber(v) or 0))
+  self.scrollWant = want
+  sf:SetVerticalScroll(want)
+  -- The client drops a scroll frame's offset on its own terms -- a point move, a size change, the first layout
+  -- after the frame is shown -- and says nothing about it, so the number the list holds and the number the
+  -- viewport reads come apart. The offset is put back for a couple of seconds after every scroll; see the
+  -- OnUpdate in Build. A list opened by a click and scrolled at once was dead until something else repainted it.
+  self.holdUntil = (GetTime and GetTime() or 0) + 2
   self:PaintBar()
 end
 
@@ -83,7 +103,7 @@ function Picker:Build()
   hide:SetScript("OnClick", function()
     self.showHidden = not self.showHidden
     self:UpdateHiddenBorder()
-    self:Paint()
+    self:Paint(false)
   end)
   self.hideBtn = hide
   ns.AddTip(hide, "Show characters you hid", "bottom")
@@ -101,7 +121,7 @@ function Picker:Build()
 
   local filter = ns.CreateSearchBox(m, function(text)
     self.query = (text or ""):lower()
-    self:Paint()
+    self:Paint(false)
   end)
   filter:SetPoint("LEFT", hide, "RIGHT", 4, 0)
   filter:SetPoint("RIGHT", close, "LEFT", -4, 0)
@@ -109,20 +129,40 @@ function Picker:Build()
   if filter.Hint then ns.LocalText(filter.Hint, "Search") end
   self.filter = filter
 
+  -- A scroll frame, and the viewport is kept out of the pixel pass (wpePixelSkip): the pass re-anchors and
+  -- resizes what it rounds, and this client drops a scroll frame's offset when its points move. At a whole
+  -- UI scale the remainders were zero and a drag still looked off (every row was rounded on its own, under a
+  -- moving origin); at a fractional one the viewport moved on every pass and the list could not hold an
+  -- offset at all. The rows inside are placed on the grid once, and the offset slides that whole grid.
   local sf = CreateFrame("ScrollFrame", nil, m)
-  sf.wpePixelRect = true
+  sf.wpePixelSkip = true
   sf:SetPoint("TOPLEFT", PAD, -(PAD + HEAD_H))
   sf:SetPoint("BOTTOMRIGHT", -PAD, PAD)
   local child = CreateFrame("Frame", nil, sf)
   child:SetPoint("TOPLEFT")
   sf:SetScrollChild(child)
   sf:EnableMouseWheel(true)
-  -- How far this list can travel, and how it takes a new offset: the two halves the shared scrollbar thumb
-  -- asks its owner for. The wheel goes through the same pair, so a wheel and a drag cannot land apart.
-  local function listSpan() return math.max(0, child:GetHeight() - sf:GetHeight()) end
-  local function listScroll(v) self:ScrollTo(v) end
-  sf:SetScript("OnMouseWheel", function(s, d) listScroll((s:GetVerticalScroll() or 0) - d * ROW_H * 2) end)
+  sf:SetScript("OnMouseWheel", function(s, d)
+    -- Where the viewport actually stands, not where the list last meant to put it: a reset offset is the one thing
+    -- that makes a tick land nowhere, and reading it back costs one call.
+    local cur = s.GetVerticalScroll and (s:GetVerticalScroll() or 0) or 0
+    local want = self.scrollWant or 0
+    if math.abs(cur - want) > 1 then want = cur end
+    self:ScrollTo(want - d * ROW_H * 2)
+  end)
   self.sf, self.child = sf, child
+  -- Put back an offset the client dropped. Bounded to the couple of seconds after the last scroll and to a
+  -- difference too big to be a rounding step, so a list the player left alone is never fought over.
+  m:SetScript("OnUpdate", function()
+    local until_ = self.holdUntil
+    if not until_ then return end
+    local now = GetTime and GetTime() or 0
+    if now > until_ then self.holdUntil = nil; return end
+    local want = self.scrollWant or 0
+    if want <= 0 then return end
+    local cur = self.sf.GetVerticalScroll and (self.sf:GetVerticalScroll() or 0) or 0
+    if math.abs(cur - want) > 1 and self.sf.SetVerticalScroll then self.sf:SetVerticalScroll(want) end
+  end)
 
   local bar = CreateFrame("Frame", nil, m)
   bar.wpePixelRect = true
@@ -136,7 +176,29 @@ function Picker:Build()
   thumbTex:SetAllPoints(thumb)
   bar:Hide()
   self.bar, self.thumb = bar, thumb
-  ns.ScrollThumb(thumb, thumbTex, sf, listScroll, listSpan)
+  -- The thumb drags the same number the wheel moves, and asks the list where it stands rather than the
+  -- viewport, which no longer holds an offset of its own.
+  thumb:EnableMouse(true)
+  thumb:SetScript("OnMouseDown", function(t)
+    t.grabY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+    t.grabWant = self.scrollWant or 0
+    t:SetScript("OnUpdate", function(x)
+      local y = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+      local travel = (self.sf:GetHeight() or 0) - (x:GetHeight() or 0)
+      local span = self:Span()
+      if travel <= 0 or span <= 0 then return end
+      self:ScrollTo(x.grabWant + (x.grabY - y) * span / travel)
+    end)
+    thumbTex:SetVertexColor(Theme:C("accent"))
+  end)
+  thumb:SetScript("OnMouseUp", function(t)
+    t:SetScript("OnUpdate", nil)
+    thumbTex:SetVertexColor(Theme:C("faint"))
+  end)
+  thumb:SetScript("OnEnter", function() thumbTex:SetVertexColor(Theme:C("dim")) end)
+  thumb:SetScript("OnLeave", function(t)
+    if not t:GetScript("OnUpdate") then thumbTex:SetVertexColor(Theme:C("faint")) end
+  end)
 
   return m
 end
@@ -145,7 +207,6 @@ function Picker:Row(i)
   local r = self.rows[i]
   if r then return r end
   r = CreateFrame("Button", nil, self.child)
-  r.wpePixelRect = true
   r:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   local bg = Theme:Rect(r, "panelHi", "BACKGROUND")
   bg:SetAllPoints(r)
@@ -235,6 +296,11 @@ function Picker:CharRow(n, y, e, path)
 end
 
 function Picker:Paint(keepScroll)
+  -- A repaint holds the scroll unless it is told not to. The list is long and a pass nobody asked for -- a
+  -- theme move, a density change, the bags relaying a layout, the pocket stepping aside -- must not send the
+  -- player back to the top; `false` is what the three passes that mean "start again" say: a new search, the
+  -- hidden filter, and a fresh open.
+  if keepScroll == nil then keepScroll = true end
   if not self.frame then return end
   applyDensity(self.size)
   local k = Theme:IsLight() and "bg" or "deep"
@@ -246,7 +312,8 @@ function Picker:Paint(keepScroll)
   -- that stands in for it, on the rare pass where the art is missing, has to blend away.
   ns.SetBg(self.frame, Theme:C(k))
   if Theme:Skinned() then ns.SetEdge(self.frame, Theme:C(k)) end
-  local scroll = keepScroll and self.sf:GetVerticalScroll() or 0
+  -- The number is the list's, and a repaint only carries it over; it is never read back from anywhere.
+  local scroll = keepScroll and (self.scrollWant or 0) or 0
   local path = fontPath()
   local list = ns.Vault:WithOwner(ns.Vault:Chars(self.showHidden, self.mode))
   local q = self.query
@@ -307,6 +374,15 @@ function Picker:Paint(keepScroll)
   if self.win then
     ns.SidePlace(self.frame, self.win, self.side or "left", "top")
   end
+  -- A "start again" pass wins only when the list it would show is not the list already standing: a search, the
+  -- hidden filter and a fresh open do change it, while a pass that keeps the same rows must not send the reader
+  -- back to the top. This client's own repaint path asks for one on a wheel tick: every tick is followed by a
+  -- `keep=false` pass, and that is the whole of why the list would not scroll -- the tick moved it and the pass
+  -- put it back on the same frame. The signature is the rows' own count beside the three knobs that decide
+  -- which rows they are.
+  local sig = tostring(self.showHidden) .. "|" .. tostring(self.query) .. "|" .. tostring(self.mode) .. "|" .. n
+  if not keepScroll and self.paintSig == sig and (self.scrollWant or 0) > 0 then scroll = self.scrollWant or 0 end
+  self.paintSig = sig
   self:ScrollTo(scroll)
   -- Paint runs while the frame may still be hidden (the first open lays it out before Show), and a
   -- hidden frame has no rect to measure: only a standing list can ask the pocket to step aside.
@@ -343,6 +419,9 @@ function Picker:Toggle(anchor, side, onSelect, currentKey, mode, size)
   self.anchor, self.onSelect, self.currentKey = anchor, onSelect, currentKey
   self.mode = mode
   self.query, self.showHidden = nil, false
+  -- A fresh open starts at the top, and its first pass is not compared against the list the last open left:
+  -- both the offset and the signature it would be compared with are dropped here rather than in Paint.
+  self.scrollWant, self.paintSig, self.holdUntil = 0, nil, nil
   if self.filter then self.filter:SetText(""); self.filter:ClearFocus() end
   self:UpdateHiddenBorder()
   local win = (anchor and anchor.GetParent and anchor:GetParent()) or anchor
@@ -368,7 +447,7 @@ function Picker:Toggle(anchor, side, onSelect, currentKey, mode, size)
   -- The wanted side is a preference, not an anchor: Paint places the panel through ns.SidePlace, which
   -- moves it to the other flank when the wanted one would run off the screen.
   self.win, self.side = win, side
-  self:Paint()
+  self:Paint(false)
   m:Show()
   if ns.Pocket then ns.Pocket:Hold(m, self.win) end
 end

@@ -59,7 +59,7 @@ local function layoutStrip(entry, defs)
   local prev
   for k, b in ipairs(entry.btns) do
     if defs and defs[k] then b.Text:SetText(T(defs[k].name)) end
-    b:SetWidth(math.max(56, b.Text:GetStringWidth() + 18))
+    b:SetWidth(ns.SnapEven(b, math.max(56, b.Text:GetStringWidth() + 18)))
     b:ClearAllPoints()
     if prev then b:SetPoint("LEFT", prev, "RIGHT", 4, 0)
     else b:SetPoint("LEFT", entry.strip, "LEFT", 0, 0) end
@@ -92,6 +92,11 @@ function Options:Select(index)
     end
   end
   local area = self.subs[index].areas[self.subAt[index] or 1]
+  -- Lay the page out again now that it is on screen. The measured rows (a description is as tall as its
+  -- wrapped string, a dynamic row as tall as it just rebuilt itself) are read while the page is up: a page
+  -- built or restyled behind a hidden window measured them at nil height, and every row under a short one
+  -- was then drawn over its neighbour's text.
+  if area.page and area.page.Relayout then area.page.Relayout() end
   area:ScrollTo(0)
   area:PaintBar()
   self:Refresh()
@@ -123,7 +128,9 @@ function Options:ApplyFont()
     if self.searchBox and self.searchPh then
       -- The box fits its placeholder, so a long translation stays inside it.
       local tw = math.ceil(self.searchPh:GetStringWidth() or 0)
-      self.searchBox:SetWidth(math.max(180, math.min(340, tw + 42)))
+      -- Whole and even, for the same reason as the tabs: the counting number is anchored to the box's left,
+      -- so a box rounded again on every reflow walked the pair of them sideways.
+      self.searchBox:SetWidth(ns.SnapEven(self.searchBox, math.max(180, math.min(340, tw + 42))))
     end
     for i, area in ipairs(self.areas) do
       area.page.Relayout()
@@ -140,7 +147,11 @@ function Options:ReflowPages()
     local prev
     for i, tab in ipairs(self.tabs) do
       tab.Text:SetText(T(Options.pages[i].name))
-      tab:SetWidth(math.max(70, tab.Text:GetStringWidth() + 22))
+      -- Already whole and even physical pixels, from the words the tab carries. A width left fractional is
+      -- rounded again by the border pass, and each reflow rounded it afresh: the label sits in the middle of
+      -- its tab and every follow-on tab is chained off the one before, so a half pixel of width moved the
+      -- whole strip -- the twitch in the tab names when a category was opened.
+      tab:SetWidth(ns.SnapEven(tab, math.max(70, tab.Text:GetStringWidth() + 22)))
       tab:ClearAllPoints()
       if prev then
         tab:SetPoint("TOPLEFT", prev, "TOPRIGHT", 5, 0)
@@ -697,6 +708,9 @@ function Options:Build()
   self.title = title
 
   local close = ns.CreateGlyphButton(f, "×", 28)
+  -- Flat: this window's plate is its own surface, and a black rim on a cross this size rings a plate that
+  -- is already framed.
+  ns.MarkX(close, true)
   close:SetPoint("TOPRIGHT", -PAD, -8)
   close:SetScript("OnClick", function() self:Close() end)
   track(close.Text, 2)
@@ -890,6 +904,12 @@ function Options:Open()
   f:Show()
   ns.AlignToScreen(f)
   Theme:Raise(f)
+  -- The page on top was laid out while this window was still hidden, and a row measured from its own text
+  -- has no height to measure then. Measure it again now that it is up -- the scroll it is holding is left
+  -- as it was, so a window reopened where it was closed stays there.
+  local entry = self.subs and self.subs[self.current or 1]
+  local area = entry and entry.areas[self.subAt[self.current or 1] or 1]
+  if area and area.page and area.page.Relayout then area.page.Relayout(); area:PaintBar() end
   self:SnapSoon()
 end
 
@@ -903,7 +923,10 @@ function Options:SnapBorders()
   local f = self.frame
   if not (f and f:IsShown()) then return end
   local function walk(parent, depth)
-    if depth > 6 or not parent.GetChildren then return end
+    -- A subtree that lays itself out (the category editor does, with SnapPoint/PixelLine per row) is left
+    -- alone: rewriting the points of frames that are already placed from their own layout only ever moves
+    -- them off it, and this pass runs on every scroll tick as well as on every page build.
+    if depth > 6 or not parent.GetChildren or parent.wpePixelSkip then return end
     for _, c in ipairs({ parent:GetChildren() }) do
       if c.wpeEdge and c:IsShown() then ns.SnapRect(c) end
       walk(c, depth + 1)

@@ -67,12 +67,9 @@ Cats.IsCat, Cats.IsMarker, Cats.IsHead = isCat, isMarker, isHead
 -- carries prio 2 so it wins that contest wherever it sits, which is why no other rule needs a "!junk" to
 -- push greys past itself. Drop Junk's priority to 0 and a grey would fall to whichever type row sits
 -- above it instead.
--- The four gear rows carry an item-level floor, `ilvl>180`. It is strictly above, so a piece at
--- exactly 180 is out, and a piece whose level cannot be read yet — a bank snapshot row with no level, an
--- item the client has not cached — does not match the floor at all and falls past it. The floor narrows
--- what the band keeps rather than holding a row back from the bag: levelling gear, an heirloom and a
--- current-expansion green all drop out of the type rows, an old-expansion piece lands on the Legacy row
--- below, and anything the rows under it do not claim ends up in Other as always.
+-- The four gear rows nominate by slot and kind only, with no item-level floor: a shirt and a levelling
+-- green are still armour, and the rows below are what separate last expansion's piece from this one.
+-- Anything the rows under them do not claim ends up in Other as always.
 -- Markers shape the view, the category rows between them are the rules. A head opens a named band, a
 -- div opens a headingless one, and the rows before the first marker are a band of their own with no
 -- heading at all. So the three shipped groups are groups only because the list says so, and the tail is
@@ -115,10 +112,10 @@ local DEFAULTS = {
   { head = "gear" },
   -- "offhand" is the slot word the picker carries: it takes the off-hand weapon and the shield as well as
   -- the hold, where "held" (the holdable slot alone) is a word no language but three can spell as one token.
-  { id = "weapons",       search = "weapon shield offhand ilvl>180" },
-  { id = "jewelry",       search = "finger neck ilvl>180" },
-  { id = "armor",         search = "cloth leather mail plate ilvl>180" },
-  { id = "trinkets",      search = "trinket ilvl>180" },
+  { id = "weapons",       search = "weapon shield offhand" },
+  { id = "jewelry",       search = "finger neck" },
+  { id = "armor",         search = "cloth leather mail plate" },
+  { id = "trinkets",      search = "trinket" },
   { head = "crafting" },
   { id = "reagents",      search = "reagent !legacy" },
   { id = "profgear",      search = "profgear tool" },
@@ -144,10 +141,6 @@ local DEFAULTS = {
   -- from the row's + panel like any other, and every other section still follows the global sort.
 }
 
--- Forever's gear is item level 1-60. The `ilvl>180` in the four gear rules exists to push gear from past
--- expansions into `legacy`; the client has one tier of gear and no old expansions behind it, so the word
--- would only leave every drop unclaimed and send all of it to Miscellaneous. Taken off the shipped rules
--- before the preset shelf is built from them, so the shelf and a fresh save agree.
 if ns.IsForever then
   -- Legacy and Keystone name content this client does not have: with one expansion behind the player
   -- nothing is "older than the last one", and there are no keystones to hold. A row that can never fill is
@@ -180,11 +173,6 @@ if ns.IsForever then
     -- which this client has: both words can only ever match nothing, and a rule that names them reads as if
     -- the transmog set were wider than it is. What is left there is what a vanilla character wears.
     if c.id == "wardrobe" then c.search = "tabard | shirt" end
-  end
-  local OPEN = { weapons = "weapon shield offhand", jewelry = "finger neck",
-                 armor = "cloth leather mail plate", trinkets = "trinket" }
-  for _, c in ipairs(DEFAULTS) do
-    if c.id and OPEN[c.id] then c.search = OPEN[c.id] end
   end
   -- A bag on this client holds three kinds of thing the retail rows never name: ammunition, the quiver or
   -- pouch that carries it, and the keys the keyring holds. Left out, all three fall through the rows above
@@ -977,11 +965,12 @@ end
 -- the one-time migration below reads.
 local UNGROUP_FOLD = "\1ungrouped"
 
--- The four shipped gear rows gained an item-level floor after a save may already exist, so a save written
--- before it holds their searches without one. Only a row still holding the shipped string exactly is
--- touched: a rule the player has typed over is left as it is, and a row that has already been upgraded no
--- longer matches the old string, so the pass is safe to run again. The flag keeps it to the one time, so a
--- row deliberately put back to the old string stays put.
+-- The four shipped gear rows once carried an item-level floor, and a save written before it holds their
+-- searches without one. The floor is gone from the shipped rules now, so this pass brings those older rows
+-- to the current text; it stays because a save that skipped it still carries the pre-floor string. Only a
+-- row holding the shipped string exactly is touched: a rule the player has typed over is left as it is,
+-- and a row that has already been upgraded no longer matches the old string, so the pass is safe to run
+-- again. The flag keeps it to the one time, so a row deliberately put back to the old string stays put.
 local FLOOR_FROM = {
   weapons  = "weapon shield !junk",
   jewelry  = "ring neck !junk",
@@ -1057,6 +1046,32 @@ function Cats:UpgradeFloor()
   for _, c in ipairs(db) do
     if isCat(c) and type(c.id) == "string" and c.search == FLOOR_FROM[c.id] then
       c.search = PRESET_SEARCH[c.id] or c.search
+    end
+  end
+  filterStamp = nil
+end
+
+-- The four gear rows have since dropped the floor: it kept levelling gear, heirlooms and a young
+-- expansion's greens out of the type rows. A save holds the floored string exactly, and this takes the
+-- floor off once, the same way the pass above put it on. The two spellings each row has had are both read:
+-- the current one and the earlier one that still said `held`/`ring`.
+local FLOOR_OFF_FROM = {
+  weapons  = { "weapon shield offhand ilvl>180", "weapon shield held ilvl>180" },
+  jewelry  = { "finger neck ilvl>180", "ring neck ilvl>180" },
+  armor    = { "cloth leather mail plate ilvl>180" },
+  trinkets = { "trinket ilvl>180" },
+}
+function Cats:UpgradeFloorOff()
+  if not WarpeeDB or WarpeeDB.catNoIlvl180 then return end
+  WarpeeDB.catNoIlvl180 = true
+  local db = WarpeeDB.categories
+  if type(db) ~= "table" then return end
+  for _, c in ipairs(db) do
+    local from = isCat(c) and type(c.id) == "string" and FLOOR_OFF_FROM[c.id]
+    if from and type(c.search) == "string" then
+      for _, old in ipairs(from) do
+        if c.search == old then c.search = PRESET_SEARCH[c.id] or c.search; break end
+      end
     end
   end
   filterStamp = nil

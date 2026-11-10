@@ -357,6 +357,10 @@ local function packSlot(bag, slot, info, prev)
   -- rest of a record is a function of, so a link that did not move, a stack that did not grow, a quality
   -- that did not change and a bind that did not happen mean the rest of it stands too. The record is not
   -- written to after it is built (the readers take it as it lies), so the saved one can be handed on.
+  -- The capture no longer files a verdict. "Can this character use it" is a question about whoever is looking
+  -- at the grid, answered from the item's own facts each time (ns.SnapshotCanUse), so nothing here can go
+  -- stale: a refusal written down at level 20 is a lie at 50. Records captured earlier still carry the field;
+  -- no reader asks for it, and the next capture of those slots simply does not write it.
   if prev and prev.l == info.hyperlink and prev.c == info.stackCount and prev.q == info.quality
      and (prev.b or false) == (info.isBound and true or false) then
     return prev
@@ -709,6 +713,25 @@ function Vault:Used(mode, bag)
   local entry = self:Bag(mode, bag)
   return entry and entry.used or 0
 end
+
+-- The class of the character a snapshot is showing, and the mode of the record lookup that just ran. Both
+-- exist for one reader: a record without its own verdict is answered from the armour type and the owner's
+-- class (see ns.SnapshotCanUse), which needs to know whose bags these are. Slot keeps the mode, and every
+-- paint is preceded by the Slot call that found the record.
+function Vault:ViewClass(mode)
+  local key = mode and self:ViewKey(mode)
+  if not key then return nil end
+  local v = store()
+  local c = v and v.chars[key]
+  return c and c.class or nil
+end
+
+function Vault:LastMode()
+  return lastMode
+end
+
+-- The owner's level is not stored: the ring weighs a required level against the character logged in, so
+-- there is nothing to read here.
 
 function Vault:Slot(mode, bag, slot)
   if lastMode ~= mode or lastBag ~= bag then

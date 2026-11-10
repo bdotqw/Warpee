@@ -214,13 +214,16 @@ function factories.catlistpanel(env)
       -- is always live and full-strength, even at 0-1 conditions — a labelled dropdown reads as clickable
       -- where a bare word pair did not, and flipping it there is harmless.
       p.matchBtn:ClearAllPoints()
-      p.matchBtn:SetPoint("TOPLEFT", pad, -(y - 5))
+      -- On the panel's own padding line, not lifted above it: the lift of five pixels put the dropdown's box,
+      -- and the count beside it, over the row's bottom edge -- the more rows unfolded, the more of those edges
+      -- it landed on. Everything the panel holds now starts inside it.
+      p.matchBtn:SetPoint("TOPLEFT", pad, -y)
       p.matchBtn:Show()
       p.matchBtn:Refresh()
       p.rawToggle.wpeRaw = nil
       p.rawToggle:Repaint()
       p.rawToggle:ClearAllPoints()
-      p.rawToggle:SetPoint("TOPRIGHT", -rpad, -(y - 5))
+      p.rawToggle:SetPoint("TOPRIGHT", -rpad, -y)
       p.rawToggle:Show()
       -- The "?" belongs to the text form only: a chip rule is built from the picker, which already names
       -- every word, so the word list would only crowd a mode that does not need it.
@@ -304,10 +307,10 @@ function factories.catlistpanel(env)
       p.addCond:Show()
       y = y + (line + 1) * (COND_H + 4) + 8
     else
-      -- Raw fallback. The toggle keeps the chip mode's top-line position (top-right at y-5) so it does not
-      -- jump when the band flips; it stays filled here, and is hidden only when the rule cannot be chips at
-      -- all (nothing to go back to). The box sits on its own line below, at a fixed offset — not anchored to
-      -- the placeholder, which measured 0 on a fresh pass and threw the box around.
+      -- Raw fallback. The toggle keeps the chip mode's top-line position (top-right on the panel's padding
+      -- line) so it does not jump when the band flips; it stays filled here, and is hidden only when the rule
+      -- cannot be chips at all (nothing to go back to). The box sits on its own line below, at a fixed offset —
+      -- not anchored to the placeholder, which measured 0 on a fresh pass and threw the box around.
       p.matchBtn:Hide()
       p.matchCount:Hide(); p.addCond:Hide()
       for k = 1, #p.conds do if p.conds[k] then p.conds[k]:Hide() end end
@@ -316,7 +319,7 @@ function factories.catlistpanel(env)
         p.rawToggle.wpeRaw = true
         p.rawToggle:Repaint()
         p.rawToggle:ClearAllPoints()
-        p.rawToggle:SetPoint("TOPRIGHT", -rpad, -(y - 5))
+        p.rawToggle:SetPoint("TOPRIGHT", -rpad, -y)
         p.rawToggle:Show()
       else
         p.rawToggle:Hide()
@@ -328,7 +331,7 @@ function factories.catlistpanel(env)
       if canChips then
         p.helpToggle:SetPoint("RIGHT", p.rawToggle, "LEFT", -6, 0)
       else
-        p.helpToggle:SetPoint("TOPRIGHT", -rpad, -(y - 5))
+        p.helpToggle:SetPoint("TOPRIGHT", -rpad, -y)
       end
       p.helpToggle:Show()
       y = y + BASE_FONT + 10

@@ -87,6 +87,11 @@ function factories.catlist(parent, spec)
   -- carries only the name now, so it can be generous.
   local NAME_W = math.floor((CONTENT_W - 60) * 0.72)
   local row = CreateFrame("Frame", nil, parent)
+  -- Every frame and hairline in this list is placed from the row/panel layout below (SnapPoint, PixelLine)
+  -- at build time, so the window's border pass has nothing to add here -- and a pass that rewrites those
+  -- points while the page is scrolled moves them off the layout they were built on. The list, its rows and
+  -- the panels under them are skipped by it.
+  row.wpePixelSkip = true
   row.items = {}
   -- The one panel pool, keyed by row index: each row's rule + pins panel lives here.
   row.build = {}
@@ -1198,11 +1203,17 @@ function factories.catlist(parent, spec)
           p.wpeId = e.id
           local h = layoutBuild(p, ids, CONTENT_W, e)
           p:ClearAllPoints()
-          p:SetPoint("TOPLEFT", 0, -(y + CAT_ROW_H + extra + 2))
-          p:SetPoint("TOPRIGHT", 0, -(y + CAT_ROW_H + extra + 2))
+          -- The arm hangs a clear step under its row, not flush against it: the rule line that opens the
+          -- panel is drawn a few pixels above the panel's own top (the dropdown's box needs that lift to sit
+          -- level with the row), and a 2px step put that line back across the row's bottom edge -- the name
+          -- field's border ran through "catches N in bags". Six pixels keeps the hairline a separator instead
+          -- of an overlap.
+          local STEP = 6
+          p:SetPoint("TOPLEFT", 0, -(y + CAT_ROW_H + extra + STEP))
+          p:SetPoint("TOPRIGHT", 0, -(y + CAT_ROW_H + extra + STEP))
           p:SetHeight(h)
           p:Show()
-          panelH = h + 2
+          panelH = h + STEP
         end
         row.h[i] = CAT_ROW_H + extra + 2 + panelH
         y = y + CAT_ROW_H + extra + 2 + panelH

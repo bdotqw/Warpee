@@ -242,6 +242,9 @@ end
 function ns.ScrollThumb(thumb, tex, sf, scrollTo, span)
   thumb:EnableMouse(true)
   thumb:SetScript("OnMouseDown", function(s)
+    -- A held thumb is a running gesture, not a settled layout: whatever a scroll area wants to do per frame
+    -- reads this and waits, rather than repainting the rows the drag is carrying.
+    sf.wpeScrolling = true
     s.grabY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
     s.grabScroll = sf:GetVerticalScroll() or 0
     s:SetScript("OnUpdate", function(t)
@@ -254,6 +257,11 @@ function ns.ScrollThumb(thumb, tex, sf, scrollTo, span)
   end)
   thumb:SetScript("OnMouseUp", function(s)
     s:SetScript("OnUpdate", nil)
+    sf.wpeScrolling = nil
+    -- The drag's last answer was measured against where the child stood mid-gesture: drop it, so the next
+    -- scroll measures the settled page instead of reusing a stale offset.
+    ns.SnapScrollForget(sf)
+    if sf.ScrollSettled then sf:ScrollSettled() end
     tex:SetVertexColor(Theme:C("faint"))
   end)
   thumb:SetScript("OnEnter", function() tex:SetVertexColor(Theme:C("dim")) end)
@@ -1042,15 +1050,22 @@ local function evenCount(v, least)
   local n = math.max(least or 2, math.floor(v + 0.5))
   return n + (n % 2)
 end
-function ns.MarkX(host)
+-- A cross drawn flat, for the buttons that carry a colour of their own: `bare` leaves the ground off and
+-- the mark stands on the plate alone. The red delete cross and the small crosses of the settings read
+-- cleaner without a black rim around them, which on a tinted plate is the mark's own colour ringed in ink.
+function ns.MarkX(host, bare)
   local mark = host.wpeMarkX
   if not mark then
     mark = { shadow = {} }
-    addArm(mark, host, 45, true)
-    addArm(mark, host, -45, true)
+    addArm(mark, host, 45, not bare)
+    addArm(mark, host, -45, not bare)
     host.wpeMarkX = mark
     host:HookScript("OnSizeChanged", function(s) ns.FitMarkX(s) end)
+  elseif bare then
+    -- Called again on a mark that already has a ground: take it off, since the textures outlive the call.
+    for _, sh in ipairs(mark.shadow) do sh:Hide() end
   end
+  mark.bare = bare and true or false
   ns.FitMarkX(host)
   return mark
 end
@@ -1064,7 +1079,7 @@ function ns.FitMarkX(host)
   for i, d in ipairs(mark) do fitArm(host, d, mark.shadow[i], len, px) end
 end
 function ns.TintMarkX(host, key)
-  local mark = host.wpeMarkX or host.wpeMarkPlus or host.wpeMarkLock or host.wpeMarkCaret
+  local mark = host.wpeMarkX or host.wpeMarkPlus or host.wpeMarkMinus or host.wpeMarkLock or host.wpeMarkCaret
      or host.wpeMarkHelp or host.wpeMarkArrow
   if not mark then return end
   local r, g, b = Theme:C(key or "text")
@@ -1130,6 +1145,52 @@ function ns.FitMarkPlus(host)
     end
   end
 end
+-- Drawn minus, for the delete buttons of the settings lists (the category rows and the vendor list). It
+-- replaces the cross there, and the reason is geometric: a cross is two strokes turned 45 degrees, and a two
+-- pixel bar on a diagonal lands between pixels depending on where its row happens to sit -- so its
+-- thickness reads two pixels on one row and three on the next, and changes again the moment the list around
+-- it is laid out. A minus is one axis-aligned bar whose two long edges are the box's own pixel boundaries:
+-- it has no phase to lose, so it reads the same on every row and stays put while the list moves.
+-- Built like the plus, ground and all: the bar grows by a pixel on each side, which an axis-aligned
+-- rectangle can do evenly.
+function ns.MarkMinus(host, shadow)
+  local mark = host.wpeMarkMinus
+  if not mark then
+    mark = { shadow = {} }
+    addArm(mark, host, 0, shadow)
+    for _, d in ipairs(mark) do ns.NoPixelSnap(d) end
+    for _, sh in ipairs(mark.shadow) do ns.NoPixelSnap(sh) end
+    host.wpeMarkMinus = mark
+    host:HookScript("OnSizeChanged", function(s) ns.FitMarkMinus(s) end)
+  end
+  ns.FitMarkMinus(host)
+  return mark
+end
+function ns.FitMarkMinus(host)
+  local mark = host.wpeMarkMinus
+  if not (mark and mark[1]) then return end
+  local w, h = host:GetWidth() or 0, host:GetHeight() or 0
+  if w <= 0 or h <= 0 then return end
+  -- Measured off the short side, the way the plus is, so a box that is not square does not grow a bar past
+  -- its own edges. Length and thickness are each asked the parity of the axis they run across.
+  local u = ns.PX(host, 1)
+  local side = math.min(w, h)
+  -- As long as the plus is wide (the same 45% of the short side), so the delete mark beside a "+" reads as
+  -- its pair rather than as a bar running the width of the box.
+  local lenX = snapParity(host, side * 0.45, "x")
+  local thY = snapParity(host, ns.PX(host, host.wpeMarkW or 2), "y")
+  local d = mark[1]
+  d:ClearAllPoints()
+  d:SetPoint("CENTER", host, "CENTER", 0, 0)
+  d:SetSize(lenX, thY)
+  local sh = mark.shadow[1]
+  if sh then
+    sh:ClearAllPoints()
+    sh:SetPoint("CENTER", host, "CENTER", 0, 0)
+    sh:SetSize(lenX + 2 * u, thY + 2 * u)
+  end
+end
+
 -- Drawn padlock, for the same reason as the X and the plus: a mark drawn here can never be missing
 -- from the font the player happened to pick, and it needs no ground built for it either, because its
 -- own shadow travels with it (IconSilhouette is what an art mark needs instead).
@@ -1624,12 +1685,12 @@ function ns.FitMarkArrow(host)
 end
 
 function ns.ShowMark(host, on)
-  local mark = host.wpeMarkX or host.wpeMarkPlus or host.wpeMarkLock or host.wpeMarkCaret
+  local mark = host.wpeMarkX or host.wpeMarkPlus or host.wpeMarkMinus or host.wpeMarkLock or host.wpeMarkCaret
      or host.wpeMarkHelp or host.wpeMarkArrow
   if not mark then return end
   on = on and true or false
   for _, d in ipairs(mark) do d:SetShown(on) end
-  if mark.shadow then for _, sh in ipairs(mark.shadow) do sh:SetShown(on) end end
+  if mark.shadow then for _, sh in ipairs(mark.shadow) do sh:SetShown(on and not mark.bare) end end
   if mark.hole then for _, d in ipairs(mark.hole) do d:SetShown(on) end end
 end
 
@@ -1703,10 +1764,11 @@ function ns.CreateGlyphButton(parent, glyph, size, dark)
   -- back, since a face change can take the colour with it.
   b.Text:SetFont(ns.Fonts:Current(), math.max(16, math.floor((size or 22) * 0.74)), ns.OutlineFlags())
   b:Repaint()
-  if glyph == "×" or glyph == "+" or glyph == "lock" or glyph == "?" or glyph == "arrow" then
+  if glyph == "×" or glyph == "+" or glyph == "-" or glyph == "lock" or glyph == "?" or glyph == "arrow" then
     b.Text:SetText("")
     if glyph == "lock" then ns.MarkLock(b, true)
     elseif glyph == "+" then ns.MarkPlus(b, true)
+    elseif glyph == "-" then ns.MarkMinus(b, true)
     elseif glyph == "?" then ns.MarkHelp(b, true)
     elseif glyph == "arrow" then ns.MarkArrow(b, true)
     else ns.MarkX(b) end
@@ -1775,6 +1837,8 @@ end
 -- A header row is chained button to button, and a hidden frame keeps its points, so a
 -- gap stays where it was. Re-chain the row through the shown ones only and hand back the
 -- last one, which is the left edge whatever is hidden.
+-- The list must have no nil holes: ipairs stops at the first one, leaving every button
+-- behind it at its old anchor. Callers build the row as they go and skip absent buttons.
 function ns.FlowRow(host, x, y, gap, list)
   local prev
   for _, b in ipairs(list) do

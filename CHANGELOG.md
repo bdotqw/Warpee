@@ -1,33 +1,23 @@
 # Warpee
 
-## 13.3
+## 13.4
 
 ENG
 
 **Retail / Forever**
 
-- Fixed category captions overlapping in the category view.
-- Fixed the red "cannot use" border appearing on items the character can use.
-- Fixed currency reordering in the bags: a dragged currency now swaps with its neighbour at the same distance on either side.
-- Fixed pixel snapping across all addon windows, surviving scroll, drag and game UI scale 0.65–1.
-
-**Forever**
-
-- Profession-specific bags, now use the reagent border in grid view to visually distinguish their slots from regular bags. The Reagent Border setting also controls this border.
-- Ammo bags, quivers, and soul bags now correctly display their own slot borders.
-- Fixed the bank grid not updating immediately after purchasing a new tab and placing a bag in it.
+- The auction house no longer greys items it accepts: the bags now ask the client whether an item can be listed.
+- Fixed the red border in bags, banks and other characters' snapshots. Item checks and border repainting were reworked.
+- Fixed the bank header: the Deposit button no longer overlaps the Clean Up (sort) glyph.
+- Fixed the category editor's panel overlapping the row it unfolds under.
+- Fixed the character picker list jumping back to the top: the wheel and the scrollbar thumb now scroll it, and a repaint keeps the current position.
 
 RU
 
 **Ритейл / Форель**
 
-- Исправлено наложение названий категорий в виде по категориям.
-- Исправлена красная обводка «нельзя использовать» на предметах, которые персонаж на самом деле может использовать.
-- Исправлено перемещение валюты в сумках: теперь при перетаскивании влево и вправо валюта меняется местами с соседней при одинаковом усилии.
-- Исправлено выравнивание по пикселям во всех окнах аддона при прокрутке, перетаскивании и масштабе интерфейса игры 0.65–1.
-
-**Форель**
-
-- Сумки для профессий теперь используют рамку реагентов в режиме сетки, чтобы их ячейки визуально отличались от обычных сумок. Настройка «Рамка реагентов» управляет и этой рамкой.
-- Колчаны, патронташи и сумки душ теперь корректно отображают собственную обводку ячеек.
-- Исправлено обновление сетки банка: после покупки новой вкладки и помещения в неё сумки панель теперь обновляется сразу.
+- Аукцион больше не гасит предметы, которые принимает: сумки теперь спрашивают у клиента, можно ли выставить предмет
+- Исправлена работа красной обводки в сумках, банках и снапшотах других персонажей. Проверка предметов и обновление обводки были переработаны.
+- Исправлена шапка банка кнопка депозита больше не накладывается на значок сортировки.
+- Исправлено наложение панели редактора категорий на строку, при раскрытии которой она появляется.
+- Исправлен сброс списка выбора персонажа наверх: колесо мыши и ползунок теперь прокручивают его, а перерисовка сохраняет текущую позицию.

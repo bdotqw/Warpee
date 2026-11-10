@@ -84,6 +84,7 @@ local function bankTypeFor(mode)
   return (mode == "warband") and Enum.BankType.Account or Enum.BankType.Character
 end
 
+
 local function bankLive(self, bankType)
   if not (self.bankerOpen and bankType) then return false end
   if self.snap then return false end
@@ -143,6 +144,55 @@ local function tabBags(mode)
   end
   if mode == "warband" then return WARBAND end
   return BANK_MAIN
+end
+
+-- What a tab's deposit rules ask about a piece, read off the piece itself: no API answers "would this land
+-- in that tab", only what the tab's rules are (depositFlags). So the tab's side is the client's own enum
+-- and the piece's side is assembled here -- the same question the game asks of itself before it sorts a
+-- piece into a tab. A missing field refuses rather than claims: a tab that cannot be confirmed to want the
+-- piece stays at the end of the order, where a piece no tab asked for is going anyway.
+local function itemFacts(itemID)
+  local f = {}
+  if not itemID then return f end
+  if C_Item and C_Item.GetItemInfo then
+    local ok, info = pcall(function() local t = { C_Item.GetItemInfo(itemID) }; return t end)
+    if ok and info then f.quality, f.classID, f.xpac, f.reagent = info[3], info[12], info[15], info[17] end
+  end
+  if not f.classID and C_Item and C_Item.GetItemInfoInstant then
+    local ok, _, _, _, _, _, classID = pcall(C_Item.GetItemInfoInstant, itemID)
+    if ok then f.classID = classID end
+  end
+  return f
+end
+
+-- Does a tab whose deposit rules are `flags` claim this piece? ExpansionCurrent/ExpansionLegacy narrow the
+-- piece before the kinds are asked, and the kind flags are names of item kinds: a tab that names one takes
+-- what it names and nothing else, and a tab that names none is not a claim at all. True is "these rules
+-- name the piece", false is "they do not" -- never "this bank would refuse it", which the move's own check
+-- answers.
+local function flagsClaim(flags, facts)
+  local F = Enum and Enum.BagSlotFlags
+  local band = bit and bit.band
+  flags = tonumber(flags) or 0
+  if not (F and band and facts and flags ~= 0) then return false end
+  local function named(name) local v = F[name]; return (v and band(flags, v) ~= 0) and true or false end
+  local cur = LE_EXPANSION_LEVEL_CURRENT
+  if cur then
+    if named("ExpansionCurrent") and facts.xpac ~= cur then return false end
+    if named("ExpansionLegacy") and facts.xpac == cur then return false end
+  end
+  local IC = (Enum and Enum.ItemClass) or {}
+  local function is(class) return class ~= nil and facts.classID == class end
+  local kinds, fits = false, false
+  local function kind(on, fit) if on then kinds = true; fits = fits or fit end end
+  kind(named("ClassEquipment"), is(IC.Armor) or is(IC.Weapon))
+  kind(named("ClassConsumables"), is(IC.Consumable))
+  kind(named("ClassProfessionGoods"), (not facts.reagent)
+    and (is(IC.Tradegoods) or is(IC.Container) or is(IC.Profession) or is(IC.Gem)))
+  kind(named("ClassReagents"), facts.reagent and true or false)
+  kind(named("ClassJunk"), facts.quality == 0)
+  if kinds then return fits end
+  return true
 end
 
 -- Never touch BankFrame.BankPanel from here or anywhere else. The game reads
@@ -261,7 +311,29 @@ local function bankTarget(st, bags, alloc)
   end
 end
 
-local function bankDepositMove(bag, slot, alloc)
+-- A partial stack of the same piece in the bank, before any empty slot is aimed at: the game's own deposit
+-- tops a stack up rather than opening a second one, and a click that did not would fill a tab with half
+-- stacks the player then merges by hand. Only the tabs the click may aim at are read, and a stack a move in
+-- flight already claimed is passed over the way an empty slot is.
+local function bankStack(bags, id, alloc)
+  local limit = id and C_Item and C_Item.GetItemMaxStackSizeByID and C_Item.GetItemMaxStackSizeByID(id)
+  if not (limit and limit > 1) then return nil end
+  for i = 1, #bags do
+    local tab = bags[i]
+    local num = C_Container.GetContainerNumSlots(tab) or 0
+    for s = 1, num do
+      local key = tab * 1000 + s
+      if not (alloc and alloc[key]) then
+        local si = C_Container.GetContainerItemInfo(tab, s)
+        if si and si.itemID == id and (si.stackCount or 1) < limit and not si.isLocked then
+          return tab, s, key
+        end
+      end
+    end
+  end
+end
+
+local function bankDepositMove(bag, slot, alloc, order)
   local bt = ns.Bank.depositType
   if not bt then return false end
   local acct = Enum and Enum.BankType and Enum.BankType.Account
@@ -274,19 +346,29 @@ local function bankDepositMove(bag, slot, alloc)
       if ok and allowed == false then return false end
     end
   end
-  local bags = tabBags((bt == acct) and "warband" or "bank")
+  -- The tabs this move may aim at: a click names them (see ns.BankRightClickDeposit), a transfer walks the
+  -- open bank's own order.
+  local bags = order or tabBags((bt == acct) and "warband" or "bank")
   if not bags then return false end
   -- The free-slot list is per run, so it hangs on the transfer's `alloc` (which the caller makes once and
-  -- hands to every move); the bank type is part of it, since bank and warband are different tab sets. No
-  -- alloc (a bare call) means no list to reuse and a fresh walk per move, as before.
+  -- hands to every move); the bank type is part of it, since bank and warband are different tab sets, and so
+  -- is the tab order a click names, since a walk made over another order starts in another tab. No alloc (a
+  -- bare call) means no list to reuse and a fresh walk per move, as before.
   local st = alloc and alloc.bank
-  if st and st.bt ~= bt then st = nil end
+  if st and (st.bt ~= bt or st.order ~= order) then st = nil end
   if not st then
-    st = { bt = bt, free = {}, n = 0, i = 1 }
+    st = { bt = bt, order = order, free = {}, n = 0, i = 1 }
     if alloc then alloc.bank = st end
   end
+  -- A click tops a stack up before it opens a slot; a transfer keeps the walk it always had, so a section
+  -- moved into the bank still fills the bank's own order and nothing else.
+  local tab, s, key
+  if order then
+    local src = C_Container.GetContainerItemInfo(bag, slot)
+    if src and src.itemID then tab, s, key = bankStack(order, src.itemID, alloc) end
+  end
   -- The two pickups below are the game's own calls.
-  local tab, s, key = bankTarget(st, bags, alloc)
+  if not tab then tab, s, key = bankTarget(st, bags, alloc) end
   if tab then
     C_Container.PickupContainerItem(bag, slot)
     C_Container.PickupContainerItem(tab, s)
@@ -303,16 +385,18 @@ local function bankDepositMove(bag, slot, alloc)
 end
 ns.BankDepositMove = bankDepositMove
 
--- A right click on a bag slot is normally the game's own deposit: its item button template hands the piece
--- to the bank BankFrame has open, which sorts it into the tab whose deposit rules name that kind of item.
--- With the warband bank opened from a distance -- the Warband Bank Convergence the Distance Inhibitor
--- summons -- that deposit is the one gesture the game leaves undone: the piece stays in the bag, while a
--- drag and the transfer chip, which both name a slot inside the bank, land it. So the click is taken here,
--- and only in that shape: a banker is open, the open bank is the account bank, and this character's own
--- bank is out of reach, so the warband bank is the panel's one bank (see bankOnlyAccount). A normal banker
--- is left to the game for a reason beyond habit: its deposit sorts a piece into the tab whose rules name
--- its kind and lands it on a matching stack before it looks for a free slot, and a move to a named slot
--- does none of that -- taking the click everywhere would scatter a player's tabs.
+-- A right click on a bag slot is the game's own deposit: the item button template hands the piece to the
+-- bank BankFrame has open, which sorts it into the tab whose deposit rules name that kind of item. This
+-- addon keeps BankFrame in a hidden holder, though, and that handler reads the bank off it
+-- (BankFrame:GetActiveBankType(), in ContainerFrame.lua), which answers nil whenever the game's panel is
+-- not shown -- so the deposit lands in the character bank whatever the window shows, and at the warband
+-- bank opened from a distance it lands nothing at all. Asking the panel cannot fix that: its answer is
+-- about its own shown state, not about what this window shows. So the click is ours whenever a live bank is
+-- open -- the move names a slot here, and the window is the only statement of which bank is on screen. The
+-- destination is the tab the player is looking at, then the tabs whose own deposit rules name this kind of
+-- item -- the sorting the game's deposit did for us -- then the rest of that bank. Never a tab of the other
+-- bank: C_Container.PickupContainerItem takes no bank type at all, it moves to the container it is handed,
+-- and the two banks are different containers, so naming a tab is naming the bank.
 --
 -- Called from the cell's PreClick, so the slot is emptied before the game's own handler runs and its
 -- deposit has nothing left to act on. Nothing is written onto the button, whose click chain is secure, and
@@ -329,19 +413,6 @@ ns.BankDepositMove = bankDepositMove
 -- the bag a second later, which reads as the click being undone. A claim dies as soon as its slot holds
 -- something, and an old one dies too, so a move that never landed does not keep a slot out of use.
 --
--- Whether the character's own bank is missing is asked twice, because the two answers come from different
--- places: the interaction the banker arrived through (View:AccountOnly, which the account banker sets) and
--- the client itself (CanViewBank). The distant bank may answer through either, and only the banker's own
--- bank being gone is what makes the warband bank the panel's one bank.
-local function bankOnlyAccount()
-  local B = ns.Bank
-  if B and B:AccountOnly() then return true end
-  local E = Enum and Enum.BankType
-  if not (E and C_Bank and C_Bank.CanViewBank) then return false end
-  local ok, can = pcall(C_Bank.CanViewBank, E.Character)
-  return ok and can == false
-end
-
 -- How long a claim may keep a slot out of use when the move it went with never fills it. A round trip is
 -- a moment; anything this old is a move that did not land, and the slot is worth aiming at again.
 local CLICK_CLAIM_TTL = 10
@@ -366,9 +437,7 @@ function ns.BankRightClickDeposit(b)
   if InCombatLockdown() or CursorHasItem() then return end
   local bag, slot = b.wpeBagID, b.GetID and b:GetID()
   if not (bag and slot and ns.IsPlayerBag(bag)) then return end
-  local acct = Enum and Enum.BankType and Enum.BankType.Account
-  if not (acct and B.depositType == acct) then return end
-  if not bankOnlyAccount() then return end
+  if not B.depositType then return end
   if IsModifiedClick and IsModifiedClick("SPLITSTACK") then return end
   local info = C_Container.GetContainerItemInfo(bag, slot)
   if not (info and (info.hyperlink or info.itemID)) then return end
@@ -376,7 +445,11 @@ function ns.BankRightClickDeposit(b)
   local alloc = B.clickAlloc
   if not alloc then alloc = {}; B.clickAlloc = alloc end
   releaseClickClaims(alloc)
-  return bankDepositMove(bag, slot, alloc)
+  -- The tabs this click may aim at, from the view: the tab on screen first, then the ones whose rules name
+  -- the piece, then the rest of that bank. A view that cannot answer (a client without the tab data) hands
+  -- nothing over, and the move falls back to the bank's own order, which is still that bank's tabs.
+  local order = B.DepositTabs and B:DepositTabs(info) or nil
+  return bankDepositMove(bag, slot, alloc, order)
 end
 
 function ns.RefreshBagDim()
@@ -837,6 +910,16 @@ function View:ApplySnap()
   -- The slot panel reads the bank that is open here, so a view of anyone else's bank takes it off the
   -- screen with the cells: there is nothing live behind it to show.
   if want and self.slotsWin then self.slotsWin:Hide() end
+  -- The pool being left keeps its paint keys, and the paint guard is the only thing that decides whether a
+  -- cell is redrawn: a snapshot cell still wearing the red of the record it last drew, or a live cell still
+  -- wearing the ring it had before the snapshot went up, would keep it until a move changed the key -- which
+  -- is the same hole the bags had on the way back (see Bags:SelectChar), seen from this side. Both pools are
+  -- dropped so the pass that runs on the view now showing paints each cell for the answer it has now.
+  for _, st in pairs(self.state) do
+    for _, b in ipairs(st.pool) do b.link = nil end
+    for _, b in ipairs(st.vpool or {}) do b.link = nil end
+    st.paintKey = nil
+  end
   return true
 end
 
@@ -871,9 +954,17 @@ function View:FlowHeader()
   -- else's. Set before the flow below, so the row chains straight from the sort to the gear and no hole is
   -- left where the mark stood.
   if self.slotsBtn then self.slotsBtn:SetShown(self.bankerOpen and not self.snap) end
-  -- Right to left: the X, the gear, the bank's bag slots, the sort.
-  local edge = ns.FlowRow(self.frame, -PAD, -row1, 4,
-    { self.closeBtn, self.gearBtn, self.slotsBtn, self.sortBtn })
+  -- Right to left: the X, the gear, the bank's bag slots, the sort. Built by hand rather than as one
+  -- literal: slotsBtn is nil on every client but Forever, and a nil in the middle of the list would stop
+  -- ipairs there, leaving the sort behind at its build-time anchor and letting the deposit button chain
+  -- straight past it and land on top of the glyph (the bags' own header skips nils the same way).
+  local row = {}
+  local function add(b) if b then row[#row + 1] = b end end
+  add(self.closeBtn)
+  add(self.gearBtn)
+  add(self.slotsBtn)
+  add(self.sortBtn)
+  local edge = ns.FlowRow(self.frame, -PAD, -row1, 4, row)
   local bound = 0
   local tabEdge = self.wbTab and self.wbTab:IsShown() and self.wbTab:GetRight()
   if tabEdge then bound = tabEdge + 8 end
@@ -902,6 +993,14 @@ function View:FlowHeader()
     else
       self.reagBox:Hide(); self.reagHit:Hide(); self.reagLabel:Hide()
     end
+  end
+  -- Last word on the deposit button: it is placed from a width the footer may set a pass later, and a button
+  -- whose rect lands across the glyphs is hidden rather than drawn over the sort. Measured, not assumed -- the
+  -- anchor above is right whenever the width it read was the one the button ended up with.
+  if self.depItemsBtn and self.depItemsBtn:IsShown() and self.sortBtn and self.sortBtn:IsShown() then
+    local dl, dr = self.depItemsBtn:GetLeft(), self.depItemsBtn:GetRight()
+    local sl, sr = self.sortBtn:GetLeft(), self.sortBtn:GetRight()
+    if dl and dr and sl and sr and dr > sl + 0.5 and dl < sr then self.depItemsBtn:Hide() end
   end
   self.headEdge = prev
   -- The bag window's slot panel reads the containers, and this pass is what a bank change lands on: the
@@ -1248,6 +1347,54 @@ function View:SelectTab(bag)
   -- on screen any more.
   self:DropCatMemory()
   if self.frame and self.frame:IsShown() then self:Layout() end
+end
+
+-- The tabs a right-click deposit may aim at, in the order it tries them, for the bank on screen: the tab
+-- the player is looking at first, then the tabs whose own deposit rules claim this kind of item, then the
+-- rest of that bank. The tab in view wins and the rules sort what the view does not name -- that pair is
+-- what keeps taking the click everywhere from scattering a player's tabs, since a piece still lands where the
+-- game's own sorting would have put it. The list is kept per view, tab and piece: the deposit path hangs its
+-- free-slot walk off the identity of what it is handed, so rebuilding it per click would pay for that walk
+-- again on every click.
+function View:DepositTabs(info)
+  local bt = self.depositType
+  if not bt then return nil end
+  local acct = Enum and Enum.BankType and Enum.BankType.Account
+  local mode = (acct and bt == acct) and "warband" or "bank"
+  local bags = tabBags(mode)
+  if not (bags and #bags > 0) then return nil end
+  -- The tab on screen counts only while it is one of this bank's containers: an id kept from another client's
+  -- tab list would otherwise be aimed at first, and a move to a container of the other bank is exactly what
+  -- this whole path exists to prevent.
+  local sel = self:TabSel(mode)
+  if sel then
+    local known = false
+    for i = 1, #bags do if bags[i] == sel then known = true; break end end
+    if not known then sel = nil end
+  end
+  local id = info and info.itemID
+  -- The tab count is part of the key: a tab bought while the window stands changes the set, and a list
+  -- built before it would keep the new tab out of every click until the view changed.
+  local key = mode .. ":" .. tostring(sel or 0) .. ":" .. tostring(id or 0) .. ":" .. #bags
+  local kept = self.depTabs
+  if kept and kept.key == key then return kept.tabs end
+  local facts = id and itemFacts(id) or nil
+  local meta = self:LiveTabMeta(mode)
+  local named, rest = {}, {}
+  for i = 1, #bags do
+    local tab = bags[i]
+    if tab ~= sel then
+      local flags = meta and meta[tab] and meta[tab].depositFlags
+      if facts and flagsClaim(flags, facts) then named[#named + 1] = tab else rest[#rest + 1] = tab end
+    end
+  end
+  local out = {}
+  if sel then out[1] = sel end
+  for i = 1, #named do out[#out + 1] = named[i] end
+  for i = 1, #rest do out[#out + 1] = rest[i] end
+  if #out == 0 then return nil end
+  self.depTabs = { key = key, tabs = out }
+  return out
 end
 
 -- Hovering a tab lights the cells of that tab and dims the rest, the reading the bag window already gives
@@ -1967,13 +2114,17 @@ function View:Warm()
         local b = ns.CreateItemButton(st.content, 0, 1)
         b.holder:Hide()
         pool[i] = b
-        if GetTime() - t0 >= WARM_SLICE then return C_Timer.After(0, step) end
+        if GetTime() - t0 >= WARM_SLICE then
+          return C_Timer.After(0, step)
+        end
       end
       for i = #bare + 1, n do
         local b = ns.CreateBareCell(st.content)
         b.holder:Hide()
         bare[i] = b
-        if GetTime() - t0 >= WARM_SLICE then return C_Timer.After(0, step) end
+        if GetTime() - t0 >= WARM_SLICE then
+          return C_Timer.After(0, step)
+        end
       end
     end
     self.warmed = true
@@ -3351,6 +3502,13 @@ end
 
 function View:Layout(light)
   if not (self.frame and self.cur) then return end
+  -- The bank a deposit follows is read off the pass that draws the grid: the field every deposit path asks is set
+  -- here, not only when the view is activated. The two came apart in play -- the warband tab on screen and a
+  -- deposit in the character bank, because the game's own deposit reads the type its panel has active and the
+  -- panel's was still the character bank (the tab click that put the warband up was ours, since the game's own tab
+  -- button cannot be clicked while its bank is not viewable here). Refreshed per pass, the destination is the bank
+  -- the player is looking at however the two views got out of step.
+  self.depositType = self.bankerOpen and bankTypeFor(self.cur.mode or self.mode) or nil
   local t
   -- A pass is painted a slice at a time, and a pass that starts while one is still filling drops it
   -- mid-way: a fresh pass begins at the first cell, so a run of changes faster than a pass leaves the far
@@ -3622,6 +3780,7 @@ function View:RepaintLinks(links)
       end
     end
   end
+  self:RepaintRings(painted)
   return painted
 end
 
@@ -3658,7 +3817,18 @@ function View:RepaintMark(key)
       end
     end
   end
+  self:RepaintRings(painted)
   return painted
+end
+
+-- The red ring of the live bank is a pass of its own (ns.BankRingFill), run at the end of a layout: a cell
+-- is painted as its item, quality ring and all, and that pass puts the red over the cells whose verdict says
+-- no. So every walk that repaints single cells asks it again for the cells it reached -- without it the
+-- pieces whose verdict landed after the layout kept the quality ring until they were moved, which in a full
+-- warband bank after a /reload was the last few of three hundred, the ones the scan had deferred. A
+-- snapshot draws its own rings (ns.PaintVaultButton) and has no live bank to ask.
+function View:RepaintRings(painted)
+  if painted > 0 and not self.snap and ns.BankRingFill then ns.BankRingFill() end
 end
 
 function View:CountSlots(mode)
