@@ -245,6 +245,9 @@ function Fav:Set(index, pin)
   end
   list[index] = pin or nil
   locsDirty = true
+  -- Every way the row changes -- a clear, a drag, a typed id, the popup's own cell -- goes through here, so
+  -- the popup's "already taken" marks are repainted from the row itself and never lag a click behind.
+  if ns.Pocket then ns.Pocket:RepaintPicks() end
   later(true)
 end
 
@@ -281,7 +284,6 @@ function Fav:AddByText(text)
   for i = 1, cap do
     if not list[i] then
       self:Set(i, ns.PinFor(id, link) or link)
-      if ns.Pocket then ns.Pocket:RepaintPicks() end
       return
     end
   end
@@ -317,7 +319,6 @@ function Fav:ToggleID(id)
   for i = 1, MAX_SLOTS do
     if ns.ItemStubID(list[i]) == id then
       self:Set(i, nil)
-      if ns.Pocket then ns.Pocket:RepaintPicks() end
       return false
     end
   end
@@ -329,7 +330,6 @@ function Fav:ToggleID(id)
     if not list[i] then
       if C_Item and C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(id) end
       self:Set(i, id)
-      if ns.Pocket then ns.Pocket:RepaintPicks() end
       return true
     end
   end

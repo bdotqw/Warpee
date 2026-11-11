@@ -905,6 +905,10 @@ function Pocket:Build()
   picks:EnableMouse(true)
   picks:Hide()
   ns.EscClose(picks)
+  -- The popup is a window of its own, and the favorites face stands beside the bags rather than over the
+  -- pocket: it needs the same screen-grid pass the pocket's window takes, or its border and cells land between
+  -- pixels whenever the bags are not on the grid themselves.
+  ns.PixelJob(picks, function(s) ns.AlignToScreen(s) end, "align")
   -- Every way out of this popup -- its cross, Esc, the favorites section hiding, the pocket closing -- ends
   -- the same way, with the frame hidden, so the release of the pocket hangs on that one event instead of on
   -- each path that can close it.
@@ -1418,6 +1422,10 @@ function Pocket:PickPaint()
       ns.SnapPoint(p, "TOPRIGHT", w, "TOPLEFT", -6, 0)
     end
   end
+  -- Round the placed rect onto the physical pixel grid before the deferred window pass: SidePlace anchors
+  -- the popup to the bags' edge, and that edge need not be whole at every ui scale. The move keeps the size,
+  -- so the snap below only has to catch what the content adds.
+  ns.AlignToScreen(p)
   ns.SnapWindowSoon(p)
 end
 
