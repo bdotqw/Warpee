@@ -507,6 +507,9 @@ function Rec:Warm()
   if not self.clear then
     local c = ns.CreateTextButton(frame, 10)
     ns.LocalText(c.Text, "Clear")
+    -- 0.85, the alpha the section heads are drawn at: at full strength Clear read as the brighter of the two
+    -- words on the line. The colour still answers hover and the empty list, alpha only matches the caption.
+    c:SetAlpha(0.85)
     c:SetScript("OnClick", function(s) if s.wpeOn then Rec:Wipe() end end)
     c:Hide()
     self.clear = c
@@ -530,6 +533,9 @@ function Rec:Wipe()
 end
 
 function Rec:Hide()
+  -- Settle as the window goes: the gaps an item leaves are closed while nothing is on screen, so the next
+  -- opening shows the row already tidy and nothing shifts under the player's eye.
+  self:Settle()
   if self.label then self.label:Hide() end
   if self.clear then self.clear:Hide() end
   for i = 1, MAX_SLOTS do
@@ -578,6 +584,23 @@ function Rec:RefreshLock(bag, slot)
     end
   end
 end
+-- Close the gaps in the bags' row, and only there. An item that has been used, sold or mailed leaves its
+-- cell empty while the ones after it keep their places, so a row of five with the first two gone read as
+-- three items stranded in the middle of the window. Slots belong to the window, not to the history: the
+-- pocket keeps its own order and its own ghosts, so this rewrites the bags' view alone. It never runs while
+-- the player is working in an open row -- the pass that matters is the first paint after the window opens,
+-- which settles the row after the dead cells have been dropped and before anything is drawn (see Apply), and
+-- the closing pass only saves work.
+function Rec:Settle()
+  local out, n = bagView.cells, bagCapacity()
+  if not (out and n) then return end
+  local kept = {}
+  for i = 1, n do
+    if out[i] then kept[#kept + 1] = out[i] end
+  end
+  for i = 1, n do out[i] = kept[i] end
+end
+
 function Rec:Apply(bags, x, top, size, gap)
   if not (bags and bags.frame) then return 0 end
   local frame = bags.frame
@@ -585,6 +608,16 @@ function Rec:Apply(bags, x, top, size, gap)
   self.args = { bags = bags, x = x, top = top, size = size, gap = gap }
   local n = bagCapacity()
   local feed = viewFeed(bagView, n, false)
+  -- The row is made contiguous here, between the pass that drops a dead cell and the loop that places them: a
+  -- paint that happens while the window is shut, or the first one after it opened, is exactly the moment when
+  -- nobody is looking at these cells. Both orders are covered -- a layout that runs before Show is caught by
+  -- `hidden`, one that runs after it by `fresh` -- and a paint while the row is up never settles, so the row
+  -- the player is working in does not shuffle under the cursor.
+  if self.fresh or not (frame.IsShown and frame:IsShown()) then
+    self.fresh = nil
+    self:Settle()
+    feed = viewFeed(bagView, n, false)
+  end
   if not self:BagsOn() then
     self:Hide()
     return 0
@@ -593,8 +626,21 @@ function Rec:Apply(bags, x, top, size, gap)
   -- the answer is frozen, so Clear cannot make the window (and the pocket with it) jump.
   if frame.HookScript and not frame.wpeRecArm then
     frame.wpeRecArm = true
-    frame:HookScript("OnShow", function() Rec.armed = used() and true or false end)
-    frame:HookScript("OnHide", function() Rec.armed = nil end)
+    frame:HookScript("OnShow", function()
+      Rec.fresh = true
+      Rec.armed = used() and true or false
+      -- Repaint now, inside the frame that is showing the window: the client draws at the end of the frame,
+      -- so the row is settled before anything of it is on screen. Waiting for the next bag event would draw
+      -- the row with its gaps first and settle it a moment later, which is the jump itself.
+      Rec:Refresh()
+    end)
+    frame:HookScript("OnHide", function()
+      Rec.armed = nil
+      -- A pass on the way out catches whatever is already known, so a quick reopen usually has nothing left
+      -- to do. It cannot be the only pass: an item used just before closing may still be in the history when
+      -- this runs, and its cell only empties on the prune that follows.
+      Rec:Settle()
+    end)
   end
   if not self:Armed() then
     self:Hide()
@@ -623,8 +669,9 @@ function Rec:Apply(bags, x, top, size, gap)
     self.clear.Text:SetFont(bags.fontPath or ns.Fonts:Current(), d.font - 5, ns.OutlineFlags())
     self.clear:SetSize(math.ceil(self.clear.Text:GetStringWidth()) + 8, d.labelH)
     self.clear:ClearAllPoints()
-    ns.SnapPoint(self.clear, "TOPLEFT", frame, "TOPLEFT",
-                 x + math.ceil(self.label:GetStringWidth()) + 10, -top)
+    -- Hung off the head, centre to centre: the caption and Clear share one baseline, where measuring both
+    -- from the frame's top left Clear a pixel low, its shorter font box centring inside a button's height.
+    ns.SnapPoint(self.clear, "LEFT", self.label, "RIGHT", 10, 0)
     self.clear:SetOn(used())
     self.clear:Show()
   end
@@ -672,7 +719,14 @@ function Rec:Refresh()
     a.bags:Layout()
     return
   end
-  if live then self:Apply(a.bags, a.x, a.top, a.size, a.gap) end
+  if live then
+    self:Apply(a.bags, a.x, a.top, a.size, a.gap)
+  else
+    -- A window that is closed keeps taking uses -- the action bar, a macro, a vendor visit -- and each of
+    -- those leaves a gap the row would otherwise reveal the moment it opens. Closing them here, off screen,
+    -- is why the shift is never seen: by the time the window is up there is nothing left to move.
+    self:Settle()
+  end
   if ns.Pocket then ns.Pocket:Soon() end
 end
 

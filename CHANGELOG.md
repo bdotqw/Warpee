@@ -1,23 +1,22 @@
 # Warpee
 
-## 13.4
+## 13.5
 
 ENG
 
 **Retail / Forever**
 
-- The auction house no longer greys items it accepts: the bags now ask the client whether an item can be listed.
-- Fixed the red border in bags, banks and other characters' snapshots. Item checks and border repainting were reworked.
-- Fixed the bank header: the Deposit button no longer overlaps the Clean Up (sort) glyph.
-- Fixed the category editor's panel overlapping the row it unfolds under.
-- Fixed the character picker list jumping back to the top: the wheel and the scrollbar thumb now scroll it, and a repaint keeps the current position.
+- Added an Add button beside Favorites in the bags: it opens the Popular window, where frequently used items can be added or an ID typed in.
+- Fixed the empty gaps left in the Recent row in the bags by used and sold items: the row closes up and the empty spaces are gone.
+- On Forever, the Popular window is updated: it adapts to the consumables available at your level.
+- Soul shards now show their total count in Favorites and in the pocket.
 
 RU
 
 **Ритейл / Форель**
 
-- Аукцион больше не гасит предметы, которые принимает: сумки теперь спрашивают у клиента, можно ли выставить предмет
-- Исправлена работа красной обводки в сумках, банках и снапшотах других персонажей. Проверка предметов и обновление обводки были переработаны.
-- Исправлена шапка банка кнопка депозита больше не накладывается на значок сортировки.
-- Исправлено наложение панели редактора категорий на строку, при раскрытии которой она появляется.
-- Исправлен сброс списка выбора персонажа наверх: колесо мыши и ползунок теперь прокручивают его, а перерисовка сохраняет текущую позицию.
+- Добавлена кнопка «Добавить» рядом с Избранным в сумках: она открывает окно «Популярное», где можно добавить часто используемые предметы или вписать ID.
+- Исправлены пустые места в ряду «Недавнее» в сумках, остающиеся от использованных и проданных предметов: теперь ряд смыкается и пустые места пропадают.
+- На Forever обновлено окно «Популярное»: оно адаптируется под доступные расходники вашего уровня.
+- Осколки душ теперь показывают общее количество в Избранном и в кармане.
+

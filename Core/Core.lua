@@ -995,6 +995,9 @@ local function onRequirements()
   -- would otherwise keep saying no after the requirement has been met.
   ns.ClearUnusableCache()
   repaintSoon()
+  -- A level also opens the next rank of every family in the pocket's Popular list, which is built from the
+  -- level rather than from the bags; it repaints only its own grid, and only when that grid is up.
+  if ns.Pocket and ns.Pocket.LevelChanged then ns.Pocket:LevelChanged() end
 end
 
 local function onWorldEntered()

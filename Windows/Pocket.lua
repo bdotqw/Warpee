@@ -7,6 +7,11 @@ ns.Pocket = Pocket
 Pocket.slots, Pocket.ghosts, Pocket.catchers = {}, {}, {}
 Pocket.recSlots, Pocket.recGhosts = {}, {}
 
+-- who the Popular popup is filling: the pocket's own pins or the bags' Favorites, and where it hangs.
+-- The list it offers is the same one either way -- that is the point of a suggestion list -- only what a
+-- click does and what counts as already taken differ, so the popup is built once and told which it is.
+local picksMode, picksAnchor
+
 local PAD, BAND = 12, 26
 local NUDGE_BAND = 24
 local LABEL_H, LABEL_GAP = 13, 4
@@ -49,7 +54,10 @@ end
 -- A file local, so the call sites read as they always did.
 local sizeGlyph = ns.SizeGlyph
 
-local POCKET_PICKS = {
+-- The picker's suggestions, per client. The two clients do not share items: Retail's list names this
+-- expansion's consumables and gadgets, and Forever's names the vanilla ones. One list for both put a
+-- column of unknown items ("?") in Forever, so each client reads its own.
+local RETAIL_PICKS = {
   259085, -- Void-Touched Augment Rune
   132514, -- Auto-hammer
   248409, -- W-47CH D0G
@@ -96,6 +104,162 @@ local POCKET_PICKS = {
   241334, -- Vicious Thalassian Flask of Honor
 }
 
+-- Forever's suggestions. Each row is { id, family, level }: the picker shows, for every family, the
+-- highest level at or below the character's own, so levelling swaps one cell at a time instead of drawing a
+-- row for every rank. Families appear in the grid in the order they first appear here and a family with no
+-- usable item at the current level is skipped.
+-- The levels are the ones written beside each item, and they are ragged on purpose: a health potion's ranks
+-- open at 1, 3, 12, 21, 35, 45, a stone's at 1, 5, 15, 25, 35, 50, and some families jump ten levels at a
+-- time. That is the whole reason the list carries a level per row instead of a bracket per stretch of
+-- levels: the pick is simply the highest rank at or below the character's own, so nothing has to be
+-- maintained as the data shifts.
+-- Each family is written from its weakest rank down to its strongest, as the source list reads, and where
+-- two rows of a family share a level the one written first wins -- so that is where a preferred pick goes.
+-- Intellect elixirs are the one family whose source order is not by strength (10, 25, 45, 38, 37, 55); they
+-- are left in the order given, since the pick compares levels and never the order.
+local FOREVER_PICKS = {
+  -- Weapon oils, stones and weightstones: weapon buffs, one cell each.
+  { 20744, "weapon_oil",  5 }, -- Minor Wizard Oil
+  { 20746, "weapon_oil",  30 }, -- Lesser Wizard Oil
+  { 20750, "weapon_oil",  40 }, -- Wizard Oil
+  { 20749, "weapon_oil",  45 }, -- Brilliant Wizard Oil
+  { 2862,  "sharpening",  1 }, -- Rough Sharpening Stone
+  { 2863,  "sharpening",  5 }, -- Coarse Sharpening Stone
+  { 2871,  "sharpening",  15 }, -- Heavy Sharpening Stone
+  { 7964,  "sharpening",  25 }, -- Solid Sharpening Stone
+  { 12404, "sharpening",  35 }, -- Dense Sharpening Stone
+  { 18262, "sharpening",  50 }, -- Elemental Sharpening Stone
+  { 3239,  "weightstone", 1 }, -- Rough Weightstone
+  { 3240,  "weightstone", 5 }, -- Coarse Weightstone
+  { 3241,  "weightstone", 15 }, -- Heavy Weightstone
+  { 7965,  "weightstone", 25 }, -- Solid Weightstone
+  { 12643, "weightstone", 35 }, -- Dense Weightstone
+  -- Food, one family per stat it feeds: the buffs are different, so they are different cells.
+  { 724,   "food_str",   5 }, -- Goretusk Liver Pie
+  { 2685,  "food_str",   15 }, -- Succulent Pork Ribs
+  { 250074, "food_str",  25 }, -- Bear Brisket
+  { 250065, "food_str",  35 }, -- Savory Stag Sliders
+  { 20452, "food_str",   45 }, -- Smoked Desert Dumplings
+  { 2684,  "food_agi",   5 }, -- Coyote Steak
+  { 3727,  "food_agi",   15 }, -- Hot Lion Chops
+  { 13851, "food_agi",   25 }, -- Hot Wolf Ribs
+  { 18045, "food_agi",   35 }, -- Tender Wolf Steak
+  { 250072, "food_agi",  45 }, -- Swiftstrike Steak
+  { 238638, "food_agi",  55 }, -- Filet o' Flank
+  { 250079, "food_int",   1 }, -- Tasty Raptor Bites
+  { 250077, "food_int",   5 }, -- Twice-Spiced Raptor Slice
+  { 12210, "food_int",   15 }, -- Roast Raptor
+  { 250073, "food_int",  25 }, -- Raging Raptor Ribs
+  { 250076, "food_int",  35 }, -- Raptor Rouladen
+  { 250066, "food_int",  45 }, -- Soaring Pamplona
+  { 5095,  "food_spell", 5 }, -- Rainbow Fin Albacore
+  { 21072, "food_spell", 10 }, -- Smoked Sagefish
+  { 274971, "food_spell", 25 }, -- Briny Seafood Stew
+  { 13931, "food_spell", 35 }, -- Nightfin Soup
+  { 13935, "food_spell", 45 }, -- Baked Salmon
+  -- Potions. Health and mana first, the two every character carries.
+  { 118,   "health", 1 }, -- Minor Healing Potion
+  { 858,   "health", 3 }, -- Lesser Healing Potion
+  { 929,   "health", 12 }, -- Healing Potion
+  { 1710,  "health", 21 }, -- Greater Healing Potion
+  { 3928,  "health", 35 }, -- Superior Healing Potion
+  { 13446, "health", 45 }, -- Major Healing Potion
+  { 2455,  "mana", 5 }, -- Minor Mana Potion
+  { 3385,  "mana", 14 }, -- Lesser Mana Potion
+  { 3827,  "mana", 22 }, -- Mana Potion
+  { 6149,  "mana", 31 }, -- Greater Mana Potion
+  { 13443, "mana", 41 }, -- Superior Mana Potion
+  { 13444, "mana", 49 }, -- Major Mana Potion
+  -- The two combat potions: one buffs the attack, the other the casting, so they are two cells and not one.
+  { 250938, "frenzy", 5 }, -- Minor Frenzy Potion
+  { 250939, "frenzy", 15 }, -- Lesser Frenzy Potion
+  { 250940, "frenzy", 25 }, -- Frenzy Potion
+  { 250941, "frenzy", 35 }, -- Greater Frenzy Potion
+  { 250942, "frenzy", 45 }, -- Superior Frenzy Potion
+  { 250943, "frenzy", 55 }, -- Major Frenzy Potion
+  { 250932, "spellblast", 5 }, -- Minor Spellblasting Potion
+  { 250933, "spellblast", 15 }, -- Lesser Spellblasting Potion
+  { 250934, "spellblast", 25 }, -- Spellblasting Potion
+  { 250935, "spellblast", 35 }, -- Greater Spellblasting Potion
+  { 250936, "spellblast", 45 }, -- Superior Spellblasting Potion
+  { 250937, "spellblast", 55 }, -- Major Spellblasting Potion
+  -- Elixirs. One family per stat: on this era's rules a flask and the two elixir slots stack, so the
+  -- families stay apart instead of collapsing into one "buff" cell.
+  { 2454,  "elixir_str", 1 }, -- Elixir of Minor Strength
+  { 6662,  "elixir_str", 8 }, -- Elixir of Giant Growth
+  { 3391,  "elixir_str", 20 }, -- Elixir of Ogre Strength
+  { 9206,  "elixir_str", 48 }, -- Elixir of Greater Strength
+  { 2457,  "elixir_agi", 2 }, -- Elixir of Minor Agility
+  { 3390,  "elixir_agi", 18 }, -- Elixir of Lesser Agility
+  { 8949,  "elixir_agi", 27 }, -- Elixir of Agility
+  { 9187,  "elixir_agi", 38 }, -- Elixir of Greater Agility
+  { 3383,  "elixir_int", 10 }, -- Elixir of Wisdom
+  { 250353, "elixir_int", 25 }, -- Elixir of Lesser Intellect
+  { 250354, "elixir_int", 45 }, -- Elixir of Intellect
+  { 13447, "elixir_int", 38 }, -- Elixir of the Sages
+  { 9179,  "elixir_int", 37 }, -- Elixir of Greater Intellect
+  { 250337, "elixir_int", 55 }, -- Elixir of the Owl
+  { 247754, "elixir_spell", 1 }, -- Minor Arcane Elixir
+  { 250342, "elixir_spell", 25 }, -- Lesser Arcane Elixir
+  { 9155,  "elixir_spell", 37 }, -- Arcane Elixir
+  { 9264,  "elixir_spell", 40 }, -- Elixir of Shadow Power
+  { 13454, "elixir_spell", 47 }, -- Greater Arcane Elixir
+  { 250344, "elixir_spirit", 5 }, -- Elixir of Minor Spirit
+  { 250345, "elixir_spirit", 25 }, -- Elixir of Lesser Spirit
+  { 250346, "elixir_spirit", 45 }, -- Elixir of Spirit
+  { 250348, "elixir_spirit", 55 }, -- Elixir of the Whale
+  { 2458,  "elixir_hp", 2 }, -- Elixir of Minor Fortitude
+  { 3825,  "elixir_hp", 25 }, -- Elixir of Lesser Fortitude
+  { 250334, "elixir_hp", 45 }, -- Elixir of Fortitude
+  { 250335, "elixir_hp", 55 }, -- Elixir of Greater Fortitude
+  { 250339, "elixir_mana", 5 }, -- Minor Mageblood Elixir
+  { 250340, "elixir_mana", 25 }, -- Lesser Mageblood Elixir
+  { 20007, "elixir_mana", 40 }, -- Mageblood Elixir
+  { 250341, "elixir_mana", 55 }, -- Greater Mageblood Elixir
+  { 250336, "elixir_regen", 55 }, -- Elixir of Wicked Regeneration
+  -- Situational potions: one cell each, the rank the level allows.
+  { 2459,  "speed", 5 }, -- Swiftness Potion
+  { 5634,  "free_action", 20 }, -- Free Action Potion
+  { 20008, "free_action", 47 }, -- Living Action Potion
+  { 3823,  "invisibility", 23 }, -- Lesser Invisibility Potion
+  { 9172,  "invisibility", 37 }, -- Invisibility Potion
+}
+
+-- One id per family, in first-appearance order. `entries` is a parameter so the harness can drive
+-- family selection with a fixture instead of the shipped list.
+local function foreverPicks(level, entries)
+  level = tonumber(level) or 0
+  entries = entries or FOREVER_PICKS
+  local best, order = {}, {}
+  for _, pin in ipairs(entries) do
+    local family, need = pin[2], tonumber(pin[3]) or 0
+    local cur = best[family]
+    if not cur then
+      order[#order + 1] = family
+      best[family] = pin
+    else
+      local curNeed = tonumber(cur[3]) or 0
+      -- A candidate wins when it is usable and either the current pick is not or this one is
+      -- higher. Equal levels keep the first row, so the list itself is the tie-break.
+      if need <= level and (curNeed > level or need > curNeed) then best[family] = pin end
+    end
+  end
+  local out = {}
+  for _, family in ipairs(order) do
+    local pin = best[family]
+    if (tonumber(pin[3]) or 0) <= level then out[#out + 1] = pin[1] end
+  end
+  return out
+end
+
+-- The list the picker paints. Retail keeps its fixed list; Forever answers for the level it is given.
+-- `forever` is passed rather than read from ns so the harness can exercise both branches without a
+-- client.
+local function pickIDs(level, forever, entries)
+  if not forever then return RETAIL_PICKS end
+  return foreverPicks(level, entries)
+end
+
 local function charKey()
   local n = UnitName("player") or "?"
   local r = (GetNormalizedRealmName and GetNormalizedRealmName())
@@ -106,6 +270,23 @@ end
 function Pocket:Enabled()
   return not (WarpeeDB and WarpeeDB.pocketShow == false)
 end
+
+function Pocket:PlayerLevel()
+  local n = UnitLevel and UnitLevel("player")
+  return tonumber(n) or 1
+end
+
+function Pocket:PickIDs()
+  return pickIDs(self:PlayerLevel(), ns.IsForever)
+end
+
+-- A level opens the next rank of every family, and only the picks grid reads the level: the pins, the
+-- recents and the bars answer the bags. Repainting that one grid on PLAYER_LEVEL_UP is what makes the
+-- swap visible without moving anything else in the window.
+function Pocket:LevelChanged()
+  if ns.IsForever and self.picksFrame and self.picksFrame:IsShown() then self:PickPaint() end
+end
+
 
 -- Its own lock, not the one the bags and the bank share. The pocket is dragged far more often
 -- than the two big windows, and freezing all three together meant the only way to nudge it was
@@ -724,6 +905,10 @@ function Pocket:Build()
   picks:EnableMouse(true)
   picks:Hide()
   ns.EscClose(picks)
+  -- Every way out of this popup -- its cross, Esc, the favorites section hiding, the pocket closing -- ends
+  -- the same way, with the frame hidden, so the release of the pocket hangs on that one event instead of on
+  -- each path that can close it.
+  picks:HookScript("OnHide", function() if ns.Pocket then ns.Pocket:Unhold(picks) end end)
   self.picksFrame = picks
 
   local ptitle = Theme:Title(picks, 14, "accent")
@@ -731,7 +916,10 @@ function Pocket:Build()
   self.picksTitle = ptitle
 
   local pclose = ns.CreateGlyphButton(picks, "×", 22)
-  pclose:SetScript("OnClick", function() Pocket:TogglePicks() end)
+  -- The cross puts the popup away; it does not flip its face. Toggling from here meant closing the
+  -- favorites face -- whose mode is "fav" while the toggle asks for "pocket" -- fell through to the other
+  -- branch and reopened the same frame as the pocket's own Popular, so closing one list opened the other.
+  pclose:SetScript("OnClick", function() Pocket:ClosePicks() end)
   pclose.wpeIconPaint = function(s)
     local hot = s.wpeHot and not s.offDuty
     ns.TintMarkX(s, hot and "text" or "dim")
@@ -759,7 +947,7 @@ function Pocket:Build()
       GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
       if s.wpeID then
         GameTooltip:SetItemByID(s.wpeID)
-        if s.wpePinned then
+        if s.wpePinned and picksMode ~= "fav" then
           GameTooltip:AddLine(ns.TipInk(ns.L["Already in the pocket"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9, true)
         end
       end
@@ -772,6 +960,12 @@ function Pocket:Build()
     end)
     b:SetScript("OnClick", function(s)
       if not s.wpeID then return end
+      if picksMode == "fav" then
+        -- In the favorites face of the popup a cell is a mark that is either there or not, so a click
+        -- takes it away as readily as it puts it in; the cell repaints from the list, not from the click.
+        if ns.Fav then ns.Fav:ToggleID(s.wpeID) end
+        return
+      end
       if s.wpePinned then
         Pocket:DropID(s.wpeID)
       elseif Pocket:AddID(s.wpeID) then
@@ -793,7 +987,7 @@ function Pocket:Build()
 
   -- The same id field the category editor's pin entry uses (Core/Widgets.lua): a number box that takes
   -- nothing but digits, with a live preview of the item that id names beside it, so what was typed is seen
-  -- to resolve before it lands in the pocket — the icon and the name, exactly as the pins panel shows
+  -- to resolve before it lands in the list — the icon and the name, exactly as the pins panel shows
   -- them. Enter adds it and the "+" does the same; a shift-clicked link arrives as its bare id. The
   -- preview gives feedback before the item lands in the grid. Losing focus still empties it, so nothing
   -- typed is left standing when the panel closes.
@@ -802,9 +996,14 @@ function Pocket:Build()
     height = BOX_H,
     font = FONT - 2,
     smallFont = FONT - 3,
-    onCommit = function(id) Pocket:AddByText(id) end,
+    -- The box commits into the list this face fills: the favorites one takes the id itself, the pocket's
+    -- own takes a pin. Read at commit time, so the text always lands in the face the player is looking at.
+    onCommit = function(txt)
+      if picksMode == "fav" and ns.Fav then ns.Fav:AddByText(txt) else Pocket:AddByText(txt) end
+    end,
   })
   self.idField = field
+
 
   w:Hide()
   self.frame = w
@@ -1118,8 +1317,11 @@ function Pocket:PickPaint()
   applyDensity()
   local side = Theme:ContentPad("side")
   local pad = PICK_PAD + side
-  local list = self:List()
-  local n = #POCKET_PICKS
+  local fav = picksMode == "fav"
+  local F = ns.Fav
+  local list = (not fav) and self:List() or nil
+  local ids = self:PickIDs()
+  local n = #ids
   local path = ns.Fonts:Current()
   local Bags = ns.Bags
   local size, gap = ns.GridMetrics(self.frame, ns.PocketIconSize(), Bags and Bags.gap or 4)
@@ -1138,6 +1340,10 @@ function Pocket:PickPaint()
     ns.SnapPoint(self.picksClose, "RIGHT", p, "TOPRIGHT", -(6 + side), -mid)
   end
   if self.idField then
+    -- The box writes into whichever list the popup is filling, so both faces carry it: the pocket's own
+    -- pins in the pocket's face, the bags' Favorites in theirs. `picksMode` decides at commit time, so a
+    -- face switched while the box held text still writes where the player can see the result.
+    self.idField:SetShown(true)
     -- Density first: the field stands 6 taller than its box, the room the border takes.
     self.idField:SetBoxHeight(BOX_H)
     self.idField:ApplyFont(path, FONT - 2, FONT - 3)
@@ -1147,13 +1353,19 @@ function Pocket:PickPaint()
   end
   local gridTop = head + BOX_H + 6 + BOX_GAP
   for i = 1, n do
-    local id = POCKET_PICKS[i]
+    local id = ids[i]
     local b = self.pickBtns[i]
     b.wpeID = id
     b.icon:SetTexture(ns.PinIcon(id))
+    -- Already taken is asked of the list this popup is filling: a cell in the pocket's grid means a pin,
+    -- the same cell in the favorites popup means an entry in the bag's section.
     local pinned = false
-    for j = 1, self:Count() do
-      if ns.ItemStubID(list[j]) == id then pinned = true; break end
+    if fav then
+      if F then pinned = F:HasID(id) end
+    else
+      for j = 1, self:Count() do
+        if ns.ItemStubID(list[j]) == id then pinned = true; break end
+      end
     end
     b.wpePinned = pinned
     ns.SetBg(b, Theme:C("slot"))
@@ -1187,28 +1399,70 @@ function Pocket:PickPaint()
     local px, py = Layout.Point(i, cols, pad, gridTop, step)
     ns.SnapPoint(b, "TOPLEFT", p, "TOPLEFT", px, -py)
   end
-  local w = self.frame
+  -- The pocket's own popup hangs off its window's top left; the favorites one stands beside the bags, on the
+  -- flank that has room for it, so the grid it fills is never covered by the list that fills it.
+  local A = picksAnchor
+  local w = (A and A.frame) or self.frame
   if w then
     p:ClearAllPoints()
-    ns.SnapPoint(p, "TOPRIGHT", w, "TOPLEFT", -6, 0)
+    if A then
+      -- The favorites face stands beside the bags rather than over them, so the grid it fills stays in
+      -- sight: SidePlace puts it on the window's flank -- left when there is room, otherwise above, below
+      -- or right -- the same call the currency and character pickers make, and its answer depends on the
+      -- window and the popup's own size alone. The corner is the fallback for a window with no rect yet,
+      -- the one moment SidePlace has nothing to measure.
+      if not ns.SidePlace(p, w, "left", "top") then
+        ns.SnapPoint(p, "TOPLEFT", w, "TOPLEFT", A.x or 0, -(A.y or 0))
+      end
+    else
+      ns.SnapPoint(p, "TOPRIGHT", w, "TOPLEFT", -6, 0)
+    end
   end
   ns.SnapWindowSoon(p)
 end
 
-function Pocket:TogglePicks()
+-- Put whichever face is standing away. Separate from TogglePicks because that one is also the opener: it
+-- switches faces when the frame is up in the other mode, which is right for the two "+" buttons and wrong
+-- for the cross.
+function Pocket:ClosePicks()
   local p = self.picksFrame
   if not p then return end
-  if p:IsShown() then
-    p:Hide()
-    if self.idField then self.idField.box:ClearFocus() end
+  p:Hide()
+  if self.idField then self.idField.box:ClearFocus() end
+end
+
+function Pocket:TogglePicks(mode, frame, x, y)
+  local p = self.picksFrame
+  if not p then return end
+  local want = (mode == "fav") and "fav" or "pocket"
+  if p:IsShown() and picksMode == want then
+    self:ClosePicks()
     return
   end
+  picksMode = want
+  picksAnchor = (want == "fav") and { frame = frame, x = x, y = y } or nil
   self:PickPaint()
   p:Show()
-  for _, id in ipairs(POCKET_PICKS) do
+  -- The favorites face is a list standing over the bags, so the pocket steps aside while it is up and comes
+  -- back when it closes -- the same rule the currency and character pickers follow, through the same Hold.
+  -- The pocket's own face hangs off the pocket, so there it neither hides it nor holds it, and a popup that
+  -- was the pocket's and is now the favorites' gives the pocket back on the way.
+  if want == "fav" then
+    self:Hold(p, ns.Bags and ns.Bags.frame)
+  else
+    self:Unhold(p)
+  end
+  for _, id in ipairs(self:PickIDs()) do
     if C_Item and C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(id) end
   end
-  if self.idField then self.idField.box:SetFocus() end
+  if self.idField and want == "pocket" then self.idField.box:SetFocus() end
+end
+
+-- Whether the popup is filling the pocket or the bags' Favorites, so a caller can repaint or close it
+-- without keeping its own copy of that state.
+function Pocket:PicksMode() return picksMode end
+function Pocket:RepaintPicks()
+  if self.picksFrame and self.picksFrame:IsShown() then self:PickPaint() end
 end
 
 function Pocket:Soon()
@@ -1235,6 +1489,11 @@ function Pocket:Open()
   local h = self.hidden
   self.hidden = nil
   if h then self.exposed = h.by end
+  -- Opening the pocket takes the bags' Popular list down: a list never stands with the pocket, and here it is
+  -- the player's own window asking for the screen. The close runs after the hold record has been taken, so
+  -- releasing it only clears that exposure mark -- Unhold then has no record left to move the pocket with,
+  -- and the lines below place the window the way an open always does.
+  if self.picksFrame and self.picksFrame:IsShown() and picksMode == "fav" then self:ClosePicks() end
   w:ClearAllPoints()
   local pp = WarpeeDB and WarpeeDB.pocketPos
   local anchor = ns.Bags and ns.Bags.frame

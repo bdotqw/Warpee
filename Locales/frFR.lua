@@ -625,6 +625,7 @@ local STRINGS = {
   ["Popular"] = "Populaires",
   ["Already in the pocket"] = "Déjà dans la poche",
   ["Clear"] = "Vider",
+  ["Add"] = "Ajouter",
   ["Equipped"] = "Équipé",
   ["A small window of bookmark cells beside the bags, opened by its own key. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and hovering a cell and pressing %s empties it."] =
     "Une petite fenêtre de cases-repères à côté des sacs, ouverte par sa propre touche. Faites glisser un objet dans une case et la case le garde, où qu'il aille dans vos sacs. Une case glissée sur une autre les échange, et la touche %s vide la case sous le curseur.",

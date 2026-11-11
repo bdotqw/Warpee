@@ -2072,7 +2072,12 @@ local function bucketsCore(snap, snapMode, bagList, reagentBag, memory)
     local idx = classify(m, skip)
     local dest = (idx and order[idx]) or otherBucket
     -- Fold into the item's existing cell when combining: same id, and not one of the per-piece kinds.
-    local canMerge = combine and m.id and not (m.isGear or m.battlepet or m.keystone)
+    -- Items that never stack but are counted across the bags (see ns.CountMany) fold whether the setting is
+    -- on or not: one cell per slot would draw "1" over and over for a warlock's shards, and the only place
+    -- their number can appear is a fold. The one guard the setting keeps is the stack-splitting windows --
+    -- a hand-over needs every physical stack pickable, so they stay apart there like any other fold.
+    local always = m.id and ns.CountMany(m.id) and not splitWindowOpen()
+    local canMerge = (combine or always) and m.id and not (m.isGear or m.battlepet or m.keystone)
     if canMerge then
       dest.byId = dest.byId or {}
       local prev = dest.byId[m.id]

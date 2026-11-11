@@ -610,6 +610,7 @@ local STRINGS = {
   ["Popular"] = "Popolari",
   ["Already in the pocket"] = "Già nella tasca",
   ["Clear"] = "Svuota",
+  ["Add"] = "Aggiungi",
   ["Equipped"] = "Equipaggiato",
   ["A small window of bookmark cells beside the bags, opened by its own key. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and hovering a cell and pressing %s empties it."] =
     "Una piccola finestra di celle-segnalibro accanto alle borse, aperta dal suo tasto. Trascina un oggetto in una cella e la cella lo conserva ovunque si sposti nelle borse. Trascina una cella sull'altra per scambiarle; con il cursore su una cella, %s la svuota.",

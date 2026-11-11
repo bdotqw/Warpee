@@ -552,6 +552,7 @@ local STRINGS = {
   ["Popular"] = "热门",
   ["Already in the pocket"] = "已在口袋中",
   ["Clear"] = "清空",
+  ["Add"] = "添加",
   ["Equipped"] = "已装备",
   ["A small window of bookmark cells beside the bags, opened by its own key. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and hovering a cell and pressing %s empties it."] = "背包旁边的一个收藏小窗口，用它自己的按键打开。把物品拖进格子里，格子就会记住它，不管它在背包里怎么移动。把一个格子拖到另一个上可以交换位置，把鼠标停在格子上按 %s 可以清空。",
   ["A small window of bookmark cells beside the bags, opened by its own key. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and a cell under the pointer can be emptied with a key of its own."] = "背包旁边的一个收藏小窗口，用它自己的按键打开。把物品拖进格子里，格子就会记住它，不管它在背包里怎么移动。把一个格子拖到另一个上可以交换位置，把鼠标停在格子上可以用自己的按键清空。",

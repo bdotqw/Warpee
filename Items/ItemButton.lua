@@ -1928,6 +1928,16 @@ function ns.GearItem(id)
   return v
 end
 
+-- Items the rows count across the bags although they do not stack. A cell's badge is its own stack, so an
+-- item that never stacks shows 1 however many the player carries -- and a row that answers "how many of
+-- these do I have" read that 1. The sum across the bags was refused for them by the max-stack test below,
+-- which is right for gear and wrong for a thing like a shard: one per slot, five slots, five of them.
+-- Keys are ids, so the test is one lookup and costs nothing on the items that are not here.
+local COUNT_MANY = {
+  [6265] = true, -- Soul Shard: one per slot, and a warlock carries a bag of them
+}
+function ns.CountMany(id) return COUNT_MANY[tonumber(id) or 0] and true or false end
+
 local function bagTotal(info, count)
   -- The bare GetItemCount is gone as of 12.1.5 and no fallback is worth keeping for it.
   local get = C_Item and C_Item.GetItemCount
@@ -1936,9 +1946,11 @@ local function bagTotal(info, count)
   local all = get(id) or count
   if all <= count then return count end
   if count > 1 then return all end
-  local max = (C_Item.GetItemMaxStackSizeByID and C_Item.GetItemMaxStackSizeByID(id))
-              or select(8, C_Item.GetItemInfo(id))
-  if (tonumber(max) or 1) <= 1 then return count end
+  if not COUNT_MANY[id] then
+    local max = (C_Item.GetItemMaxStackSizeByID and C_Item.GetItemMaxStackSizeByID(id))
+                or select(8, C_Item.GetItemInfo(id))
+    if (tonumber(max) or 1) <= 1 then return count end
+  end
   return all
 end
 

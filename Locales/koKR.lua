@@ -539,6 +539,7 @@ local STRINGS = {
   ["Popular"] = "인기",
   ["Already in the pocket"] = "이미 주머니에 있음",
   ["Clear"] = "지우기",
+  ["Add"] = "추가",
   ["Equipped"] = "착용 중",
   ["A small window of bookmark cells beside the bags, opened by its own key. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and hovering a cell and pressing %s empties it."] = "가방 옆 작은 북마크 창. 전용 키로 엽니다. 아이템을 칸에 드래그하면 가방 안에서 어디로 옮겨도 기억합니다. 칸을 다른 칸에 드래그하면 바뀌고, 칸에 마우스를 올리고 %s를 누르면 비워집니다.",
   ["A small window of bookmark cells beside the bags, opened by its own key. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and a cell under the pointer can be emptied with a key of its own."] = "가방 옆 작은 북마크 창. 전용 키로 엽니다. 아이템을 칸에 드래그하면 가방 안에서 어디로 옮겨도 기억합니다. 칸을 다른 칸에 드래그하면 바뀌고, 마우스 아래 칸은 지정 키로 비울 수 있습니다.",

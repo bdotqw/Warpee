@@ -685,6 +685,7 @@ local STRINGS = {
   ["Popular"] = "Популярное",
   ["Already in the pocket"] = "Уже в кармане",
   ["Clear"] = "Очистить",
+  ["Add"] = "Добавить",
   ["Equipped"] = "Надето",
   ["A small window of bookmark cells beside the bags, opened by its own key. Drag an item into a cell and the cell keeps it, wherever the item moves in your bags. Drag a cell onto another to swap them, and hovering a cell and pressing %s empties it."] =
     "Маленькое окно с ячейками-закладками рядом с сумками, открывается своей клавишей. Перетащите предмет в ячейку, и она будет держать его, куда бы он ни переехал в сумках. Перетаскивание ячейки на ячейку меняет их местами, а ячейка под курсором освобождается нажатием %s.",

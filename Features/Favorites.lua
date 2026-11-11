@@ -253,6 +253,89 @@ function Fav:Unpin(index)
   self:Set(index, nil)
 end
 
+-- The "+" at the right end of the section head fills this row from the same Popular list the pocket offers.
+-- The popup is the pocket's own frame, opened in its favorites face (see Pocket:TogglePicks), and a cell in
+-- that face is a mark: it is either in the section or not, so one click puts it in or takes it out.
+-- The popup's id box, in its favorites face: the same parse the pocket's box does, but the result lands in
+-- this row. A pasted link is kept as the pin itself, so a piece of gear arrives named by its own string; a
+-- bare id goes through ToggleID and takes the gear rule the section already has -- an id cannot tell one
+-- copy of gear from another, so a bare one is refused with the line the pocket prints for the same reason.
+function Fav:AddByText(text)
+  local s = tostring(text or "")
+  local link = s:match("|H(item:[^|]+)|h") or s:match("^(item:[^|%s]+)")
+  local id = tonumber(s:match("item:(%d+)")) or tonumber(s:match("%d+"))
+  if not id then return end
+  local get = C_Item and C_Item.GetItemInfoInstant
+  if get and not get(id) then return end
+  if not link then
+    if ns.GearItem(id) then
+      print("|cffd9a85fWarpee|r |cffffffff"
+        .. ns.L["Gear is pinned by dragging it or pasting its link, a bare id cannot tell one copy from another."]
+        .. "|r")
+      return
+    end
+    self:ToggleID(id)
+    return
+  end
+  local cap, list = self:Capacity(), self:List()
+  for i = 1, cap do
+    if not list[i] then
+      self:Set(i, ns.PinFor(id, link) or link)
+      if ns.Pocket then ns.Pocket:RepaintPicks() end
+      return
+    end
+  end
+  -- Full is silent here as in ToggleID: a link never goes through that path, and a full row simply
+  -- keeps what it has.
+end
+
+-- How many pins the row can show: as many as it has visible cells. The row makes one cell per column the
+-- bags are set to, so with the bags at 14 columns a fifteenth pin would be stored and never drawn -- it
+-- would sit in the row's data, count against nothing and be invisible and unclickable. The cap is read off
+-- the bags each time rather than kept here, so changing the column count moves it with the row.
+function Fav:Capacity()
+  local bags = ns.Bags
+  local cols = (bags and bags.cols) or 14
+  if cols < 1 then cols = 1 elseif cols > MAX_SLOTS then cols = MAX_SLOTS end
+  return cols
+end
+
+function Fav:HasID(id)
+  id = tonumber(id)
+  if not id then return false end
+  local list = self:List()
+  for i = 1, MAX_SLOTS do
+    if ns.ItemStubID(list[i]) == id then return true end
+  end
+  return false
+end
+
+function Fav:ToggleID(id)
+  id = tonumber(id)
+  if not id then return false end
+  local list = self:List()
+  for i = 1, MAX_SLOTS do
+    if ns.ItemStubID(list[i]) == id then
+      self:Set(i, nil)
+      if ns.Pocket then ns.Pocket:RepaintPicks() end
+      return false
+    end
+  end
+  -- Only the visible cells are candidates: a pin put in a free slot past the last column would be stored
+  -- where the row never draws. Full means no free cell inside the row, and that stays silent -- the row
+  -- keeps what it has and the caller sees false.
+  local cap = self:Capacity()
+  for i = 1, cap do
+    if not list[i] then
+      if C_Item and C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(id) end
+      self:Set(i, id)
+      if ns.Pocket then ns.Pocket:RepaintPicks() end
+      return true
+    end
+  end
+  return false
+end
+
 -- Grey the row cell mirroring a bag slot that just locked or unlocked, so a pinned item picked up or
 -- mid-move desaturates like the grid cell it tracks. The cell binds a real (favBag, favSlot); match those.
 function Fav:RefreshLock(bag, slot)
@@ -462,6 +545,11 @@ end
 
 function Fav:Hide()
   if self.label then self.label:Hide() end
+  if self.add then self.add:Hide() end
+  local P = ns.Pocket
+  if P and P.picksFrame and P.picksFrame:IsShown() and P.PicksMode and P:PicksMode() == "fav" then
+    P.picksFrame:Hide()
+  end
   for i = 1, (self.max or 0) do
     local b, g, c = self.slots[i], self.ghosts[i], self.catchers[i]
     if b then b.holder:Hide() end
@@ -499,6 +587,21 @@ function Fav:Warm()
     end
   end
   self.cold, self.warmed = nil, true
+end
+
+-- The section's own press: the popup asks the pocket where to stand, so the geometry it needs is the last
+-- one this row was laid out with, read back rather than passed through every caller.
+function Fav:OpenPicks()
+  local P, a = ns.Pocket, self.args
+  if not (P and P.TogglePicks and a and a.bags and a.bags.frame) then return end
+  -- The two pickers are lists too, and two lists never stand together here: the popup takes their place
+  -- instead of stacking over them. Where it stands owes them nothing -- it opens against the bags' own top
+  -- left corner, lined up with the first column of the grid, whether or not either of them was up, and
+  -- whether or not the pocket is.
+  local CP, ChP = ns.CurPicker, ns.CharPicker
+  if CP and CP.Close and CP.frame and CP.frame:IsShown() then CP:Close() end
+  if ChP and ChP.Close and ChP.frame and ChP.frame:IsShown() then ChP:Close() end
+  P:TogglePicks("fav", a.bags.frame, a.x, 0)
 end
 
 function Fav:Refresh()
@@ -541,6 +644,35 @@ function Fav:Apply(bags, x, top, size, gap)
   self.label:ClearAllPoints()
   ns.SnapPoint(self.label, "TOPLEFT", frame, "TOPLEFT", x, -top)
   self.label:Show()
+
+  if not self.add then
+    -- A word beside the head, the way Clear stands beside Recent: the way into the popular popup for a row
+    -- that is empty or does not hold the item yet. A glyph square was a losing fight with the band the head
+    -- lives in -- the box has to clear the cells below and the search field above, and the band is only as
+    -- tall as a line of text plus its gap, so every size of it either touched the cells or hung over the
+    -- search. A word sits on the head's own line, in the head's own font, and nothing has to be fitted.
+    local c = ns.CreateTextButton(frame, 10)
+    ns.LocalText(c.Text, "Add")
+    -- The head's own faintness: a section head is a label drawn at 0.85 alpha, and a verb beside it at full
+    -- strength reads as the brighter of the two -- a button shouting over its own caption. Same value here,
+    -- so the pair sits on one ink; hover and the disabled state still move the colour, which the alpha does
+    -- not touch.
+    c:SetAlpha(0.85)
+    c:SetScript("OnClick", function() Fav:OpenPicks() end)
+    c:SetOn(true)
+    ns.AddTip(c, "Popular", "top")
+    self.add = c
+  end
+  self.add:ClearAllPoints()
+  -- Hung off the head itself, centre on centre, so the two share a baseline at every density. Measured from
+  -- the frame's top instead it sat a pixel low: a button's height and a font box are not the same number, and
+  -- the difference lands under the smaller text. A step smaller than the head, as Clear is beside Recent.
+  self.add.Text:SetFont(bags.fontPath or ns.Fonts:Current(), d.font - 5, ns.OutlineFlags())
+  self.add:SetSize(math.ceil(self.add.Text:GetStringWidth()) + 8, d.labelH)
+  ns.SnapPoint(self.add, "LEFT", self.label, "RIGHT", 8, 0)
+  -- Read-only view of another character's vault: this section is that character's, and a list this window
+  -- only shows is not something to write into from here.
+  self.add:SetShown(not bags.snap)
 
   local cols = bags.cols or 14
   local n = math.min(cols, MAX_SLOTS)
