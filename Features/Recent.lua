@@ -463,18 +463,12 @@ local function detect()
   for g in pairs(guidNow) do guidHad[g] = true end
 end
 
--- The row hands the whole cell to the game. Its cells are live container buttons off the same
--- template the grid draws with, registered for the same two buttons and the same drag, so a
--- left click lifts the item, a drag lifts it too, a right click uses it, and shift, ctrl and
--- alt reach the container handler's own modified-click branch with no line of ours in the way.
--- An overlay above the cell would only re-implement the two gestures it takes away from the
--- template, so there is none, and no link check either: a cell whose item moved on stays on
--- the row for a few updates by design, and acting on the new occupant of that slot is what a
--- right click on the row has always done anyway.
---
--- The list is drawn in two windows and each keeps its own pool of cells, so the two field
--- names that answer for a cell come in from the row that owns it. Everything above is the
--- same for both, which is why the cells are built the same way in both.
+-- The row hands the whole cell to the game: its cells are live container buttons off the same template the grid
+-- draws with, registered for the same two buttons and the same drag, so a left click or a drag lifts the item, a
+-- right click uses it, and shift, ctrl and alt reach the container handler's modified-click branch. An overlay
+-- would only re-implement the gestures it takes away, so there is none, and no link check either: a cell whose
+-- item moved on stays for a few updates by design, and acting on the new occupant is what a right click there has
+-- always done. Both windows keep their own pool, so the two field names come in from the row that owns the cell.
 
 -- The cells are container slot buttons, so they are built here, out of combat, and a
 -- redraw only moves and re-ids them after that. A button made during a fight is
@@ -690,7 +684,8 @@ function Rec:Apply(bags, x, top, size, gap)
         b.recBag, b.recSlot, b.wpeBagID = bag, slot, bag
         b.holder:SetID(bag)
         b:SetID(slot)
-        b.link = nil
+        -- The key inside the paint answers for the new slot, so the hand-off alone drops nothing (see
+        -- Features/Favorites.lua for the same change).
       end
       local h = b.holder
       ns.SnapSize(h, size, size)
@@ -698,7 +693,9 @@ function Rec:Apply(bags, x, top, size, gap)
       ns.SnapPoint(h, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
       h:Show(); b:Show()
       b.wpeForce = got[id]
-      if repaint then b.link = nil end
+      if repaint then
+        b.link = nil
+      end
       ns.UpdateItemButton(b)
       if bags.ApplyToButton then bags:ApplyToButton(b) end
       if g then g:Hide() end

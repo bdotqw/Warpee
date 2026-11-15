@@ -1,32 +1,16 @@
 local addonName, ns = ...
 local Theme = ns.Theme
 
--- The currencies the client itself tracks ("show in backpack"), drawn as one row of slot-sized cells
--- inside the window's own content, under the grid, seamed off from it by the same hairline the category
--- sections wear. Icon and count per currency, in the client's own order, wrapped onto as many lines as the
--- grid's width fits -- nothing is counted away behind a "+N": what is tracked is what is drawn. The row
--- grows the way the player chose: left to right, right to left (mirrored, the first at the right edge), or
--- centred a line at a time.
---
--- The window owns the height: Measure answers how tall the row stands for a given cell size and width,
--- the layout adds that to its content and seats the row with Place. It takes a row of the window, unlike
--- the old bar that hung off the foot and spent no pixel of it.
---
--- Why the client's list and not an own one: the track flag lives in the character panel, and a second
--- list beside it means two editors that disagree -- a tick here that the panel there never saw, and five
--- pins there that come back on the next login after being taken off here. So a tick here IS the client's
--- flag (C_CurrencyInfo.SetCurrencyBackpackByID both ways), the row reads the client's own tracking list
--- (GetBackpackCurrencyInfo, the same source the game's own backpack strip reads), and the panel behind
--- it (Features/CurrencyPicker.lua) ticks the same flag per row.
---
--- The transfer door lives in that panel, on the rows the client marks transferable
--- (isAccountTransferable): an arrow that walks to the game's own currency tab, where the transfer click
--- itself stays the player's own.
---
--- What is read when: the row never walks the client's currency list -- one GetBackpackCurrencyInfo per
--- tracked currency, in the client's order. Walking the whole list means expanding collapsed headers, and
--- every one of those calls fires CURRENCY_DISPLAY_UPDATE -- the event the row answers; that walk lives
--- in the picker, runs only while its window is open, and holds a reentrancy flag (CurrencyPicker:Scan).
+-- The currencies the client itself tracks ("show in backpack"), drawn as one row of slot-sized cells under the
+-- grid, seamed off by the same hairline the sections wear. Icon and count per currency in the client's order,
+-- wrapped to the grid's width -- nothing hides behind a "+N": what is tracked is what is drawn. The row grows
+-- left to right, right to left or centred a line at a time; Measure answers its height and Place seats it.
+-- Why the client's list and not an own one: the track flag lives in the character panel, and a second list beside
+-- it means two editors that disagree -- a tick here the panel never saw, pins there returning next login after
+-- being taken off here. So a tick here IS the client's flag, the row reads GetBackpackCurrencyInfo (what the
+-- game's own strip reads), and the panel behind it ticks the same flag per row, with the transfer door on the
+-- rows the client marks transferable. The row never walks the full list: that expands headers and fires
+-- CURRENCY_DISPLAY_UPDATE, the event the row answers -- the walk lives in the picker, open and behind a flag.
 
 local Cur = {}
 ns.Cur = Cur
@@ -286,7 +270,7 @@ end
 ------------------------------------------------------------------------------
 -- C_CurrencyInfo.RequestCurrencyFromAccountCharacter is AllowedWhenUntainted: a currency id written by
 -- addon Lua, or the transfer menu opened from it, taints the path and the game's own confirm button dies
--- with ADDON_ACTION_FORBIDDEN (Features/CurrencyTransferDoor.lua keeps that note). So nothing here touches
+-- with ADDON_ACTION_FORBIDDEN (the note above this section is that history). So nothing here touches
 -- the client's state. The cell is an InsecureActionButtonTemplate, and a Ctrl-click asks the *client* to
 -- click two of its own frames -- the currency's row in the character panel, which selects it and fills the
 -- popup, and the popup's transfer toggle, which opens the menu -- both in the client's own, untainted
@@ -521,22 +505,15 @@ do
   boot:RegisterEvent("PLAYER_LOGIN")
 end
 
--- Arms one cell for the client's own click chain. The press and the release are two different targets,
--- and that is the whole chain: the press clicks the currency's own row in the character panel (which
--- selects it), the release clicks the popup's transfer toggle (which opens the transfer menu for it). Both
--- clicks are the client's own, in the client's own context -- the addon only names the frames. It runs on
--- the Ctrl-hover that comes before the press (the arming lays the client's currency list out off screen,
--- the expensive half), and a cell that was never armed carries no attributes at all -- its click can never
--- reach the client's transfer by accident.
---
--- Why the release is the plain clickbutton: a modifier-prefixed release dies the moment the player lets go
--- of Ctrl before the mouse button, and a Ctrl held for the press but gone at the release is most players.
--- That was the difference between the two windows: a Ctrl-only release answered with the popup alone (the
--- row was selected, the toggle was never clicked), so the player saw the options flyout and had to press
--- again. The press target stays the Ctrl one, so a plain press never reaches the chain at all -- and the
--- disarm follows the key out of the press (see armWatch), so a release that fires with Ctrl gone still
--- lands on the toggle that belongs to the currency just armed.
--- One layout owns the native panels until restoration; a newer hover starts after its dispatch returns.
+-- Arms one cell for the client's own click chain: the press clicks the currency's row in the character panel
+-- (which selects it), the release clicks the popup's transfer toggle (which opens the menu). Both clicks are the
+-- client's own, in the client's own context -- the addon only names the frames. It runs on the Ctrl-hover before
+-- the press (arming lays the client's currency list out off screen, the expensive half), and a cell never armed
+-- carries no attributes at all, so its click can never reach the transfer by accident.
+-- Why the release is the plain clickbutton: a modifier-prefixed release dies the moment the player lets go of
+-- Ctrl before the mouse button, which is most players -- the popup appeared alone, the toggle was never clicked.
+-- The press target stays the Ctrl one, so a plain press never reaches the chain at all. One layout owns the
+-- native panels until restoration; a newer hover starts after its dispatch returns.
 local function transferTarget(cell, id)
   return cell and id and cell.SetAttribute and cell.wpeID == id
     and cell.IsVisible and cell:IsVisible()
@@ -992,19 +969,17 @@ end
 -- the currency (the client's own pin, so the character panel agrees), and the panel behind the row is the
 -- picker's own (Features/CurrencyPicker.lua) -- the tooltip is the game's own currency tooltip where it
 -- exists. The cell follows the window's icon size, live: the row is a summary of the grid, not the grid.
--- The icon cell is its picture and nothing else: no plate, no keyline. A bag slot spends five points of
--- its own size on that furniture, so the art inside a slot is the icon size minus five, and a currency
--- cell drawn at the raw size read a step larger than every item around it. Both passes below take their
--- size through here, so the cells and the band they stand in cannot disagree.
+-- The icon cell is its picture and nothing else: no plate, no keyline, only its own edge and the ring of
+-- quality. A bag slot spends five points of its size on that furniture; this cell pays three, so its art
+-- stands a touch prouder than the art inside an item -- which is what a coin or an emblem wants, being the
+-- most detailed mark in the window. Both passes below take their size through here, so the cells and the
+-- band they stand in cannot disagree.
 local function cellSize(size)
   local s = tonumber(size) or 30
-  -- Five points off is what a slot spends, so the cell matches the art inside an item at the sizes the grid
-  -- ships with. Against a small grid that cut is too much of the whole cell and the art stops reading, so
-  -- from 34 down it takes three. Between 34 and 36 the cut grows a point per point rather than jumping: a
-  -- plain "three up to 34, five above" made a 35 grid draw a cell smaller than a 34 one, which is the one
-  -- thing a size must never do.
-  local cut = math.min(5, 3 + math.max(0, s - 34))
-  return math.max(16, s - cut)
+  -- Three points, at every size: what this cell spends on its own edge and ring, and the whole of its
+  -- furniture. With one cut there is no ladder to keep, and no size can draw a smaller cell than the size
+  -- below it. The floor keeps a tiny grid from cutting the art away entirely.
+  return math.max(16, s - 3)
 end
 
 -- The cell's own drawn border, in the cell's own language: a 1px outer edge (the window's stroke,

@@ -31,6 +31,9 @@ local function relayout()
   if ns.Bank and ns.Bank.Refresh then ns.Bank:Refresh() end
   if ns.Cur and ns.Cur.Apply then ns.Cur:Apply() end
   if ns.Pocket and ns.Pocket.Apply then ns.Pocket:Apply() end
+  -- The cheap list draws its prices in the money style, so a change of coin, letters or gold-only has to repaint
+  -- it now: it used to keep the old way until it was closed and opened again.
+  if ns.Cheap and ns.Cheap.frame and ns.Cheap.frame:IsShown() then ns.Cheap:Paint() end
   if ns.GuildBankSkin and ns.GuildBankSkin.Restyle then ns.GuildBankSkin:Restyle() end
   local P = ns.CharPicker
   if P and P.frame and P.frame:IsShown() and P.Paint then P:Paint(true) end
@@ -173,9 +176,9 @@ local function lockSet(v)
   WarpeeDB.lockWindows = v and true or nil
   ns.ApplyWindowLock()
 end
-local function hideFieldsGet() return WarpeeDB.hideMoveFields and true or false end
+local function hideFieldsGet() return WarpeeDB.hideMoveFields ~= false end
 local function hideFieldsSet(v)
-  WarpeeDB.hideMoveFields = v and true or nil
+  WarpeeDB.hideMoveFields = v and true or false
   ns.ApplyWindowLock()
 end
 
@@ -342,7 +345,7 @@ bg.sSet = function(v)
   -- The number in the field is pixels in the cell this page draws against, so that is the cell
   -- it is written for. Spelling it out here keeps the pair honest even if the field is reached
   -- before the badge has been through a paint.
-  if bg.isText() then g.ref = bg.cell() end
+  if bg.isPixels() then g.ref = bg.cell() end
   bg.bump()
   local x, y = bg.pin("x", g.x), bg.pin("y", g.y)
   if x ~= g.x or y ~= g.y then g.x, g.y = x, y; bg.bump() end
@@ -351,6 +354,9 @@ bg.kGet = function() return bg.cur().k or 4 end
 bg.kSet = bg.setter("k")
 bg.isTex   = function() return bg.def().tex and true or false end
 bg.isText  = function() return not bg.def().tex end
+-- Two ways a badge can hold its size: a text badge and the craft rank are written in pixels at the reference
+-- cell, a coin or a padlock as a share of the cell. Anything that re-bases or steps a size asks this.
+bg.isPixels = function() return (bg.def().px or not bg.def().tex) and true or false end
 bg.notFit  = function() return bg.sel ~= "outfit" end
 bg.label   = function(key) return (ns.BADGE[key] or {}).n or key end
 bg.prev    = 132
@@ -412,7 +418,7 @@ bg.normalize = function()
   local B = bg.cell()
   if not (B and B > 0) then return end
   for _, d in ipairs(ns.BADGES) do
-    if not d.tex then
+    if not d.tex or d.px then
       local g = ns.Badge(d.key)
       local ref = ns.BadgeRef(d, g)
       if ref ~= B then
@@ -434,7 +440,9 @@ end
 -- where it is what decided the size, since that is the one place the badge stops following the
 -- share of the cell the rest of this page is about.
 bg.hintText = function()
-  if bg.isTex() then return "" end
+  -- A share badge quotes no pixel number (its size is a fraction of the cell); a pixel badge, the rank among
+  -- them, quotes the same per-window line a text badge does, because that is what it is measured in.
+  if bg.isTex() and not bg.def().px then return "" end
   local key = bg.sel
   -- The cell is what the line shows and the pixels are what the badge will be, and two windows
   -- whose cells round to the same number can still land on different pixels: each grid snaps to

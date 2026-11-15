@@ -13,7 +13,6 @@ Pocket.recSlots, Pocket.recGhosts = {}, {}
 local picksMode, picksAnchor
 
 local PAD, BAND = 12, 26
-local NUDGE_BAND = 24
 local LABEL_H, LABEL_GAP = 13, 4
 -- The hairline that seams the recent block off from the pins: one pixel of accent with the same room
 -- above and below it, so it reads as the seam between two blocks and not as a box around the cells.
@@ -41,8 +40,7 @@ local pocketSize = ns.PocketIconSize
 
 local function applyDensity()
   local d = ns.Density(pocketSize())
-  PAD, BAND, NUDGE_BAND = d.pocketPad + Theme:ContentPad("side"),
-    d.pocketBand, d.pocketNudge + Theme:ContentPad("bottom")
+  PAD, BAND = d.pocketPad + Theme:ContentPad("side"), d.pocketBand
   LABEL_H, LABEL_GAP = d.labelH, d.labelGap
   BOX_H, BOX_GAP = d.searchH, d.pocketGap
   PICK_SIZE, PICK_GAP, PICK_PAD = d.pickSize, d.pickGap, d.pickPad
@@ -104,19 +102,14 @@ local RETAIL_PICKS = {
   241334, -- Vicious Thalassian Flask of Honor
 }
 
--- Forever's suggestions. Each row is { id, family, level }: the picker shows, for every family, the
--- highest level at or below the character's own, so levelling swaps one cell at a time instead of drawing a
--- row for every rank. Families appear in the grid in the order they first appear here and a family with no
--- usable item at the current level is skipped.
--- The levels are the ones written beside each item, and they are ragged on purpose: a health potion's ranks
--- open at 1, 3, 12, 21, 35, 45, a stone's at 1, 5, 15, 25, 35, 50, and some families jump ten levels at a
--- time. That is the whole reason the list carries a level per row instead of a bracket per stretch of
--- levels: the pick is simply the highest rank at or below the character's own, so nothing has to be
--- maintained as the data shifts.
--- Each family is written from its weakest rank down to its strongest, as the source list reads, and where
--- two rows of a family share a level the one written first wins -- so that is where a preferred pick goes.
--- Intellect elixirs are the one family whose source order is not by strength (10, 25, 45, 38, 37, 55); they
--- are left in the order given, since the pick compares levels and never the order.
+-- Forever's suggestions, each row { id, family, level }: for every family the picker shows the highest level at
+-- or below the character's own, so levelling swaps one cell at a time instead of drawing a row per rank. Families
+-- appear in the order they first appear here, written from the weakest rank down; the levels are ragged on
+-- purpose (a health potion opens at 1, 3, 12, 21, 35, 45), which is why a level rides each row instead of a
+-- bracket per stretch -- the pick is just the highest rank at or below the character's own, so nothing needs
+-- maintaining as the data shifts. Where two rows of a family share a level the first written wins, so that is
+-- where a preferred pick goes. Intellect elixirs are the one family out of order (10, 25, 45, 38, 37, 55) and
+-- stay as written, since the pick compares levels and never the order.
 local FOREVER_PICKS = {
   -- Weapon oils, stones and weightstones: weapon buffs, one cell each.
   { 20744, "weapon_oil",  5 }, -- Minor Wizard Oil
@@ -310,8 +303,8 @@ local setSize = ns.Setting("pocketIconSize", function()
 end)
 
 function Pocket:SetLock(value) setLock(value and true or false) end
-function Pocket:SetRows(value) setRows(tonumber(value) or 5) end
-function Pocket:SetCols(value) setCols(tonumber(value) or 6) end
+function Pocket:SetRows(value) setRows(tonumber(value) or ns.PocketRowsDefault or 4) end
+function Pocket:SetCols(value) setCols(tonumber(value) or ns.PocketColsDefault or 6) end
 function Pocket:SetRecentTwo(value)
   setRecentTwo(value and true or false)
 end
@@ -324,12 +317,12 @@ function Pocket:ToggleLock()
 end
 
 function Pocket:Cols()
-  local n = math.floor(tonumber(WarpeeDB and WarpeeDB.pocketCols) or 6)
+  local n = math.floor(tonumber(WarpeeDB and WarpeeDB.pocketCols) or ns.PocketColsDefault or 6)
   return math.max(4, math.min(MAX_COLS, n))
 end
 
 function Pocket:Rows()
-  local n = math.floor(tonumber(WarpeeDB and WarpeeDB.pocketRows) or 5)
+  local n = math.floor(tonumber(WarpeeDB and WarpeeDB.pocketRows) or ns.PocketRowsDefault or 4)
   return math.max(1, math.min(MAX_ROWS, n))
 end
 
@@ -453,7 +446,9 @@ end
 local function makeCatcher(parent, index)
   local c = CreateFrame("Button", nil, parent)
   c.pkIndex = index
-  c:RegisterForClicks("LeftButtonUp", "MiddleButtonUp", "RightButtonUp")
+  -- MiddleButton and the two side buttons: a button this frame does not register never reaches its
+  -- OnClick at all, which is why MB4 and MB5 could be bound and still did nothing over a cell.
+  c:RegisterForClicks("LeftButtonUp", "MiddleButtonUp", "RightButtonUp", "Button4Up", "Button5Up")
   c:RegisterForDrag("LeftButton")
   c:SetFrameLevel(parent:GetFrameLevel() + 30)
   c:EnableMouse(true)
@@ -462,16 +457,13 @@ local function makeCatcher(parent, index)
   c:SetScript("OnDragStop", function() Pocket:Drop() end)
   c:SetScript("OnReceiveDrag", function(s) Pocket:PinFromCursor(s.pkIndex) end)
   c:SetScript("OnClick", function(s, button)
-    if button == "MiddleButton" then
-      -- Direct click, not a binding, and the cell keeps the click either way. The addon's own default
-      -- sits on this very button -- a mouse chord over a cell never reaches the game's key settings, so
-      -- the addon is the only thing that can bind it -- and that owner is Warpee's own action, which is
-      -- no reason to refuse the click. A middle button somebody else has spoken for is left alone.
-      local act = (GetBindingAction and GetBindingAction("BUTTON3")) or ""
-      if act == "" or act == "WARPEE_UNPIN" then Pocket:Unpin(s.pkIndex) end
+    if button ~= "LeftButton" then
+      -- Direct click, not a binding: over a cell this frame owns the button, so the game hands the click
+      -- here and the cell has to answer it. Which chord may be taken is the question the default asks
+      -- too, and both rows read the answer from the one place.
+      if ns.PinMouseClear(button) then Pocket:Unpin(s.pkIndex) end
       return
     end
-    if button ~= "LeftButton" then return end
     if GetCursorInfo() then
       Pocket:PinFromCursor(s.pkIndex)
       return
@@ -582,16 +574,13 @@ function Pocket:Lift(index)
   local live = (b and b.pkBag) and true or false
   if b then ns.SetSlotHighlight(b, true) end
   if ns.ItemSound then ns.ItemSound("pickup", b and b.pkBag, b and b.pkSlot) end
-  -- The cell is an overlay over a slot it only mirrors, so the game picks nothing up by itself: the
-  -- item behind the pin goes on the cursor by hand, and from there the drag is the game's own -- the
-  -- bar's drop handler writes the item action, a bag slot moves the piece -- with the cursor art the
-  -- game draws, so there is no art of this window's to follow the pointer. A live cell names the
-  -- exact bag slot, and the container reader takes that copy. A ghost has no slot, so the client
-  -- resolves its link on its own -- that is the drag worth keeping: the bar takes it and the pointer
-  -- gets the game's art -- and the drag is taken as ours whatever the client answers, because
-  -- rebuilding the pin from the cursor's link is exactly what loses the enchant. The answer
-  -- can also come a beat late, so an empty cursor here is no failure: the pickup is left as it is,
-  -- the game's drag shows when it shows, and the pin still moves by our own bookkeeping.
+  -- The cell is an overlay over a slot it only mirrors, so the game picks nothing up by itself: the item behind
+  -- the pin goes on the cursor by hand, and from there the drag is the game's own -- the bar's drop handler writes
+  -- the item action, a bag slot moves the piece -- with the cursor art the game draws. A live cell names the exact
+  -- bag slot and the container reader takes that copy; a ghost has no slot, so the client resolves its link alone,
+  -- and the drag is taken as ours whatever the client answers, because rebuilding the pin from the cursor's link
+  -- is exactly what loses the enchant. The answer can come a beat late, so an empty cursor is no failure: the
+  -- pickup is left as it is and the pin still moves by our own bookkeeping.
   self.liftFrom = nil
   if live then
     if not GetCursorInfo() and ns.PinPickup(pin, b.pkBag, b.pkSlot) then
@@ -868,8 +857,6 @@ function Pocket:Build()
   ns.AddTip(lock, function() return ns.L["Lock the pocket"] end, "top")
   self.lockBtn = lock
 
-  self.nudge = ns.CreateNudgeRow(w, "pocketPos")
-
   -- The same ink as the bags row: the pocket's Recent head is the same caption over the same kind of
   -- cells, and a grey one beside an accent title read as something switched off.
   local rec = Theme:Label(w, 11, "accent")
@@ -1099,7 +1086,6 @@ function Pocket:Layout()
   local w = self.frame
   if not w then return end
   applyDensity()
-  if w.wpeNudge then w.wpeNudge:Size(ns.Density(pocketSize()).arrow) end
   local Bags = ns.Bags
   local size, gap, step = ns.GridMetrics(w, ns.PocketIconSize(), Bags and Bags.gap or 4)
   local cols, rows = self:Cols(), self:Rows()
@@ -1185,7 +1171,8 @@ function Pocket:Layout()
           b.pkBag, b.pkSlot, b.wpeBagID = bag, slot, bag
           b.holder:SetID(bag)
           b:SetID(slot)
-          b.link = nil
+          -- The hand-off drops nothing: the key inside the paint reads the new slot and answers for it
+          -- (see Features/Favorites.lua).
         end
         local h = b.holder
         ns.SnapSize(h, size, size)
@@ -1193,7 +1180,9 @@ function Pocket:Layout()
         ns.SnapPoint(h, "TOPLEFT", w, "TOPLEFT", px, -py)
         h:Show(); b:Show()
         b.wpeForce = R:Got(id)
-        if repaint then b.link = nil end
+        if repaint then
+          b.link = nil
+        end
         ns.UpdateItemButton(b)
         if g then g:Hide() end
       else
@@ -1262,7 +1251,6 @@ function Pocket:Layout()
         b.pkBag, b.pkSlot, b.wpeBagID = bag, slot, bag
         b.holder:SetID(bag)
         b:SetID(slot)
-        b.link = nil
       end
       if live then
         local h = b.holder
@@ -1270,7 +1258,9 @@ function Pocket:Layout()
         h:ClearAllPoints()
         ns.SnapPoint(h, "TOPLEFT", w, "TOPLEFT", px, -py)
         h:Show(); b:Show()
-        if repaint then b.link = nil end
+        if repaint then
+          b.link = nil
+        end
         ns.UpdateItemButton(b)
         if g then g:Hide() end
       else
@@ -1295,16 +1285,15 @@ function Pocket:Layout()
   self.max = n
   self:ApplySearch()
   self:Cooldowns()
-  -- The band under the arrows is reserved whether they are up or not. Locking a window is not
-  -- a resize, so dropping the band would move everything in it; only the arrows themselves come
-  -- and go.
-  local editable = not self:Locked()
-  if self.nudge then self.nudge:SetShown(editable) end
   local foot = gridTop + Layout.GridHeight(rows, step, size) + BOX_GAP
   -- The plate runs the whole window, the band under the arrows included, and stops only under a
   -- skin's own header (Theme:FitPlate).
   Theme:FitPlate(self.gridBg, w)
-  ns.SnapSize(w, Layout.WindowWidth(PAD, cols, step, gap), foot + NUDGE_BAND)
+  -- The window ends under the last row: six points of its own air, then the theme's bottom pad. There used to
+  -- be a whole band down here for the four arrows that stepped the frame a pixel at a time, and the frame did
+  -- not need them: its own body is dragged on a left button, clamped to the screen and rebased on the drop, so
+  -- the arrows only repeated the drag and the band they stood in kept the window taller than what it drew.
+  ns.SnapSize(w, Layout.WindowWidth(PAD, cols, step, gap), foot + 6 + Theme:ContentPad("bottom"))
   ns.AlignToScreen(w)
   local free = 0
   if rightBtn and rightBtn.GetLeft then
@@ -1502,15 +1491,20 @@ function Pocket:Open()
   -- releasing it only clears that exposure mark -- Unhold then has no record left to move the pocket with,
   -- and the lines below place the window the way an open always does.
   if self.picksFrame and self.picksFrame:IsShown() and picksMode == "fav" then self:ClosePicks() end
-  w:ClearAllPoints()
   local pp = WarpeeDB and WarpeeDB.pocketPos
   local anchor = ns.Bags and ns.Bags.frame
   if pp then
+    -- No ClearAllPoints ahead of this one: PlaceWindow keeps the spot it last applied and skips a repeat,
+    -- so taking the anchors away first left the second open of the window with no point at all -- shown,
+    -- and nowhere. A record that is gone falls through to the branches below, and those clear their own.
     ns.PlaceWindow(w, "pocketPos")
-  elseif anchor then
-    ns.SnapPoint(w, "TOPLEFT", anchor, "TOPRIGHT", 8, 0)
   else
-    w:SetPoint("CENTER")
+    w:ClearAllPoints()
+    if anchor then
+      ns.SnapPoint(w, "TOPLEFT", anchor, "TOPRIGHT", 8, 0)
+    else
+      w:SetPoint("CENTER")
+    end
   end
   WarpeeDB.pocketOpen = true
   self:Layout()
@@ -1542,17 +1536,13 @@ function Pocket:Toggle()
   end
 end
 
--- A list never moves the pocket: the pocket is the player's own HUD, and a HUD that steps aside and
--- comes back is a HUD that can be left shifted. A list that opens over it takes it off the screen
--- instead -- hidden, not closed, so the profile's open flag and the saved corner are untouched -- and
--- the same corner is where it comes back. The window it belongs to may have been dragged while the
--- list stood, so the corner travels by that delta on the way back; nothing else about the pocket is
--- written.
---
--- `hidden` names the list that hid it and both rectangles at that moment; the two lists never stand
--- together (each toggle closes the other first), so the record is one list deep and a stale close
--- cannot show the pocket early. `exposed` is the player's own hand: opening the pocket while a list
--- stands is a decision, and that list no longer sends it away.
+-- A list never moves the pocket: the pocket is the player's own HUD, and a HUD that steps aside and comes back
+-- is a HUD that can be left shifted. A list that opens over it takes it off the screen instead -- hidden, not
+-- closed, so the profile's open flag and the saved corner are untouched -- and the same corner is where it comes
+-- back, moved by the window's own drag delta if the window was dragged while the list stood. `hidden` names the
+-- list that hid it and both rectangles at that moment; the two lists never stand together, so the record is one
+-- list deep. `exposed` is the player's own hand: opening the pocket while a list stands is a decision, and that
+-- list no longer sends it away.
 local function pocketRect(w)
   if not (w and w.GetLeft and w.GetBottom) then return nil end
   return w:GetLeft(), w:GetBottom()
@@ -1628,14 +1618,15 @@ function WarpeePocketToggle()
 end
 
 -- The pocket takes the first free key of a short ladder, and the one line it says on the way is
--- built from the key it actually got.
+-- built from the key it actually got. The letter is the bags' letter, because the pocket is a small
+-- window beside them: Shift first, Alt second, and a function key last, which is far away from the
+-- hands but free on every client.
+local POCKET_KEYS = { "SHIFT-B", "ALT-B", "F7" }
 local function defaultKey()
   if not WarpeeDB or WarpeeDB.pocketBind then return end
   if InCombatLockdown() then return end
-  -- A pocket that is switched off gets no key and no line about one. Its header button is
-  -- hidden with it, so a binding would sit on the player's keys doing nothing, and the line
-  -- would describe a window that never opens. The mark is still set: there is nothing here
-  -- to say later.
+  -- A pocket that is switched off gets no key: its header button is hidden with it, so a binding would sit
+  -- on the player's keys doing nothing. The mark is still set -- there is nothing here to say later.
   if not ns.Pocket:Enabled() then
     WarpeeDB.pocketBind = true
     return
@@ -1646,10 +1637,9 @@ local function defaultKey()
   local k1, k2 = GetBindingKey("WARPEE_POCKET")
   local key = (k1 and k1 ~= "" and k1) or (k2 and k2 ~= "" and k2) or nil
   if not key then
-    if (GetBindingAction("SHIFT-B") or "") == "" then
-      key = "SHIFT-B"
-    elseif (GetBindingAction("F7") or "") == "" then
-      key = "F7"
+    for i = 1, #POCKET_KEYS do
+      local cand = POCKET_KEYS[i]
+      if (GetBindingAction(cand) or "") == "" then key = cand; break end
     end
     if key then
       SetBinding(key, "WARPEE_POCKET")
@@ -1657,17 +1647,13 @@ local function defaultKey()
       if GetBindingKey("WARPEE_POCKET") ~= key then key = nil end
     end
   end
-  -- The line names the key it just took, so it is built from the localized sentence with
-  -- the key spliced in, not from an English string glued to an English tail.
-  local line
-  if key then
-    line = (ns.L["The pocket is a small window of bookmark cells beside the bags. Open it with %s."]):format(key)
-  else
-    line = ns.L["The pocket is a small window of bookmark cells beside the bags. Open it with a key bound in the settings."]
-  end
+  -- Nothing is said in the chat: the key is on the row in the settings, and a window that binds a key for
+  -- itself is not worth a paragraph in the middle of whatever the player was reading.
   WarpeeDB.pocketBind = true
-  print("|cffd9a85fWarpee|r |cffffffff" .. line .. "|r")
 end
+
+-- A profile reset asks the pocket question again in the same session, not on the next login.
+ns.PocketDefaultKey = defaultKey
 
 local ev = CreateFrame("Frame")
 ev:RegisterEvent("BAG_UPDATE_DELAYED")

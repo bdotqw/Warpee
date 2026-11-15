@@ -17,6 +17,10 @@ local PICKS = {
 }
 
 local NONE = {}
+local POCKET_ROWS = ns.IsForever and 2 or 4
+local POCKET_COLS = ns.IsForever and 5 or 6
+ns.PocketRowsDefault, ns.PocketColsDefault = POCKET_ROWS, POCKET_COLS
+
 local DEFAULTS = {
   cols = 16, gap = 4, iconSize = 37, slotStyle = "plate", theme = "blizzard",
   font = "Rubik Bold",
@@ -34,7 +38,7 @@ local DEFAULTS = {
   splitGapWb = 12,
   -- Whether a block carries its bag's or tab's name over its cells.
   nameBags = true, nameBank = true, nameWb = true,
-  pocketShow = true, pocketWithBags = false, pocketHandOnly = false, pocketRows = 4, pocketCols = 6,
+  pocketShow = true, pocketWithBags = false, pocketHandOnly = false, pocketRows = POCKET_ROWS, pocketCols = POCKET_COLS,
   pocketSnap = true, pocketRecentTwo = false,
   -- A size of the pocket's own. NONE -- "no number of its own, read the bags' size on every pass" --
   -- would make resizing the bags drag the pocket along, and a profile would never carry the size,
@@ -74,6 +78,10 @@ local DEFAULTS = {
   -- goldBlizzard: the money line's coin is Warpee's own unless this says otherwise (the client's icons
   -- are the ones the rest of the game writes, kept for anyone who wants the window to match them).
   goldFormat = "short", goldLetters = false, goldOnly = false, goldBlizzard = false, goldMin = 0,
+  -- The cheap list (Forever): the best quality it shows and the quality a delete asks about first. Stored by
+  -- name, like the gold style, so the saved variables say what was chosen rather than a bare number.
+  cheapMaxQuality = "uncommon", cheapConfirm = "uncommon", cheapAuctionSource = "auto",
+  cheapShow = true, cheapCut = true,
   -- curStrip: the row of the currencies the client itself tracks, drawn inside the bags under the grid
   -- behind a seam. On by default: it answers "how much of it do I have" without opening the character
   -- panel, and a tick in the panel behind it is the character panel's own pin, both ways.
@@ -95,7 +103,7 @@ local DEFAULTS = {
   keepBags = true, keepBank = true, keepWarband = true,
   searchClear = true, searchLink = true, minimapAngle = 2.2,
   bankCols = 28, warbandCols = 26, bankIconSize = 37, warbandIconSize = 37,
-  hideMoveFields = false, badgeSolo = false, lockWindows = false,
+  hideMoveFields = true, badgeSolo = false, lockWindows = false,
   -- Straight out of the badge table in ItemButton.lua, which draws them and feeds the
   -- panel preview from the same numbers. A second copy here is how the two drifted.
   badge = ns.BadgeDefaults(),
@@ -299,21 +307,15 @@ function ns.ApplyAll()
   if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
 end
 
--- Two clocks, because there are two kinds of work and they cost very different things.
---
--- The read: a cell nobody has seen before pays a tooltip call, and a full bank is hundreds of them.
--- That is the work the client stops a pass for, so it keeps a slice of one frame's worth of work (time
--- and not a count: what a cell costs is whatever the moment makes it, so a count that fits one machine
--- starves another). It was a tenth of a second before this -- a slice that big ran 100 ms of read per
--- frame and the opening bank read as one ~130 ms hitch followed by two more -- and 8 ms is the
--- single-digit number the passes that chunk this way aim for.
---
--- The drawing: a texture set, a count, a ring, a string. Ours, cheap, and never sliced anywhere else in
--- the addon -- the bags paint their whole grid in one call, in and out of combat, and always have. So a
--- pass that draws runs its whole plan in one call and the window arrives drawn, which is the shape a
--- window should have: a bank that filled itself in cell by cell read as a stutter, not as an opening.
--- The ceiling below is not a slice but the way out of a plan too big for one frame at all (a snapshot of
--- a thousand slots); past it the pass yields and the next frame carries on.
+-- Two clocks, because there are two kinds of work and they cost very different things. The read: a cell nobody
+-- has seen pays a tooltip call, and a full bank is hundreds of them -- the work the client stops a pass for, so
+-- it keeps a slice of one frame's worth by time and not by count (a count that fits one machine starves
+-- another). A tenth of a second ran ~100 ms of read per frame and the opening bank read as one ~130 ms hitch
+-- followed by two more; 8 ms is the single-digit number the passes that chunk this way aim for. The drawing: a
+-- texture set, a count, a ring, a string. Ours, cheap, and never sliced anywhere else -- the bags paint their
+-- whole grid in one call, in and out of combat. So a pass that draws runs its whole plan and the window arrives
+-- drawn; a bank that filled itself cell by cell read as a stutter. The ceiling below is not a slice but the way
+-- out of a plan too big for one frame at all (a snapshot of a thousand slots): past it the pass yields.
 local BUDGET = 0.008
 local FILL_CEILING = 0.5
 local lastEntry = GetTimePreciseSec()
@@ -333,10 +335,10 @@ function ns.FillOutOfTime()
 end
 
 local function repaintItems()
-  ns.ClearItemPaint()
-  -- A verdict or an item-cache change that lands while the window is shut has no cells to walk: the links
-  -- are dropped here anyway, and the open repaints them (Bags:Resume) instead of waiting for a change in
-  -- the bags that will never come.
+  -- The pools are not wiped here any more. The paint guard compares the verdict ring itself now, so a cell
+  -- whose ring did not move answers from its key and costs no read: wiping every link in every pool was what
+  -- made the first open after an item-cache event repaint all of its cells. A window that is shut still
+  -- answers through Bags:Resume, which walks the cells and lets the same guard decide which ones moved.
   if Bags.frame and Bags.frame:IsShown() then Bags:Layout() else Bags.openPaint = true end
   if ns.Bank then ns.Bank:Repaint() end
   -- The guild bank paints the same rings off the same verdicts, and it is the one window the two
@@ -446,12 +448,12 @@ function ns.Toggle(show, automatic)
       Bags:Resume()
     end
     openPocketWithBags(automatic)
-    -- First open on a profile that has never been prompted announces the category view and offers a
-    -- starting layout. It gates itself on the per-profile flag and on combat, and sets the flag only when
-    -- dismissed, so an open in combat simply tries again next time.
-    if ns.Welcome then ns.Welcome:MaybeShow() end
+    -- The cheap window is the bags' own answer to a full bag: it comes up with them when there is no room
+    -- left and leaves with them (see Windows/Cheap.lua). Forever only, so nil on retail.
+    if ns.Cheap then ns.Cheap:MaybeShow() end
   else
     f:Hide()
+    if ns.Cheap then ns.Cheap:BagsClosed() end
   end
 end
 
@@ -525,6 +527,16 @@ local BAG_FN = {
 -- Hook the game's bag functions, never assign over them. A replaced global is a
 -- tainted closure the game then calls itself, and if that path goes on to a protected
 -- call, the call is refused.
+-- The same rule the profiler follows: a stack can come back as a secret string, and touching one raises inside
+-- the client's own call. No stack means "no answer", never an error.
+local function stackText(...)
+  if not debugstack then return nil end
+  local ok, st = pcall(debugstack, ...)
+  if not ok or type(st) ~= "string" then return nil end
+  if issecretvalue and issecretvalue(st) then return nil end
+  return st
+end
+
 local function hookList(names, fn)
   for _, n in ipairs(names) do
     if type(_G[n]) == "function" then hooksecurefunc(n, fn) end
@@ -543,19 +555,14 @@ local function HookBagToggles()
   -- disagreeing with ours, so a press could close what it should have opened.
   ToggleAllBags = function() ns.Toggle() end
   hideBlizzBags()
-  -- The game opens its own bags beside a window on its own: the mail calls this family
-  -- with its frame, the merchant and the auction house call it from their own code.
-  -- Following those calls made the auto open checkboxes dead letters, the game's call
-  -- always opened ours, so the hooks now follow none of them: the auto open
-  -- checkboxes are the only thing that opens our bags together with a window, and
-  -- these hooks stay only to keep the game's containers tucked away. Two game paths
-  -- still open ours: an enchant or a gem waiting for a target opens them so the item
-  -- to receive it can be clicked, held back when the pocket is on screen, and a loot
-  -- toast click means show what just dropped.
-  -- A loot toast click is the only thing that reaches the bags through OpenBag, so the
-  -- stack is read on that one name. OpenAllBags and OpenBackpack arrive from the mail, a
-  -- merchant, the auction house or a keybind, and building a stack for them was paying
-  -- for an answer they cannot give.
+  -- The game opens its own bags beside a window on its own: the mail calls this family with its frame, the
+  -- merchant and the auction house from their own code. Following those calls made the auto open checkboxes dead
+  -- letters -- the game's call always opened ours -- so the hooks follow none of them now: the checkboxes are the
+  -- only thing that opens our bags together with a window, and these hooks stay only to keep the game's containers
+  -- tucked away. Two game paths still open ours: an enchant or a gem waiting for a target (held back when the
+  -- pocket is on screen), and a loot toast click, which is the only thing that reaches the bags through OpenBag --
+  -- so the stack is read on that one name, since OpenAllBags and OpenBackpack come from the mail, a merchant, the
+  -- auction house or a keybind, and building a stack for them was paying for an answer they cannot give.
   local function fromGameOpen(fromToast)
     if ns.ItemTargeting() then
       if not (ns.Pocket and ns.Pocket.frame and ns.Pocket.frame:IsShown()) then
@@ -570,7 +577,8 @@ local function HookBagToggles()
     fromGameOpen(false)
   end)
   hookList({ "OpenBag" }, function()
-    fromGameOpen(debugstack():find("AlertFrameSystems", 1, true) ~= nil)
+    local st = stackText()
+    fromGameOpen((st and st:find("AlertFrameSystems", 1, true)) and true or false)
   end)
   -- An item spell waiting for a target, an enchant or a gem, makes the game open the
   -- bags through these same calls. Only our own frame is held back here; the game's
@@ -579,7 +587,7 @@ local function HookBagToggles()
   -- Frame-driven closes belong to the interaction events, which know which window still owns the bags.
   local function closeFromGame(frame, nested)
     if frame ~= nil then return end
-    local st = debugstack and debugstack()
+    local st = stackText()
     -- CloseBackpack can run inside CloseAllBags without its frame argument; only the outer hook decides.
     if nested and st and st:find("CloseAllBags", 1, true) then return end
     -- Escape must reach UISpecialFrames or the same press opens the game menu after hiding the bags.
@@ -593,7 +601,7 @@ local function HookBagToggles()
   -- opened our bags beside every window that calls OpenAllBags, checkbox or no checkbox: the sync hook is
   -- for a hand that toggles the game's bags, and a call already inside an open/close-all is not a hand.
   hookList(BAG_FN.sync, function(id)
-    local st = debugstack and debugstack()
+    local st = stackText()
     if st and (st:find("OpenAllBags", 1, true) or st:find("CloseAllBags", 1, true)) then return end
     -- The keyring's button toggles the game's keyring window, not the bags: the window is let out and the
     -- addon's own stays as it was.
@@ -1188,6 +1196,8 @@ on.PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED = onBankSlots
 on.BAG_CONTAINER_UPDATE = onBankSlots
 
 ev:SetScript("OnEvent", function(_, event, a1, a2)
+  -- The perf sampler hangs these names on the frame it measures, so a slow tick can say which of this file's
+  -- entry points it was. One table lookup per event while no run is armed, and one tinsert while one is.
   local h = on[event]
   if h then h(event, a1, a2) end
 end)

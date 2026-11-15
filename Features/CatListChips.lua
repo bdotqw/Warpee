@@ -13,7 +13,7 @@ function factories.catlistchips(env)
   -- One pinned item: the art alone. A pin is a picture of something the player filed by hand, and a strip
   -- read by eye — a row of icons puts twice the pins where a row of named chips put them, and the name is
   -- in the tooltip, which is where a name is read anyway. The hover is the whole target: the art dims, the
-  -- × stands over it, and a click anywhere on the icon takes the pin out. One frame, so nothing has to be
+  -- minus stands over it, and a click anywhere on the icon takes the pin out. One frame, so nothing has to be
   -- summoned before it can be hit — a target that appears under the cursor is a target a fast click misses.
   -- The unpin only edits a saved table and relayouts, no protected call, so it is taint free like the drag
   -- that made the pin.
@@ -30,10 +30,13 @@ function factories.catlistchips(env)
     ns.SnapSize(ic, ICON, ICON)
     ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     b.ic = ic
+    -- A minus, not a cross: one axis-aligned bar reads the same on every icon at every scale, while a cross is
+    -- two strokes on a diagonal and their thickness changes with the row's phase -- the same reason the
+    -- settings lists draw their delete marks as minuses.
     local x = CreateFrame("Frame", nil, b)
     x:SetPoint("CENTER")
-    x:SetSize(ICON * 0.6, ICON * 0.6)
-    ns.MarkX(x)
+    x:SetSize(ICON, ICON)
+    ns.MarkMinus(x, true)
     ns.TintMarkX(x, "accent")
     Theme:Track(x, function() ns.TintMarkX(x, "accent") end)
     x:Hide()
@@ -45,7 +48,7 @@ function factories.catlistchips(env)
       if s.wpeId then
         GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
         GameTooltip:SetItemByID(s.wpeId)
-        GameTooltip:AddLine(ns.TipInk(ns.L["Click the × to remove"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9)
+        GameTooltip:AddLine(ns.TipInk(ns.L["Click the − to remove"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9)
         GameTooltip:Show()
       end
     end)

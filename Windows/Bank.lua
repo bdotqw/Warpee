@@ -941,18 +941,10 @@ function View:FlowHeader()
   sizeGlyph(self.gearBtn, HBTN)
   sizeGlyph(self.sortBtn, HBTN)
   sizeGlyph(self.slotsBtn, HBTN)
-  -- The three glyphs sit at the right edge. Sort is only dropped when the bank has no live container, so
-  -- the flow skips it there and the gear closes up to the X. Left of the glyphs comes the deposit button,
-  -- and left of that the checkbox with its label to the checkbox's left, so the row
-  -- reads "Include reagents [checkbox]  [Deposit ...]  glyphs" left to right. The tabs occupy the left
-  -- of this same row, so each control is shown only while it still clears the tabs' right edge: the
-  -- deposit button and the reagents check are tested on their own, so a narrow window drops whichever
-  -- does not fit rather than both. UpdateFooter sets depWant/reagWant (the bank type wants them); the
-  -- fit test here has the final say on shown state.
-  -- The bag window's slot panel reads the containers of the bank that is open, and a snapshot of another
-  -- character's bank has none behind it: the mark stands down with the panel while the view is someone
-  -- else's. Set before the flow below, so the row chains straight from the sort to the gear and no hole is
-  -- left where the mark stood.
+  -- The row's right edge: glyphs, then the deposit button, then the reagents checkbox, flowing leftward, while
+  -- the tabs take the left of the same row. Each control is tested on its own, so a narrow window drops only the
+  -- one that does not fit. Sort is dropped entirely when the bank has no live container. Over somebody else's
+  -- snapshot the mark stands down with the panel, set before the flow so no hole is left where it stood.
   if self.slotsBtn then self.slotsBtn:SetShown(self.bankerOpen and not self.snap) end
   -- Right to left: the X, the gear, the bank's bag slots, the sort. Built by hand rather than as one
   -- literal: slotsBtn is nil on every client but Forever, and a nil in the middle of the list would stop
@@ -1397,18 +1389,11 @@ function View:DepositTabs(info)
   return out
 end
 
--- Hovering a tab lights the cells of that tab and dims the rest, the reading the bag window already gives
--- a bag under the cursor (Bags:HighlightBag): the pointed-at block stands out of the grid before it is
--- clicked. A tab the grid is not showing (one the picker has scoped out, or one that is empty) has no cell
--- to light, and dimming the rest with nothing lit only blanks the window, so nothing is dimmed unless
--- something is lit. The dim rides the same flag the search uses (b.bagMiss), so a query and a hover
--- combine and the leave pass restores whichever is still on; the tab's own cells keep a faint wash (0.12
--- against the usual 0.30) so an empty slot of the tab reads against its dimmed neighbours.
---
--- A snapshot (another character's bank) takes part too: its cells are vault cells, and they carry the same
--- wpeBag and answer the same two calls (ns.CreateVaultButton keeps a ringFrame, and the pass already runs
--- ns.ApplySearchToButton over them), so a tab reads the same whether the bank is live or a kept one. The
--- strip is drawn in a snapshot as well, from the vault's own tab names and counts.
+-- Hovering a tab lights that tab's cells and dims the rest, the reading the bag window gives a bag under the
+-- cursor. Nothing is dimmed unless something is lit: a tab the picker scoped out, or an empty one, has no cell
+-- to light and dimming alone only blanks the window. The dim rides the search's own flag (b.bagMiss), so a
+-- query and a hover combine. A snapshot takes part as well -- its vault cells carry wpeBag and answer the same
+-- two calls -- so a tab reads the same whether the bank is live or kept.
 function View:HighlightTab(bag)
   if not bag then return end
   local st = self.cur
@@ -1837,17 +1822,10 @@ function View:RefreshStrip()
   self:PlaceBuyCell(x + #entries * (TAB_SIZE + TAB_GAP))
 end
 
--- The tab editor is the game's own settings menu, the same popup the macro and guild bank
--- windows open, so the icon list and its search, the deposit settings and the write back
--- are all the game's, and none of it has to be kept in step with a patch from here.
---
--- Three things have to happen before it can be opened from our strip. It is a child of
--- BankPanel and BankFrame lives in the hidden holder, so nothing inside that panel is ever
--- drawn; it is parented out to UIParent for that, which costs nothing because the game
--- reads the panel off the BankPanel global rather than down the parent chain. It is given
--- its tab data, because the panel's own answer is a cache that comes back empty on the path
--- we open it by, see TabData below. And it is handed to the guild bank's popup skinner once,
--- so the two popups of one template cannot drift apart.
+-- The tab editor is the game's own popup, so its icon list, search and deposit settings are the game's.
+-- Three things are done first: it is parented out to UIParent (BankFrame lives in the hidden holder, so
+-- nothing under BankPanel is ever drawn), it is handed tab data because the panel's own cache comes back empty
+-- on the path we open it by, and it goes to the guild bank's popup skinner so the two cannot drift apart.
 function View:TabSettings()
   local panel = BankFrame and BankFrame.BankPanel
   local pop = panel and panel.TabSettingsMenu
@@ -1947,16 +1925,10 @@ function View:Activate(mode)
   self:PinBlizzTabs()
 end
 
--- Start a pass: the claim set, the position list and the pool cursor start empty.
---
--- The slot->cell map is deliberately NOT per pass. It is the index of what each cell is bound to, and it
--- outlives the pass, because a pass can be cut short: a touch sweep takes the draw token over and the fill
--- stops where it is (bank.touch fires constantly during a transfer). A map rebuilt per pass would then be
--- missing every entry the interrupted pass never reached, so the next pass would hand those slots cells from
--- the pool, rebind them and repaint them: measured on a deposit, 1165 rebounds against 1193 paints -- the
--- whole repaint storm that the keyed hand-out was meant to remove. Bindings are moved where a cell is really
--- rebound (see Run), and a cell hidden for a pass keeps its binding, so a piece that comes back is shown
--- again with nothing to paint.
+-- Start a pass: claim set, position list and pool cursor start empty. The slot->cell map is deliberately NOT
+-- per pass: a pass can be cut short when a touch sweep takes the draw token, and a map rebuilt per pass would
+-- miss those entries and rebind their cells -- 1165 rebounds against 1193 paints on a measured deposit. A cell
+-- hidden for a pass keeps its binding.
 function View:BeginPass(st)
   wipe(st.claim)
   wipe(st.live)
@@ -1968,18 +1940,11 @@ function View:BeginPass(st)
   st.free, st.bfree = 1, 1
 end
 
--- The cell for a plan entry: the one already showing this slot, or the next free cell of the pool. What a
--- pass pays per cell is decided here: a cell handed the slot it already shows keeps its picture (the paint
--- guard in ns.UpdateItemButton finds nothing changed and returns), a cell handed another slot repaints. So
--- cells are keyed by the slot they show, not by the place they stand in: the slot a cell names is the only
--- thing that says whether its picture is still right. The plan is a compacted list of pieces, not of places:
--- a held hole is drawn by the pass as its own crosshair and takes no plan entry, and an arriving piece takes
--- one, so one arrival or departure moves every entry behind it an index along while the slots those entries
--- name have not moved.
--- Handing cells out by that index repainted every one of those cells with its neighbour's item -- 2057 paints
--- against 2191 bank and 794 bag cells placed in one measured withdrawal, which from the per-cell cost is about
--- three quarters of the bank window repainted per pass. Keyed, those cells are only moved, and the paint is
--- left to the pieces that really changed (an arrival, a count, a lock, a quest mark).
+-- The cell for a plan entry: the one already showing this slot, else the next free cell. Cells are keyed by
+-- the slot they show, not by the place they stand in: the plan is a compacted list of pieces, so one arrival
+-- or departure shifts every entry behind it while the slots have not moved -- handed out by index, every cell
+-- repainted with its neighbour's item (2057 paints against 2191 bank and 794 bag cells in one withdrawal).
+-- Keyed, cells are only moved, and paint is left to the pieces that really changed.
 function View:Acquire(st, c, bare)
   -- The kind of cell this entry wants, and never the wrong one: a snapshot draws what another character's
   -- containers held and is handed its own pool whatever the slot reads, while a live slot that answers

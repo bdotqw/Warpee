@@ -154,6 +154,18 @@ local goldTip
 local tokenTick = false
 local TIP_PAD, TIP_GAP = 8, 16
 local TIP_FONT_MIN = 8
+-- A coin's room on a line, in units: coinSet in Windows/Bags.lua draws it at 12 when the caller hands no face
+-- (the gold tooltip hands none). The money labels measure that coin themselves; this number is only the inset
+-- the last column keeps from the panel's border, so the outer coin is never painted into the edge.
+local COIN_W = 15
+-- The money leans this far into the panel's padding, so the rightmost coin sits a hair off the border instead of
+-- a coin's width inside it. Without the lean the padding and the coin's own air added up to a band of empty panel
+-- beside the numbers on every row, retail's single gold column the most visible of all.
+local COIN_BLEED = 5
+-- What sits between two columns: the money labels already carry their coins -- a coin's own advance is part of
+-- what the label measures -- so this is air, not a second coin's room. Five units is what the cheap list puts
+-- between its money columns; a coin's worth on top of a measured coin left a wide band between the units.
+local COL_GAP = 5
 
 local function tipRow(t, i, size)
   local r = t.rows[i]
@@ -162,10 +174,17 @@ local function tipRow(t, i, size)
   local l = Theme:Label(r, size, "text")
   l:SetPoint("LEFT", 0, 0)
   l:SetJustifyH("LEFT")
-  local v = Theme:Label(r, size, "text")
-  v:SetPoint("RIGHT", 0, 0)
-  v:SetJustifyH("RIGHT")
-  r.Left, r.Right = l, v
+  -- The money is three labels, not one: gold, silver and copper each own a column, so a copper sits under the
+  -- copper above it however many coins the row carries. Their right anchors are set once the widest of each
+  -- column is known (see the column block in showGoldTip); a coin is a texture the font string does not measure,
+  -- so every column also keeps COIN_W of room on its own -- the one thing widening the panel could never fix.
+  r.Left = l
+  for _, key in ipairs({ "G", "S", "C" }) do
+    local v = Theme:Label(r, size, "text")
+    v:SetJustifyH("RIGHT")
+    v:Hide()
+    r[key] = v
+  end
   t.rows[i] = r
   return r
 end
@@ -246,9 +265,15 @@ local function showGoldTip(anchor)
   end
   local rowH = fs + 3
 
-  local n, y, widest = 0, TIP_PAD, 90
+  -- Small balances matter on Forever; its rows and total retain silver and copper. Declared before the row
+  -- helper, which closes over it: a local written after the function is a different variable to the compiler.
+  local goldOnly = not ns.IsForever
+  local n, y = 0, TIP_PAD
+  -- The widest each column has to be, and the widest name: the panel is sized from these rather than from any
+  -- one row, since a column is as wide as its own widest number wherever that number sits.
+  local gMax, sMax, cMax, leftMax = 0, 0, 0, 0
 
-  local function row(name, amount, colorKey, col)
+  local function row(name, money, colorKey, col, onlyGold)
     n = n + 1
     local r = tipRow(t, n, fs)
     r:SetHeight(rowH)
@@ -256,31 +281,40 @@ local function showGoldTip(anchor)
     r:SetPoint("TOPLEFT", TIP_PAD, -y)
     r:SetPoint("TOPRIGHT", -TIP_PAD, -y)
     r.Left:SetFont(path, fs, ns.OutlineFlags())
-    r.Right:SetFont(path, fs, ns.OutlineFlags())
     r.Left:SetText(name)
-    r.Right:SetText(amount or "")
     if col then r.Left:SetTextColor(col.r, col.g, col.b)
     else r.Left:SetTextColor(Theme:C(colorKey or "text")) end
-    r.Right:SetTextColor(Theme:C("overlay"))
+    -- No money at all is a row with an empty amount ("nothing recorded"), not a row of zeroes.
+    local g, s, c
+    if money then g, s, c = ns.MoneyParts(money, onlyGold == nil and goldOnly or onlyGold) end
+    local function put(lbl, txt)
+      lbl:SetFont(path, fs, ns.OutlineFlags())
+      lbl:SetTextColor(Theme:C("overlay"))
+      lbl:SetText(txt or "")
+      if txt then lbl:Show() else lbl:Hide() end
+      return txt and lbl:GetStringWidth() or 0
+    end
+    local wg, ws, wc = put(r.G, g), put(r.S, s), put(r.C, c)
+    if wg > gMax then gMax = wg end
+    if ws > sMax then sMax = ws end
+    if wc > cMax then cMax = wc end
+    local lw = r.Left:GetStringWidth()
+    if lw > leftMax then leftMax = lw end
     r:Show()
-    widest = math.max(widest,
-      math.ceil(r.Left:GetStringWidth() + r.Right:GetStringWidth()) + TIP_GAP)
     y = y + rowH
   end
 
-  -- Small balances matter on Forever; its rows and total retain silver and copper.
-  local goldOnly = not ns.IsForever
   for _, e in ipairs(shown) do
     -- The name is coloured by class whatever the purse holds: the colour says who the character is,
     -- not how much they carry, and a fresh alt read as an unnamed stranger when it was left plain for
     -- being at zero. What a full purse buys is the number beside it, and that is the same for everyone.
     local live = (e.money or 0) > 0
     local col = e.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
-    row(e.name, ns.FormatMoney(e.money, goldOnly, true), (col or live) and "text" or "dim", col)
+    row(e.name, e.money, (col or live) and "text" or "dim", col)
   end
   -- "Nothing recorded" is about the store, not about the filter: a threshold that hides every row must
   -- leave the table empty, not claim the purse was never recorded.
-  if n == 0 and #list == 0 then row(ns.L["No gold recorded yet"], "", "dim") end
+  if n == 0 and #list == 0 then row(ns.L["No gold recorded yet"], nil, "dim") end
 
   local sum = total
   -- With every purse hidden by the threshold there is nothing above the total, so the divider has no
@@ -296,10 +330,10 @@ local function showGoldTip(anchor)
     t.sep:Hide()
   end
   if wb and wb > 0 then
-    row(ns.L["Warband bank"], ns.FormatMoney(wb, true, true), "azure")
+    row(ns.L["Warband bank"], wb, "azure", nil, true)
     sum = sum + wb
   end
-  row(ns.L["Total"], ns.FormatMoney(sum, goldOnly, true), "accent")
+  row(ns.L["Total"], sum, "accent")
   if token > 0 then
     y = y + 3
     t.sep2:ClearAllPoints()
@@ -307,12 +341,27 @@ local function showGoldTip(anchor)
     t.sep2:SetPoint("TOPRIGHT", -TIP_PAD, -y)
     t.sep2:Show()
     y = y + 4
-    row(ns.L["WoW Token"], ns.FormatMoney(token, true, true), "dim")
+    row(ns.L["WoW Token"], token, "dim", nil, true)
   elseif t.sep2 then
     t.sep2:Hide()
   end
 
   for i = n + 1, #t.rows do t.rows[i]:Hide() end
+  -- The columns, counted from the row's right edge: copper first, then silver, then gold. The last column leans
+  -- COIN_BLEED into the padding, so the panel's border is a hair past its coin rather than a band beyond it.
+  local colC = COIN_W - COIN_BLEED
+  -- A gap belongs only between two columns that are really drawn. On retail every row is gold alone, so silver
+  -- and copper carry no width at all; charging both gaps anyway pushed the gold a whole band in from the edge and
+  -- widened the panel with it. A column that is never filled costs nothing.
+  local colS = colC + cMax + (sMax > 0 and COL_GAP or 0)
+  local colG = colS + sMax + (gMax > 0 and sMax > 0 and COL_GAP or 0)
+  for i = 1, n do
+    local r = t.rows[i]
+    r.C:ClearAllPoints(); r.C:SetPoint("RIGHT", -colC, 0)
+    r.S:ClearAllPoints(); r.S:SetPoint("RIGHT", -colS, 0)
+    r.G:ClearAllPoints(); r.G:SetPoint("RIGHT", -colG, 0)
+  end
+  local widest = math.max(90, math.ceil(leftMax) + TIP_GAP + colG + gMax)
   t:SetSize(ns.SnapEven(t, widest + TIP_PAD * 2), ns.SnapValue(t, y + TIP_PAD))
   t:ClearAllPoints()
   ns.SnapPoint(t, "BOTTOMRIGHT", anchor, "TOPRIGHT", 0, 6)

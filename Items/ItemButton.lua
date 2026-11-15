@@ -265,14 +265,10 @@ end
 -- ordering that holds between a word and a picture and no setting can get it wrong. The stack count has
 -- no frame: it is the game's own string on the button, under every frame of ours already. The badge panel
 -- keeps its preview in the same frames, so the cell and the preview cannot disagree.
+-- The order that used to be a frame level is a draw sublevel now (ns.BadgeSub). The name stays:
+-- every badge is created through it, and it answers with the cell.
 function ns.BadgeFrame(b, key)
-  b.wpeBadgeFrame = b.wpeBadgeFrame or {}
-  local f = b.wpeBadgeFrame[key]
-  if not f then
-    f = CreateFrame("Frame", nil, b)
-    b.wpeBadgeFrame[key] = f
-  end
-  return f
+  return b
 end
 
 -- Where a badge's frame sits inside its owner: the count lowest of all, the ordered five above it, and
@@ -280,10 +276,14 @@ end
 -- drag. `n` is the length of the order, `at` the badge's place in it (1 = top of the list). On a cell the
 -- whole run stays under the border frame twenty levels up, where the quest mark and the cooldown digits
 -- live, so nothing there has to move for this.
-function ns.BadgeLevel(owner, key, at, n, lifted)
-  if lifted then return owner:GetFrameLevel() + 10 end
-  if not at then return owner:GetFrameLevel() + 1 end
-  return owner:GetFrameLevel() + 2 + ((n or at) - at)
+-- Where a badge draws in the stack, as an OVERLAY sublevel: the top of the list is 7, the bottom of it 2,
+-- and a badge with no place in the order at all (the stack count) sits under the lot at 1. The whole run stays
+-- over the icon, which is on ARTWORK, and under the border frame, where the quest mark and the cooldown digits
+-- live. `lifted` is the panel's own badge, which has to stand over every other one while it is being dragged.
+function ns.BadgeSub(at, n, lifted)
+  if lifted then return 7 end
+  if not at then return 1 end
+  return math.max(2, 8 - at)
 end
 
 local function attachBorder(b)
@@ -613,8 +613,10 @@ function ns.IsWarbound(bagID, slot, loc, bound, link)
   local hit = key and wbMeta[key]
   if hit ~= nil then return hit end
   local bad = false
-  if C_TooltipInfo and C_TooltipInfo.GetBagItem then
-    bad = ns.WarboundTooltip(C_TooltipInfo.GetBagItem(bagID, slot)) and true or false
+  -- The ring's own scan wants the very same tooltip for this piece, and it is read once: ns.TooltipDump keeps
+  -- the answer for the link (see Items/ItemRules.lua), so whichever reader gets there first pays for it.
+  if link and ns.TooltipDump then
+    bad = ns.WarboundTooltip(ns.TooltipDump(link, bagID, slot)) and true or false
   end
   -- A slot whose item data has not landed scans as a plain item, so only a verdict read
   -- off a loaded item is worth keeping.
@@ -1016,15 +1018,10 @@ local BADGES = {
     t = "A coin on the items you marked for sale. The junk coin sits in the same spot." },
 }
 -- The junk coin is not an editable badge: no chip, no place in the draw order, just a marker toggled in
--- Items > Markers that wears the same coin on grey items. It keeps a def here so MarkJunk can size and
--- place it through the shared badge path; it never joins the BADGES array the panel walks. on is held
--- true because the real gate is ns.Bags.junkCoin -- this only lets ApplyBadge draw it opaque once MarkJunk
--- has decided it shows.
--- follow: the two coins are one mark on two different triggers, so the junk coin is sized by the sale
--- mark's record rather than one of its own, and drawn in the place just under its line in the badge order.
--- It has no row in the editor (its toggle is the checkbox), so a share or a place of its own could never
--- be changed and the two coins would drift apart on the first resizing or dragging.
--- The s/m below are only the fallback for the case the followed def is missing.
+-- Items > Markers that wears the same coin on grey items. Its def exists so MarkJunk can size and place it
+-- through the shared badge path, with on held true because the real gate is ns.Bags.junkCoin. It follows the
+-- sale mark's record -- the two coins are one mark on two triggers -- so resizing or dragging cannot drift them
+-- apart, and the s/m below are only the fallback when that record is missing.
 local JUNK = { key = "junk", n = "Junk coin", tex = true, on = true, follow = "sell",
   c = "TOPRIGHT", x = -1, y = -1, s = 0.4, m = 8 }
 local BADGE = {}
@@ -1212,7 +1209,9 @@ end
 -- Textures keep their own offsets, which are the one-pixel nudges they are drawn with.
 function ns.BadgeScale(cell, key, g)
   local d = BADGE[key]
-  if not d or d.tex then return 1 end
+  -- A share badge's offsets are the one-pixel nudges it is drawn with; a pixel badge's are written at the
+  -- reference cell like a text badge's, so they travel with the cell the same way.
+  if not d or (d.tex and not d.px) then return 1 end
   if not (cell and cell > 0) then return 1 end
   return cell / ns.BadgeRef(d, g or ns.Badge(key))
 end
@@ -1257,37 +1256,95 @@ local function badgeObj(b, key)
   return b[key]
 end
 
+-- The rank's art fitted into one box. A rank is drawn on its own rectangle in the atlas -- two diamonds,
+-- three, one -- so drawing every rank at one width (or at the atlas's own size) made the biggest one read
+-- twice the smallest. Here the longest side is the pixel number the panel holds and the other follows the
+-- art's own proportions, in whole pixels: the art is pixel-drawn, and a fractional size turns it to mush.
+function ns.FitArt(t, px)
+  if not t then return end
+  px = tonumber(px) or 0
+  if px < 1 then px = 1 end
+  local w0, h0 = tonumber(t.wpeW0), tonumber(t.wpeH0)
+  if not (w0 and h0 and w0 > 0 and h0 > 0) then
+    t:SetSize(px, px)
+    return
+  end
+  local k = px / math.max(w0, h0)
+  t:SetSize(math.max(1, math.floor(w0 * k + 0.5)), math.max(1, math.floor(h0 * k + 0.5)))
+end
+
 function ns.ApplyBadge(b, key)
   local o = badgeObj(b, key)
   if not o then return end
   local d, g = BADGE[key], ns.Badge(key)
   local cell = cellOf(b)
-  -- A texture's size is already a share of the cell and its offsets are the nudge it is drawn
-  -- with, so it keeps the ratio of one and nothing about it moves.
+  -- Everything below writes values that follow from the cell, the badge's own record, the point it hangs on and
+  -- the cell's dim. While none of those moved, the anchor, the size and the draw sublevel are already what this
+  -- call would write -- and re-writing them is what a warm open paid on every cell, four badges a cell:
+  -- ClearAllPoints and SetPoint on 160 badges for a grid of forty. The signature is the list of values the dress
+  -- sets, so a slider that moves or a cell that resizes makes it differ and the dress runs as it always did.
+  local dimDress = (b.searchMiss or b.bagMiss) and true or false
   local k = 1
-  if d.tex then
+  local size
+  if d.tex and d.px then
+    -- As many pixels as the slider says at the cell in front of it, fitted into one box whatever the art's
+    -- own rectangle is (ns.FitArt). Read through ns.BadgeSize, the same call the text badges use, so the
+    -- share of the cell and the floor are worked out in one place only.
+    size = ns.BadgeSize(key, cell, g)
+    k = ns.BadgeScale(cell, key, g)
+  elseif d.tex then
     -- The share comes through sizeSrc and not off this badge's own record: the junk coin follows the sale
     -- mark, and a follower reading its own def would ignore that and drift the moment the sale mark's
     -- slider moves. Its own floor still holds. No ref cell here -- a texture's size is already a share of
     -- the cell, which is what the ratio of one below keeps.
     local _, src = sizeSrc(key, g)
-    local sz = math.max(d.m or 8, math.floor(cell * ((src and src.s) or d.s) + 0.5))
-    o:SetSize(sz, sz)
+    size = math.max(d.m or 8, math.floor(cell * ((src and src.s) or d.s) + 0.5))
   else
     k = ns.BadgeScale(cell, key, g)
-    ns.SetOutlined(o, ns.BadgeSize(key, cell, g))
+    size = ns.BadgeSize(key, cell, g)
+  end
+  local px, py = ns.BadgeOffset(g.x, k), ns.BadgeOffset(g.y, k)
+  local pt = ns.BadgePoint(g)
+  -- The player's order, carried as a draw sublevel on the badge itself (see ns.BadgeSub): no frame of its own,
+  -- so the client's layout of the window has one fewer child per badge to walk. The coin's black copy goes one
+  -- sublevel under its coin, and the padlock that stands in for the coin shares the coin's place.
+  local at, n = ns.BadgeOrderSlot(key)
+  local sub = ns.BadgeSub(at, n)
+  local bg
+  if key == "sell" then bg = b.sellBg elseif key == "junk" then bg = b.junkBg end
+  local lk = (key == "sell") and b.sellLock
+  -- ns.BlockGen is not in here: it is bumped on every pass, so a signature that carried it would differ every
+  -- time and the dress would run as before -- which is exactly how the first cut of this measured no faster.
+  local sig = ("%s|%.0f|%.0f|%s|%s|%s|%s|%s"):format(pt, px, py, tostring(size), sub,
+    g.on and "1" or "0", dimDress and "1" or "0", tostring(cell or 0))
+  local sigs = b.wpeBadgeSig
+  if sigs and sigs[key] == sig then
+    -- The dim record still rides along: the search pass reads it to decide whether a cell needs repainting, and
+    -- a dress that matched has already left the dimension this call would write.
+    b.wpeBadgeDim, b.wpeBadgeDimGen = dimDress, (ns.BlockGen or 0)
+    return
+  end
+  if not sigs then
+    sigs = {}
+    b.wpeBadgeSig = sigs
+  end
+  sigs[key] = sig
+  if d.tex and d.px then
+    ns.FitArt(o, size)
+  elseif d.tex then
+    o:SetSize(size, size)
+  else
+    ns.SetOutlined(o, size)
     -- Dressed with the size rather than once at birth: a badge is handed a new face and a new place on
     -- every pass, so the tone rides the same call and nothing has to remember it went dim.
     if key == "ilvl" then o:SetTextColor(ILVL_INK[1], ILVL_INK[2], ILVL_INK[3], ILVL_INK[4]) end
   end
-  local px, py = ns.BadgeOffset(g.x, k), ns.BadgeOffset(g.y, k)
   o:ClearAllPoints()
-  o:SetPoint(ns.BadgePoint(g), b, g.c, px, py)
+  o:SetPoint(pt, b, g.c, px, py)
   -- Dim-aware for free: this call is paid by every dress anyway, so the value it carries follows the
   -- cell's dim and a badge dressed onto a dimmed cell lands dimmed. The record rides along, so the
   -- search pass (PaintBadgeDim) does not re-hang what the dress just hung; the coin shadow below mirrors
   -- the coin's own alpha and follows it with no call of its own.
-  local dimDress = (b.searchMiss or b.bagMiss) and true or false
   o:SetAlpha(g.on and (dimDress and ns.BADGE_DIM or 1) or 0)
   b.wpeBadgeDim, b.wpeBadgeDimGen = dimDress, (ns.BlockGen or 0)
   -- The black copy under a coin badge: the mark lands on the item's own art, and on a bright icon the rim
@@ -1295,8 +1352,6 @@ function ns.ApplyBadge(b, key)
   -- underneath, one whole physical pixel proud on every side. A whole pixel and not a share of the badge:
   -- a share steps between one and two as the cell resizes, and the halo it threw drifted with the step.
   -- A texture cannot be a parent, so the copy is placed off the coin's own centre instead.
-  local bg
-  if key == "sell" then bg = b.sellBg elseif key == "junk" then bg = b.junkBg end
   if bg then
     local u = ns.PX(b, 1)
     bg:SetSize(ns.SnapValue(b, o:GetWidth() + 2 * u), ns.SnapValue(b, o:GetHeight() + 2 * u))
@@ -1305,20 +1360,15 @@ function ns.ApplyBadge(b, key)
     bg:SetAlpha(o:GetAlpha())
   end
   -- The padlock shares the sell badge's rect: it is sized and placed to the coin it stands in for.
-  local lk = (key == "sell") and b.sellLock
   if lk then
     local w, h = o:GetWidth(), o:GetHeight()
     lk:SetSize(w, h)
     lk:ClearAllPoints()
     lk:SetPoint("CENTER", o, "CENTER", 0, 0)
   end
-  -- The player's order, carried as a frame level: 20 frames up is the border frame, where the quest mark
-  -- and the cooldown digits live, so the whole order stays under them and nothing there has to move.
-  local holder = b.wpeBadgeFrame and b.wpeBadgeFrame[key]
-  if holder then
-    local at, n = ns.BadgeOrderSlot(key)
-    holder:SetFrameLevel(ns.BadgeLevel(b, key, at, n))
-  end
+  o:SetDrawLayer("OVERLAY", sub)
+  if bg then bg:SetDrawLayer("OVERLAY", math.max(0, sub - 1)) end
+  if lk then lk:SetDrawLayer("OVERLAY", sub) end
 end
 
 -- A window that lands on a new cell size has to ask for a re-dress, because the badges are
@@ -1577,6 +1627,7 @@ local LOCK_ATLAS = { "bags-icon-lock", "Garr_LockedBuilding" }
 function ns.BadgeArt(t, key)
   if not t then return end
   if key == "junk" then
+  elseif key == "junk" then
     t:SetTexture([[Interface\AddOns\Warpee\Media\Icons\coin.tga]])
   elseif key == "lock" then
     if C_Texture and C_Texture.GetAtlasInfo then
@@ -1894,9 +1945,39 @@ local function keystoneMark(link)
   return get and get() or nil
 end
 
-function ns.ClearItemPaint()
+-- What a cell drew, remembered off the button itself. A pass clears a cell's link to make it look again, and
+-- the pool and the rows clear whole runs of them; a field on the button is what those clears reach, so the
+-- picture is remembered here instead, keyed by the button and holding nothing alive of its own.
+--
+-- The record is four facts compared one by one, not a stamped string: the link is 150-250 characters, and
+-- building a copy of it per cell on every call of the paint was the one cost of the guard that grew with the
+-- length of a link and showed up as a slower open with nothing on screen changed. Besides the link it carries
+-- the generations a repaint must answer for (a theme, a face, a language the ClearItemPaint path bumps), which
+-- are the changes no comparison of the slot's own facts can see. The table is made once per cell and rewritten.
+ns.PaintGen = ns.PaintGen or 0
+local paintSeen = setmetatable({}, { __mode = "k" })
+
+local function paintSeenSame(b, link)
+  local s = paintSeen[b]
+  if not s then return false end
   local B = ns.Bags
-  if B and B.pool then for _, b in ipairs(B.pool) do b.link = nil end end
+  return s.link == link and s.gen == (ns.PaintGen or 0)
+     and s.style == (B and B.styleGen or 0) and s.font == (B and B.fontPath or "")
+end
+
+local function paintSeenMark(b, link)
+  local s = paintSeen[b]
+  if not s then s = {}; paintSeen[b] = s end
+  local B = ns.Bags
+  s.link, s.gen, s.style, s.font = link, ns.PaintGen or 0, B and B.styleGen or 0, B and B.fontPath or ""
+end
+
+function ns.ClearItemPaint()
+  ns.PaintGen = (ns.PaintGen or 0) + 1
+  local B = ns.Bags
+  if B and B.pool then
+    for _, b in ipairs(B.pool) do b.link = nil end
+  end
   local F = ns.Fav
   if F and F.slots then for _, b in pairs(F.slots) do b.link = nil end end
   local R = ns.Recent
@@ -1986,8 +2067,78 @@ function ns.UpdateItemButton(b)
   -- to another slot (a window's order shifting under a transfer) can land on a locked one with the same item
   -- in it, and without this the grey the slot has earned would be left with the cell it came from.
   local locked = (info and info.isLocked) and true or false
-  if b.link == link and b.wpeCount == count and b.wpeMark == mark
-     and b.wpeQuestKey == qkey and b.wpeBound == bound and b.wpeItemLocked == locked then
+  -- The red edge is part of what a cell wears, so its verdict belongs in the key compared below. A verdict
+  -- that lands while the window is shut used to be answered by dropping every link in the pool, and the next
+  -- open then repainted the whole window (41 cells, thirteen milliseconds) for one changed ring. A cell painted
+  -- from a record is not a live slot: the container may hold nothing there or another item entirely, so asking
+  -- it would answer about the wrong piece -- which is why a whole snapshot of another character wore no rings at
+  -- all. The record's own verdict through the same function is what the ring means.
+  -- The reader is the expensive half of this line: it asks the client what the piece is, before it can even
+  -- look the answer up. A cell that already holds a final answer for this link and this generation keeps it,
+  -- and asks again only when the piece under it changes or the answers are dropped wholesale (a level, a
+  -- reputation, a spec, an item's data landing -- all of them move ns.VerdictGen). An answer that is still
+  -- waiting its turn is not kept: nothing bumps a generation when it lands, so the cell has to ask again.
+  local hl = info and info.hyperlink
+  local gen = ns.VerdictGen or 0
+  local unusable = false
+  -- The setting is the ring's own switch, so with it off the reader is not called at all: it asks the client
+  -- what the piece is before it can look an answer up, and an answer nothing on screen can show is work for
+  -- nothing. Flipping the box is safe in both directions -- it is a style field (Features/Options.lua), and a
+  -- style field bumps Bags.styleGen, which is part of what a cell remembers and of the bank's own key, so every
+  -- cell is
+  -- painted again the moment it is clicked and the rings appear or go with it.
+  if hl and ns.Bags and ns.Bags.unusableBorder then
+    if b.wpeUnusableLink == hl and b.wpeUnusableGen == gen then
+      unusable = b.wpeUnusable and true or false
+    else
+      local liveLink = (C_Container and C_Container.GetContainerItemLink)
+        and C_Container.GetContainerItemLink(bagID, slot)
+      local settled
+      if liveLink == hl then
+        unusable = ns.IsItemUnusable(bagID, slot, hl) and true or false
+        settled = ns.VerdictSettled and ns.VerdictSettled(hl)
+      else
+        local can = ns.SnapshotCanUse
+                    and ns.SnapshotCanUse(hl, select(2, UnitClass("player")),
+                         UnitLevel and UnitLevel("player") or nil, true)
+        -- No answer is not an answer: a record whose item data has not landed is asked about again, which is
+        -- what puts the ring on once it has.
+        settled = can ~= nil
+        unusable = can == false
+      end
+      if settled then b.wpeUnusableLink, b.wpeUnusableGen = hl, gen end
+    end
+  end
+  -- Which fact moved, when one did: the guard is the whole of the reuse, and a pass that repaints every cell
+  -- is answering one of these questions wrong rather than being slow. The profiler keeps the tally (see
+  -- the guard, not the clock).
+  -- A link that moved is three different stories, and they point at three different fixes: the cell was never
+  -- painted (no link yet), it stood for an empty slot (false), or it held another piece and the layout handed
+  -- it a new one. Counted apart, the report says which of them the whole open is paying for.
+  local why
+  if b.link ~= link then
+    -- A cell whose link was cleared but whose picture is the one this pass would draw is left alone: the clear
+    -- undid nothing on screen. Anything the picture cannot show -- a theme, a face, a language -- moves the
+    -- remembered generations, so those still repaint.
+    if paintSeenSame(b, link) then
+      b.link = link
+    else
+      why = (b.link == nil and "link-new") or (b.link == false and "link-blank") or "link-other"
+    end
+  end
+  -- The rest of the facts are compared whether the key matched, was taken back or was missing: a ring that
+  -- moved (the red edge of a recipe the game will not let the player use) is not in the link, so a cell that
+  -- adopted its key back still has to answer for it.
+  if not why then
+    if b.wpeCount ~= count then why = "count"
+    elseif b.wpeMark ~= mark then why = "mark"
+    elseif b.wpeQuestKey ~= qkey then why = "quest"
+    elseif b.wpeBound ~= bound then why = "bound"
+    elseif b.wpeItemLocked ~= locked then why = "lock"
+    elseif b.wpeUnusable ~= unusable then why = "verdict"
+    end
+  end
+  if not why then
     -- The crop is the one drawing the client can take away without any of the facts above moving: its
     -- own button stamps a rectangle on the icon when it is handed an item, and on some builds that lands
     -- after this pass has already run. Verifying it here costs two reads and leaves the cell alone when
@@ -1995,7 +2146,9 @@ function ns.UpdateItemButton(b)
     ns.ApplyIconZoom(b)
     return b.itemName
   end
+  paintSeenMark(b, link)
   b.link, b.wpeCount, b.wpeMark, b.wpeQuestKey, b.wpeBound = link, count, mark, qkey, bound
+  b.wpeUnusable = unusable
   -- The cell is about to be drawn, so what the search pass applied to it no longer describes it: a paint
   -- can move or clear any badge its alphas reach for, and its meta is rewritten below. The record is
   -- dropped here, where the paint is committed, so the next search pass runs in full (see
@@ -2006,8 +2159,10 @@ function ns.UpdateItemButton(b)
     -- An empty slot hands the game no link at all, so the cell keeps no craft-tier identity either.
     b.wpeQualityLink, b.wpeTierShown = nil, nil
     -- false, not nil: the guard above compares wpeItemLocked against a boolean (locked), and nil ~= false
-    -- always, so a nil here meant a re-empty cell never took the early return and repainted every pass.
+    -- always, so a nil here meant a re-empty cell never took the early return and repainted every pass. The
+    -- verdict is kept the same way, for the same reason: an empty slot wears no red edge.
     b.wpeItemLocked = false
+    b.wpeUnusable, b.wpeUnusableLink, b.wpeUnusableGen = false, nil, nil
     SetItemButtonTexture(b, nil)
     ns.ClearCellIcon(b)
     SetItemButtonCount(b, 0)
@@ -2060,7 +2215,6 @@ function ns.UpdateItemButton(b)
     b:SetAlpha(1)
     return nil, true
   end
-  local hl = info and info.hyperlink
   local iItemID, iType, iSub, iEquipLoc, iIcon, iClassID, iSubID
   if hl then
     iItemID, iType, iSub, iEquipLoc, iIcon, iClassID, iSubID = C_Item.GetItemInfoInstant(hl)
@@ -2147,21 +2301,6 @@ function ns.UpdateItemButton(b)
     reagentRing = (iClassID == Enum.ItemClass.Tradegoods or iClassID == Enum.ItemClass.Reagent)
   else
     reagentRing = (bagID == ns.reagentBag or kind == "prof")
-  end
-  -- Whether this cell's piece is unusable for the character looking at it. A cell painted from a record is
-  -- not a live slot: the container may hold nothing there, or another item entirely, so asking it answers
-  -- about the wrong piece -- which is why a whole snapshot of another character wore no rings at all. The
-  -- record's own verdict through the same function is what the ring means.
-  local liveLink = (C_Container and C_Container.GetContainerItemLink) and C_Container.GetContainerItemLink(bagID, slot)
-  local unusable = false
-  if hl then
-    if liveLink == hl then
-      unusable = ns.IsItemUnusable(bagID, slot, hl) and true or false
-    else
-      unusable = (ns.SnapshotCanUse
-                  and ns.SnapshotCanUse(hl, select(2, UnitClass("player")),
-                       UnitLevel and UnitLevel("player") or nil, true) == false) and true or false
-    end
   end
   if ns.Bags.ammoTint and not (WarpeeDB and WarpeeDB.hideAmmo)
      and (kind == "ammo" or kind == "soul") then
@@ -2258,16 +2397,14 @@ local function snapViewer()
   return select(2, UnitClass("player")), (UnitLevel and UnitLevel("player") or nil), true
 end
 
--- One saved cell: the verdict for the character logged in, and the ring that verdict earns. Shared by the
--- bags and the bank, so a record cannot be answered one way in one window and another way in the other.
--- Returns "left" when the client has not described the item yet, "drawn" when the ring was set (or the cell was
--- put back through its own paint), and nil when there was nothing to do.
--- Whether the cell is wearing the red ring right now. ns.SetRarityRing keeps the colour on the cell, so this is
--- what the player sees rather than a stamp of what an earlier pass decided. A red can be put on a snapshot cell
--- by the window's own paint (a verdict that said no while the item's data was still streaming in) and by a cell
--- handed another record out of the pool, and neither of those writes the stamp -- so a correction that trusted
--- the stamp alone left the red standing until the cell's paint key changed, which the player saw as a red on a
--- piece the character can wear, gone after switching the box away and back.
+-- One saved cell: the verdict for the character logged in, and the ring that verdict earns -- shared by the
+-- bags and the bank, so a record cannot be answered one way in one window and another in the other. Returns
+-- "left" when the client has not described the item yet, "drawn" when the ring was set, nil when there was
+-- nothing to do.
+-- Whether the cell is wearing the red ring now, read from the cell and not from a stamp: a red can be put there
+-- by the window's own paint (a verdict that said no while the data was still streaming) and by a cell handed
+-- another record out of the pool, and neither writes the stamp -- a correction that trusted it left the red
+-- standing until the cell's paint key changed.
 local function ringIsRed(cell)
   local R = RED_FONT_COLOR
   return cell.ringOn and cell.ringR == R.r and cell.ringG == R.g and cell.ringB == R.b
@@ -2339,18 +2476,11 @@ function ns.SnapRingFill()
   return left
 end
 
--- The bank's own saved box, the same question asked of the cells the bank laid out. The bank keeps a state per
--- type (the character bank and the warband), each with its own pool, its own byKey and the mode that names its
--- records, so the walk is per state and the record is read from the mode the state was drawn for. Covered here
--- because this window painted those cells with the same function and nothing ever asked them again when the
--- client had not described the item at paint time -- the bags had their retry pass and the bank had none.
--- The ring of the live bank's own grid, checked against the answer the rule gives now. Not a repaint: the icon,
--- the count and the badges are left exactly as they are and only the four edge lines are touched, so a cell the
--- late verdict never reached is corrected without the flicker a redraw costs. This is the hole the bags had in
--- the other direction: the paint guard compares the link and the count and nothing about the verdict, so a cell
--- painted before its answer was known kept the quality ring until a move changed its key. The answer is read from
--- the verdict cache, which the paint filled for every cell it drew, so a pass over the whole window costs one
--- table read a cell. Returns how many cells it corrected.
+-- The bank's own saved box: the same question asked of the cells the bank laid out, per state (character bank
+-- and warband), each with its own pool, byKey and mode. Covered here because this window painted those cells
+-- and nothing asked them again when the client had not described the item at paint time. Not a repaint: only
+-- the four edge lines are touched, so a late verdict lands without the flicker a redraw costs -- the paint guard
+-- compares the link and the count and nothing about the verdict. Returns how many cells it corrected.
 function ns.BankRingFill()
   local K = ns.Bank
   local st = K and K.cur
@@ -2485,10 +2615,8 @@ function ns.PaintVaultButton(b, d, bagID, forceCount, kind)
   -- over from a live paint, or ApplySearchToButton would OR it back on over a cached character's item.
   b.wpeItemLocked = nil
   if link then
-    -- The craft tier the game draws is kept beside the link its own quality call was given: ns.FitOverlays reads
-    -- this to tell a mirror that belongs to this piece from one the cell carried over from the last. A saved
-    -- cell never wrote it, so the mirror was judged "the piece before" and hidden -- which is why the snapshot
-    -- lost the quality tier while the live grid kept it.
+    -- The link the cell's own rank is read from, written before the quality call the same way the live paint
+    -- writes it: a snapshot draws the rank of the piece it holds, not the one the cell wore before.
     b.wpeQualityLink = link
     SetItemButtonQuality(b, q, link, false, d.b)
     ns.FitOverlays(b)
@@ -2640,23 +2768,14 @@ function ns.ApplySearchToButton(b, filters, blocked)
   -- A bag hover dims the same way: bagMiss rides along without touching the search flag, so a
   -- search and a hover combine and the leave pass restores whichever is still on.
   local dim = miss or b.bagMiss
-  -- Typing hands in a fresh filter table on every keystroke, so the record above never spares a cell: the
-  -- match has to be asked again. What does NOT have to be asked again is the drawing, and the drawing is a
-  -- function of the dim and the one flag it greys with. A keystroke that leaves this cell the same colour
-  -- therefore costs one match and nothing else, which is what makes a query typed into a window of three
-  -- hundred cells cheap: narrowing "w" to "wri" flips a handful of cells, not all of them. What is left
-  -- for a cell that DOES move is six client calls for the cell's own face: its alpha, one desaturation for
-  -- the icon, and the ring's four -- desaturation is the one thing a frame's alpha cannot carry, which is
-  -- why the ring is written by hand and why this block is not three calls shorter. Everything else on the
-  -- cell follows the alpha: the ring's textures, the addon's badges and the game's own (the stack count,
-  -- the new-item glow, the quest mark) all dim with the cell and come back with it. The badges' own shade
-  -- on top of that -- the old double dim -- is hung right here, in the same pass, and only for this mover:
-  -- PaintBadgeDim at the bottom of the block is the keystroke's whole badge bill, and the cells it did
-  -- not move pay nothing. A badge dressed while the cell is dimmed needs nothing from this pass at all:
-  -- ApplyBadge writes the dim into the value it was paying for anyway.
-  --
-  -- The generation ns.RefreshBagDim moves stays part of the record: a badge switched on or off, or a cell
-  -- whose blockedness moved, re-dresses rather than leaving a picture drawn before the setting moved.
+  -- A keystroke hands in a fresh filter, so the match is asked again; the drawing need not be, because it is a
+  -- function of the dim and the one flag it greys with. A cell that keeps its colour costs one match, which is
+  -- what makes a query over three hundred cells cheap. A cell that moves pays six client calls: its alpha, one
+  -- desaturation for the icon, and the ring's four -- desaturation is what a frame's alpha cannot carry, which is
+  -- why the ring is written by hand. Everything else follows the alpha: ring textures, the addon's badges and the
+  -- game's own. The badges' own shade is hung in this same pass, for this mover only, so the cells it did not
+  -- move pay nothing. The generation ns.RefreshBagDim moves stays in the record, so a badge switched on or off,
+  -- or a cell whose blockedness moved, re-dresses.
   local gen = ns.BlockGen or 0
   if b.wpeSearchPainted and b.wpeSearchDim == dim and b.wpeSearchGen == gen
      and b.wpeSearchPaintLock == b.wpeItemLocked and b.wpeSearchPaintBag == b.bagMiss then
@@ -3020,17 +3139,12 @@ function ns.CreateBankBagSlot(parent, slot, size)
   return b
 end
 
--- Pinned cells. The favorites row in the bag window and the pocket window both draw them,
--- and neither file owns what a pinned cell knows or shows: that is all here, once. The two
--- lists stay apart, each row keeps its own saved list and its own lookup tables, and a pin
--- in one row never touches the other. What is shared is the behaviour, and it is shared on
--- purpose: the pocket once learned exact item keys, ghost edges, the item level and the craft
--- tier while the favorites row sat on bare item ids and kept binding itself to the wrong
--- copy of a ring. Anything new about a pinned cell, another badge, another edge colour,
--- another state, goes into these functions and both rows have it the same day. Never add it
--- to one of the two files. Nothing here asks the bank anything: a pinned cell answers "with
--- you or not" and nothing else. A row that draws pinned cells has to hear four things for
--- them to stay right: bag updates, equipment changes, gear set changes and ITEM_CHANGED.
+-- Pinned cells: the favorites row and the pocket both draw them, and what a pinned cell knows or shows lives
+-- here, once. The two lists stay apart -- each row keeps its own saved list and lookups -- and only the behaviour
+-- is shared, on purpose: the pocket once learned exact item keys, ghost edges, level and craft tier while the
+-- favorites row sat on bare item ids and bound itself to the wrong copy of a ring. Anything new about a pinned
+-- cell goes into these functions, never into one of the two files. Nothing here asks the bank anything. A row that
+-- draws pinned cells has to hear bag updates, equipment changes, gear set changes and ITEM_CHANGED.
 function ns.PinArg(pin)
   if type(pin) == "number" then return pin end
   return ns.ItemStub(pin)
@@ -3282,6 +3396,7 @@ end
 -- that stays right when the ranks are renamed or renumbered again. Reagent quality is asked
 -- first and crafted second, the order the game uses on its own item buttons.
 function ns.PinTier(pin)
+  if ns.IsForever then return nil end
   local T = C_TradeSkillUI
   local arg = ns.PinArg(pin)
   if not (T and arg) then return nil end
@@ -3341,10 +3456,10 @@ function ns.GhostPlus()
 end
 
 -- Blue edge means the item is on you, gold means it is not with you at all. Gear
--- carries its item level and its gear set instead of a count, and the craft tier
--- is drawn only on what is not gear, since an item level already says how good
--- a piece is. A missing stackable keeps its colours at half alpha so it stays
--- recognisable, the gold edge already says it is not with you.
+-- carries its item level and its gear set instead of a count; the craft rank is
+-- drawn on gear too, since the item level says how strong a piece is and the rank
+-- says what it rolled. A missing stackable keeps its colours at half alpha so it
+-- stays recognisable, the gold edge already says it is not with you.
 function ns.PaintPin(g, pin, t, btn)
   if not g then return end
   ns.PaintGhostBg(g)
@@ -3364,7 +3479,7 @@ function ns.PaintPin(g, pin, t, btn)
   g.icon:SetAlpha(gear and 1 or 0.55)
   if g.plus then ns.ShowMark(g, false) end
   ns.SetEdge(g, Theme:C(ns.PinWorn(pin, t) and "worn" or "gone"))
-  local art = (not gear) and ns.PinTier(pin) or nil
+  local art = ns.PinTier(pin)
   if g.tier then
     if art then
       ns.PinTierFit(g)
@@ -3453,17 +3568,14 @@ function ns.PinDressUp(bag, slot, pin)
   if link then HandleModifiedItemClick(link) end
 end
 
--- Emptying a pinned cell lives on a key and not on a modifier, because the left button of a
--- pinned cell already carries all the gestures it can: a fourth modifier would have to be
--- taken from one of the three that are spoken for, and Ctrl is the game's own dress-up.
---
--- The key is a real binding and not a keyboard frame. A binding is owned by the client: it
--- shows in the game's own key list, the player can move it there, and one keypress fires one
--- binding, so the double hit a watched key would give is impossible by construction.
--- The action is called by the client, so the guards sit here: a fight, and a keyboard that
--- is being used for something else. An edit box with the keyboard focus owns the keystroke,
--- and the chat line and an IME composing in one are both edit boxes.
-ns.LocalGlobal("BINDING_NAME_WARPEE_UNPIN", "Clear the cell")
+-- Emptying a pinned cell lives on a key and not on a modifier: the left button of a pinned cell already
+-- carries the gestures it can, and a fourth modifier would have to be taken from the three that are spoken for
+-- (Ctrl is the game's own dress-up). The key is a real binding, owned by the client: it shows in the game's key
+-- list, the player can move it there, and one press fires one binding, so a watched key's double hit is
+-- impossible by construction. The action is called by the client, so the guards sit here: a fight, and a
+-- keyboard in use for something else -- an edit box with focus owns the keystroke, and the chat line and an IME
+-- composing in one are both edit boxes.
+ns.LocalGlobal("BINDING_NAME_WARPEE_UNPIN", "Clear favorite or pocket cell")
 
 -- The key as the player reads it, or nil when nothing is bound. Read at the moment it is
 -- asked for and never kept: the binding can move at any time and a name captured at load
@@ -3471,6 +3583,15 @@ ns.LocalGlobal("BINDING_NAME_WARPEE_UNPIN", "Clear the cell")
 -- or "ALT-R", which is how it is stored and not how a key is written out, so the parts are
 -- asked one at a time and joined with a plus: "SHIFT + BUTTON4" rather than "S-B4".
 local MODS = { SHIFT = true, CTRL = true, ALT = true, META = true }
+
+-- The client writes a mouse button out in full -- "Mouse Button 5" -- and that is half a tooltip line, so the
+-- row read as a sentence from the game's own settings rather than as a key. The short form is what a player
+-- says anyway. The first three have a word in every language and are translated; MB4 and MB5 are read the same
+-- way everywhere, and inventing a local spelling for them would only make the line longer and stranger.
+local MOUSE_SHORT = {
+  BUTTON1 = "LMB", BUTTON2 = "RMB", BUTTON3 = "MMB", BUTTON4 = "MB4", BUTTON5 = "MB5",
+}
+local MOUSE_TEXT = { LMB = true, RMB = true, MMB = true }
 
 local function keyWord(part)
   local s = GetBindingText and GetBindingText(part)
@@ -3488,11 +3609,17 @@ function ns.PinKeyName()
   if not k then return nil end
   local out = {}
   for part in tostring(k):gmatch("[^-]+") do
-    local word = keyWord(part)
-    -- A single letter is the client's own shorthand for a modifier, and this line is not the
-    -- place for it: the token itself is the word the game writes.
-    if MODS[part] and (not word or #word < 2) then word = part end
-    out[#out + 1] = word or part
+    local short = MOUSE_SHORT[part]
+    if short then
+      local txt = MOUSE_TEXT[short] and ns.L[short]
+      out[#out + 1] = (type(txt) == "string" and txt ~= "" and txt) or short
+    else
+      local word = keyWord(part)
+      -- A single letter is the client's own shorthand for a modifier, and this line is not the place for it:
+      -- the token itself is the word the game writes.
+      if MODS[part] and (not word or #word < 2) then word = part end
+      out[#out + 1] = word or part
+    end
   end
   if #out == 0 then return nil end
   return table.concat(out, " + ")
@@ -3553,28 +3680,51 @@ local function pinBound()
   return k1 or k2
 end
 
--- The key arrives set on the first login that has this code, and the middle mouse button is asked for
--- first: it is the one a player cannot put on this row by hand, because a mouse chord over the cells
--- belongs to the cells and the game's key settings never see it -- the addon is the only thing that can
--- write it. A middle button somebody else has spoken for is left where it is, and Delete is asked for
--- next; a player who has bound both keeps both. The mark is written only once a key is really on the
--- row, because the binding itself lives in the client's own cache and not in this addon's saved
--- variables: a profile carried to another client brings the mark and no key, and a mark written before
--- an attempt that did not land left the row empty for good. Until a key is there, every login asks again.
-local DEFAULT_PIN_KEYS = { "BUTTON3", "DELETE" }
-
--- The middle button this session's default wrote, if it wrote one. A mouse chord over the cells belongs to
--- the cells and never reaches the game's key settings, so the default has to be written from here -- and
--- that one binding is not a rebind: the guard below leaves it alone for the session it was written in.
--- Nothing about it is saved, so a profile that carries no such key gets no exception either.
-local ownMouse
+-- The key arrives set on the first login that has this code: the middle button, then Delete, then the Alt+R
+-- chord. The order is the client's defaults, not ours -- the camera holds BUTTON3 on some clients (pitch
+-- down, move and steer) and Delete is spoken for just as often -- so a fresh client can refuse every mouse
+-- and keyboard default this row has ever had, and the chord is the one key left that is free of both.
+-- Nothing is taken from somebody else: a key is used only when its action comes back empty.
+-- The mark is written only once a key is really on the row, because the binding itself lives in the client's
+-- own cache and not in this addon's saved variables: a profile carried to another client brings the mark and
+-- no key, and a mark written before an attempt that did not land left the row empty for good. Until a key is
+-- there, every login asks again.
+local DEFAULT_PIN_KEYS = { "BUTTON3", "DELETE", "ALT-R" }
 
 local function defaultPinKey()
   if not WarpeeDB then return end
   if InCombatLockdown() then return end
   if not (GetBindingKey and GetBindingAction and SetBinding and SaveBindings) then return end
+  -- A row this addon defaulted is put back on the middle button the moment that button is free: the fallback
+  -- was chosen for a reason that has since passed, and it was never the player's choice. A player who moved
+  -- the key himself has a key that is not the one written here, so his is left exactly where he put it.
+  local cur, mine = pinBound(), WarpeeDB.pinKey
+  -- Profiles written before the Alt+R ask. On a client whose middle button belongs to the camera and whose
+  -- Delete is spoken for as well, the old ladder ran out of keys and left the row empty for good, with the mark
+  -- that says the question was answered. The stamp is written once and drops that mark, so the ladder runs
+  -- again and lands on the chord. A row that already holds a key keeps it -- a working key is not something to
+  -- take away -- and only a row on the Delete this addon chose is recorded as ours, so the move to the middle
+  -- button can still happen the day that button is free.
+  if (WarpeeDB.pinVer or 0) < 1 then
+    WarpeeDB.pinVer = 1
+    if cur then
+      -- Delete is read as this addon's own only where the old build had marked the row as its own: a key the
+      -- player put there himself carries no mark, and a key of the player's is never moved or recorded.
+      if WarpeeDB.pinBind and not WarpeeDB.pinKey and cur == "DELETE" then
+        WarpeeDB.pinKey, mine = "DELETE", "DELETE"
+      end
+      WarpeeDB.pinBind = true
+    else
+      WarpeeDB.pinBind, WarpeeDB.pinKey, WarpeeDB.pinFix = nil, nil, nil
+    end
+  end
+  if WarpeeDB.pinBind and cur and mine and cur == mine and cur ~= "BUTTON3"
+     and (GetBindingAction("BUTTON3") or "") == "" then
+    SetBinding(cur)
+    cur = nil
+  end
   if WarpeeDB.pinBind then
-    if pinBound() then return end
+    if cur then return end
     -- A profile that carries the mark without a key: it was written by a build that read an empty
     -- binding as a bound one, and the row it left empty has to fill in without the profile being
     -- wiped. Asked once, so a player who clears the key himself keeps it cleared.
@@ -3582,44 +3732,51 @@ local function defaultPinKey()
     WarpeeDB.pinFix = true
     WarpeeDB.pinBind = nil
   end
-  if pinBound() then WarpeeDB.pinBind = true; return end
+  if cur then WarpeeDB.pinBind = true; return end
   for _, key in ipairs(DEFAULT_PIN_KEYS) do
     if (GetBindingAction(key) or "") == "" then
       SetBinding(key, "WARPEE_UNPIN")
       SaveBindings((GetCurrentBindingSet and GetCurrentBindingSet()) or 1)
-      if key:find("BUTTON[345]") then ownMouse = key end
+      -- What was written, so a later login can tell this addon's own default from a key the player chose.
+      WarpeeDB.pinKey = key
       break
     end
   end
   if pinBound() then WarpeeDB.pinBind = true end
 end
 
--- Mouse chords never reach this binding over the cells: the client eats them there, so a key set in the
--- row (or in the game's own key list) fires everywhere except where it is meant to, and the player is left
--- with a key that looks bound and does nothing. Such a binding is cleared with a warning, not left to fail
--- quiet. The middle button the default wrote this session is the one exception -- that one is not a
--- rebind, and the cell answers the click itself.
-local function guardPinKey()
-  if InCombatLockdown() then return end
-  if not (GetBindingKey and GetBindingAction and SetBinding and SaveBindings) then return end
-  local k1, k2 = pinKeys()
-  local dirty = false
-  for i = 1, 2 do
-    local k = (i == 1) and k1 or k2
-    if k and k ~= ownMouse and k:find("BUTTON[345]") and (GetBindingAction(k) or "") == "WARPEE_UNPIN" then
-      SetBinding(k)
-      dirty = true
-    end
+-- A profile reset asks this question again in the same session, not on the next login.
+ns.PinDefaultKey = defaultPinKey
+
+-- A mouse button over a pinned cell never reaches the game's binding: the cell's own catcher takes the click,
+-- so the cell has to answer it. The click arrives with the frame's name of the button -- MiddleButton,
+-- Button4, Button5 -- while a binding calls the same buttons BUTTON3..5, and a modifier is part of the key the
+-- game stores ("SHIFT-BUTTON4"), so the whole chord is asked for. The click is taken only when that chord is
+-- free or holds this addon's own action: a button somebody else has spoken for stays theirs, exactly as it
+-- does in the default. The wheel is not one of these -- a wheel binding fires over any frame.
+local CLICK_BINDS = { MiddleButton = "BUTTON3", Button4 = "BUTTON4", Button5 = "BUTTON5" }
+
+local function chordKey(key, mods)
+  if #mods == 0 then return key end
+  return table.concat(mods, "-") .. "-" .. key
+end
+
+function ns.PinMouseClear(button)
+  local key = CLICK_BINDS[button]
+  if not key or not GetBindingAction then return false end
+  local mods = {}
+  if IsShiftKeyDown and IsShiftKeyDown() then mods[#mods + 1] = "SHIFT" end
+  if IsControlKeyDown and IsControlKeyDown() then mods[#mods + 1] = "CTRL" end
+  if IsAltKeyDown and IsAltKeyDown() then mods[#mods + 1] = "ALT" end
+  local rev = {}
+  for i = #mods, 1, -1 do rev[#rev + 1] = mods[i] end
+  local function ours(k)
+    local act = (GetBindingAction(k) or "")
+    return act == "" or act == "WARPEE_UNPIN"
   end
-  if dirty then
-    SaveBindings((GetCurrentBindingSet and GetCurrentBindingSet()) or 1)
-    -- Either slot counts as "still bound", so the message is right when the key lives in the second.
-    if pinBound() then
-      print("|cffd9a85fWarpee|r |cffffffff" .. ns.L["Clear the cell cannot use mouse buttons, the game eats them over the cells. Your keyboard key still works, only the mouse one is cleared."] .. "|r")
-    else
-      print("|cffd9a85fWarpee|r |cffffffff" .. ns.L["Clear the cell cannot use mouse buttons, the game eats them over the cells. Nothing is bound now, pick any keyboard key in the key settings."] .. "|r")
-    end
-  end
+  -- A chord's modifiers are written in the client's own order and this reads somebody else's string, so both
+  -- orders are asked, and both have to come back free or holding this addon's action.
+  return ours(chordKey(key, mods)) and ours(chordKey(key, rev))
 end
 
 -- The rings of a saved box are drawn at the end of the layout that placed its cells, in the same frame: the
@@ -3662,8 +3819,6 @@ end)
 
 local pinEv = CreateFrame("Frame")
 pinEv:RegisterEvent("PLAYER_LOGIN")
-pinEv:RegisterEvent("UPDATE_BINDINGS")
-pinEv:SetScript("OnEvent", function(_, ev)
-  if ev == "UPDATE_BINDINGS" then guardPinKey()
-  else C_Timer.After(1, function() defaultPinKey(); guardPinKey() end) end
+pinEv:SetScript("OnEvent", function()
+  C_Timer.After(1, defaultPinKey)
 end)

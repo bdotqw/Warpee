@@ -169,7 +169,9 @@ function ns.ApplyLocaleText()
   -- the style generation so the bank's own paint guard (styleGenSeen) rebuilds its pools the same way a
   -- font change does. Without this a bound item kept its old-language tag until it was dragged.
   if ns.ClearItemPaint then ns.ClearItemPaint() end
-  if ns.Bags then ns.Bags.styleGen = (ns.Bags.styleGen or 0) + 1 end
+  if ns.Bags then
+    ns.Bags.styleGen = (ns.Bags.styleGen or 0) + 1
+  end
   if ns.Bags and ns.Bags.frame and ns.Bags.frame:IsShown() and ns.Bags.Layout then
     ns.Bags:Layout()
   end

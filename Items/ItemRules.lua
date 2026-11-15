@@ -26,6 +26,26 @@ local function typeMatch(a, b)
   return a:find(b, 1, true) ~= nil or b:find(a, 1, true) ~= nil
 end
 
+-- One tooltip dump per item, per cache generation. Two readers want the same tooltip for the same piece --
+-- the red ring's requirement scan and the warbound badge's line scan -- and a cold pass read it twice for
+-- every cell in the window (once by slot, once by hyperlink). The dump is kept here, keyed by the link, and
+-- both readers take it from here. An empty read is not kept: it means the client has not described the item
+-- yet, the callers retry it, and caching the nothing would spend that retry on the same nothing.
+local tipDump = {}
+function ns.TooltipDump(link, bag, slot)
+  if not link then return nil end
+  local hit = tipDump[link]
+  if hit then return hit end
+  local data
+  if bag and slot and C_TooltipInfo and C_TooltipInfo.GetBagItem then
+    data = C_TooltipInfo.GetBagItem(bag, slot)
+  elseif C_TooltipInfo and C_TooltipInfo.GetHyperlink then
+    data = C_TooltipInfo.GetHyperlink(link)
+  end
+  if data and data.lines then tipDump[link] = data end
+  return data
+end
+
 -- A requirement the character already meets is written in the item's data all the same, and it stays red:
 -- the data is the item's own and knows nothing about who is reading it. The default tooltip hides such a
 -- line, the raw C_TooltipInfo data keeps it -- which is why ordinary food whose only red line was a
@@ -272,6 +292,33 @@ end
 
 local unusableCache = {}
 local warboundCache = {}
+
+-- Which items cannot carry the ring at all, kept by item id. The classification (ns.RedLink) is a client read,
+-- and for a toy an extra pcall, and it answers about the *item*: one piece can stand under several links -- a
+-- copy with other bonus ids, the link a snapshot saved, the link a slot hands over now -- and every one of them
+-- paid the read again. The cheap engine of a bags addon asks its question once per item for the same reason.
+-- Only a described item is written down: a link the client has not answered for yet would be filed as "no ring"
+-- and stay that way, which is a ring missing for the session.
+local noRing = {}
+local function itemIDOf(link)
+  return tonumber((link or ""):match("item:(%d+)"))
+end
+
+local function ringableItem(link)
+  local id = itemIDOf(link)
+  if id then
+    local hit = noRing[id]
+    if hit then return false end
+  end
+  local ok = ns.RedLink(link) and true or false
+  if id and not ok and select(6, C_Item.GetItemInfoInstant(link)) then noRing[id] = true end
+  return ok
+end
+-- Whether the client had already described the item when its verdict was taken. A verdict on an item whose data
+-- was still streaming is a guess and has to go when the data lands; one taken on a described item is the answer.
+-- Dropping both made the load that our own tooltip read caused throw the whole cache away: the report counted 124
+-- links forgotten on every open -- the entire cache -- and the queue behind it asked them all over again.
+local loadedAt = {}
 -- Links the client never answered for. Kept apart from the verdicts: a link here has no verdict, and what
 -- is remembered is that asking again is pointless. Without it a cell whose slot the client has no item for
 -- (a snapshot record, a pinned ghost) paid a tooltip read on every repaint and never got an answer to keep.
@@ -284,11 +331,28 @@ local retries = {}
 -- a level, a reputation, a rating or a spec change can move any of these verdicts and none
 -- of the caches can tell on its own which one it was. This is the only path that clears
 -- them, so it is also what keeps them from growing for a whole session.
+-- How many verdicts are kept right now. Reported next to the per-open counts, because a cache that is grown
+-- and then thrown away looks identical to one that is never filled from the outside.
+function ns.UnusableCacheSize()
+  local n = 0
+  for _ in pairs(unusableCache) do n = n + 1 end
+  return n
+end
+
+-- Bumped by everything that drops answers. A cell paints its ring from the answer it already carries and
+-- asks again only when this number moved (or when the piece under it did), which is what keeps a warm pass
+-- from calling the reader for every visible cell.
+ns.VerdictGen = 0
+
 function ns.ClearUnusableCache()
+  ns.VerdictGen = ns.VerdictGen + 1
+  wipe(noRing)
+  wipe(tipDump)
   wipe(unusableCache)
   wipe(warboundCache)
   wipe(retries)
   wipe(hopeless)
+  wipe(loadedAt)
   wipe(snapCan)
   wipe(snapAsked)
   ns.ClearWarboundMeta()
@@ -298,8 +362,27 @@ local function knownVerdict(link)
   return unusableCache[link]
 end
 
+-- The answers that were taken while the client had not described the item. Those are guesses and a load event
+-- invalidates them; an answer taken on a described item stands. This is what an unnamed load event drops, and it
+-- is the difference between a handful of links asked again and the whole cache.
+function ns.DropGuesses()
+  local dropped = false
+  for key in pairs(unusableCache) do
+    if loadedAt[key] == false then unusableCache[key] = nil; dropped = true end
+  end
+  if dropped then ns.VerdictGen = ns.VerdictGen + 1 end
+end
+
+-- Whether the answer for this link is final. A false from the reader can mean two things -- the piece is fine,
+-- or the scan had to wait for the next frame -- and only the cache tells them apart. A cell keeps the answer it
+-- got only while this says there is one; an answer still in the queue is asked again on the next pass.
+function ns.VerdictSettled(link)
+  return unusableCache[link] ~= nil
+end
+
 local function keepVerdict(link, bad)
   unusableCache[link] = bad
+  loadedAt[link] = select(6, C_Item.GetItemInfoInstant(link)) and true or false
 end
 
 -- Asking for a verdict costs a tooltip read, and a layout asks for one per cell: a full bank
@@ -332,6 +415,8 @@ end
 drain = function()
   armed = false
   ns.ReportEntry()
+  -- The queue is what the client's own number sees as the frames after an open, so the report counts the links
+  -- it asked for and the slices it took.
   local hit, done, hits = false, 0, nil
   while done < #queue and not ns.OutOfTime() do
     done = done + 1
@@ -594,7 +679,7 @@ function ns.CaptureCanUse(bag, slot, link)
   -- saved on the character's own visit should carry, and waiting for a tooltip only left the field nil.
   if engineCannotWear(link) then keepVerdict(link, true); return true end
   if ns.OutOfTime() then return nil end
-  local data = (bag and C_TooltipInfo and C_TooltipInfo.GetBagItem) and C_TooltipInfo.GetBagItem(bag, slot) or nil
+  local data = (bag and C_TooltipInfo and C_TooltipInfo.GetBagItem) and ns.TooltipDump(link, bag, slot) or nil
   if not (data and data.lines) then return nil end
   local bad = ringScan(link, data)
   keepVerdict(link, bad)
@@ -647,24 +732,28 @@ end
 
 function ns.IsItemUnusable(bag, slot, link)
   if not link then return false end
+  -- The kept answer comes first, before the item is classified: the classification is a client read
+  -- (ns.RedLink asks C_Item.GetItemInfoInstant, and a toy costs an extra pcall), and it ran on every cell of
+  -- every pass even when the answer had been known for the whole session. Reading the cache first is what
+  -- 12.4 did, and it is the reason a warm open there paid nothing for the ring.
+  local hit = knownVerdict(link)
+  if hit ~= nil then
+    return hit
+  end
+  if hopeless[link] then return false end
   -- Only a piece that can carry the ring in the first place. A battle pet, a stack of food or a gem prints red
   -- lines about a single use ("already collected", "unique") and those are not "you cannot wear this" -- and
   -- because the verdict is cached, such a line used to ring the pet on arrival and on every move.
-  if not ns.RedLink(link) then
-    local other = knownVerdict(link)
-    if other ~= nil then return other end
-    if hopeless[link] or unknownItem(link) then return false end
+  if not ringableItem(link) then
+    if unknownItem(link) then return false end
     if not (C_TooltipInfo and C_TooltipInfo.GetBagItem) then return false end
-    local data = C_TooltipInfo.GetBagItem(bag, slot)
+    local data = ns.TooltipDump(link, bag, slot)
     -- No lines is not "answered": but it is also not worth a read on every repaint, and the event that fills the
     -- item in clears this cache anyway.
     local bad = requirementOnly(link, data)
     keepVerdict(link, bad)
     return bad
   end
-  local hit = knownVerdict(link)
-  if hit ~= nil then return hit end
-  if hopeless[link] then return false end
   if unknownItem(link) then retryLater(link, bag, slot); return false end
   -- The engine's no comes first, before any tooltip exists: it needs only the item id, and the beat after a
   -- login is exactly when the tooltip is empty -- the requirement lines had not streamed in, the scan found
@@ -679,8 +768,11 @@ function ns.IsItemUnusable(bag, slot, link)
   -- Everything past this point is the tooltip, and only gear and recipes may be judged by it. A treatise or a
   -- toy is answered by the client above; its "unique"/"already known" lines are not a wear requirement.
   if not (C_TooltipInfo and C_TooltipInfo.GetBagItem) then return false end
-  if ns.OutOfTime() then askNextFrame(link, bag, slot); return false end
-  local data = C_TooltipInfo.GetBagItem(bag, slot)
+  if ns.OutOfTime() then
+    askNextFrame(link, bag, slot)
+    return false
+  end
+  local data = ns.TooltipDump(link, bag, slot)
   -- No tooltip is not "usable" either: the read can come back empty while the client is still filling
   -- in the item, and a bare false here left the cell without its ring and nothing to paint it later.
   if not (data and data.lines) then
@@ -699,30 +791,30 @@ end
 function ns.RequirementBlocked(link)
   if not link then return false end
   if not (C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return false end
-  return requirementOnly(link, C_TooltipInfo.GetHyperlink(link))
+  return requirementOnly(link, ns.TooltipDump(link))
 end
 
 function ns.IsLinkUnusable(link)
   if not link then return false end
-  if not ns.RedLink(link) then
-    local other = knownVerdict(link)
-    if other ~= nil then return other end
-    if hopeless[link] or unknownItem(link) then return false end
-    if not (C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return false end
-    local bad = requirementOnly(link, C_TooltipInfo.GetHyperlink(link))
-    keepVerdict(link, bad)
-    return bad
-  end
+  -- Same order as the bag read, and for the same reason: the kept answer before anything that classifies the
+  -- item, or every cell pays a client read for an answer it already has.
   local hit = knownVerdict(link)
   if hit ~= nil then return hit end
   if hopeless[link] then return false end
+  if not ringableItem(link) then
+    if unknownItem(link) then return false end
+    if not (C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return false end
+    local bad = requirementOnly(link, ns.TooltipDump(link))
+    keepVerdict(link, bad)
+    return bad
+  end
   if unknownItem(link) then retryLater(link); return false end
   -- Same rule as the bag read: see IsItemUnusable, engine's no first and no tooltip needed for it. A link is
   -- asked about for cells with no slot behind them, and the requirement lines live in its tooltip data too.
   if engineCannotWear(link) then keepVerdict(link, true); return true end
   if not (C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return false end
   if ns.OutOfTime() then askNextFrame(link); return false end
-  local data = C_TooltipInfo.GetHyperlink(link)
+  local data = ns.TooltipDump(link)
   if not (data and data.lines) then retryLater(link); return false end
   local bad = ringScan(link, data)
   keepVerdict(link, bad)
@@ -784,7 +876,7 @@ function ns.IsLinkWarbound(link)
   if hit ~= nil then return hit end
   local bad = false
   if C_TooltipInfo and C_TooltipInfo.GetHyperlink then
-    bad = ns.WarboundTooltip(C_TooltipInfo.GetHyperlink(link))
+    bad = ns.WarboundTooltip(ns.TooltipDump(link))
   end
   local bindType = select(14, C_Item.GetItemInfo(link))
   if not bad and bindType and accountBinds()[bindType] then bad = true end
@@ -820,6 +912,9 @@ local function forgetItem(id)
   local links, seen = {}, {}
   local function note(key)
     if not namesItem(key, id) then return end
+    -- A verdict the client had already described the item for is not a guess, and a load event naming it is not
+    -- news: it is usually the load our own read asked for, arriving a beat later.
+    if loadedAt[key] then return end
     local l = key:match("(item:[^|]+)")
     if not l or seen[l] then return end
     seen[l] = true
@@ -833,11 +928,15 @@ local function forgetItem(id)
   for key in pairs(snapAsked) do note(key) end
   for _, l in ipairs(links) do
     unusableCache[l], warboundCache[l], hopeless[l] = nil, nil, nil
-    retries[l], snapAsked[l] = nil, nil
+    retries[l], snapAsked[l], loadedAt[l], tipDump[l] = nil, nil, nil, nil
     for key in pairs(snapCan) do
       if key:match("(item:[^|]+)") == l then snapCan[key] = nil end
     end
   end
+  -- A cell that kept the answer it was given has to ask again, or the arrival would repaint a cell that answers
+  -- from its own copy of the old verdict. One item's arrival, one generation: the cells of every other piece
+  -- keep their answers.
+  if #links > 0 then ns.VerdictGen = ns.VerdictGen + 1 end
   return links
 end
 
@@ -854,8 +953,10 @@ ringFrame:SetScript("OnEvent", function(_, _, id)
       askNextFrame(l)
     end
   else
-    -- An event with no id names nothing, so nothing can be spared: the whole cache goes, as it always did.
-    ns.ClearUnusableCache()
+    -- An event with no id names nothing, so nothing can be spared by name -- but only the guesses are actually
+    -- invalid: an answer taken before the client described the item. Wiping the whole cache here is what refilled
+    -- the verdict queue and painted a second wave of cells a beat after an open.
+    ns.DropGuesses()
   end
   if ringRepaint then return end
   ringRepaint = true

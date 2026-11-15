@@ -1,22 +1,16 @@
 local addonName, ns = ...
 local Theme = ns.Theme
 
--- The currency panel: the one editor of the client's tracking flags. It shows every currency the
--- client knows, in the client's own order and under the client's own section names, with a tick on the
--- ones the character panel tracks -- a tick tracks, a second tick untracks, and the list itself is the
--- feedback. Search narrows it; a Ctrl-click on a row asks the client for that currency's transfer.
---
--- The panel is also the only place in the addon that walks the client's whole currency list, and that walk
--- is the reason this file exists apart from Features/Currencies.lua:
---
---   * GetCurrencyListInfo answers with the currencies of the headers that are OPEN, so a full list means
---     expanding every collapsed header first (and putting them back afterwards, in reverse order).
---   * Each of those calls fires CURRENCY_DISPLAY_UPDATE, which is the very event a tracker listens to.
---     A scan that ran on that event would answer itself for as long as the client kept talking, so the
---     scan holds a flag for the time it runs and folds anything that arrives meanwhile into one pass
---     after it.
---   * So it runs when the window opens and when the window is open and a currency changes -- never in
---     the background, where nothing needs it: a chip in the row costs one lookup for its own slot.
+-- The currency panel: the one editor of the client's tracking flags. It shows every currency the client knows,
+-- in the client's own order and under its own section names, with a tick on the ones the character panel tracks
+-- -- a tick tracks, a second untracks, and the list is the feedback. Search narrows it; a Ctrl-click on a row
+-- asks the client for that currency's transfer.
+-- It is also the only place that walks the client's whole currency list, which is why this file stands apart from
+-- Features/Currencies.lua: GetCurrencyListInfo answers only the OPEN headers, so a full list means expanding every
+-- collapsed header (and putting them back, in reverse), and every one of those calls fires
+-- CURRENCY_DISPLAY_UPDATE -- the very event a tracker listens to. So the scan holds a flag while it runs and folds
+-- anything that arrives meanwhile into one pass after it, and it runs on open and on a change while open, never
+-- in the background, where a chip in the row costs one lookup for its own slot.
 
 local Pick = {}
 ns.CurPicker = Pick

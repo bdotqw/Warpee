@@ -418,17 +418,13 @@ function Options:SearchIndex()
   return out
 end
 
--- One query against the index: the name exactly, then a prefix, then anywhere in the name, then the name with
--- its spaces dropped (so "plateopacity" finds "Plate opacity"), then the breadcrumb a place carries, then
--- anywhere in the tooltip, and last the stemmed words, so an inflection answers its dictionary form. The first
--- three tiers read every language's spelling of the name, so a word typed in a language the window is not
--- reading still answers. A synonym of the query answers with the same tiers through the words it stands for. The name is read in both spellings at every one of those tiers, since the written
--- label and the one on screen are two names for one row and a player may type either. The first tier that
--- answers wins, and the list comes back in tier then alphabetical order, which puts the row the player means at
--- the top without any scoring arithmetic, and never lets a place reached by its page outrank a row that wears
--- the query in its own name. A place and a row are the two kinds here: a row holds a setting, a place is a page
--- or one list of it, so it carries no row of its own to walk to and its name is the whole of what it is.
--- One spelling among the entry's other-language labels answering exactly, by prefix or by part.
+-- One query against the index, tier by tier: the name exactly, then a prefix, then anywhere in the name, then
+-- the name with its spaces dropped ("plateopacity" finds "Plate opacity"), then the breadcrumb a place carries,
+-- then anywhere in the tooltip, and last the stemmed words, so an inflection answers its dictionary form. The first
+-- three tiers read every language's spelling of the name, and both spellings of it at every tier (the written
+-- label and the one on screen are two names for one row); a synonym answers through the words it stands for. The
+-- first tier that answers wins and the list comes back in tier then alphabetical order, which puts the row the
+-- player means at the top without scoring arithmetic, and never lets a place outrank a row wearing the query.
 local function lxHit(e, qq, mode)
   local lx = e.lx
   if not lx then return false end
@@ -710,7 +706,7 @@ function Options:Build()
   local close = ns.CreateGlyphButton(f, "×", 28)
   -- Flat: this window's plate is its own surface, and a black rim on a cross this size rings a plate that
   -- is already framed.
-  ns.MarkX(close, true)
+  ns.MarkX(close)
   close:SetPoint("TOPRIGHT", -PAD, -8)
   close:SetScript("OnClick", function() self:Close() end)
   track(close.Text, 2)

@@ -490,9 +490,27 @@ function ns.PlaceWindow(frame, dbKey, def)
   local stored = p and ns.CornerOk(p.p)
   local rec = stored and p or def
   local angle = rec and ns.CornerOk(rec.p)
+  local rp = angle and (ns.CornerOk(rec.rp) or angle)
+  local x, y = (rec and rec.x) or 0, (rec and rec.y) or 0
+  -- Putting a window back in place clears its anchors and sets them again, and the client answers that by
+  -- resolving every anchor under it on the next Show. On the bag window that is 7668 regions: the open's own
+  -- bench puts a Show that has nothing to re-anchor at 7 ms and the same Show after a placement at 35. So the
+  -- placement only runs when the spot it would apply is not the one the window already has -- the record it
+  -- last applied is kept on the frame, with the screen size beside it, since a resolution change moves every
+  -- window. A drag writes the new spot to the record and the frame is already there, which costs one placement
+  -- the next time and none after it.
+  local sig = ("%s|%s|%s|%s|%s|%.1f|%.1f"):format(dbKey or "", angle or "", rp or "",
+    tostring(x), tostring(y), UIParent:GetWidth(), UIParent:GetHeight())
+  -- A frame that has no anchors is not standing at that spot, whatever the record says: a caller that
+  -- cleared its points and asked again (the pocket does, on every open) would otherwise be told the window
+  -- was already placed and left with nothing to place it with. The gap between the two is a window that
+  -- reports itself shown and is nowhere on the screen.
+  local anchored = not frame.GetNumPoints or frame:GetNumPoints() > 0
+  if frame.wpePlaceSig == sig and not frame.wpeMoving and anchored then return end
+  frame.wpePlaceSig = sig
   frame:ClearAllPoints()
   if angle then
-    ns.SnapPoint(frame, angle, UIParent, ns.CornerOk(rec.rp) or angle, rec.x or 0, rec.y or 0)
+    ns.SnapPoint(frame, angle, UIParent, rp, x, y)
   else
     frame:SetPoint("CENTER")
   end
@@ -668,6 +686,22 @@ ns.SEAM_GAP = 4
 local SEAM_TOL = 14
 local seamBusy = false
 
+-- Stacked windows on a skinned theme need a little more air than side-by-side ones: the Blizzard rim is drawn on
+-- both the top and the bottom of its frame, so rims facing each other across a gap sized for a flat one-pixel edge
+-- read as one window standing on the other. Side by side that same rim reads as a gap, which is why only the
+-- vertical stacks get the extra -- six points unless the skin says otherwise.
+function ns.SeamGap(frame, side)
+  local gap = ns.SEAM_GAP
+  if side == "above" or side == "below" then
+    local T = ns.Theme
+    if T and T.Skinned and T:Skinned() then
+      local def = T:SkinDef()
+      gap = gap + ((def and (def.seamGap or def.seamOverhang)) or 6)
+    end
+  end
+  return ns.SnapValue(frame, gap)
+end
+
 local function seamRect(f)
   if not (f and f:IsShown()) then return nil end
   local l, b = f:GetLeft(), f:GetBottom()
@@ -692,27 +726,32 @@ local function seamOf(mover, partner)
   local ml, mb, mr, mt = seamRect(mover)
   local pl, pb, pr, pt = seamRect(partner)
   if not (ml and pl) then return nil end
-  local gap = ns.SnapValue(partner, ns.SEAM_GAP)
-  local tol = gap + SEAM_TOL
+  local gapH = ns.SeamGap(partner, "right")
+  local gapV = ns.SeamGap(partner, "above")
+  local tolH = gapH + SEAM_TOL
+  local tolV = gapV + SEAM_TOL
   local side
   if mt > pb and mb < pt then
-    if math.abs(pl - mr - gap) <= tol then side = "right"
-    elseif math.abs(ml - pr - gap) <= tol then side = "left" end
+    if math.abs(pl - mr - gapH) <= tolH then side = "right"
+    elseif math.abs(ml - pr - gapH) <= tolH then side = "left" end
   end
   if not side and mr > pl and ml < pr then
-    if math.abs(pb - mt - gap) <= tol then side = "above"
-    elseif math.abs(mb - pt - gap) <= tol then side = "below" end
+    if math.abs(pb - mt - gapV) <= tolV then side = "above"
+    elseif math.abs(mb - pt - gapV) <= tolV then side = "below" end
   end
   if not side then return nil end
   local align
+  -- The alignment is read on the other axis than the side: a stack above or below is lined up left, right or
+  -- centred horizontally, a pair beside each other top, bottom or centred vertically. Each axis carries its own
+  -- tolerance, so a looser vertical gap does not loosen the horizontal one.
   if side == "above" or side == "below" then
-    if math.abs(pl - ml) <= tol then align = "left"
-    elseif math.abs(pr - mr) <= tol then align = "right"
-    elseif math.abs(pl + pr - ml - mr) <= tol then align = "center" end
+    if math.abs(pl - ml) <= tolH then align = "left"
+    elseif math.abs(pr - mr) <= tolH then align = "right"
+    elseif math.abs(pl + pr - ml - mr) <= tolH then align = "center" end
   else
-    if math.abs(pt - mt) <= tol then align = "top"
-    elseif math.abs(pb - mb) <= tol then align = "bottom"
-    elseif math.abs(pt + pb - mt - mb) <= tol then align = "center" end
+    if math.abs(pt - mt) <= tolV then align = "top"
+    elseif math.abs(pb - mb) <= tolV then align = "bottom"
+    elseif math.abs(pt + pb - mt - mb) <= tolV then align = "center" end
   end
   return { side = side, align = align }
 end
@@ -730,7 +769,7 @@ local function seamFix(mover, partner, rel, dbKey, fallback)
   local ml, mb, mr, mt = seamRect(mover)
   local pl, pb, pr, pt = seamRect(partner)
   if not (ml and pl) then return false end
-  local gap = ns.SnapValue(partner, ns.SEAM_GAP)
+  local gap = ns.SeamGap(partner, rel.side)
   local dx, dy = 0, 0
   local vertical = (rel.side == "left" or rel.side == "right")
   if rel.side == "right" then dx = mr + gap - pl
@@ -1050,33 +1089,52 @@ local function evenCount(v, least)
   local n = math.max(least or 2, math.floor(v + 0.5))
   return n + (n % 2)
 end
--- A cross drawn flat, for the buttons that carry a colour of their own: `bare` leaves the ground off and
--- the mark stands on the plate alone. The red delete cross and the small crosses of the settings read
--- cleaner without a black rim around them, which on a tinted plate is the mark's own colour ringed in ink.
-function ns.MarkX(host, bare)
+-- The cross is a picture now, not two strokes. The strokes were drawn at 45 degrees with a fixed weight and a
+-- length taken as a share of the box they sat in, so the same cross came out longer and heavier in a bag header
+-- than in a bank one, and its ground carried a diagonal that had to stay whole on a pixel grid the window may not
+-- sit on. One 32-pixel cross, white with its edges in the alpha, keeps its shape at every box the addon sizes a
+-- close to, and its weight follows the box the way a letter's does instead of fighting the screen.
+--
+-- It is tinted like the drawn marks -- SetVertexColor over the whole texture -- so the ink still comes from the
+-- theme, hover and off-duty included.
+local CLOSE_PATH = "Interface\\AddOns\\Warpee\\Media\\Icons\\close"
+local CLOSE_RATIO = 0.58
+
+function ns.MarkX(host)
   local mark = host.wpeMarkX
   if not mark then
-    mark = { shadow = {} }
-    addArm(mark, host, 45, not bare)
-    addArm(mark, host, -45, not bare)
+    local shadow = host:CreateTexture(nil, "ARTWORK")
+    shadow:SetDrawLayer("ARTWORK", -1)
+    shadow:SetTexture(CLOSE_PATH)
+    shadow:SetVertexColor(0, 0, 0, 0.85)
+    ns.NoPixelSnap(shadow)
+    local tex = host:CreateTexture(nil, "ARTWORK")
+    tex:SetTexture(CLOSE_PATH)
+    ns.NoPixelSnap(tex)
+    mark = { tex, shadow = { shadow } }
     host.wpeMarkX = mark
     host:HookScript("OnSizeChanged", function(s) ns.FitMarkX(s) end)
-  elseif bare then
-    -- Called again on a mark that already has a ground: take it off, since the textures outlive the call.
-    for _, sh in ipairs(mark.shadow) do sh:Hide() end
   end
-  mark.bare = bare and true or false
   ns.FitMarkX(host)
   return mark
 end
 function ns.FitMarkX(host)
   local mark = host.wpeMarkX
-  if not (mark and mark[1] and mark[2]) then return end
+  local tex = mark and mark[1]
+  if not tex then return end
   local w = host:GetWidth() or 0
   if w <= 0 then return end
-  local len = snapParity(host, math.sqrt(2) * w * 0.30)
-  local px = ns.PX(host, host.wpeMarkW or 2)
-  for i, d in ipairs(mark) do fitArm(host, d, mark.shadow[i], len, px) end
+  local side = math.max(8, math.floor(w * CLOSE_RATIO + 0.5))
+  local u = ns.PX(host, 1)
+  tex:ClearAllPoints()
+  tex:SetPoint("CENTER", host, "CENTER", 0, 0)
+  tex:SetSize(side, side)
+  local sh = mark.shadow[1]
+  if sh then
+    sh:ClearAllPoints()
+    sh:SetPoint("CENTER", host, "CENTER", 0, 0)
+    sh:SetSize(side + 2 * u, side + 2 * u)
+  end
 end
 function ns.TintMarkX(host, key)
   local mark = host.wpeMarkX or host.wpeMarkPlus or host.wpeMarkMinus or host.wpeMarkLock or host.wpeMarkCaret
@@ -1191,17 +1249,13 @@ function ns.FitMarkMinus(host)
   end
 end
 
--- Drawn padlock, for the same reason as the X and the plus: a mark drawn here can never be missing
--- from the font the player happened to pick, and it needs no ground built for it either, because its
--- own shadow travels with it (IconSilhouette is what an art mark needs instead).
--- Six marks and every one of them axis aligned: the four bars -- the body, the two legs of the
--- shackle and the bar that closes them at the top -- plus the two dark marks the keyhole is built
--- from. The only arc this file can draw is a turned bar (fitArm), and a turned bar is a staircase at
--- the size a header carries, where right angles stay crisp.
--- That shadow is a silhouette and not an outline: one pixel of black standing outside the shape
--- (see the shadow pass in the fit below). An outline -- a rim drawn round every bar on both of its
--- sides -- spends half of itself inside the mark, and the shackle is where it shows: the two
--- pixels between the legs fill up and the arch reads as one more solid block.
+-- Drawn padlock, for the same reason as the X and the plus: a mark drawn here can never be missing from the font
+-- the player picked, and it needs no ground built for it, because its own shadow travels with it (IconSilhouette
+-- is what an art mark needs instead). Six marks, every one axis aligned: the four bars (body, the two legs of the
+-- shackle, the bar closing them) plus the two dark marks the keyhole is built from -- the only arc this file can
+-- draw is a turned bar, and at header size that is a staircase where right angles stay crisp. The shadow is a
+-- silhouette, not an outline: one pixel of black outside the shape, because an outline spends half of itself
+-- inside the mark and the shackle is where that shows.
 function ns.MarkLock(host, shadow)
   local mark = host.wpeMarkLock
   if not mark then
@@ -1490,18 +1544,14 @@ function ns.FitMarkCaret(host)
   end
 end
 
--- Drawn question mark, for the same reason the X, the plus, the lock and the caret are drawn: it is
--- furniture of the addon and not a glyph out of whatever font the player picked, so it is the same
--- shape on every client and at every ui scale, and it wears its own ground instead of borrowing the
--- outline the font gave a string.
--- Every stroke is axis aligned and a whole count of physical pixels wide, and no two parts of it meet
--- at a corner: the bar over the bowl carries the leg that hangs under its left end and the side that
--- comes down under its right one, two steps bring the tail back to the centre column, and the dot sits
--- below the whole of it with a gap of its own. Corner-to-corner is how a pixel font draws a curve, and
--- it works there because every cell of the glyph is flat ink; here each part stands on its own pixel of
--- ground, so a mark whose parts met at corners would read as a row of separate blocks. The bowl is four
--- strokes wide and the leg stands two strokes deep, which leaves an opening inside it rather than a
--- slot: a bar over the whole five-stroke width would make a plate with a hole in it, not a hook.
+-- Drawn question mark, for the same reason as the X, the plus, the lock and the caret: furniture of the addon, not
+-- a glyph out of whatever font the player picked, so it is the same shape on every client and at every scale, and
+-- it wears its own ground instead of borrowing the font's outline. Every stroke is axis aligned and a whole count
+-- of pixels wide, and no two parts meet at a corner: the bar over the bowl carries the leg under its left end and
+-- the side under its right one, two steps bring the tail back to the centre column, and the dot sits below with a
+-- gap of its own. Corner-to-corner is how a pixel font draws a curve, which works because a glyph's cells are flat
+-- ink; here each part stands on its own pixel of ground, so parts meeting at corners would read as separate
+-- blocks. The bowl is four strokes wide and the leg two deep, which leaves an opening rather than a slot.
 function ns.MarkHelp(host, shadow)
   local mark = host.wpeMarkHelp
   if not mark then
@@ -1694,17 +1744,12 @@ function ns.ShowMark(host, on)
   if mark.hole then for _, d in ipairs(mark.hole) do d:SetShown(on) end end
 end
 
--- The dark ground a header mark is read against. Text gets one from the font's own outline
--- (ns.OutlineFlags) and the drawn marks from their shadow bars, but a texture has neither -- and of
--- the header's six art marks only the two whose atlas carries a shadow baked into it (bag-main,
--- bags-icon-reagents) had any ground at all, so the remaining four sat flat on the band beside a
--- row of outlined marks. This is the same separator the marks wear, drawn under an icon: a black
--- copy of the icon's own art, one pixel proud on every side.
--- The copy takes the icon's alpha on every repaint, so a dimmed mark (the sell coin at rest) dims
--- its ground with it and neither can go see-through on its own; the icon's art is never touched, so
--- the mark keeps its own colours. It is tied to the icon's centre rather than to a point in the
--- button, so whatever moves or resizes the art carries the ground along -- and a wrapper around the
--- paint the host already runs is the whole wiring, which means no call site needs a second hook.
+-- The dark ground a header mark is read against. Text gets one from the font's outline, drawn marks from their
+-- shadow bars, a texture from neither: of the header's six art marks only the two whose atlas carries a baked
+-- shadow had any ground, so the rest sat flat beside a row of outlined marks. This is the same separator drawn
+-- under an icon -- a black copy of the icon's own art, one pixel proud on every side. The copy takes the icon's
+-- alpha on every repaint, so a dimmed mark dims its ground with it; the art is never touched, and the ground is
+-- tied to the icon's centre, so whatever moves or resizes the art carries it along.
 function ns.IconSilhouette(host, icon)
   if not (host and icon) then return end
   local sh = host.wpeIconShadow
@@ -1992,20 +2037,13 @@ function ns.CreateSearchBox(parent, onChanged, hintKey)
   return box
 end
 
--- An item-id field: a number box that takes nothing but digits, and a live preview of the item the id
--- names — its icon, then its name — so what was typed is seen to resolve before it is committed. The "+"
--- plate beside the preview is the same "add one of these" control the racks lead with, and Enter does the
--- same thing; a shift-clicked item link lands as its bare id (RegisterLinkBox above). Two callers read it,
--- the category editor's pin entry and the pocket's picks panel, and it is written once here so the two
--- cannot drift into two different fields.
---
--- opts:
---   hint      localized key of the empty-state hint, which owns the field until a digit lands
---   height    height of the number box; the frame stands 6 taller
---   boxWidth  width of the number box
---   font      size of the number itself
---   smallFont size of the hint and of the name beside the icon (default: one less than font)
---   onCommit  function(id), called by Enter and by the "+" with an id that resolved
+-- An item-id field: a number box that takes digits only, with a live preview of the item the id names -- its
+-- icon, then its name -- so what was typed is seen to resolve before it is committed. The "+" plate beside it is
+-- the same "add one of these" control the racks lead with, and Enter does the same; a shift-clicked item link
+-- lands as its bare id (RegisterLinkBox above). Two callers read it, the category editor's pin entry and the
+-- pocket's picks panel, written once here so the two cannot drift into two different fields.
+-- opts: hint (localized empty-state key, which owns the field until a digit lands), height (the frame stands 6
+-- taller), boxWidth, font, smallFont (default one less than font), onCommit(id) from Enter and from "+".
 function ns.CreateIdField(parent, opts)
   opts = opts or {}
   local boxW = opts.boxWidth or 56

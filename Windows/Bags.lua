@@ -338,17 +338,10 @@ function Bags:ArrangeRun(bagList, failed)
   return nil
 end
 
--- The new-item pump. Kept apart is a physical arrangement, so it moves one piece at a time and confirms
--- each landed before the next: a piece is parked only once it has actually left its source slot, so a move
--- the server drops (which happens under a fast burst of buys) is re-issued instead of being marked parked at
--- the front and stranded. It keeps sweeping through a short lull after the last move so a straggler still
--- settling or not yet flagged new is caught.
---
--- Only one pump runs at a time. The triggers (a loot, a buy, the window opening, a bag update) fire in
--- bursts, and a naive restart on each would throw away the in-flight move and the give-up set every time,
--- so a fast run of buys kept resetting the pump and never finished. Instead a trigger while the pump is
--- already running only wakes it (resets the idle countdown): the running pump re-scans the bags every tick,
--- so it picks up the new arrivals on its own. Suppressed in combat, on a held cursor, and during a sort.
+-- The new-item pump: one move at a time, each confirmed before the next, so a move the server drops is
+-- re-issued instead of being marked parked at the front and stranded. A trigger while it runs only wakes it --
+-- restarting threw away the in-flight move and the give-up set, and a fast run of buys never finished.
+-- Suppressed in combat, on a held cursor, and during a sort.
 local MOVE_TRIES, LOCK_POLLS, IDLE_MAX = 12, 40, 14
 local MOVE_WAIT, LOCK_WAIT, IDLE_WAIT = 0.22, 0.15, 0.35
 function Bags:ArrangeNew()
@@ -920,22 +913,11 @@ function Bags:Build()
   -- beside them lands higher. The tipped coin also gives up a slice of the disc to the tilt, which this
   -- pays back -- at 76 its ink stands level with the brush and the bag.
   sell.iconPct = 76
-  -- The coin is gold only when BOTH halves of the trade are true: a merchant who is buying stands open,
-  -- and the player's own sell rules find something in the bags to hand over (wpeSellReady, set by
-  -- RefreshSellCoin). Neither alone lights it -- a bag full of greys with no merchant up is not an
-  -- invitation to click a button that would do nothing, and an empty bag in front of a merchant is not
-  -- money either. The hover lifts the same gold toward white rather than swapping hue.
-  -- The unlit state is told by OPACITY as well as by ink. Dim alone read as "quiet, like the gear beside
-  -- it", and the gear is pressable -- so the coin looked clickable at the one moment a click could only
-  -- answer "talk to a merchant first" (owner). Full strength now means pressable and nothing else: the
-  -- unlit coin sits at COIN_INERT and stops short of 1 even under the pointer. Alpha is safe here and
-  -- nowhere near as safe on the item badges: the header is a flat dark band with nothing bright beneath
-  -- the coin, which is what made a faint badge on an item icon read as a bug with the colour forgotten.
-  -- A third hue for "merchant open, nothing to sell" was considered and left out: to the player that
-  -- state means the same thing as no merchant at all, nothing to do, and a warning-coloured mark would
-  -- pull the eye at the one moment there is nothing to act on. The tooltip already names the difference.
-  -- Colours are read from the theme each paint, so a skin change re-dresses it through the button's own
-  -- repaint (CreateButton tracks it) with no tint frozen at creation.
+  -- Gold only when both halves are true: a merchant open and the player's own sell rules finding something to
+  -- hand over. Dim alone read as "quiet, like the gear beside it" and the gear is pressable, so the unlit coin
+  -- is told by opacity too (COIN_INERT) -- alpha is safe on this flat header band, not on an item icon. A third
+  -- hue for "merchant open, nothing to sell" was left out: to the player that is the same as no merchant at all.
+  -- Colours come from the theme each paint, never frozen at creation.
   sell.wpeIconPaint = function(s)
     if not s.icon then return end
     local hot = s.wpeHot
@@ -1119,6 +1101,7 @@ function Bags:BuildBagWindow()
     self.bagButtons[#self.bagButtons + 1] = ns.CreateBagButton(w, bagID, self:BagWinButtonSize())
   end
   w:Hide()
+  w:HookScript("OnHide", function() Bags:CheapRestore() end)
   self.bagWindow = w
   if ns.Theme and ns.Theme.ApplyWindowAlpha then ns.Theme:ApplyWindowAlpha() end
   self:LayoutBagWindow()
@@ -1186,9 +1169,23 @@ function Bags:ToggleBagWindow()
     w:SetPoint("CENTER")
   end
   self:LayoutBagWindow()
+  self:CheapAside()
   w:Show()
   ns.Theme:Raise(w)
   self:UpdateBagBar()
+end
+
+function Bags:CheapAside()
+  if ns.Cheap and ns.Cheap.frame and ns.Cheap.frame:IsShown() then
+    self.cheapAside = true
+    ns.Cheap:Close()
+  end
+end
+
+function Bags:CheapRestore()
+  if not self.cheapAside then return end
+  self.cheapAside = nil
+  if ns.Cheap then ns.Cheap:MaybeShow() end
 end
 
 function Bags:ReagentsHidden() return self.hideReagents and true or false end
@@ -1351,7 +1348,7 @@ function Bags:Warm()
   if n == 0 then return end
   for i = 1, n do
     if not self.pool[i] then
-      local b = ns.CreateBagItemButton(self.content)
+      local       b = ns.CreateBagItemButton(self.content)
       b.holder:Hide()
       self.pool[i] = b
     end
@@ -1513,6 +1510,9 @@ function Bags:Layout(capture, light)
   if self.styleGenSeen ~= self.styleGen then
     self.styleGenSeen = self.styleGen
     if self.pool then
+      -- The stamp the paint remembers carries the style generation, so this clear is not what forces the
+      -- repaint: the bump already did (see paintStamp in Items/ItemButton.lua). The links go too, because
+      -- everything that reads a cell's link has to look again.
       for _, b in ipairs(self.pool) do b.link = nil end
     end
   end
@@ -1675,16 +1675,30 @@ function Bags:Layout(capture, light)
     -- and Layout drops every link once for it. A snapshot cell repaints off its own key, so it keeps the
     -- drop: its record carries more than the live cell's key spells out.
     local run, kind = runOf[bag], kindOf[bag]
-    if rebound or self.snap or b.wpeCat ~= cat or b.wpeForce ~= forceCount
-       or b.wpeRun ~= run or b.wpeKind ~= kind then
+    -- A cell that merely changed hands keeps its paint: the guard inside the paint compares the link and every
+    -- fact it reads off the slot, so a cell handed another slot that holds the same piece has nothing to redraw,
+    -- and one handed a different piece answers with a paint anyway. Dropping the link here on the hand-off alone
+    -- was what repainted the whole run of cells after the window had been shut, when the plan shifted by a
+    -- block and every cell behind it stood for a slot it did not hold a moment ago.
+    -- "No section" has two spellings, nil and false, and a cell that never went through a grouped pass carries
+    -- nil while the grid compares against false. Left un-normalised the two count as a change on every pass, and
+    -- the whole run of cells dropped its paint and repainted (41 cells, thirteen milliseconds an open) for a
+    -- view flag that had not moved at all.
+    local cellCat = b.wpeCat or false
+    -- The run and the trade kind are read the same way: `false` for "none" from the reader, `nil` on a cell that
+    -- never had one written. One spelling on both sides, or the comparison is true forever.
+    local cellRun, cellKind = b.wpeRun or false, b.wpeKind or false
+    local nowRun, nowKind = run or false, kind or false
+    if self.snap or cellCat ~= (cat or false) or b.wpeForce ~= forceCount
+       or cellRun ~= nowRun or cellKind ~= nowKind then
       b.link = nil
     end
     -- The run is kept on the cell for the same reason the view is: the next pass compares it against the
     -- bag the cell then stands for, so a bag that turns into a quiver or a soul bag repaints its cells even
     -- though neither the bag, nor the slot, nor the item in it has moved. The kind beside it does the same
     -- for a bag that turns into one of a trade, which changes nothing the run can see.
-    b.wpeRun = run
-    b.wpeKind = kind
+    b.wpeRun = run or false
+    b.wpeKind = kind or false
     -- Combine-stacks: the cell binds one real bag slot (so the secure click is untouched) but draws the
     -- summed count of every folded slot. wpeForce overrides only the number UpdateItemButton shows; nil
     -- clears it, so a cell reused from a merged layout in the plain grid shows its own slot count again.
@@ -1692,7 +1706,7 @@ function Bags:Layout(capture, light)
     -- Grouped view rings reagents by item class, not by which bag holds them, so the Reagents section
     -- reads alike; the paint reads this off the cell. Cleared to false so a cell reused in the grid
     -- goes back to the reagent-bag rule.
-    b.wpeCat = cat
+    b.wpeCat = cat or false
     h:Show(); b:Show()
     if self.snap then
       ns.PaintVaultButton(b, ns.Vault:Slot("bags", bag, slot), bag, forceCount, kind)
@@ -2130,12 +2144,14 @@ function Bags:Resume()
   end
   if self.openPaint then
     self.openPaint = nil
-    -- The verdict path asks for a repaint without dropping links; this is the drop it needs, and the walk
-    -- below is the same one a shown repaint makes. The rows and the pocket are painted off the same cells.
-    if ns.ClearItemPaint then ns.ClearItemPaint() end
+    -- No links are dropped: the paint guard compares the verdict ring as well, so the walk below repaints the
+    -- cells whose ring moved and leaves the rest of the pool alone. The rows and the pocket are painted off
+    -- the same cells.
     for i = 1, (self.shown or 0) do
       local b = self.pool and self.pool[i]
-      if b then ns.UpdateItemButton(b); self:ApplyToButton(b) end
+      if b then
+        ns.UpdateItemButton(b); self:ApplyToButton(b)
+      end
     end
     if ns.Recent and ns.Recent.Refresh then ns.Recent:Refresh() end
     if ns.Fav and ns.Fav.Refresh then ns.Fav:Refresh() end
@@ -2846,16 +2862,10 @@ function Bags:EmptyTile(i)
   local t = self.emptyTiles[i]
   if not t then
     t = CreateFrame("Frame", nil, self.content)
-    -- A sample empty cell, cell-sized so it sits in the grid like any slot: a faint plate, its free
-    -- count centred, and a border. Up to three are drawn -- plain bags, the quiver, the reagent bag -- so
-    -- each pool shows its own free number without folding into one. The count in the section caption
-    -- is the total; these name where that room is. The section drop zone lies over them and a release
-    -- is the unfile.
-    -- The faint plate. Its low alpha is baked into the vertex colour and re-applied through the theme
-    -- hook, not set once with SetAlpha: a plain SetAlpha is not re-run on a theme change, while the
-    -- Rect's own recolour hook re-runs SetVertexColor to full alpha, so a plate painted with SetAlpha
-    -- alone flares to full brightness on a theme change and only a reload clears it. Painting colour and
-    -- alpha together in one tracked call keeps it faint across every theme change.
+    -- A sample empty cell: a faint plate, its free count centred, a border. Three pools -- plain bags, quiver,
+    -- reagent bag -- each showing its own number, while the caption counts them all. The plate's alpha rides the
+    -- same tracked recolour as its colour: a plain SetAlpha is not re-run on a theme change, and the slot's own
+    -- hook would flare it to full brightness until a reload.
     local bg = t:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(t)
     local function paintBg(x) local r, g, b = Theme:C("faint"); x:SetColorTexture(r, g, b, 0.12) end
@@ -3641,35 +3651,13 @@ local COIN_PATH = {
           s = "Interface\\AddOns\\Warpee\\Media\\Icons\\coin-silver",
           c = "Interface\\AddOns\\Warpee\\Media\\Icons\\coin-copper" },
 }
--- Warpee's own coin, on the money line by default and behind the "Blizzard icons" switch for anyone who
--- wants the client's back. Three files and not one tinted at runtime: a texture inside a string carries no
--- vertex colour, so the metal has to be in the file -- which is also why they are the very hexes the
--- letters wear (COIN_HEX below): flipping the setting between letters and coins changes the mark, not the
--- colour. They are baked for this line (integrate/cointilt/make-coin-money.js): the same tipped coin as the
--- badges and the header button, averaged down from the mark's 128px master into a file of its own.
---
--- Two things that file is not. It is not at the size the escape names: the escape asks for 12x12 UNITS and
--- the window draws them at 12 x the interface scale, so a file authored at 12 is MAGNIFIED -- and smeared by
--- the client's filtering -- on every scale above 1.0, which is what the owner saw on his own screen. The
--- file is 24px: at scale 2.0 that is exactly one texel per pixel and below it the file is minified, the
--- same place the client's own 16px icons sit. And it is not black anywhere: the silhouette is a band of
--- dark metal (the mark's ground is black because it stands on an item's art, and on a line of numbers that
--- black was sent back as a sticker) and the recess of the face is a shade of the metal as well. Nothing
--- here is the 128px mark sampled into this slot: that is 0.09 of a texel per pixel, and it is what turned
--- the ring to noise on an earlier pass.
--- AND THE SIZE IS THE FACE THE COIN RIDES, not a number of its own. A texture inside a string cannot
--- measure the text around it: it is drawn at the units the escape names, so a coin written at one fixed 12
--- stood a size bigger beside the 15-unit money face of the lowest density than beside the 17-unit face of
--- the highest -- the mark shrinking against its own digits every time the slider moved, while the client's
--- own money frames size their coins off the text they ride. So the size is three quarters of the face: the
--- relation this line was signed off at -- 12 units of coin beside the 16-unit face the default density
--- writes, and the client's own file is what it is measured against: their 16px icon holds its disc at 13-14
--- texels of 16 with the alpha reaching the file's edge, ours at 23-24 of 24, and drawn at the same 12 units
--- the two agree within a device pixel from scale 1.0 to 2.0 (share-vs-client.py beside the bake). A caller
--- that hands no face over keeps the money line's own
--- 12: the guild bank, whose coin stands on the game's own money buttons instead of in a string of ours, and
--- the gold tooltip. Both tables are built at the same size, so the switch still swaps the art and nothing
--- else -- which is the one thing it was ever allowed to do.
+-- Warpee's own coin, on by default and behind the "Blizzard icons" switch otherwise. Baked, not tinted: a
+-- texture inside a string has no vertex colour, so the metal is in the file, in the letters' own hexes
+-- (COIN_HEX) -- the switch swaps art, not colour. 24px, not 12: 12 units are drawn magnified above scale 1.0
+-- and smeared, while 24 is one texel per pixel at 2.0; nothing is pure black, and the ring is not the 128px
+-- mark sampled down (0.09 texel per pixel turned it to noise). The size is three quarters of the face the coin
+-- rides -- a string cannot measure its text, and a fixed 12 shrank against the digits as density rose. A
+-- caller that hands no face keeps 12: the guild bank and the gold tooltip.
 local COIN_UNITS, COIN_CACHE = 12, {}
 local function coinSet(font)
   local n = COIN_UNITS
@@ -3719,6 +3707,24 @@ end
 -- The last field is the face the money is written in, in units. It is what sizes the coin (coinSet above):
 -- a line that knows its own font hands it over -- both footers read it off the label they are about to paint
 -- -- and a line that does not leaves it out and gets the money line's own 12.
+-- The three coins of a sum, one string each, in the same ink and with the same coin pictures FormatMoney writes.
+-- A window that lines copper up under copper needs the pieces rather than the whole line. They are written from
+-- the largest coin down, and only from the first coin the sum carries: 9 copper is "9 c", not "0 g 0 s 9 c",
+-- and 78 silver is "78 s 90 c", never led by a zero gold. But once a coin is written every smaller one follows,
+-- zeroes included, so a purse of pure gold ends on "0 s 0 c" instead of a hole over the copper column.
+function ns.MoneyParts(money, goldOnly)
+  money = money or 0
+  local g = math.floor(money / 10000)
+  if goldOnly then return coinSeg(ns.FormatNumber(g), "g", true) end
+  local sv = math.floor((money % 10000) / 100)
+  local cp = money % 100
+  if g > 0 then
+    return coinSeg(ns.FormatNumber(g), "g", true), coinSeg(sv, "s", true), coinSeg(cp, "c", true)
+  end
+  if sv > 0 then return nil, coinSeg(sv, "s", true), coinSeg(cp, "c", true) end
+  return nil, nil, coinSeg(cp, "c", true)
+end
+
 function ns.FormatMoney(money, goldOnly, deep, plain, font)
   money = money or 0
   local g = math.floor(money / 10000)
@@ -3864,6 +3870,22 @@ function Bags:SelectChar(key)
   if self.frame and self.frame:IsShown() then self:Layout(true) end
 end
 
+-- What the interaction rules answer from, in one cheap line: which window is up, and whether the merchant
+-- in it is buying. The answers are all that turns the red "cannot wear / cannot hand over" ring on, and they
+-- cannot have changed between two opens of the same, unchanged context.
+local function interactionSig()
+  local V, K = ns.Vendor, ns.Bank
+  return table.concat({
+    tostring(V and V.IsOpen and V:IsOpen() and true or false),
+    tostring(V and V.CanBuy and V.IsOpen and V:IsOpen() and V:CanBuy() and true or false),
+    tostring(K and K.bankerOpen and true or false),
+    tostring(K and K.mode or ""),
+    tostring(MailFrame and MailFrame.IsShown and MailFrame:IsShown() and true or false),
+    tostring(AuctionHouseFrame and AuctionHouseFrame.IsShown and AuctionHouseFrame:IsShown() and true or false),
+    tostring(TradeFrame and TradeFrame.IsShown and TradeFrame:IsShown() and true or false),
+  }, "|")
+end
+
 function Bags:VendorState()
   if self.pool then
     for _, x in ipairs(self.pool) do ns.LockClicks(x) end
@@ -3889,9 +3911,18 @@ function Bags:VendorState()
   -- ("Talk to a merchant first") can say why instead of the button going dead. The merchant edge changes
   -- both halves, so the coin is refreshed here.
   self:RefreshSellCoin()
-  -- The merchant edge changes what VendorBlocked answers, so re-dim the open bags here: the grey
-  -- appears the moment a buying merchant is up and clears when he closes or turns out repair-only.
-  if ns.RefreshBagDim then ns.RefreshBagDim() end
+  -- The merchant edge changes what VendorBlocked answers, so re-dim the open bags here: the grey appears the
+  -- moment a buying merchant is up and clears when he closes or turns out repair-only. The dim moves the
+  -- generation under every cell's blocked answer, which makes the pass after it ask the client six questions
+  -- per cell -- and an open with the same window up asks the same questions it asked last time, which is two
+  -- hundred cells of reads for an answer already on them. Only a context that actually changed is asked again;
+  -- the real edges (the merchant opening or closing, the bank, the mail) still come through here and still
+  -- redraw.
+  local sig = interactionSig()
+  if sig ~= self.vendorSig then
+    self.vendorSig = sig
+    if ns.RefreshBagDim then ns.RefreshBagDim() end
+  end
   self:FitHeader()
 end
 
@@ -4492,17 +4523,12 @@ local function classify(f, token)
   return true
 end
 
--- The search grammar. A rule is an expression over word-runs joined by operators:
---   |  ANY   (match either side)        toy | mount
---   &  ALL   (match both; a space between word-runs means the same, & is the explicit form)
---   !  NOT   (exclude the next word or group)   ! junk   or   !junk
---   ( ) group, for nesting               reagent & (ore | metal)
--- A "word-run" is a maximal stretch of plain words with no operator between them; its words merge into
--- one filter, so same-axis words union (weapon shield = weapon OR shield slot) and cross-axis words AND
--- (cloth rare = cloth AND rare). Operators only ever sit BETWEEN runs and groups, so a rule with no
--- operators parses to the same flat filter as a plain word search.
--- The tree the parser builds is read by MatchSearch: a leaf (flat fields + its own nots), an { ors= }
--- node (any side), an { ands= } node (all parts), and a not-leaf ({ text={}, nots={ node } }).
+-- The search grammar: a rule is an expression over word-runs joined by operators -- | ANY, & ALL (a space
+-- between runs means the same), ! NOT, ( ) group for nesting. A word-run is a maximal stretch of plain words;
+-- its words merge into one filter, so same-axis words union (weapon shield = weapon OR shield slot) and
+-- cross-axis words AND (cloth rare = cloth AND rare). Operators only ever sit BETWEEN runs and groups, so a
+-- rule with no operators parses to the same flat filter as a plain word search. The tree MatchSearch reads: a
+-- leaf (flat fields + its own nots), an { ors= } node, an { ands= } node, and a not-leaf ({ text={}, nots={ } }).
 local SEARCH_OPS = { ["|"] = true, ["&"] = true, ["!"] = true, ["("] = true, [")"] = true }
 local function tokenizeSearch(q)
   local toks, i, n = {}, 1, #q
@@ -4691,25 +4717,12 @@ local function tokenWords()
   return out
 end
 
--- The curated vocabulary the category editor's token picker offers, as an ordered list of
--- { token, axis } — ONE canonical token per concept, unlike the parser tables, which carry every
--- synonym a player might type (boots/feet, ring/finger, шлем/head). The parser still takes them all;
--- this is only what the picker shows, so browsing reads as one clean word per thing. The parser's own
--- "kind" axis lumps armor materials, weapon types and item classes together, so it is split here into
--- the axes a person actually thinks in: Armor, Weapon, Item class, Consumable. Slot, Quality, Expansion
--- and Flag round it out. A token here must be one classify() understands (guarded at build time), so a
--- typo in this list drops the entry rather than offering a word the field cannot parse.
--- The curated vocabulary the category editor's token picker offers, as an ordered list of
--- { token, axis } — ONE canonical token per concept, unlike the parser tables, which carry every
--- synonym a player might type (boots/feet, ring/finger and their localized kin). The parser still
--- this is only what the picker shows, so browsing reads as one clean word per thing.
---
--- The axes are grouped by what a PERSON thinks, not by how the classifier stores the match: the parser
--- lumps armor materials, weapon types, item classes and boolean flags together internally, and a mount
--- happens to have a real item class while a toy and a caged pet are read off other data — an accident of
--- how the game stores them, meaningless to the player. So a mount, a pet and a toy sit together under
--- "Collectible" here even though the parser files a mount as a class and the other two as flags. The
--- axis a row carries is purely the picker's grouping; the token it inserts is unchanged.
+-- The curated vocabulary the picker offers, as an ordered list of { token, axis }: ONE canonical token per
+-- concept, unlike the parser tables that carry every synonym (boots/feet, helmet/head). The parser still takes
+-- them all; this list is only what is shown. The axes follow what a person thinks -- a mount, a pet and a toy
+-- sit together under "Collectible" though the parser files them as a class and two flags. A token here must be
+-- one classify() understands (guarded at build time), so a typo drops the row rather than offering a word the
+-- field cannot parse.
 local PICK_TOKENS = {
   -- Armor material
   { "cloth", "armor" }, { "leather", "armor" }, { "mail", "armor" }, { "plate", "armor" },
@@ -5563,7 +5576,13 @@ end
     local num = C_Container.GetContainerNumSlots(bag) or 0
     for slot = 1, num do
       local b = self.byKey[bag * 1000 + slot]
-      if b then ns.UpdateItemButton(b); self:ApplyToButton(b) end
+      -- A cell the window is not showing has nothing to draw for: the pass that places it shows it and paints
+      -- it then, so a paint here is spent on a widget nobody can see. The plan leaves cells hidden after a
+      -- close (the tail of the pool) and the bags of a slot the sheet no longer draws, and the open's own
+      -- pass paid for every one of them.
+      if b and b.holder and b.holder:IsShown() then
+        ns.UpdateItemButton(b); self:ApplyToButton(b)
+      end
     end
   end
   self.dirty = {}

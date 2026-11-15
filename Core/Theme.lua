@@ -767,7 +767,20 @@ function ns.SnapWindow(frame, done)
     targets[parent] = (parent == frame or parent.wpeEdge or parent.wpePixelRect
       or (parent.edges and parent.mark)) and true or false
     order[#order + 1] = parent
-    if parent.GetRegions then
+    -- Indexed where the client offers it: `{ parent:GetRegions() }` builds a fresh table for every frame on
+    -- every walk, and a walk over an open window touches hundreds of them. The table form stays as the
+    -- fallback for a frame that only answers GetRegions/GetChildren, which is what the tests stand in with.
+    local canIndex = parent.GetNumRegions and parent.GetRegion
+    if canIndex then
+      local nr = parent:GetNumRegions()
+      for i = 1, nr do
+        local r = parent:GetRegion(i)
+        if r and r:IsShown() then
+          targets[r] = r.wpePixelLine or false
+          if r.wpePixelLine then order[#order + 1] = r end
+        end
+      end
+    elseif parent.GetRegions then
       for _, r in ipairs({ parent:GetRegions() }) do
         if r:IsShown() then
           targets[r] = r.wpePixelLine or false
@@ -775,7 +788,13 @@ function ns.SnapWindow(frame, done)
         end
       end
     end
-    if parent.GetChildren then
+    local canWalk = parent.GetNumChildren and parent.GetChild
+    if canWalk then
+      for i = 1, parent:GetNumChildren() do
+        local c = parent:GetChild(i)
+        if c then collect(c, depth + 1) end
+      end
+    elseif parent.GetChildren then
       for _, c in ipairs({ parent:GetChildren() }) do collect(c, depth + 1) end
     end
   end
@@ -1019,6 +1038,9 @@ function Theme:Restyle(name)
   if ns.Bags and ns.Bags.Restyle then ns.Bags:Restyle() end
   if ns.Bank and ns.Bank.Restyle then ns.Bank:Restyle() end
   if ns.GuildBankSkin and ns.GuildBankSkin.Restyle then ns.GuildBankSkin:Restyle() end
+  -- The cheap list measures its header and its insets from the theme on every paint, so a switch has to ask it
+  -- for one: a textured band leaves a gap behind when its art goes, and a thicker skin has to push the rows in.
+  if ns.Cheap and ns.Cheap.Restyle then ns.Cheap:Restyle() end
   local P = ns.CharPicker
   if P and P.frame and P.frame:IsShown() and P.Paint then P:Paint(true) end
   if ns.Profiles and ns.Profiles.ApplySkin then ns.Profiles:ApplySkin() end

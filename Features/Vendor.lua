@@ -165,6 +165,8 @@ local function sellRepaint(key)
     if key and Bank.RepaintMark then Bank:RepaintMark(key) else Bank:Repaint() end
   end
   if ns.Pocket then ns.Pocket:Soon() end
+  local C = ns.Cheap
+  if C and C.frame and C.frame:IsShown() and C.Refresh then C:Refresh() end
   local O = ns.Options
   if O and O.ReflowPages and O.frame and O.frame:IsShown() then O:ReflowPages() end
 end

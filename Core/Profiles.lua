@@ -164,6 +164,14 @@ function P:ResetActive()
   ns.WipeConfig(WarpeeDB)
   ns.FillComputed(WarpeeDB)
   ns.SanitizeConfig(WarpeeDB)
+  -- A reset puts back the questions this addon asks: the marks that say a key was already chosen go, and
+  -- both rows ask again at once rather than on the next login. The bindings themselves belong to the
+  -- client and stay where they are -- a reset of the settings is no reason to take a key off a keyboard,
+  -- and a row that already holds one is left holding it.
+  WarpeeDB.pinBind, WarpeeDB.pinKey, WarpeeDB.pinFix, WarpeeDB.pinVer = nil, nil, nil, nil
+  WarpeeDB.pocketBind = nil
+  if ns.PinDefaultKey then ns.PinDefaultKey() end
+  if ns.PocketDefaultKey then ns.PocketDefaultKey() end
   if ns.Ready then
     ns.Applying = true
     local ok, err = pcall(ns.ApplyAll)

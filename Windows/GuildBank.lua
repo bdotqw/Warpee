@@ -594,20 +594,15 @@ local function plainInk(btn)
   return plain == nil or fo == plain
 end
 
--- A coin of a money frame is drawn by the game as an icon beside the digits, and the addon has two
--- settings about what stands there instead: Warpee's own coin (the default), or the client's icons it
--- already drew. Either way the seat is the same -- the art the game put there is hidden and a font
--- string takes its place at the art's own left edge -- so a frame written in our coin and a frame left
--- to the client are the same width, and the switch is a switch of art and nothing else. A letter is
--- the third setting and outranks both: it is the one the addon's own language gives the coin, so a
--- client set to Russian reads "з/с/м" and the same client set to English reads "g/s/c", and it wears
--- the coin's own colour, which is what the money of the addon does in every other window.
---
--- The letter is not written into the digits: it takes the seat the coin icon held, anchored to the
--- icon's own left edge. Written into the string it would push the whole amount along, because the
--- string is anchored by its right end and a letter added at that end moves every digit before it;
--- in the icon's seat the digits keep the place they have always had and only what stands beside
--- them changes, and the width the game gave the button is left as it was.
+-- A coin of a money frame is drawn by the game as an icon beside the digits, and the addon has two settings
+-- about what stands there instead: Warpee's own coin (the default) or the client's icons it already drew. Either
+-- way the seat is the same -- the game's art is hidden and a font string takes its place at that art's own left
+-- edge -- so both are the same width and the switch is a switch of art and nothing else. A letter is the third
+-- setting and outranks both: it is the one the addon's own language gives the coin, so a Russian client reads
+-- "z/s/m" and an English one "g/s/c", wearing the coin's own colour.
+-- The letter is not written into the digits: inside the string it would push the whole amount along, because the
+-- string is anchored by its right end. In the icon's seat the digits keep their place and the width the game
+-- gave the button stays as it was.
 local function coinMark(btn, letter, r, g, b, a)
   local art = btn.GetNormalTexture and btn:GetNormalTexture()
   local fs = btn.wpeMark

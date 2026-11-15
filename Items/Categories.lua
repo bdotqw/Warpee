@@ -55,41 +55,16 @@ local function isMarker(e) return isHead(e) or isDiv(e) end
 local function isCat(e) return type(e) == "table" and not isMarker(e) end
 Cats.IsCat, Cats.IsMarker, Cats.IsHead = isCat, isMarker, isHead
 
--- Ordered list, first match wins within one priority, so a piece lands in one section and its place
--- in the list is the tie-break. Sharp edges to keep in mind before reordering: Weapon is by slot
--- (`weapon shield offhand` — every word is a slot and they OR into one set; it must not be mixed with an
--- armor kind-row, since slot and kind are different axes and AND to nothing). Jewelry is `finger neck`
--- only, with Trinkets split into its own row below; leave trinket in Jewelry and the Trinkets row goes
--- empty, since Jewelry sits higher and claims them first. Collectibles unites three things on different
--- axes — Toy is a flag, Mount and Battlepet are kinds — so it needs the top-level "|": `toy | mount
--- battlepet` = toy OR (mount OR battlepet). Grey vendor trash matches both its type (a grey Miscellaneous
--- piece answers to the `misc` row, a grey weapon to a gear row) and the `poor` quality; the Junk row
--- carries prio 2 so it wins that contest wherever it sits, which is why no other rule needs a "!junk" to
--- push greys past itself. Drop Junk's priority to 0 and a grey would fall to whichever type row sits
--- above it instead.
--- The four gear rows nominate by slot and kind only, with no item-level floor: a shirt and a levelling
--- green are still armour, and the rows below are what separate last expansion's piece from this one.
--- Anything the rows under them do not claim ends up in Other as always.
--- Markers shape the view, the category rows between them are the rules. A head opens a named band, a
--- div opens a headingless one, and the rows before the first marker are a band of their own with no
--- heading at all. So the three shipped groups are groups only because the list says so, and the tail is
--- a divider band rather than a group with a false gid. "consumables !legacy"
--- ORs with the two item ids so a couple of specific pieces (a codex, a tome) join the block; the
--- specific consumable rows above it (flasks/food/potions) claim their own subclasses first. "misc"
--- is the Miscellaneous item class, not the text word: collectibles sits above it so mounts, pets and
--- toys are pulled out before the class catch-all. Every token here is one classify() understands, and
--- written the way the "+" picker spells it: where the parser also takes a synonym (ring for finger, junk
--- for poor, container for bag, consumables for consumable, held for offhand) the shipped rule uses the
--- word the axes offer. A chip reads through the picker, so the picker's word is the one that comes back
--- translated and pickable; a synonym typed by hand still matches, it only falls back to the token.
---
--- `prio` is a claim priority, kept apart from list position: which section a piece lands in when more
--- than one rule matches it is decided by prio (higher wins), where a section draws is decided by its
--- place in the list. Default 0. Only Junk ships raised (prio 2) so it can sit low in the list — where
--- the player wants to see it — yet still pull grey trash out from under the type rows and the
--- Miscellaneous class row above it. Ties fall back to list order, so the old top-down behaviour holds
--- wherever prio is equal. Legacy ships at the default 0: raising it would drag current-item-level gear
--- that still carries a past-expansion tag down into it, so that trade-off is left to the player.
+-- Ordered list, first match wins within one priority; list position breaks ties. Sharp edges before reordering:
+-- Weapon is by slot (`weapon shield offhand` -- every word is a slot and they OR; never mix with an armour
+-- kind-row, since slot and kind AND to nothing); Jewelry is `finger neck` with Trinkets split below, or that row
+-- goes empty; Collectibles unites axes that do not mix (Toy is a flag, Mount and Battlepet are kinds), hence
+-- `toy | mount battlepet`. Junk carries prio 2, so greys lose to it wherever it sits. The gear rows nominate by
+-- slot and kind with no item-level floor, and anything unclaimed lands in Other. Markers shape the view (a head
+-- opens a named band, a div a headingless one), so the shipped groups are groups only because the list says so.
+-- Every token is one classify() understands and ships as the picker spells it, so a chip comes back translated;
+-- a typed synonym still matches. `prio` is a claim priority apart from list position: higher wins when several
+-- rules match, where a section draws is list order (Junk at 2, the rest 0; Legacy 0).
 local DEFAULTS = {
   { head = "essentials" },
   -- A named single item is a pin, not a rule: that is the one consistent home for "this exact piece", the
@@ -977,18 +952,12 @@ local FLOOR_FROM = {
   armor    = "cloth leather mail plate !junk",
   trinkets = "trinket !junk",
 }
--- Two shipped rules used to be written so that the chip editor could not read them back. Consumables
--- mixed "and" with "or" to name two old gadgets it still wants; Wardrobe left two slot words side by side
--- inside an "or", which the parser unions but the chip view would not flatten. Both are corrected in the
--- shipped table above — Consumables keeps only the general rule, with the two gadgets pinned to that row
--- instead, and Wardrobe writes its "or" between every pair — and this pass carries the correction onto a
--- save that still holds the old text exactly. A rule the player has typed over no longer matches the old
--- string and is left as it is, and a row already corrected does not match either, so the pass is safe to
--- run again; the flag keeps it to the one time.
--- The pins are a second pass with a flag of their own, because a build in between shipped the two gadgets
--- pinned, then moved them into the rule text: a save that took that build holds the flat rule with an empty
--- rack, and its rule flag is already set. A save that took the first shape gets the rule rewritten and the
--- pins written in the same walk; a save that took the second gets only the pins.
+-- Two shipped rules were written so the chip editor could not read them back: Consumables mixed and with or to
+-- name two old gadgets, and Wardrobe left two slot words side by side inside an or. Both are corrected in the
+-- table above, and this pass carries the correction onto a save that still holds the old text exactly -- a rule
+-- the player typed over no longer matches and is left alone, and the flag keeps it to the one time. The pins are
+-- a second pass with a flag of their own, because a build in between shipped the gadgets pinned and then moved
+-- them into the rule text.
 local PRESET_RULE_FROM = {
   consumables = { search = "consumables !legacy | id132514 id109076", flat = "consumables !legacy",
                   pin = { 132514, 109076 } },
@@ -1528,18 +1497,13 @@ local function branchRank(idx, m)
   return #f.ors + 1
 end
 
--- Slot memory for the grouped anti-jump. A category keeps the ordered keys of the slots it last drew;
--- while a window that takes items is open the next pass walks that order and rebuilds the section from
--- it: a remembered piece still present keeps its place, one that left becomes an inert hole carrying its
--- old key, and anything present no remembered entry claimed is new and appends. So a deposit leaves holes
--- in place (no reflow under the cursor) and a piece coming back from the bank drops into its own hole;
--- Does live slot `e` hold the remembered piece `p`? The instance GUID is the exact match, tried first. If
--- it does not match, the itemID is the fallback, and it is allowed even for a unique piece (gear): a piece
--- that goes into the warband bank and comes back is issued a FRESH GUID, so its old GUID never matches
--- again, and only the itemID ties the returning piece to the hole it left. The counted round-one/round-two
--- match below is what keeps this fallback honest: a still-present twin of the same itemID claims its own
--- slot by position in round one, so it is already taken and cannot be handed to a departed piece's entry in
--- round two. (onScreen, separately, stays GUID-only, so that same twin never masks the departure itself.)
+-- Slot memory for the grouped anti-jump: a category keeps the ordered keys of the slots it last drew, and while
+-- a window that takes items is open the next pass rebuilds from that order -- a remembered piece keeps its
+-- place, one that left becomes an inert hole with its old key, and anything unclaimed appends. So a deposit
+-- leaves holes in place and a returning piece drops into its own hole. Does slot `e` hold the remembered `p`:
+-- the instance GUID first, then the itemID, allowed even for a unique piece because a warband round trip issues
+-- a fresh GUID. The counted two-round match keeps the fallback honest: a still-present twin claims its own slot
+-- in round one and cannot be handed to a departed piece in round two. onScreen stays GUID-only.
 local function sameKey(e, p)
   if p.guid and e.guid and e.guid == p.guid then return true end
   return (p.nokey and e.nokey and e.nokey == p.nokey) or false
@@ -1676,19 +1640,13 @@ end
 -- pass records keys (a nil memory would read as "not keyed") yet reconciles against nothing.
 Cats.EMPTY_MEMORY = {}
 
--- The category transfer: move a section's slots through the game's own UseContainerItem, a batch at a
--- time. Modelled on the vendor sell pump (Features/Vendor.lua): a slot whose item is gone or locked is
--- never forced, a slot that will not clear after a few tries is left alone, and the run stops the moment
--- the window closes or combat starts. Deposit and withdraw both come through here: `send(bag, slot)` is the
--- one game call that moves a piece (deposit passes the bank type, withdraw does not), and `dummy` entries
--- (held holes) are skipped since their bag/slot is stale.
---
--- Two speeds, and which one a run gets is the `warband` argument. The character bank takes a move and has
--- it done by the time the next line runs, so its runs send batch after batch with nothing but a short gap
--- between them. The account bank answers a server round-trip per move, and a second batch fired into a
--- move still in flight leaves those slots locked and drops the moves behind it: its runs are the smaller
--- batch and do not send the next one until the one before it landed. What "landed" is read from is the
--- run's own list, since either direction empties the slot it sent, so it costs no container reads.
+-- The category transfer: a section's slots through the game's own UseContainerItem, a batch at a time, modelled
+-- on the vendor sell pump. A slot whose item is gone or locked is never forced, one that will not clear after a
+-- few tries is left alone, and a run stops the moment the window closes or combat starts. `send(bag, slot)` is
+-- the one call that moves a piece (deposit passes the bank type, withdraw does not); `dummy` held entries are
+-- skipped. Two speeds: the character bank has the move done when the next line runs, so batches follow with a
+-- short gap; the account bank answers a round-trip per move, so its batches are smaller and wait for the
+-- previous one to land -- read from the run's own list, which costs no container reads.
 local ctstate = nil
 -- A run carries a generation: MoveSlots bumps it, and both the step loop and finish bail the moment a
 -- newer call has replaced them. Without this, a replaced run's pending C_Timer.After(step) still fired,
@@ -1974,26 +1932,16 @@ function Cats:StopMove()
   settleViews()
 end
 
--- Every occupied slot into its section, sections that hold anything returned in list order. The
--- catch-all is a row like the rest now, so it draws where the player put it, not forced last. The
--- reagent bag is always bucketed here: cat-view is a full inventory grouping, the grid's
--- hide-reagents toggle does not gate it.
--- The shared bucketing core, so the bags and the bank group by the exact same rules. It is told its
--- world through opts rather than reading ns.playerBags directly: `bagList` is the containers to walk,
--- `snap`/`snapMode` pick the Vault store when a cached character is shown, and `reagentBag` is the one
--- extra container the bags append (nil for the bank). It knows nothing of the search: a query dims
--- what it did not match on the cells themselves, and never changes what is bucketed or drawn. Returns
--- the same {out, used, total} the bags always did.
--- Sticky fold representative, keyed window + category + item. A folded (combine-stacks) cell
--- binds one of its group's slots, and the first-filed slot churns as pieces arrive and leave: an
--- arrival in an earlier slot re-points the cell, which rebinds and repaints it (measured: ~770 of
--- ~1190 repaints on a warbank deposit). So the cell keeps the previous pass's slot while that slot
--- still holds the item -- one container read, and only when the representative would otherwise
--- move. The guid goes with the slot it came from: a rewritten rep drops to the itemID fallback
--- (the same fallback a warbank-fresh piece uses), since instance identity of a summed group is
--- meaningless anyway. Snapshots skip this: their slots are Vault records, not live containers,
--- and a static store never churns a rep. Stale entries fail validation and rewrite themselves, so
--- the cap wipe loses nothing but repinnings.
+-- Every occupied slot into its section, sections that hold anything in list order; the catch-all is a row like the
+-- rest now, and the reagent bag always buckets here, since cat-view is a full inventory grouping.
+-- The shared bucketing core, so bags and bank group by the same rules: it is told its world through opts
+-- (`bagList`, `snap`/`snapMode`, `reagentBag`) instead of reading ns.playerBags, and knows nothing of the search --
+-- a query dims cells, never changes what is bucketed. Returns {out, used, total}.
+-- Sticky fold representative, keyed window + category + item: a folded cell binds one slot of its group and the
+-- first-filed slot churns, rebinding and repainting it (~770 of ~1190 repaints on a warbank deposit), so the cell
+-- keeps the previous pass's slot while that slot still holds the item -- one container read. A rewritten rep drops
+-- to the itemID fallback, since instance identity of a summed group is meaningless; snapshots never churn. Stale
+-- entries rewrite themselves.
 local foldRep, foldRepN = {}, 0
 local function rememberRep(key, bag, slot)
   if not foldRep[key] then

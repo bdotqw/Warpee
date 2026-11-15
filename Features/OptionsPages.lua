@@ -52,8 +52,16 @@ end
 -- and no surface can forget the pass behind it.
 local setPocketShow = ns.Setting("pocketShow", function(v)
   if ns.Pocket then
-    if v and WarpeeDB.pocketOpen then ns.Pocket:Open()
-    else ns.Pocket:Apply() end
+    -- Switched on is a request for the window, not just permission for it: the pocket has no button on the
+    -- bags' header (POCKET_BTN), and the old branch only reopened a pocket that was standing at that
+    -- moment -- `pocketOpen` is cleared by every close, so the toggle re-armed a window that was never
+    -- there. The window is opened here, once, and only if it is not already up.
+    local w = ns.Pocket.frame
+    if v then
+      if not (w and w:IsShown()) then ns.Pocket:Open() end
+    else
+      ns.Pocket:Apply()
+    end
   end
   relayout()
 end)
@@ -78,11 +86,11 @@ fav.pkWithSet = function(v) setPocketWithBags(v and true or false) end
 fav.pkHandSet = function(v) setPocketHandOnly(v and true or false) end
 fav.pkLockGet = function() return ns.Pocket and ns.Pocket:Locked() end
 fav.pkLockSet = function(v) if ns.Pocket then ns.Pocket:SetLock(v) end end
-fav.pkRowsGet = function() return ns.Pocket and ns.Pocket:Rows() or 5 end
+fav.pkRowsGet = function() return ns.Pocket and ns.Pocket:Rows() or ns.PocketRowsDefault or 4 end
 fav.pkRowsSet = function(v) if ns.Pocket then ns.Pocket:SetRows(v) end end
 fav.pkRecentTwoGet = function() return ns.Pocket and ns.Pocket:RecentRows() == 2 end
 fav.pkRecentTwoSet = function(v) if ns.Pocket then ns.Pocket:SetRecentTwo(v) end end
-fav.pkColsGet = function() return ns.Pocket and ns.Pocket:Cols() or 6 end
+fav.pkColsGet = function() return ns.Pocket and ns.Pocket:Cols() or ns.PocketColsDefault or 6 end
 fav.pkColsSet = function(v) if ns.Pocket then ns.Pocket:SetCols(v) end end
 fav.pkSizeGet = function()
   return ns.PocketIconSize()
@@ -210,7 +218,7 @@ local POCKET_PAGE = {
   { type = "toggle", name = "Lock the pocket", col = 2,
     get = fav.pkLockGet, set = fav.pkLockSet,
     disabled = function() return not fav.pkGet() end,
-    desc = "Keep the pocket where it is. Unlocked, the arrows along its bottom edge nudge it around." },
+    desc = "Keep the pocket where it is. Unlocked, the pocket can be dragged anywhere on screen." },
   { type = "toggle", name = "Open with bags", col = 1, get = fav.pkWithGet, set = fav.pkWithSet,
     disabled = function() return not fav.pkGet() end,
     desc = "The pocket opens and closes together with the bags, both when you open them and when a window opens them for you." },
@@ -336,8 +344,13 @@ local ITEMS_PAGE = {
   -- one of them is ever shown -- this is not a duplicated binding.
   { type = "range", name = "Text size", min = 6, max = 24, step = 1, section = "badges",
     get = bg.sGet, set = bg.sSet, hidden = bg.isTex },
+  -- The craft rank is a picture, so it is sized in pixels like the text and stepped one pixel at a time. One
+  -- row, its own label: calling it "Text size" while a rhombus is selected would be a lie.
+  { type = "range", name = "Icon size", min = 6, max = 24, step = 1, section = "badges",
+    get = bg.sGet, set = bg.sSet, hidden = function() return not bg.def().px end },
   { type = "range", name = "Badge scale", min = 0.4, max = 0.6, step = 0.02, section = "badges",
-    get = bg.sGet, set = bg.sSet, hidden = bg.isText,
+    get = bg.sGet, set = bg.sSet,
+    hidden = function() return bg.isText() or bg.def().px end,
     desc = "How much of the slot the coin and the padlock take." },
   { type = "range", name = "Letters", min = 2, max = 8, step = 1, section = "badges",
     get = bg.kGet, set = bg.kSet, hidden = bg.notFit,
@@ -552,7 +565,7 @@ local GRID_PAGE = {
         set = function(v) angleSet("pos", v) end,
         keys = anchorKeys, label = anchorLabel,
         desc = "The corner of the screen the bag window hangs from. It grows away from that corner as your bags fill." },
-      { type = "keybind", name = "Clear the cell", binding = "WARPEE_UNPIN", col = 2, of = 2,
+      { type = "keybind", name = "Clear favorite or pocket cell", binding = "WARPEE_UNPIN", col = 2, of = 2,
         desc = "The key that empties a favorite or pocket cell under the pointer. Click, then press a key, a mouse button or the wheel; a right click clears it, Escape cancels." },
       -- The containers the window draws, under one heading each client names its own way. Forever has a
       -- reagent bag as well -- container five, one bag with its own kind in it, plus the client's profession
@@ -796,7 +809,7 @@ function V.expName(i)
   return ns.ExpansionName(i) or ("Expansion " .. i)
 end
 
-local VENDOR_PAGE = {
+local VENDOR_MAIN = {
   { type = "header", name = "Runs on its own" },
   { type = "description",
     name = "These start when a merchant window opens, with no click from you." },
@@ -896,7 +909,7 @@ do
   local cur = LE_EXPANSION_LEVEL_CURRENT
               or (GetExpansionLevel and GetExpansionLevel()) or 0
   local at
-  for i, row in ipairs(VENDOR_PAGE) do
+  for i, row in ipairs(VENDOR_MAIN) do
     if row.type == "description" and row.section == "tokenexp" then at = i + 1; break end
   end
   local rows = {}
@@ -920,7 +933,7 @@ do
     end
   end
   if at then
-    for k = #rows, 1, -1 do table.insert(VENDOR_PAGE, at, rows[k]) end
+    for k = #rows, 1, -1 do table.insert(VENDOR_MAIN, at, rows[k]) end
   end
 end
 
@@ -966,13 +979,110 @@ local CATS_PAGE = {
   { type = "catlist", section = "categories" },
 }
 
+-- The Cheap window's own page, Forever only. Both rows are the rules the window itself reads: the best quality
+-- that still earns a row, and the quality at which a click asks before it destroys something.
+local QUALITY_KEYS = { "poor", "common", "uncommon", "rare", "epic", "legendary" }
+local CONFIRM_KEYS = { "never", "poor", "common", "uncommon", "rare", "epic", "legendary" }
+-- Which addon the auction side reads. Auto is the pair in the order the addon has always taken them; the two
+-- names pick one and stop guessing; Vendor only is the list with no auction side at all.
+local AUCTION_LABEL = { auto = "Auto", auctionator = "Auctionator", tsm = "TSM", vendor = "Vendor only" }
+
+local function qualityLabel(k)
+  if k == "never" then return T("Never") end
+  return (ns.TokenDisplay and ns.TokenDisplay(k)) or k
+end
+
+-- A ceiling the list is drawn from: raising or lowering it re-reads the bags, so the rows on screen are the
+-- rows the new rule gives, not the ones the last scan left behind.
+local function cheapPaint()
+  local C = ns.Cheap
+  if not (C and C.frame and C.frame:IsShown()) then return end
+  C:Scan()
+  C:Paint()
+end
+
+local function cheapHideGet() return WarpeeDB and WarpeeDB.cheapShow == false end
+local function cheapHideSet(v)
+  WarpeeDB.cheapShow = not v
+  if v then
+    if ns.Cheap and ns.Cheap.Close then ns.Cheap:Close() end
+  elseif ns.Cheap and ns.Cheap.MaybeShow then
+    -- Unchecked while the bags stand open: the same door that brings the window with them puts it back now,
+    -- rather than leaving the player to close and reopen the bags to see it again.
+    ns.Cheap:MaybeShow()
+  end
+end
+local function cheapCutGet() return not (WarpeeDB and WarpeeDB.cheapCut == false) end
+local function cheapCutSet(v)
+  WarpeeDB.cheapCut = v and true or false
+  if ns.Cheap and ns.Cheap.ClearAuction then ns.Cheap:ClearAuction() end
+  cheapPaint()
+end
+
+local function cheapMaxGet() return (WarpeeDB and WarpeeDB.cheapMaxQuality) or "uncommon" end
+local function cheapMaxSet(v) WarpeeDB.cheapMaxQuality = v; cheapPaint() end
+local function cheapConfGet() return (WarpeeDB and WarpeeDB.cheapConfirm) or "uncommon" end
+local function cheapConfSet(v) WarpeeDB.cheapConfirm = v end
+
+-- Every cached price was an answer from the addon that was chosen before this click: the cache goes, and an open
+-- list is redrawn from the new source rather than from the numbers the last one left behind.
+-- Only the addons that are actually installed are offered: a player without TSM is never asked to pick it, and
+-- a choice left over from one that has since been turned off reads as Auto instead of as a dead row.
+local function cheapSrcKeys()
+  if ns.Cheap and ns.Cheap.AuctionChoices then return ns.Cheap:AuctionChoices() end
+  return { "auto", "vendor" }
+end
+
+local function cheapSrcGet()
+  local v = (WarpeeDB and WarpeeDB.cheapAuctionSource) or "auto"
+  if ns.Cheap and ns.Cheap.AuctionChoiceAvailable and not ns.Cheap:AuctionChoiceAvailable(v) then return "auto" end
+  return v
+end
+
+local function cheapSrcSet(v)
+  WarpeeDB.cheapAuctionSource = v
+  if ns.Cheap and ns.Cheap.ClearAuction then ns.Cheap:ClearAuction() end
+  cheapPaint()
+end
+
+local CHEAP_PAGE = {
+  { type = "description",
+    name = "The list that opens with the bags: the stacks a merchant pays least for, cheapest first. A stack the auction house values above its vendor price is marked AH." },
+  { type = "toggle", name = "Hide the cheap window", col = 1, of = 2, get = cheapHideGet, set = cheapHideSet,
+    desc = "The list never opens with the bags. Its settings stay as they are, and switching this off brings the window back." },
+  { type = "toggle", name = "Subtract the auction cut", col = 2, of = 2, get = cheapCutGet, set = cheapCutSet,
+    desc = "The auction house keeps 5% of every sale, so the auction side of a row shows what you would really get: the listed price less 5%. Switch it off to compare against the raw price." },
+  { type = "select", name = "Highest quality shown", get = cheapMaxGet, set = cheapMaxSet,
+    keys = function() return QUALITY_KEYS end, label = qualityLabel,
+    desc = "The best quality that earns a row. Anything above it is left out, so the list stays about what is worth throwing away." },
+  { type = "select", name = "Ask before deleting", get = cheapConfGet, set = cheapConfSet,
+    keys = function() return CONFIRM_KEYS end, label = qualityLabel,
+    desc = "The quality a delete asks about first: below it a click throws the stack away at once, at it and above the game asks yes or no. Never turns the question off." },
+  { type = "select", name = "Auction prices from", get = cheapSrcGet, set = cheapSrcSet,
+    keys = cheapSrcKeys, label = function(k) return T(AUCTION_LABEL[k] or k) end,
+    desc = "Which addon the auction side reads. Auto takes Auctionator when it is installed and TSM after it. Vendor only shows every row at the merchant's price, and a gray stack is never asked at an auction house." },
+  -- The list of what the window was told to skip: the same shape as the marked-for-sale list beside it, because
+  -- it is the same kind of thing -- item ids saved by hand, with the minus that takes each one back out.
+  { type = "header", name = "Ignored items", key = "cheapignored",
+    state = function() return ns.LN("%d items", (ns.Cheap and ns.Cheap:IgnoredCount()) or 0) end },
+  { type = "description", section = "cheapignored",
+    name = "Click the − on an item's icon in the list to leave it out of it. The list never offers it again; the minus here puts it back." },
+  { type = "cheaplist", section = "cheapignored" },
+}
+
+local VENDOR_SUBS = { { name = "Merchant", list = VENDOR_MAIN } }
+-- Retail has no cheap window, so it has no page for one: the second tab exists only where the window does.
+if ns.IsForever then
+  VENDOR_SUBS[#VENDOR_SUBS + 1] = { name = "Cheap", list = CHEAP_PAGE }
+end
+
 local PAGES = {
   { name = "General", list = GENERAL_PAGE.list },
   { name = "Grid", subs = GRID_PAGE.subs },
   { name = "Categories", list = CATS_PAGE },
   { name = "Items", subs = ITEMS_PAGE.subs },
   { name = "Pocket", list = POCKET_PAGE },
-  { name = "Vendor", list = VENDOR_PAGE },
+  { name = "Vendor", subs = VENDOR_SUBS },
   { name = "Characters", list = CHARS_PAGE },
 }
 

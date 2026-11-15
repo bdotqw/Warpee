@@ -1,22 +1,25 @@
 # Warpee
 
-## 13.5
+## 13.6
 
 ENG
 
 **Retail / Forever**
 
-- Added an Add button beside Favorites in the bags: it opens the Popular window, where frequently used items can be added or an ID typed in.
-- Fixed the empty gaps left in the Recent row in the bags by used and sold items: the row closes up and the empty spaces are gone.
-- On Forever, the Popular window is updated: it adapts to the consumables available at your level.
-- Soul shards now show their total count in Favorites and in the pocket.
+- The default key for the Pocket and Clear favorite or pocket cell bindings is now chosen afresh: once on Forever and on a settings reset.
+- Currency icons in the row are now three pixels smaller than a grid icon instead of five.
+- Fixed the coin display in the Gold tooltip: coins keep their column positions across the whole table again, and coins missing from the purse show as zero.
+- Added the Cheap window, which opens and closes with the bags and shows stacks of the items a vendor or the auction house pays the least for.
+- The close cross in every window is replaced with a single raster icon with a soft shadow.
+- Removed a redundant repaint of every cell when the bags are reopened.
 
 RU
 
 **Ритейл / Форель**
 
-- Добавлена кнопка «Добавить» рядом с Избранным в сумках: она открывает окно «Популярное», где можно добавить часто используемые предметы или вписать ID.
-- Исправлены пустые места в ряду «Недавнее» в сумках, остающиеся от использованных и проданных предметов: теперь ряд смыкается и пустые места пропадают.
-- На Forever обновлено окно «Популярное»: оно адаптируется под доступные расходники вашего уровня.
-- Осколки душ теперь показывают общее количество в Избранном и в кармане.
-
+- Для биндингов «Карман» и «Очистить ячейку избранного/кармана» ключ по умолчанию теперь подбирается заново: один раз для Forever и при сбросе настроек.
+- Иконки валют в ряду теперь на три пикселя меньше иконки сетки вместо пяти.
+- Исправлено отображение монет в тултипе золота: они снова сохраняют положение колонок по всей таблице, а отсутствующие в кошельке монеты отображаются как нулевые.
+- Добавлено окно «Дешёвое», которое открывается и закрывается вместе с сумками и показывает стаки предметов, за которые торговец или аукцион платит меньше всего.
+- Крестик закрытия во всех окнах заменён единой растровой иконкой с мягкой тенью.
+- Убрана лишняя перерисовка всех ячеек при повторном открытии сумок.

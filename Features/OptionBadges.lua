@@ -63,6 +63,18 @@ function factories.badges(parent, spec)
     -- if an unknown key then draws from BADGES[1] too, otherwise art[key] is nil and GetStringWidth throws.
     key = d.key or key
     if d.tex then
+      local o = art[key]
+      if d.px then
+        -- A pixel badge: the same number the cell is given, magnified with the preview and fitted into the
+        -- box the art's own rectangle asks for -- the same fit the grid makes through ns.FitArt.
+        local px = ns.BadgeSize(key, bg.cell()) * factor()
+        local w0, h0 = tonumber(o and o.wpeW0), tonumber(o and o.wpeH0)
+        if w0 and h0 and w0 > 0 and h0 > 0 then
+          local k = px / math.max(w0, h0)
+          return math.max(6, w0 * k), math.max(6, h0 * k)
+        end
+        return math.max(6, px), math.max(6, px)
+      end
       local sz = math.max(6, PREV * (ns.Badge(key).s or d.s))
       return sz, sz
     end
@@ -122,8 +134,8 @@ function factories.badges(parent, spec)
       local vis = (g.on and (sel or not solo)) and true or false
       local dim = sel and 1 or 0.35
       if d.tex then
-        local sz = measure(d.key)
-        o:SetSize(sz, sz)
+        local w, h = measure(d.key)
+        o:SetSize(w, h)
         o:SetVertexColor(1, 1, 1, dim)
       else
         local cr, cg, cb = Theme:C("overlay")
@@ -136,9 +148,10 @@ function factories.badges(parent, spec)
       -- Through the per-badge frame the cells also use, so the order from the list is the order the
       -- preview shows. The one being edited is lifted over the rest: a badge you cannot see is a badge
       -- you cannot drag. The stack count keeps the lowest place it has on a cell.
+      -- The order the list sets, as the draw sublevel the cells use: the badges live on the preview's own
+      -- frame (there is no frame per badge any more), and the one being edited is lifted over the rest.
       local at, n = ns.BadgeOrderAt(d.key)
-      local holder = ns.BadgeFrame(cell, d.key)
-      holder:SetFrameLevel(ns.BadgeLevel(cell, d.key, at, n, sel))
+      o:SetDrawLayer("OVERLAY", ns.BadgeSub(at, n, sel))
       o:ClearAllPoints()
       -- The offsets go through the same call the grid places with, so the preview cannot show a
       -- placement the cell would not make -- the panel is magnified, and the rule holds at any

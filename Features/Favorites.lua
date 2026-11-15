@@ -170,7 +170,9 @@ end
 local function makeCatcher(parent, index)
   local c = CreateFrame("Button", nil, parent)
   c.favIndex = index
-  c:RegisterForClicks("LeftButtonUp", "MiddleButtonUp", "RightButtonUp")
+  -- MiddleButton and the two side buttons: a button this frame does not register never reaches its
+  -- OnClick at all, which is why MB4 and MB5 could be bound and still did nothing over a cell.
+  c:RegisterForClicks("LeftButtonUp", "MiddleButtonUp", "RightButtonUp", "Button4Up", "Button5Up")
   c:RegisterForDrag("LeftButton")
   c:SetFrameLevel(parent:GetFrameLevel() + 30)
   c:EnableMouse(true)
@@ -179,16 +181,13 @@ local function makeCatcher(parent, index)
   c:SetScript("OnDragStop", function() Fav:Drop() end)
   c:SetScript("OnReceiveDrag", function(s) Fav:PinFromCursor(s.favIndex) end)
   c:SetScript("OnClick", function(s, button)
-    if button == "MiddleButton" then
-      -- Direct click, not a binding, and the cell keeps the click either way. The addon's own default
-      -- sits on this very button -- a mouse chord over a cell never reaches the game's key settings, so
-      -- the addon is the only thing that can bind it -- and that owner is Warpee's own action, which is
-      -- no reason to refuse the click. A middle button somebody else has spoken for is left alone.
-      local act = (GetBindingAction and GetBindingAction("BUTTON3")) or ""
-      if act == "" or act == "WARPEE_UNPIN" then Fav:Unpin(s.favIndex) end
+    if button ~= "LeftButton" then
+      -- Direct click, not a binding: over a cell this frame owns the button, so the game hands the click
+      -- here and the cell has to answer it. Which chord may be taken is the question the default asks
+      -- too, and both rows read the answer from the one place.
+      if ns.PinMouseClear(button) then Fav:Unpin(s.favIndex) end
       return
     end
-    if button ~= "LeftButton" then return end
     if GetCursorInfo() then
       Fav:PinFromCursor(s.favIndex)
       return
@@ -703,7 +702,9 @@ function Fav:Apply(bags, x, top, size, gap)
       b.favBag, b.favSlot, b.wpeBagID = bag, slot, bag
       b.holder:SetID(bag)
       b:SetID(slot)
-      b.link = nil
+      -- No link is dropped here. The key inside the paint reads the new slot and compares the item, the count,
+      -- the bind, the lock and the ring, so a cell handed a slot that holds the same piece has nothing to redraw
+      -- and one handed another piece answers with a paint anyway (see Bags:Layout for the same change).
     end
     if live then
       local h = b.holder
@@ -711,7 +712,9 @@ function Fav:Apply(bags, x, top, size, gap)
       h:ClearAllPoints()
       ns.SnapPoint(h, "TOPLEFT", frame, "TOPLEFT", px, -rowY)
       h:Show(); b:Show()
-      if repaint then b.link = nil end
+      if repaint then
+        b.link = nil
+      end
       ns.UpdateItemButton(b)
       if bags.ApplyToButton then bags:ApplyToButton(b) end
       if g then g:Hide() end

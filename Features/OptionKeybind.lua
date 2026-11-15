@@ -30,7 +30,8 @@ local KEY_MODS = {
 -- enabled, which is why the capture does not live on the visible button. The mouse
 -- buttons and the wheel arrive through a fullscreen catcher instead: keys have no
 -- position, clicks do, and the catcher owns them all while the capture runs, with
--- left and right reserved for cancel.
+-- left and right reserved for cancel. The catcher reports the frame's names for the
+-- buttons, so they are translated to binding keys before SetBinding sees them.
 local keyListener = CreateFrame("Button")
 keyListener:SetSize(1, 1)
 keyListener:EnableMouse(false)
@@ -44,12 +45,20 @@ local function listenerKeyDown(_, key)
   keyListen(key)
 end
 
+-- A frame names the buttons on the mouse -- OnClick says MiddleButton, Button4, Button5 -- while a binding
+-- names the same buttons BUTTON3, BUTTON4, BUTTON5: "Mouse buttons are identified by the token BUTTON followed
+-- by the button number; BUTTON3 for middle" (Warcraft Wiki, binding type). The first button is the left and the
+-- second the right, and both cancel the capture, so the two names that never matched a binding were the middle
+-- and the side buttons: SetBinding refused "MIDDLEBUTTON" in silence, which is why the game's own key list
+-- could bind the middle button and this row could not.
+local CLICK_KEYS = { MIDDLEBUTTON = "BUTTON3", BUTTON4 = "BUTTON4", BUTTON5 = "BUTTON5" }
+
 local mouseCatcher
 local function catcherClick(_, button)
   if not keyListen then return end
   button = (button or ""):upper()
   if button == "LEFTBUTTON" or button == "RIGHTBUTTON" then keyListen("CANCEL") return end
-  keyListen(button)
+  keyListen(CLICK_KEYS[button] or button)
 end
 
 local function catcherWheel(_, delta)
@@ -158,10 +167,18 @@ function factories.keybind(parent, spec)
                .. (IsAltKeyDown() and "ALT-" or "")
                .. (IsShiftKeyDown() and "SHIFT-" or "")
                .. key
+    -- Empty slots come back as "" rather than nil, and SetBinding("") is not a call to make: the old
+    -- keys are cleared only where there really is one.
     local k1, k2 = GetBindingKey(spec.binding)
+    if k1 == "" then k1 = nil end
+    if k2 == "" then k2 = nil end
     if k1 then SetBinding(k1) end
     if k2 then SetBinding(k2) end
-    if SetBinding(combo, spec.binding) then save() end
+    -- Saved whatever SetBinding answers: the client returns nothing from it, so asking for a true made
+    -- save() dead code and the key lived in memory only -- it worked until the next /reload and then
+    -- reverted to whatever the cache held, which reads as "the bind stopped opening anything".
+    SetBinding(combo, spec.binding)
+    save()
     paint()
   end
 
