@@ -80,8 +80,11 @@ local DEFAULTS = {
   goldFormat = "short", goldLetters = false, goldOnly = false, goldBlizzard = false, goldMin = 0,
   -- The cheap list (Forever): the best quality it shows and the quality a delete asks about first. Stored by
   -- name, like the gold style, so the saved variables say what was chosen rather than a bare number.
-  cheapMaxQuality = "uncommon", cheapConfirm = "uncommon", cheapAuctionSource = "auto",
+  cheapMaxQuality = "uncommon", cheapConfirm = "common", cheapAuctionSource = "auto",
   cheapShow = true, cheapCut = true,
+  -- What a delete leaves alone by kind: a use-item, a recipe to learn, a toy/mount/pet that cannot be got back.
+  -- On out of the box; the switches are on the Cheap page, and an absent key reads as on.
+  cheapKeepConsumable = true, cheapKeepRecipe = true, cheapKeepCollectible = true,
   -- curStrip: the row of the currencies the client itself tracks, drawn inside the bags under the grid
   -- behind a seam. On by default: it answers "how much of it do I have" without opening the character
   -- panel, and a tick in the panel behind it is the character panel's own pin, both ways.
@@ -812,6 +815,21 @@ local function onLogin()
   if WarpeeDB.splitGapBags == nil then WarpeeDB.splitGapBags = WarpeeDB.splitGap or 12 end
   if WarpeeDB.splitGapBank == nil then WarpeeDB.splitGapBank = WarpeeDB.splitGap or 12 end
   if WarpeeDB.splitGapWb == nil then WarpeeDB.splitGapWb = WarpeeDB.splitGap or 12 end
+  -- The cheap list arrived asking about deletes from uncommon up; the shipped answer is common now. A save from
+  -- that first release carries the old default and cannot say whether it was chosen, so the value is moved once.
+  -- The marker keeps a later pick of uncommon where it was put.
+  --
+  -- It is not a setting and is deliberately absent from DEFAULTS: it describes this save's history, not a choice
+  -- the player made, so a profile neither captures nor carries it. WipeConfig writes only the keys DEFAULTS
+  -- names, so applying or importing a profile leaves the marker standing -- and since this block runs before
+  -- ns.Ready, the marker is already true before any profile can be applied. A profile that stores uncommon is
+  -- therefore reproduced as stored, not re-migrated on the next login. Old codes keep uncommon too: a code
+  -- cannot tell the first release's default from a pick made on purpose, and treating every uncommon as old
+  -- would overwrite a deliberate choice to fix a rare one.
+  if WarpeeDB.cheapConfirm == "uncommon" and not WarpeeDB.cheapConfirmMoved then
+    WarpeeDB.cheapConfirm = "common"
+  end
+  WarpeeDB.cheapConfirmMoved = true
   fillDefaults(WarpeeDB)
   -- autoOpen is a table default, so fillDefaults only seeds it whole on a fresh profile; a profile
   -- that predates these two keys keeps its table and would read them as nil (off). Seed the pair so

@@ -48,7 +48,7 @@ function factories.catlistchips(env)
       if s.wpeId then
         GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
         GameTooltip:SetItemByID(s.wpeId)
-        GameTooltip:AddLine(ns.TipInk(ns.L["Click the − to remove"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9)
+        GameTooltip:AddLine(ns.TipInk(ns.L["Click the - to remove"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9)
         GameTooltip:Show()
       end
     end)

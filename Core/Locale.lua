@@ -179,6 +179,11 @@ function ns.ApplyLocaleText()
     ns.Bank:Refresh()
   end
   if ns.Pocket and ns.Pocket.Apply then ns.Pocket:Apply() end
+  -- The cheap list sizes its action plates from the words this language wears, so a switch has to ask it for a
+  -- paint even while it stands open; its labels alone would change under a pair of plates cut for the old words.
+  if ns.Cheap and ns.Cheap.frame and ns.Cheap.frame:IsShown() and ns.Cheap.Refresh then
+    ns.Cheap:Refresh()
+  end
   if ns.Profiles and ns.Profiles.Reflow then ns.Profiles:Reflow() end
   -- The search-words window rebuilds from the live locale, so an open one follows a language switch.
   if ns.RefreshSearchWords then ns.RefreshSearchWords() end

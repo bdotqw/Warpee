@@ -33,6 +33,7 @@ Core\Tooltip.lua
 Core\Settings.lua
 Features\Currencies.lua
 Features\CurrencyPicker.lua
+Items\Protected.lua
 Items\ItemRules.lua
 Items\ItemButton.lua
 Windows\Bags.lua

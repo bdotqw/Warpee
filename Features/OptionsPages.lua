@@ -855,17 +855,18 @@ local VENDOR_MAIN = {
   { type = "toggle", name = "Legion relics", col = 1, get = V.relicGet, set = V.relicSet,
     hidden = ns.ForeverOnly,
     desc = "Sell Legion artifact relics. Item level ignored." },
-  -- In Forever this row's left neighbour is gone, so it moves to the left edge rather than leaving a
-  -- hole in the page where the relics switch used to stand.
   -- Forever carries one expansion, so "older than the previous one" names nothing there: the switch would
-  -- sit on the page promising to sell a class of item the client cannot hold.
-  { type = "toggle", name = "Old consumables", col = 1, get = V.consumGet, set = V.consumSet,
+  -- sit on the page promising to sell a class of item the client cannot hold. On retail it holds the right
+  -- column while the three left-hand switches stack beside it.
+  { type = "toggle", name = "Old consumables", col = 2, get = V.consumGet, set = V.consumSet,
     hidden = ns.ForeverOnly,
     desc = "Sell potions, flasks, food and bandages older than the previous expansion." },
   { type = "toggle", name = "Tier tokens", col = 1, get = V.tokenGet, set = V.tokenSet,
     hidden = ns.ForeverOnly,
     desc = "Sell raid armor tokens, item level ignored. Only from the expansions ticked below." },
-  { type = "toggle", name = "Sell all of this automatically",
+  -- On Forever the three switches above are gone, so this one keeps the full width instead of standing as a
+  -- lonely half row; on retail it closes the left column under the two token and relic switches.
+  { type = "toggle", name = "Sell all of this automatically", col = (not ns.IsForever) and 1 or nil,
     get = V.autoGet, set = V.autoSet,
     desc = "Sell the list above at every merchant, without pressing the coin." },
   { type = "header", name = "Token expansions", key = "tokenexp", hidden = ns.ForeverOnly,
@@ -1021,7 +1022,7 @@ end
 
 local function cheapMaxGet() return (WarpeeDB and WarpeeDB.cheapMaxQuality) or "uncommon" end
 local function cheapMaxSet(v) WarpeeDB.cheapMaxQuality = v; cheapPaint() end
-local function cheapConfGet() return (WarpeeDB and WarpeeDB.cheapConfirm) or "uncommon" end
+local function cheapConfGet() return (WarpeeDB and WarpeeDB.cheapConfirm) or "common" end
 local function cheapConfSet(v) WarpeeDB.cheapConfirm = v end
 
 -- Every cached price was an answer from the addon that was chosen before this click: the cache goes, and an open
@@ -1045,6 +1046,14 @@ local function cheapSrcSet(v)
   cheapPaint()
 end
 
+-- The kinds the list leaves alone. Absent reads as on, so a save from before these switches keeps protecting
+-- what the shipped answer protects; the module reads the same keys and treats them the same way.
+local function cheapKeepGet(key) return not (WarpeeDB and WarpeeDB[key] == false) end
+local function cheapKeepSet(key, v)
+  WarpeeDB[key] = v and true or false
+  cheapPaint()
+end
+
 local CHEAP_PAGE = {
   { type = "description",
     name = "The list that opens with the bags: the stacks a merchant pays least for, cheapest first. A stack the auction house values above its vendor price is marked AH." },
@@ -1061,12 +1070,30 @@ local CHEAP_PAGE = {
   { type = "select", name = "Auction prices from", get = cheapSrcGet, set = cheapSrcSet,
     keys = cheapSrcKeys, label = function(k) return T(AUCTION_LABEL[k] or k) end,
     desc = "Which addon the auction side reads. Auto takes Auctionator when it is installed and TSM after it. Vendor only shows every row at the merchant's price, and a gray stack is never asked at an auction house." },
+  -- The kinds a delete leaves alone. A kind is the client's own class rather than a list of ids, so a potion
+  -- written by the next expansion is protected the day it drops. The switches cover the destroy only: a piece
+  -- marked for sale is still the player's to sell.
+  { type = "header", name = "Kept from the list" },
+  { type = "description",
+    name = "These never earn a row, whatever they are worth. The switches cover deleting: a piece you marked for sale is still a merchant's to take." },
+  { type = "toggle", name = "Potions and food", col = 1, of = 3,
+    get = function() return cheapKeepGet("cheapKeepConsumable") end,
+    set = function(v) cheapKeepSet("cheapKeepConsumable", v) end,
+    desc = "Every consumable: potions, elixirs, flasks, food and drink, bandages, weapon oils and scrolls. A buff or a meal is never one click from the bin." },
+  { type = "toggle", name = "Recipes", col = 2, of = 3,
+    get = function() return cheapKeepGet("cheapKeepRecipe") end,
+    set = function(v) cheapKeepSet("cheapKeepRecipe", v) end,
+    desc = "Recipes, plans and patterns. They are learned or sold, not thrown away." },
+  { type = "toggle", name = "Toys, mounts and pets", col = 3, of = 3,
+    get = function() return cheapKeepGet("cheapKeepCollectible") end,
+    set = function(v) cheapKeepSet("cheapKeepCollectible", v) end,
+    desc = "Anything the client files as a toy, a mount or a battle pet. A deleted one cannot be got back." },
   -- The list of what the window was told to skip: the same shape as the marked-for-sale list beside it, because
   -- it is the same kind of thing -- item ids saved by hand, with the minus that takes each one back out.
   { type = "header", name = "Ignored items", key = "cheapignored",
     state = function() return ns.LN("%d items", (ns.Cheap and ns.Cheap:IgnoredCount()) or 0) end },
   { type = "description", section = "cheapignored",
-    name = "Click the − on an item's icon in the list to leave it out of it. The list never offers it again; the minus here puts it back." },
+    name = "Click the - on an item's icon in the list to leave it out of it. The list never offers it again; the minus here puts it back." },
   { type = "cheaplist", section = "cheapignored" },
 }
 

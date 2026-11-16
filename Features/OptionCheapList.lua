@@ -55,7 +55,7 @@ function factories.cheaplist(parent, spec)
   empty:SetPoint("TOPLEFT")
   empty:SetWidth(CONTENT_W)
   empty:SetJustifyH("LEFT")
-  ns.LocalText(empty, "Nothing is ignored: click the − on an item's icon in the list to leave it out.")
+  ns.LocalText(empty, "Nothing is ignored: click the - on an item's icon in the list to leave it out.")
   row.empty = empty
   row.Rebuild = function()
     local list = (ns.Cheap and ns.Cheap.IgnoredList and ns.Cheap:IgnoredList()) or {}

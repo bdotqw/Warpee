@@ -13,95 +13,12 @@ local SKIP_LOC = {
   INVTYPE_RELIC = true,
 }
 
-local STONE = {
-  [9149] = true, -- Philosopher's Stone
-  [13503] = true, -- Alchemist Stone
-  [35748] = true, -- Guardian's Alchemist Stone
-  [35749] = true, -- Sorcerer's Alchemist Stone
-  [35750] = true, -- Redeemer's Alchemist Stone
-  [35751] = true, -- Assassin's Alchemist Stone
-  [44322] = true, -- Mercurial Alchemist Stone
-  [44323] = true, -- Indestructible Alchemist Stone
-  [44324] = true, -- Mighty Alchemist Stone
-  [58483] = true, -- Lifebound Alchemist Stone
-  [68775] = true, -- Volatile Alchemist Stone
-  [68776] = true, -- Quicksilver Alchemist Stone
-  [68777] = true, -- Vibrant Alchemist Stone
-  [75274] = true, -- Zen Alchemist Stone
-  [109262] = true, -- Draenic Philosopher's Stone
-  [122601] = true, -- Stone of Wind
-  [122602] = true, -- Stone of the Earth
-  [122603] = true, -- Stone of the Waters
-  [122604] = true, -- Stone of Fire
-  [128023] = true, -- Stone of the Wilds
-  [128024] = true, -- Stone of the Elements
-  [127842] = true, -- Infernal Alchemist Stone
-  [165926] = true, -- Tidal Alchemist Stone
-  [165927] = true, -- Spirited Alchemist Stone
-  [165928] = true, -- Eternal Alchemist Stone
-  [166974] = true, -- Sanguinated Alchemist Stone
-  [166975] = true, -- Imbued Alchemist Stone
-  [166976] = true, -- Emblazoned Alchemist Stone
-  [171085] = true, -- Peerless Alchemist Stone
-  [171087] = true, -- Awakened Alchemist Stone
-  [171088] = true, -- Unbound Alchemist Stone
-  [171323] = true, -- Spiritual Alchemy Stone
-  [175941] = true, -- Spiritual Alchemy Stone
-  [175942] = true, -- Spiritual Alchemy Stone
-  [175943] = true, -- Spiritual Alchemy Stone
-  [191491] = true, -- Sustaining Alchemist Stone
-  [191492] = true, -- Alacritous Alchemist Stone
-  [210816] = true, -- Algari Alchemist Stone
-  [241291] = true, -- Primal Philosopher's Stone
-  [241340] = true, -- Magister's Alchemist Stone
-  [151607] = true, -- Astral Alchemist Stone
-  [152637] = true, -- Siren's Alchemist Stone
-  [152632] = true, -- Surging Alchemist Stone
-  [168674] = true, -- Abyssal Alchemist Stone
-  [168676] = true, -- Ascended Alchemist Stone
-  [168675] = true, -- Crushing Alchemist Stone
-}
-
-local FUN = {
-  [7734] = true, [10716] = true, [11905] = true, [1404] = true,
-  [2820] = true, [14022] = true, [10727] = true, [10577] = true,
-  [18634] = true, [18638] = true, [18639] = true, [19024] = true,
-  [19979] = true, [7506] = true, [18706] = true,
-}
-
-local OLDCONSUM = {
-  [133576] = true, [13452] = true, [13512] = true, [6657] = true,
-  [8529] = true, [127844] = true, [127843] = true, [142117] = true,
-  [127846] = true, [33447] = true,
-}
-
-local RUNE = {
-  [118630] = true, [118631] = true, [118632] = true,
-  [128482] = true, [128475] = true, [140587] = true, [153023] = true,
-  [160053] = true, [174906] = true, [181468] = true, [190384] = true,
-  [201325] = true, [211495] = true, [224572] = true, [246492] = true,
-  [243191] = true, [259085] = true,
-}
-
-local PROF = {
-  [9452] = true, [12709] = true, [19901] = true,
-  [19972] = true, [19969] = true,
-  [155459] = true, [155484] = true, [155468] = true, [155476] = true,
-  [7349] = true, [10542] = true,
-  [85663] = true, [19971] = true, [34109] = true,
-  [68796] = true, [34836] = true, [116117] = true, [153203] = true,
-  [46006] = true, [18258] = true,
-}
-
--- Every Mythic+ keystone is this one id, the level riding in the link, and no merchant buys one. It is
--- here rather than on the price because a pin has no container record to ask and the client never caches
--- a keystone's price at all, so the price fallback answers "unknown" and stays open to the mark forever.
-local KEYSTONE = { [180653] = true }
-
--- The pieces no sale may touch, whatever the rules or a mark say. One predicate, asked by the pump's
--- sweep and by the carousel both, so a piece cannot be swept by one and refused by the other.
+-- The pieces no sale may touch, whatever the rules or a mark say. The sets live in Items/Protected.lua, which
+-- keeps the sale's door and the cheap window's destroy door apart but never lets them disagree: a piece this
+-- refuses is refused by a destroy too. One predicate here, asked by the pump's sweep and by the carousel both,
+-- so a piece cannot be swept by one and refused by the other.
 local function banned(id)
-  return id and (STONE[id] or FUN[id] or OLDCONSUM[id] or PROF[id] or RUNE[id] or KEYSTONE[id]) or false
+  return ns.ProtectedItem(id, "sale")
 end
 
 local function cosmeticArmor(classID, subID)
@@ -489,7 +406,10 @@ function Vendor:Sellable(bag, slot, id, link)
   -- on every alt-click of such a ghost.
   local _, _, _, _, _, classID = C_Item.GetItemInfoInstant(link or id)
   if classID == Enum.ItemClass.Battlepet then return false end
-  if banned(id) then return false end
+  -- A protected piece is not refused here: this question is "could the pump sell it", and the pump selling a
+  -- piece that already carries a mark is not the accident worth preventing. What is prevented is the click that
+  -- queues it -- that gate lives in Markable, one function down, so a reagent can never be marked by a slip of
+  -- the alt key while a piece already in the carousel still leaves the bags when its mark is honoured.
   return true
 end
 
@@ -503,6 +423,11 @@ function Vendor:Markable(bag, slot, id, link, info)
   -- "yes" here where that key is nil would promise a click that quietly does nothing. Gear with no item
   -- string in hand is the case this catches; ids and links both sail through.
   if not sellKey(id, link) then return false end
+  -- The gesture itself is what a protected piece refuses: no alt-click on the rogue's poison reagents, the mage's
+  -- runes or a lockbox, so a hand that slips onto one of them while alt-clicking the row beside it cannot queue a
+  -- piece the player keeps. Clearing an existing mark is still allowed -- see the SellState early return above --
+  -- because taking a mark off is never the mistake.
+  if banned(id) then return false end
   if not self:Sellable(bag, slot, id, link) then return false end
   -- The tooltip hands in the record it already read; a click has none, so it reads the cell's own.
   if not info then
@@ -559,7 +484,6 @@ function Vendor:Scan(junkOnly)
         end
         if take and refundable(bag, slot) then take = false; veto = true end
         if take and questItem(bag, slot) then take = false; veto = true end
-        if banned(info.itemID) then take = false; veto = true end
         if classID == Enum.ItemClass.Battlepet then take = false; veto = true end
         -- The carousel: a lock means never, whatever the rules above said, and a mark means yes,
         -- whatever they said -- but the vetoes still hold, so a mark never sells a quest piece, a

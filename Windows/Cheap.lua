@@ -26,8 +26,18 @@ local PAD, ROW_H, BAR_W, BAND = 10, 26, 6, 26
 -- and the rows that matter are always the top ones, because the list is sorted by what the stack is worth. A
 -- taller window bought nothing but a bigger frame standing over the bags; anything past the third row is a
 -- wheel turn away, on the scrollbar the window already carries.
-local WIDTH, MAX_ROWS, FONT = 372, 3, 15
+local WIDTH, MAX_ROWS, FONT = 460, 3, 15
 local ICON, NAME_GAP = 24, 8
+-- The two actions at the right of every row, after the price: the row itself is only a hover and a tooltip, so
+-- the destructive act is a plate that names itself. Only one plate stands in a row -- the act is what the window
+-- is for, and two equal boxes read as a settings dialog rather than as a list. Ignore is a word beside it: still
+-- a named control with its own tooltip, but a secondary one, so it does not argue with the price.
+local PLATE_MIN_W, PLATE_H, PLATE_GAP, PLATE_PAD = 34, 18, 6, 12
+-- The plate's air: the row's right edge, and the gap the coins keep from the word in front of it.
+local PLATE_EDGE, PLATE_COIN_GAP = 6, 8
+-- Every word the act plate can wear. It is sized for the longer of them so its width does not twitch when a
+-- merchant opens. Ignore is measured too: its word is a click target of its own, with the plate's padding.
+local ACT_WORDS, IGNORE_WORD = { "Sell", "Delete" }, "Ignore"
 -- The money block: the side, then gold, silver and copper, each right-aligned in a column of its own. One label
 -- could not line anything up -- it was the whole line that was right-aligned, so a row of 7 copper and a row of
 -- 2g 92c put their digits wherever the total length left them. Three columns put gold over gold and copper over
@@ -42,16 +52,11 @@ local SIDE_W = 24
 local COL_G, COL_S, COL_C = 26, 24, 24
 local COL_GAP = 4
 
--- MoneyParts fills the smaller coins with a zero once a larger one is written ("2g 0s 0c") so that a single line
--- keeps its copper at the end. In a column that zero is not alignment but noise: the column holds the place by
--- itself, so a piece that is a zero is written as nothing. The zero is read past its colour escape, and past
--- exactly that escape -- an open-ended %x+ eats the leading digit of a ten, and 10 silver would read as empty.
-local function moneyPart(piece)
-  if not piece then return nil end
-  local n = piece:match("^|c%x%x%x%x%x%x%x%x(%d+)") or piece:match("^(%d+)")
-  if n == "0" then return nil end
-  return piece
-end
+-- The coins are the gold tooltip's own: a piece MoneyParts hands back is written as it stands, zeros included,
+-- so a stack worth 2 gold reads "2g 0s 0c" here exactly as it does in the gold list. A unit above the highest one
+-- the price carries is nil and stays empty -- 30 copper is copper, not "0g 0s 30c" -- which is also the
+-- tooltip's rule. The columns already hold the place, so a zero no longer has to be dropped to keep the digits
+-- of a ten from sitting under a "0".
 -- The count rides on the picture, the way a bag cell's own does: sized off the icon so it grows with it, and
 -- outlined, because it stands on the item's art rather than on the window's flat ground.
 local COUNT_FONT = math.max(8, math.floor(ICON * 0.46))
@@ -77,7 +82,7 @@ end
 
 -- The quality a delete asks about first, or nil for never.
 local function confirmFrom()
-  return qualitySetting("cheapConfirm", 2)
+  return qualitySetting("cheapConfirm", 1)
 end
 
 local function auctionCut()
@@ -385,45 +390,44 @@ function Cheap:BagList()
   return list
 end
 
--- One row per stack shape: two stacks of one item with the same count are interchangeable, so the second is
--- not a second row -- the list reads as "what can go", not "where it lies". The first slot of the pair is
--- the one a click acts on.
+-- One row per slot. Two stacks of one item are two stacks, not one: the player may throw away one of them and
+-- keep the other, and a list that showed a single row for a pair would be lying about what the bags hold -- the
+-- two rows carry the same name and the same price because the two pieces do, and each row keeps the bag and the
+-- slot it was read from, so a click acts on exactly the piece it was pointed at.
 function Cheap:Scan()
-  local list, seen = {}, {}
+  local list = {}
   local qmax = maxShown()
   for _, bag in ipairs(self:BagList()) do
     local slots = C_Container.GetContainerNumSlots(bag) or 0
     for slot = 1, slots do
       local info = containerInfo(bag, slot)
       local id = info and info.itemID
+      -- The protection lists in Items/Protected.lua answer both doors: a piece kept from a merchant is kept
+      -- from a destroy as well, so a rule list cannot tell a player one thing and the window another.
       if id and not info.isLocked and id ~= HEARTHSTONE and not isIgnored(id)
-         and not lockedForSale(id, info.hyperlink)
+         and not lockedForSale(id, info.hyperlink) and not ns.ProtectedItem(id, "delete")
          and (info.quality or 1) <= qmax then
         local q = questInfo(bag, slot)
         local isQuest = (q and (q.isQuestItem or q.questID)) and true or false
         local m = (not isQuest) and itemMeta(info.hyperlink) or nil
         if m and m.price > 0 then
           local count = info.stackCount or 1
-          local key = id .. ":" .. count
-          if not seen[key] then
-            seen[key] = true
-            -- The row is worth the better of the two sides: the vendor pays its price for the whole stack, the
-            -- auction house pays its own per piece, and the side that wins is the one the player should take.
-            -- Gray is the exception. A poor stack almost never sells, so whatever number the price addon still
-            -- holds for it is usually stale, and the honest answer -- the one the row shows and sorts on -- is
-            -- the vendor's: gray is asked at no auction house at all.
-            local quality = info.quality or 1
-            local aper = quality > 0 and self:AuctionPrice(id, info.hyperlink) or nil
-            local kind, per = "vendor", m.price
-            if aper and aper > m.price then kind, per = "auction", aper end
-            list[#list + 1] = {
-              itemID = id, bag = bag, slot = slot, link = info.hyperlink, name = m.name,
-              count = count, price = m.price, total = m.price * count,
-              vendor = m.price * count, auction = aper and (aper * count) or nil,
-              best = per * count, kind = kind,
-              quality = quality, icon = m.icon or info.iconFileID,
-            }
-          end
+          -- The row is worth the better of the two sides: the vendor pays its price for the whole stack, the
+          -- auction house pays its own per piece, and the side that wins is the one the player should take.
+          -- Gray is the exception. A poor stack almost never sells, so whatever number the price addon still
+          -- holds for it is usually stale, and the honest answer -- the one the row shows and sorts on -- is
+          -- the vendor's: gray is asked at no auction house at all.
+          local quality = info.quality or 1
+          local aper = quality > 0 and self:AuctionPrice(id, info.hyperlink) or nil
+          local kind, per = "vendor", m.price
+          if aper and aper > m.price then kind, per = "auction", aper end
+          list[#list + 1] = {
+            itemID = id, bag = bag, slot = slot, link = info.hyperlink, name = m.name,
+            count = count, price = m.price, total = m.price * count,
+            vendor = m.price * count, auction = aper and (aper * count) or nil,
+            best = per * count, kind = kind,
+            quality = quality, icon = m.icon or info.iconFileID,
+          }
         end
       end
     end
@@ -466,6 +470,7 @@ end
 
 local function deleteStack(e, onDone)
   if GetCursorInfo and GetCursorInfo() then return false end
+  if ns.ProtectedItem(e.itemID, "delete") then return false end
   if lockedForSale(e.itemID, e.link) then return false end
   if not stillThere(e) then return false end
   local pickup = (C_Container and C_Container.PickupContainerItem) or _G.PickupContainerItem
@@ -502,8 +507,8 @@ local function sellStack(e)
   return true
 end
 
--- Green and better asks first. The dialog text and the buttons are the client's own words; the answer
--- carries the entry itself rather than its numbers, and the delete re-reads the slot when it runs.
+-- White and better asks first, out of the box. The dialog text and the buttons are the client's own words; the
+-- answer carries the entry itself rather than its numbers, and the delete re-reads the slot when it runs.
 local function askThenDelete(e, onDone)
   local from = confirmFrom()
   if not from or (e.quality or 1) < from then return deleteStack(e, onDone) end
@@ -567,7 +572,6 @@ end
 
 local function buildRow(parent)
   local r = CreateFrame("Button", nil, parent)
-  r:RegisterForClicks("LeftButtonUp")
   local bg = Theme:Rect(r, "panelHi", "BACKGROUND")
   bg:SetAllPoints(r)
   bg:Hide()
@@ -587,6 +591,70 @@ local function buildRow(parent)
   -- The columns, from the right edge inwards: copper, silver, gold, and the side in front of them. The side has
   -- a colour of its own -- V is the merchant, AH is the auction house -- because beside a coin the letter was
   -- read as part of the number.
+  -- The controls first, and the plate at the outer edge: the destructive one stands furthest from the price, where
+  -- the hand is not already working, and the quiet word sits between it and the coins. The act is a plate, not a
+  -- bare word -- the destructive one must read as a control, not as a label the eye skips -- while Ignore is a word
+  -- of the addon's secondary kind.
+  -- One answer to "is a merchant open", read by the plate's word and by its tooltip alike: two spellings of the
+  -- same question is how a plate came to promise a sale the click would not make.
+  local function selling()
+    return (MerchantFrame and MerchantFrame:IsShown()) and true or false
+  end
+  local act = ns.CreateButton(r, "", PLATE_MIN_W, PLATE_H)
+  act:RegisterForClicks("LeftButtonUp")
+  ns.SnapPoint(act, "RIGHT", r, "RIGHT", -PLATE_EDGE, 0)
+  -- No tooltip on either control. The plate carries the word for what it does, and the word changes with the
+  -- merchant, so a tip could only repeat it; a window of six rows that answers the pointer on every plate is
+  -- noise over the item tip that is already there. The two controls stand under the pointer long enough to be
+  -- read, which is the whole of what a tooltip would have added.
+  -- The plate is a control of the window's own ink, and the red arrives only at the moment a hand is on the way
+  -- down. A permanent red word on every row — six of them down the list — teaches the eye to stop looking, and a
+  -- warning nobody sees is not one. With a merchant open the plate is a sale, and a sale is not a warning: it
+  -- brightens under the pointer and wears no red at all.
+  act.wpeIconPaint = function(s)
+    local hot = s.wpeHot and not s.offDuty
+    ns.SetEdge(s, Theme:C("stroke"))
+    if not s.Text then return end
+    if s.wpeSell then
+      s.Text:SetTextColor(Theme:C(hot and "overlay" or "text"))
+      return
+    end
+    s.Text:SetTextColor(Theme:C(hot and "dangerHi" or "text"))
+  end
+  r.syncAct = function()
+    local sell = selling()
+    act.wpeSell = sell
+    ns.LocalText(act.Text, sell and "Sell" or "Delete")
+    act:Repaint()
+  end
+  r.syncAct()
+  act:SetScript("OnClick", function()
+    if r.entry then Cheap:Act(r.entry) end
+  end)
+  -- The word beside the plate is the faintest ink in the window: not the azure a secondary action usually stands
+  -- in, and not white either. Beside a plate of the same height a readable word read as a weaker second button,
+  -- and the eye kept asking which of the two was the real control -- so it steps back, and only the pointer brings
+  -- it forward. That brightening is the whole of its affordance, and its click target is a pad wider than the
+  -- letters, so a word is still a comfortable thing to hit.
+  local ignore = ns.CreateTextButton(r, FONT - 4)
+  ignore:RegisterForClicks("LeftButtonUp")
+  ns.SnapPoint(ignore, "RIGHT", act, "LEFT", -PLATE_GAP, 0)
+  ns.LocalText(ignore.Text, "Ignore")
+  -- The word answers the pointer with its ink and nothing else: it steps from the faintest kind to plain white as
+  -- the pointer lands on it, which at this size is the whole of the answer a word needs. No line under it, no box,
+  -- no ground of its own -- each of those dressed it as the second button the eye kept mistaking it for.
+  ignore.Paint = function(s)
+    s.Text:SetTextColor(Theme:C((s.wpeHot and not s.offDuty) and "text" or "faint"))
+  end
+  ignore:Paint()
+  ignore:SetScript("OnClick", function()
+    if r.entry then Cheap:ToggleIgnore(r.entry.itemID) end
+  end)
+  -- Nothing about the two controls follows the pointer: both stand on every row, always, and the item tip is
+  -- left alone when the pointer crosses onto them -- a plate that took the tip away would leave the pointer over
+  -- a control with nothing to say about the piece it belongs to.
+  r.act, r.ignore = act, ignore
+
   local function column(width, anchor, gap)
     local fs = Theme:Label(r, FONT - 3, "dim")
     fs:SetJustifyH("RIGHT")
@@ -595,7 +663,7 @@ local function buildRow(parent)
     ns.SnapPoint(fs, "RIGHT", anchor, anchor == r and "RIGHT" or "LEFT", -(gap or 0), 0)
     return fs
   end
-  local copper = column(COL_C, r, 6)
+  local copper = column(COL_C, ignore, PLATE_COIN_GAP)
   local silver = column(COL_S, copper, COL_GAP)
   local gold = column(COL_G, silver, COL_GAP)
   local side = column(SIDE_W, gold, 6)
@@ -621,98 +689,47 @@ local function buildRow(parent)
   line:SetPoint("BOTTOMLEFT", 0, 0)
   line:SetPoint("BOTTOMRIGHT", 0, 0)
   r.line = line
-  -- The ignore mark lives over the picture and nowhere else, the way a pinned item carries its remove mark, and
-  -- it is only there while the pointer is on that picture. On the row it flickered: the mark appeared under the
-  -- pointer, took the mouse away from the row, the row said leave, the mark went, the row said enter again, and
-  -- that loop ran for as long as the pointer stood still. The plate below is always there -- the pointer never
-  -- changes owner -- and what comes and goes is the rim and the mark drawn inside it.
-  local hot = CreateFrame("Button", nil, r)
-  -- The hotspot is the picture's whole column, gaps included: a row is 26 high and its picture 24, and the two
-  -- dead pixels -- plus the gap out to the name -- were a strip where the pointer had already left the picture
-  -- while a click still reached the row, so a player aiming at the icon deleted the stack instead of ignoring
-  -- it. The ring itself still hugs the picture; only the target around it grew.
-  hot:SetPoint("TOPLEFT", r, "TOPLEFT", 0, 0)
-  hot:SetPoint("BOTTOMLEFT", r, "BOTTOMLEFT", 0, 0)
-  hot:SetPoint("RIGHT", icon, "RIGHT", NAME_GAP, 0)
-  hot:SetFrameLevel(r:GetFrameLevel() + 3)
-  -- The same click the row registers, spelled out here rather than taken from whatever a bare button defaults
-  -- to: a press on the picture must never be the press that throws the stack away.
-  hot:RegisterForClicks("LeftButtonUp")
-  local rim = CreateFrame("Frame", nil, hot, "BackdropTemplate")
-  ns.PixelBackdrop(rim)
-  local cr, cg, cb = Theme:C("bg")
-  ns.SetBg(rim, cr, cg, cb, 0)
-  -- Painted when the row is built as well as filed away for the theme: Theme:Track only keeps the pass for a
-  -- restyle, and a row born after the last one kept the backdrop's default stroke -- the hover ring showed a
-  -- plain border where the accent belongs.
-  local function paintRim(s) ns.SetEdge(s, Theme:C("accent")) end
-  Theme:Track(rim, paintRim)
-  paintRim(rim)
-  ns.SnapPoint(rim, "TOPLEFT", icon, "TOPLEFT", -1, 1)
-  ns.SnapPoint(rim, "BOTTOMRIGHT", icon, "BOTTOMRIGHT", 1, -1)
-  rim:Hide()
-  local mark = CreateFrame("Frame", nil, hot)
-  mark:SetPoint("TOPLEFT", icon, "TOPLEFT")
-  mark:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT")
-  ns.MarkMinus(mark, true)
-  -- The mark takes the same accent, and for the same reason it is painted here and not only on a restyle.
-  local function paintMark(s) ns.TintMarkX(s, "accent") end
-  Theme:Track(mark, paintMark)
-  paintMark(mark)
-  mark:Hide()
-  r.mark, r.rim, r.hot = mark, rim, hot
 
-  -- Two hovers, two answers. On the strip the row lights and nothing else: the mark and the rim belong to the
-  -- picture alone. On the picture the strip's light gives way -- one hover at a time, so the mark never stands
-  -- over a row that is also lit -- the art dims under the outline, and a click ignores the stack.
+  -- The left half of the row says what the piece is and carries the item's own tip; the right end carries the two
+  -- controls. Nothing on the row itself sells, deletes or ignores: the destructive gesture is the plate that wears
+  -- the word for it, and the pointer only lights the ground it stands on.
   local function tip()
     local e = r.entry
     if not e then return end
-    -- The client's own item tip and nothing of ours on top of it. The row already says the side, the price and
-    -- what a click does, so every line this window added to the tip repeated something the player was looking
-    -- at already -- once formatted differently, which read as a second, disagreeing answer.
-    GameTooltip:SetOwner(r, "ANCHOR_RIGHT")
+    -- The client's own item tip and nothing of ours on top of it. The row already says the side and the price,
+    -- the plates say what they do, so every line this window added to the tip repeated something the player was
+    -- looking at already -- once formatted differently, which read as a second, disagreeing answer.
+    -- The tip opens at the pointer rather than off a side of the row: this window stands against the bags, so a
+    -- tip pinned to either edge of a full-width row covered something the player was using -- the controls on the
+    -- right, the bags on the left. At the cursor it stays next to the piece being read, and the client keeps it on
+    -- the screen by itself, whichever edge of the world the window happens to be near.
+    GameTooltip:SetOwner(r, "ANCHOR_CURSOR")
     GameTooltip:SetHyperlink(e.link)
     GameTooltip:Show()
   end
 
-  local function rowHot()
+  -- Live ground and the item's tip are one thing, and both belong to what the row shows -- picture, name, price --
+  -- ending where the coins end. The row's right end carries the two controls: a pointer there is deciding, not
+  -- reading, so the ground stays dark under it and the tip stays away. That is also why this region stops short of
+  -- the word by PLATE_GAP: walking from the price to the word crosses the gap and loses the light, which is the
+  -- answer to "am I still on the piece or already on the button".
+  local liveZone = CreateFrame("Frame", nil, r)
+  liveZone:EnableMouse(true)
+  liveZone:SetPoint("TOPLEFT", r, "TOPLEFT", 0, 0)
+  liveZone:SetPoint("BOTTOMLEFT", r, "BOTTOMLEFT", 0, 0)
+  liveZone:SetPoint("RIGHT", ignore, "LEFT", -PLATE_GAP, 0)
+  liveZone:SetScript("OnEnter", function()
     if not r.entry then return end
-    r.bg:SetAlpha(1); r.bg:Show()
+    -- The ground lights and nothing else moves: the plates do not need it, they are already there, and a
+    -- highlight that pushed them around would be the only thing the hover changed.
+    r.bg:SetAlpha(1)
+    r.bg:Show()
     tip()
-  end
-  local function rowCold()
+  end)
+  liveZone:SetScript("OnLeave", function()
     r.bg:Hide()
     GameTooltip:Hide()
-  end
-  local function iconHot()
-    if not r.entry then return end
-    r.bg:Hide()
-    r.rim:Show()
-    r.mark:Show()
-    r.icon:SetAlpha(0.45)
-    tip()
-  end
-  local function iconCold()
-    r.rim:Hide()
-    r.mark:Hide()
-    r.icon:SetAlpha(1)
-    GameTooltip:Hide()
-  end
-
-  hot:SetScript("OnEnter", iconHot)
-  hot:SetScript("OnLeave", iconCold)
-  hot:SetScript("OnClick", function()
-    if r.entry then Cheap:ToggleIgnore(r.entry.itemID) end
   end)
-  r:SetScript("OnEnter", rowHot)
-  r:SetScript("OnLeave", function()
-    -- Sliding from the row onto its own picture is not leaving: both are the same hover, and hiding here made the
-    -- pair blink as the pointer crossed the edge between them.
-    if r.hot:IsMouseOver() then return end
-    rowCold()
-  end)
-  r:SetScript("OnClick", function(s) Cheap:Act(s.entry) end)
   return r
 end
 
@@ -790,10 +807,35 @@ function Cheap:Build()
   bar:Hide()
   self.bar, self.thumb, self.thumbTex = bar, thumb, thumbTex
 
-  sf:SetScript("OnMouseWheel", function(_, d)
+  local function wheel(_, d)
     -- One row a notch: with three rows on screen a two-row step jumped most of the window at once.
     Cheap:ScrollTo((Cheap.scroll or 0) - d * ROW_H)
+  end
+  sf:SetScript("OnMouseWheel", wheel)
+  -- The bar is a strip of the window the pointer can rest on, and a wheel turn there fell through to the
+  -- window and moved nothing: the list only answered while the pointer was over the viewport itself.
+  bar:EnableMouse(true)
+  bar:EnableMouseWheel(true)
+  bar:SetScript("OnMouseWheel", wheel)
+  -- A press off the thumb pages one view. The track was dead to the click, so the only way to move the list
+  -- with the mouse was its wheel; a scrollbar that ignores a press reads as a broken one.
+  bar:SetScript("OnMouseDown", function(_, button)
+    if button ~= "LeftButton" then return end
+    local _, y = GetCursorPosition()
+    y = y / (UIParent:GetEffectiveScale() or 1)
+    local top, bottom = thumb:GetTop(), thumb:GetBottom()
+    if not (top and bottom) then return end
+    local page = math.max(ROW_H, (sf:GetHeight() or 0) - (thumb:GetHeight() or 0))
+    if y > top then
+      Cheap:ScrollTo((Cheap.scroll or 0) - page)
+    elseif y < bottom then
+      Cheap:ScrollTo((Cheap.scroll or 0) + page)
+    end
   end)
+  -- The thumb itself drags. The bar only ever reported where the list stood, so holding the thumb and pulling
+  -- moved nothing at all; ScrollThumb is the drag every other window here already has.
+  ns.ScrollThumb(thumb, thumbTex, sf, function(v) Cheap:ScrollTo(v) end,
+    function() return Cheap:Span() end)
 
   local empty = Theme:Label(child, FONT - 3, "faint")
   empty:SetJustifyH("LEFT")
@@ -874,7 +916,7 @@ function Cheap:Paint()
   local wG, wS, wC = 0, 0, 0
   for i, e in ipairs(list) do
     local g, s, c = ns.MoneyParts(e.best or e.total, false)
-    local t = { moneyPart(g), moneyPart(s), moneyPart(c) }
+    local t = { g, s, c }
     parts[i] = t
     if meas then
       meas:SetFont(path, FONT - 3, ns.OutlineFlags())
@@ -893,8 +935,39 @@ function Cheap:Paint()
   -- its column for the rows that do not, which is the whole point of lining the digits up. Without the
   -- measuring label the columns fall back to the widths they were built with.
   if not meas then wG, wS, wC = COL_G, COL_S, COL_C end
+  -- The plate's width is the widest act word it can wear here, so it never twitches when a merchant opens; the
+  -- word that stands beside it is measured too, because its click target is as wide as itself. Both are measured
+  -- on the one label that is never given a width, before anything is placed, so the digits and the name are
+  -- placed against the answer.
+  local plateW, igW = PLATE_MIN_W, PLATE_MIN_W
+  if meas then
+    meas:SetFont(path, FONT - 4, ns.OutlineFlags())
+    local function wordW(key)
+      meas:SetText(ns.L[key] or key)
+      return (meas:GetStringWidth() or 0) + PLATE_PAD
+    end
+    for i = 1, #ACT_WORDS do
+      local w = wordW(ACT_WORDS[i])
+      if w > plateW then plateW = w end
+    end
+    igW = math.max(PLATE_MIN_W, wordW(IGNORE_WORD))
+    meas:SetText("")
+  end
+  local function dressPlate(b)
+    if not b then return end
+    ns.SnapSize(b, plateW, PLATE_H)
+    b.Text:SetFont(path, FONT - 4, ns.OutlineFlags())
+  end
+  local function dressIgnore(b)
+    if not b then return end
+    ns.SnapSize(b, igW, PLATE_H)
+    b.Text:SetFont(path, FONT - 4, ns.OutlineFlags())
+  end
+  -- The controls stand at the right edge and the coins anchor to the plate, so the name gives up both widths,
+  -- their gap and the air around them as well as the money columns.
+  local actions = plateW + PLATE_GAP + igW + PLATE_EDGE + PLATE_COIN_GAP
   local nameMax = math.max(40, innerW - 2 - ICON - NAME_GAP - 4
-    - (wG + wS + wC + COL_GAP * 2 + 6 + SIDE_W) - 6)
+    - (wG + wS + wC + COL_GAP * 2 + 6 + SIDE_W) - actions)
 
   local y, n = 0, 0
   for _, e in ipairs(list) do
@@ -902,6 +975,9 @@ function Cheap:Paint()
     local r = self.rows[n]
     if not r then r = buildRow(self.child); self.rows[n] = r end
     r.entry = e
+    r.syncAct()
+    dressPlate(r.act)
+    dressIgnore(r.ignore)
     r.icon:SetTexture(e.icon)
     -- The first word only: "Battered Buckler" is a buckler in a list of cheap stacks, and the rest of the name
     -- was cut to an ellipsis anyway -- a word that is cut tells nothing, while the first one is what the player
@@ -925,9 +1001,10 @@ function Cheap:Paint()
     r.side:SetText(e.kind == "auction" and "AH" or "V")
     r.side:SetTextColor(Theme:C(e.kind == "auction" and "accent" or "azure"))
     -- The coins, one column each, from the string pieces rather than the whole line: gold over gold, copper over
-    -- copper. A unit the stack does not carry is written as nothing, and its column is what keeps the digits of
-    -- the units above it in place. The widths are the ones measured over the whole list, so the coin is never
-    -- cut, and the row keeps the same three columns as its neighbours.
+    -- copper. A unit above the price's highest one is written as nothing, and its column is what keeps the digits
+    -- of the units in place; a zero MoneyParts wrote ("2g 0s 0c") is kept, as the gold tooltip keeps it. The
+    -- widths are the ones measured over the whole list, so the coin is never cut, and the row keeps the same
+    -- three columns as its neighbours.
     local txt = parts[n]
     local cols = { r.gold, r.silver, r.copper }
     local widths = { wG, wS, wC }
