@@ -1344,6 +1344,14 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall
   TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, itemTooltip)
 end
 
+-- A measuring tape for the one problem this addon has with ui scales that are not the client's two
+-- pixel-perfect ones: a one pixel border drawn on a rect that sits between pixels covers one pixel of the screen
+-- here and two there, so a list of rows reads as a ladder of uneven lines. The question every attempt at a fix
+-- has to answer first is what is actually fractional, and guessing it from a screenshot is what the last two
+-- attempts did. `/wpe px` answers it: with the cursor over the frame to look at, it prints that frame's rect in
+-- whole physical pixels and the remainder each edge carries, what one pixel is worth in ui units at this scale,
+-- and the same for the children under it -- which is where a stack's rounding hides. It changes nothing: no
+-- frame is moved, sized or repainted by this.
 SLASH_WARPEE1 = "/warpee"
 SLASH_WARPEE2 = "/wpe"
 SlashCmdList["WARPEE"] = function(msg)

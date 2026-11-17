@@ -151,6 +151,13 @@ function ns.AddTip(frame, title, side, extra)
 end
 
 local goldTip
+-- The anchor the panel was last drawn from. The token answer arrives after the request, so a tip that is
+-- already on screen has to be redrawn where it stands; the hit frame it hangs off has not moved, and the
+-- corner is kept rather than re-derived from wherever the mouse happens to be.
+local goldAnchor
+-- Declared here so the drawer above can arm it: the watch is defined at the foot of this file, beside the
+-- code that already reads the price.
+local tokenWatch
 local tokenTick = false
 local TIP_PAD, TIP_GAP = 8, 16
 local TIP_FONT_MIN = 8
@@ -232,6 +239,7 @@ local function showGoldTip(anchor)
     return
   end
   local t = goldTipFrame()
+  goldAnchor = anchor
   local path = ns.Fonts:Current()
   local list, total = ns.Vault:MoneyList()
   local min = tonumber(WarpeeDB and WarpeeDB.goldMin) or 0
@@ -240,13 +248,14 @@ local function showGoldTip(anchor)
   -- Forever drops the account bank and the token from the client, so neither line is built there and
   -- neither is counted into the height the fit loop below works from.
   local wb = (not ns.IsForever) and ns.Vault:WarbandMoney() or 0
+  -- The price is not asked for from this hover any more. The client answers UpdateMarketPrice a moment
+  -- later, through TOKEN_MARKET_PRICE_UPDATED, so a request sent from the hover that draws the panel could
+  -- only leave the first tip without the line: a player ten minutes into the world opened the purse and saw
+  -- nothing until a second hover. The watch below asks as soon as the world is up, and redraws a tip that is
+  -- already on screen when the answer lands.
   local token = 0
   if not ns.IsForever and C_WowTokenPublic and C_WowTokenPublic.GetCurrentMarketPrice then
-    if not tokenTick and C_WowTokenPublic.UpdateMarketPrice and C_Timer and C_Timer.NewTicker then
-      tokenTick = true
-      C_WowTokenPublic.UpdateMarketPrice()
-      C_Timer.NewTicker(60, function() C_WowTokenPublic.UpdateMarketPrice() end)
-    end
+    if tokenWatch then tokenWatch() end
     token = C_WowTokenPublic.GetCurrentMarketPrice() or 0
   end
 
@@ -380,4 +389,38 @@ function ns.AttachGoldTooltip(region, parent, size)
   hit:SetScript("OnLeave", function() if goldTip then goldTip:Hide() end end)
   region.wpeGoldHit = hit
   return hit
+end
+
+-- The token's own clock. The client keeps the market price to itself until it is asked, and answers by
+-- event a moment later, so asking from the first hover always draws that one tip without the line -- the
+-- row could only appear on the next hover, or never, if the player read the purse once and closed it.
+-- This asks as soon as the world is up and keeps asking at the minute the lazy ticker used to, so a price
+-- that moves during a session still reaches the next open; when the answer lands under an open tip, that
+-- tip is redrawn with it. Forever's client has no token at all, and an older client may not know the event:
+-- the ask still stands there, only the redraw is lost.
+function tokenWatch()
+  if tokenTick or ns.IsForever then return end
+  if not (C_WowTokenPublic and C_WowTokenPublic.UpdateMarketPrice) then return end
+  tokenTick = true
+  C_WowTokenPublic.UpdateMarketPrice()
+  if C_Timer and C_Timer.NewTicker then
+    C_Timer.NewTicker(60, function()
+      if C_WowTokenPublic.UpdateMarketPrice then C_WowTokenPublic.UpdateMarketPrice() end
+    end)
+  end
+end
+
+if not ns.IsForever and C_WowTokenPublic and C_WowTokenPublic.UpdateMarketPrice then
+  local ev = CreateFrame("Frame")
+  ev:RegisterEvent("PLAYER_ENTERING_WORLD")
+  -- An unknown event would raise at registration and take the file down with it, so the redraw is the one
+  -- part that is allowed to be missing on a client that does not know it.
+  pcall(ev.RegisterEvent, ev, "TOKEN_MARKET_PRICE_UPDATED")
+  ev:SetScript("OnEvent", function(_, event)
+    if event == "PLAYER_ENTERING_WORLD" then
+      tokenWatch()
+    elseif goldTip and goldTip:IsShown() and goldAnchor then
+      showGoldTip(goldAnchor)
+    end
+  end)
 end

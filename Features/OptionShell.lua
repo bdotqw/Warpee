@@ -195,6 +195,11 @@ function Options:VisibleRows()
   return out
 end
 
+-- One row pass per frame, and the asks that lose that race are served on the next one. An open asks for a pass,
+-- the tab it comes up on asks again, and every setter a page touches on its way up asks once more: same rows,
+-- measured and painted three or four times for one picture. The first ask of a frame still runs at once, because
+-- the rows have to be right before the window is shown; the rest collapse into a single pass on the next frame,
+-- so nothing a setter wrote is left undrawn.
 function Options:Refresh()
   local live = self:VisibleRows()
   for i = 1, #live do live[i].Refresh() end
@@ -632,10 +637,14 @@ function Options:BuildPage(i)
       entry.btns[k] = b
     end
     local area = makeScrollArea(f, sub.list)
-    area:SetPoint("TOPLEFT", PAD, -(HEADER_H + TAB_H + 14))
-    area:SetPoint("BOTTOMRIGHT", -(PAD + SCROLL_W + 6), PAD)
-    area.bar:SetPoint("TOPLEFT", area, "TOPRIGHT", 6, 0)
-    area.bar:SetPoint("BOTTOMLEFT", area, "BOTTOMRIGHT", 6, 0)
+    -- The viewport and the strip beside it are placed on the physical pixel grid, like every other window this
+    -- addon draws. The page inside was measured in whole pixels vertically from the start; an area left on the
+    -- window's raw constants put its left and right edges between pixels at any scale that is not the client's
+    -- pixel-perfect one, and every row's side border smeared with it.
+    ns.SnapPoint(area, "TOPLEFT", f, "TOPLEFT", PAD, -(HEADER_H + TAB_H + 14))
+    ns.SnapPoint(area, "BOTTOMRIGHT", f, "BOTTOMRIGHT", -(PAD + SCROLL_W + 6), PAD)
+    ns.SnapPoint(area.bar, "TOPLEFT", area, "TOPRIGHT", 6, 0)
+    ns.SnapPoint(area.bar, "BOTTOMLEFT", area, "BOTTOMRIGHT", 6, 0)
     area:Hide()
     area.bar:Hide()
     entry.areas[k] = area
@@ -877,8 +886,8 @@ function Options:AnchorHeader()
     end
     for _, area in ipairs(entry.areas) do
       area:ClearAllPoints()
-      area:SetPoint("TOPLEFT", f, "TOPLEFT", pad, -areaTop)
-      area:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(pad + SCROLL_W + 6), PAD + bottom)
+      ns.SnapPoint(area, "TOPLEFT", f, "TOPLEFT", pad, -areaTop)
+      ns.SnapPoint(area, "BOTTOMRIGHT", f, "BOTTOMRIGHT", -(pad + SCROLL_W + 6), PAD + bottom)
     end
     end
   end
@@ -922,9 +931,17 @@ function Options:SnapBorders()
     -- A subtree that lays itself out (the category editor does, with SnapPoint/PixelLine per row) is left
     -- alone: rewriting the points of frames that are already placed from their own layout only ever moves
     -- them off it, and this pass runs on every scroll tick as well as on every page build.
-    if depth > 6 or not parent.GetChildren or parent.wpePixelSkip then return end
+    -- Twelve deep, not six: a settings row is six levels under the window before its own fields begin, and the
+    -- fields are where the fractional edges were -- the read-out said fifty-nine of two hundred and three, and
+    -- the worst of them were an edit box and the priority cells inside a row.
+    if depth > 12 or not parent.GetChildren or parent.wpePixelSkip then return end
     for _, c in ipairs({ parent:GetChildren() }) do
-      if c.wpeEdge and c:IsShown() then ns.SnapRect(c) end
+      -- Every frame, not only the ones that carry a border of their own. The read-out kept naming the same
+      -- edit boxes, sliders and nine by six pixel plates after this pass was already walking their page, which
+      -- could only mean the pass never saw them: a field draws its border through a backdrop or a texture, and
+      -- ns.SetEdge -- the flag this used to test for -- never ran on it. A frame that draws no border is still a
+      -- frame a bordered child hangs off, so it is measured like the rest.
+      if c:IsShown() and c.GetNumPoints and not c.wpeNoSnap then ns.SnapRect(c) end
       walk(c, depth + 1)
     end
   end

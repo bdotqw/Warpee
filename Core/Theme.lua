@@ -387,7 +387,7 @@ function ns.SnapBox(frame, w, h, even)
 end
 
 -- A header icon (the gear, the bags, the sort arrow) is a texture centred in its button and scaled by
--- the GPU from a 16/64px source, so its symmetry depends on where its edges land. Sized in button-local
+-- the GPU from a 128/64/16px source, so its symmetry depends on where its edges land. Sized in button-local
 -- units and centred, the source lands half a pixel off the screen grid at some densities and the bilinear
 -- scale smears the two sides unequally -- the gear came out with a three-pixel tooth on one side and two
 -- on the other. This sizes the icon to a whole number of physical pixels and matches that count's parity

@@ -277,7 +277,7 @@ end
 -- recents and the bars answer the bags. Repainting that one grid on PLAYER_LEVEL_UP is what makes the
 -- swap visible without moving anything else in the window.
 function Pocket:LevelChanged()
-  if ns.IsForever and self.picksFrame and self.picksFrame:IsShown() then self:PickPaint() end
+  if ns.IsForever and self.picksFrame and self.picksFrame:IsShown() then self:PaintPicksSoon() end
 end
 
 
@@ -396,6 +396,27 @@ local function later(tip)
     if tipDirty then tipDirty = false; Pocket:Tip() end
   end)
 end
+
+-- One paint per frame, not one per item. Opening the popup asks the client for every id of the Popular list, and
+-- each answer lands as its own ITEM_DATA_LOAD_RESULT: the popup repainted its whole grid for every one of them --
+-- a hundred and twelve full paints of forty-nine cells for a single open, which is the ninety milliseconds the
+-- report showed. A paint that is already owed covers whatever arrives before it runs, so the answers become one
+-- pass. The same door serves the bag events, the theme and the popup's own settings, which all repaint it for the
+-- same reason: the picture is the same until the frame the client is about to draw.
+local picksSoon
+local function paintPicksSoon()
+  if picksSoon then return end
+  picksSoon = true
+  C_Timer.After(0, function()
+    picksSoon = false
+    if Pocket and Pocket.picksFrame and Pocket.picksFrame:IsShown() then Pocket:PickPaint() end
+  end)
+end
+
+-- Asked through the pocket, not through a file local: this door is used by functions written above it in the
+-- file -- the level change and the two list edits -- and a local named later is a nil upvalue up there, not a slow
+-- call. The method is a lookup on the table and works from any line.
+function Pocket:PaintPicksSoon() paintPicksSoon() end
 
 local function tipFor(c, index)
   local pin = Pocket:List()[index]
@@ -724,7 +745,7 @@ function Pocket:DropID(id)
   for i = 1, self:Count() do
     if ns.ItemStubID(list[i]) == id then
       self:Set(i, nil)
-      if self.picksFrame and self.picksFrame:IsShown() then self:PickPaint() end
+      if self.picksFrame and self.picksFrame:IsShown() then self:PaintPicksSoon() end
       return true
     end
   end
@@ -748,7 +769,7 @@ function Pocket:AddID(id, pin)
     if not list[i] then
       if C_Item and C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(id) end
       self:Set(i, pin or id)
-      if self.picksFrame and self.picksFrame:IsShown() then self:PickPaint() end
+      if self.picksFrame and self.picksFrame:IsShown() then self:PaintPicksSoon() end
       C_Timer.After(0.4, function() Pocket:Refresh() end)
       return true
     end
@@ -805,6 +826,9 @@ function Pocket:Build()
     s:StopMovingOrSizing()
     ns.Rebase(s, "pocketPos", "CENTER")
     ns.SeamDrop(s)
+    -- The seam has had its say: either the pocket is standing on a window, and that is now its dock, or it
+    -- was let go in open air and it is the player's own piece of screen again.
+    if ns.PocketDockFromSeam then ns.PocketDockFromSeam() end
   end)
   ns.EscClose(w)
   ns.PixelJob(w, function(s) ns.AlignToScreen(s) end, "align")
@@ -918,63 +942,6 @@ function Pocket:Build()
   pclose.wpeIconPaint(pclose)
   self.picksClose = pclose
 
-  self.pickBtns = {}
-  for i = 1, PICK_MAX do
-    local b = CreateFrame("Button", nil, picks, "BackdropTemplate")
-    ns.PixelBackdrop(b)
-    ns.SetBg(b, Theme:C("slot"))
-    ns.SetEdge(b, Theme:C("emptyLine"))
-    local function pickBorder(s)
-      ns.SetEdge(s, Theme:C(s.wpePinned and "accent" or "emptyLine"))
-    end
-    Theme:Track(b, function(s)
-      ns.SetBg(s, Theme:C("slot"))
-      pickBorder(s)
-    end)
-    b:RegisterForClicks("LeftButtonUp")
-    b:SetScript("OnEnter", function(s)
-      ns.SetBg(s, Theme:C("panelHi"))
-      ns.SetEdge(s, Theme:C("accent"))
-      GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
-      if s.wpeID then
-        GameTooltip:SetItemByID(s.wpeID)
-        if s.wpePinned and picksMode ~= "fav" then
-          GameTooltip:AddLine(ns.TipInk(ns.L["Already in the pocket"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9, true)
-        end
-      end
-      GameTooltip:Show()
-    end)
-    b:SetScript("OnLeave", function(s)
-      ns.SetBg(s, Theme:C("slot"))
-      pickBorder(s)
-      GameTooltip:Hide()
-    end)
-    b:SetScript("OnClick", function(s)
-      if not s.wpeID then return end
-      if picksMode == "fav" then
-        -- In the favorites face of the popup a cell is a mark that is either there or not, so a click
-        -- takes it away as readily as it puts it in; the cell repaints from the list, not from the click.
-        if ns.Fav then ns.Fav:ToggleID(s.wpeID) end
-        return
-      end
-      if s.wpePinned then
-        Pocket:DropID(s.wpeID)
-      elseif Pocket:AddID(s.wpeID) then
-        if ns.ItemSound then ns.ItemSound("pickup") end
-      end
-    end)
-    local ic = b:CreateTexture(nil, "ARTWORK")
-    ic:SetPoint("TOPLEFT", 1, -1)
-    ic:SetPoint("BOTTOMRIGHT", -1, 1)
-    ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    b.icon = ic
-    local tier = b:CreateTexture(nil, "OVERLAY")
-    tier:SetPoint("TOPLEFT", b, "TOPLEFT", -3, 2)
-    tier:Hide()
-    b.tier = tier
-    b:Hide()
-    self.pickBtns[i] = b
-  end
 
   -- The same id field the category editor's pin entry uses (Core/Widgets.lua): a number box that takes
   -- nothing but digits, with a live preview of the item that id names beside it, so what was typed is seen
@@ -1080,6 +1047,45 @@ function Pocket:ApplySearch()
       if g:IsShown() then g:SetAlpha(alpha) end
     end
   end
+end
+
+-- What the pocket's picture is made of, as one string: the slots it is cut into, the size and face it draws them
+-- at, and the density the client's pixel scale gives it. Nothing about what is pinned lives in here: a pin that
+-- moved, or a bag that changed, raises keyDirty -- Refresh sets it on every bag event even with the window shut,
+-- and that is the flag the open reads.
+function Pocket:LayoutSig()
+  local Bags = ns.Bags
+  local d = ns.Density(pocketSize())
+  return table.concat({
+    tostring(self:Cols()), tostring(self:Rows()),
+    tostring(self:RecentRows()), tostring(self:RecentCount()),
+    tostring(ns.PocketIconSize()), tostring(Bags and Bags.gap or ""),
+    tostring(Bags and Bags.styleGen or 0), tostring(ns.Fonts:Current()),
+    tostring(d.pocketPad), tostring(d.font), tostring(d.labelH),
+    tostring(self:PlayerLevel()),
+    tostring(self.frame and self.frame:GetEffectiveScale() or 0),
+  }, ":")
+end
+
+-- The same question the bag window asks on every open, in this window's own terms: a picture that is already right
+-- only has to be shown. What goes stale between one open and the next is the shape of it -- rows, columns, size,
+-- face, density, the picker's level -- or the content, and the content has its own flag: keyDirty, which a bag
+-- event raises even while the window is shut. A pool never warmed, or a bag with no cell to draw into, still takes
+-- the full pass. Layout writes openSig on its way out, so a warm open is one string compare and a show.
+function Pocket:NeedsLayout()
+  if not (self.frame and self.openSig) then return true end
+  if self.cold or keyDirty then return true end
+  local n, m = self:Cols() * self:Rows(), self:RecentCount()
+  if (self.warmed or 0) < n or (self.recWarmed or 0) < m then return true end
+  return self.openSig ~= self:LayoutSig()
+end
+
+-- A warm open: every cell still holds the piece it was given and stands where it stood, so the picture is already
+-- right and only has to be shown. The two passes that run on a clock of their own are asked again -- a cooldown
+-- that started while the window was shut, a search that dims a cell -- and neither of them places anything.
+function Pocket:Resume()
+  self:Cooldowns()
+  self:ApplySearch()
 end
 
 function Pocket:Layout()
@@ -1295,18 +1301,95 @@ function Pocket:Layout()
   -- the arrows only repeated the drag and the band they stood in kept the window taller than what it drew.
   ns.SnapSize(w, Layout.WindowWidth(PAD, cols, step, gap), foot + 6 + Theme:ContentPad("bottom"))
   ns.AlignToScreen(w)
+  -- Its own height is half of what a dock decides (a pocket above or below a window, a pocket beside one
+  -- and lined up on an edge), so a docked pocket is put back on its seam once this pass has given it the
+  -- size it will be drawn at.
+  if ns.PocketDockPlace then ns.PocketDockPlace(w) end
   local free = 0
   if rightBtn and rightBtn.GetLeft then
     local rl, wl = rightBtn:GetLeft(), w:GetLeft()
     if rl and wl then free = rl - wl - PAD - 4 end
   end
   self.title:SetShown(free <= 0 or self.title:GetStringWidth() <= free)
+  -- The picture just built is the one a warm open compares against: the signature is written here, by the pass
+  -- that laid every cell out, and never by Resume -- which places nothing and so has nothing to vouch for.
+  self.openSig = self:LayoutSig()
   ns.SnapWindowSoon(w)
+end
+
+-- The cells of the Popular popup, built the first time the popup opens rather than with the pocket. Sixty-four
+-- backdrop buttons with their edges, tints, textures and scripts are the most expensive thing the pocket ever
+-- built, and they were built for a window a player may never press "+" on: the pocket's own first open paid for
+-- a list that was not on the screen. The popup's frame, title, cross and id box still come with the pocket, so
+-- the popup's first open is this loop and nothing else -- which is also why it is worth measuring apart.
+function Pocket:BuildPicks()
+  if self.pickBtns then return end
+  local picks = self.picksFrame
+  if not picks then return end
+  self.pickBtns = {}
+  for i = 1, PICK_MAX do
+    local b = CreateFrame("Button", nil, picks, "BackdropTemplate")
+    ns.PixelBackdrop(b)
+    ns.SetBg(b, Theme:C("slot"))
+    ns.SetEdge(b, Theme:C("emptyLine"))
+    local function pickBorder(s)
+      ns.SetEdge(s, Theme:C(s.wpePinned and "accent" or "emptyLine"))
+    end
+    Theme:Track(b, function(s)
+      ns.SetBg(s, Theme:C("slot"))
+      pickBorder(s)
+    end)
+    b:RegisterForClicks("LeftButtonUp")
+    b:SetScript("OnEnter", function(s)
+      ns.SetBg(s, Theme:C("panelHi"))
+      ns.SetEdge(s, Theme:C("accent"))
+      GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
+      if s.wpeID then
+        GameTooltip:SetItemByID(s.wpeID)
+        if s.wpePinned and picksMode ~= "fav" then
+          GameTooltip:AddLine(ns.TipInk(ns.L["Already in the pocket"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9, true)
+        end
+      end
+      GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function(s)
+      ns.SetBg(s, Theme:C("slot"))
+      pickBorder(s)
+      GameTooltip:Hide()
+    end)
+    b:SetScript("OnClick", function(s)
+      if not s.wpeID then return end
+      if picksMode == "fav" then
+        -- In the favorites face of the popup a cell is a mark that is either there or not, so a click
+        -- takes it away as readily as it puts it in; the cell repaints from the list, not from the click.
+        if ns.Fav then ns.Fav:ToggleID(s.wpeID) end
+        return
+      end
+      if s.wpePinned then
+        Pocket:DropID(s.wpeID)
+      elseif Pocket:AddID(s.wpeID) then
+        if ns.ItemSound then ns.ItemSound("pickup") end
+      end
+    end)
+    local ic = b:CreateTexture(nil, "ARTWORK")
+    ic:SetPoint("TOPLEFT", 1, -1)
+    ic:SetPoint("BOTTOMRIGHT", -1, 1)
+    ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    b.icon = ic
+    local tier = b:CreateTexture(nil, "OVERLAY")
+    tier:SetPoint("TOPLEFT", b, "TOPLEFT", -3, 2)
+    tier:Hide()
+    b.tier = tier
+    b:Hide()
+    self.pickBtns[i] = b
+  end
 end
 
 function Pocket:PickPaint()
   local p = self.picksFrame
-  if not (p and self.pickBtns) then return end
+  if not p then return end
+  -- The popup's cells are made by the first paint that needs them, not by the pocket's build.
+  self:BuildPicks()
   applyDensity()
   local side = Theme:ContentPad("side")
   local pad = PICK_PAD + side
@@ -1345,36 +1428,58 @@ function Pocket:PickPaint()
     ns.SnapPoint(self.idField, "TOPRIGHT", p, "TOPRIGHT", -pad, -head)
   end
   local gridTop = head + BOX_H + 6 + BOX_GAP
+  -- What the list already holds, asked once instead of once per cell: the pocket's face walked its own list for
+  -- every cell it drew -- forty-nine cells times a list of forty-nine, on every paint.
+  local have
+  if not fav then
+    have = {}
+    local plist = list or {}
+    for j = 1, self:Count() do
+      local k = ns.ItemStubID(plist[j])
+      if k then have[k] = true end
+    end
+  end
+  -- The paint key is everything a cell's face is made of: the id, the taken mark, the size, the face it fills and
+  -- the style generation. A cell already wearing that key is left alone -- which is what makes a repaint owed to a
+  -- frame cheap, since the frame that answers an item load usually changes nothing on the screen.
+  local gen = ((ns.Bags and ns.Bags.styleGen) or 0) .. ":" .. size .. ":" .. (fav and "fav" or "pocket")
   for i = 1, n do
     local id = ids[i]
     local b = self.pickBtns[i]
     b.wpeID = id
-    b.icon:SetTexture(ns.PinIcon(id))
     -- Already taken is asked of the list this popup is filling: a cell in the pocket's grid means a pin,
     -- the same cell in the favorites popup means an entry in the bag's section.
     local pinned = false
     if fav then
       if F then pinned = F:HasID(id) end
     else
-      for j = 1, self:Count() do
-        if ns.ItemStubID(list[j]) == id then pinned = true; break end
-      end
+      pinned = have[id] == true
     end
-    b.wpePinned = pinned
-    ns.SetBg(b, Theme:C("slot"))
-    ns.SetEdge(b, Theme:C(pinned and "accent" or "emptyLine"))
-    b.icon:SetDesaturated(false)
-    b.icon:SetAlpha(pinned and 0.55 or 1)
-    local atlas = ns.PinTier(id)
-    if atlas then
-      b.tier:SetAtlas(atlas, true)
-      local w0, h0 = b.tier:GetWidth() or 0, b.tier:GetHeight() or 0
-      if w0 > 0 and h0 > 0 then
-        local k = size / 37
-        b.tier:SetSize(math.max(1, w0 * k), math.max(1, h0 * k))
-      end
-      b.tier:Show()
-    else b.tier:Hide() end
+    -- The icon and the tier are answers the client gives late: an id it has not seen yet answers with the fallback
+    -- icon and no tier, and both change after the data arrives. They are read here, before the key, so the answer is
+    -- part of what the cell is wearing -- a paint that arrives with the data still redraws the cell, while a paint
+    -- that brings nothing new is skipped whole.
+    local icon, atlas = ns.PinIcon(id), ns.PinTier(id)
+    local key = gen .. ":" .. tostring(id) .. ":" .. (pinned and "1" or "0") .. ":" .. tostring(icon)
+      .. ":" .. tostring(atlas)
+    if b.wpePaintKey ~= key then
+      b.wpePaintKey = key
+      b.icon:SetTexture(icon)
+      b.wpePinned = pinned
+      ns.SetBg(b, Theme:C("slot"))
+      ns.SetEdge(b, Theme:C(pinned and "accent" or "emptyLine"))
+      b.icon:SetDesaturated(false)
+      b.icon:SetAlpha(pinned and 0.55 or 1)
+      if atlas then
+        b.tier:SetAtlas(atlas, true)
+        local w0, h0 = b.tier:GetWidth() or 0, b.tier:GetHeight() or 0
+        if w0 > 0 and h0 > 0 then
+          local k = size / 37
+          b.tier:SetSize(math.max(1, w0 * k), math.max(1, h0 * k))
+        end
+        b.tier:Show()
+      else b.tier:Hide() end
+    end
     b:Show()
   end
   for i = n + 1, PICK_MAX do self.pickBtns[i]:Hide() end
@@ -1387,10 +1492,15 @@ function Pocket:PickPaint()
     gridTop + gridH + PICK_PAD + Theme:ContentPad("bottom"))
   for i = 1, n do
     local b = self.pickBtns[i]
-    ns.SnapSize(b, size, size)
-    b:ClearAllPoints()
     local px, py = Layout.Point(i, cols, pad, gridTop, step)
-    ns.SnapPoint(b, "TOPLEFT", p, "TOPLEFT", px, -py)
+    -- The seating is skipped as well when the cell already stands there: nothing about it moved, and a
+    -- clear-and-anchor on an unchanged spot is a hundred pairs of calls a paint for no picture at all.
+    if b.wpePx ~= px or b.wpePy ~= py or b.wpeS ~= size then
+      b.wpePx, b.wpePy, b.wpeS = px, py, size
+      ns.SnapSize(b, size, size)
+      b:ClearAllPoints()
+      ns.SnapPoint(b, "TOPLEFT", p, "TOPLEFT", px, -py)
+    end
   end
   -- The pocket's own popup hangs off its window's top left; the favorites one stands beside the bags, on the
   -- flank that has room for it, so the grid it fills is never covered by the list that fills it.
@@ -1459,7 +1569,7 @@ end
 -- without keeping its own copy of that state.
 function Pocket:PicksMode() return picksMode end
 function Pocket:RepaintPicks()
-  if self.picksFrame and self.picksFrame:IsShown() then self:PickPaint() end
+  if self.picksFrame and self.picksFrame:IsShown() then self:PaintPicksSoon() end
 end
 
 function Pocket:Soon()
@@ -1475,7 +1585,7 @@ function Pocket:Refresh()
   -- frame-late pass in Drop, and PinFromCursor for a drop on a cell -- so waiting loses nothing.
   if self.lifted and CursorHasItem() then return end
   self:Layout()
-  if self.picksFrame and self.picksFrame:IsShown() then self:PickPaint() end
+  if self.picksFrame and self.picksFrame:IsShown() then self:PaintPicksSoon() end
 end
 
 function Pocket:Open()
@@ -1507,13 +1617,20 @@ function Pocket:Open()
     end
   end
   WarpeeDB.pocketOpen = true
-  self:Layout()
+  -- The bag window's warm open, in this window's terms: a picture that has not changed is shown, not built. The
+  -- layout still runs before the show, the way it always did, so the first open costs no more than it did.
+  if self:NeedsLayout() then self:Layout() else self:Resume() end
   w:Show()
   self:ApplySearch()
   Theme:Raise(w)
   -- Layout runs before the frame is shown, so its cooldown pass sees nothing visible.
   -- One pass after Show picks up a cooldown that started while the window was closed.
   self:Cooldowns()
+  -- A docked pocket is placed from its window, not from the point it was left at: the bags of a character
+  -- with fewer slots make a shorter window, and that point would be left hanging below it. The window has
+  -- its real size by now, so the dock can give the pocket its place -- and the seam pass below, which only
+  -- knows how to repair a pair that still stands close enough to be one, then has nothing left to do.
+  if ns.PocketDockPlace then ns.PocketDockPlace(w) end
   -- The corner the record carries is the pocket's own; the edge it shared with the bags or the bank is
   -- not in it. Once the window is at its real size, the pair is measured again, so a session that
   -- starts with both open finds the pocket on the seam it was left on instead of a few points off it.
@@ -1672,7 +1789,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
     return
   end
   if event == "ITEM_DATA_LOAD_RESULT" then
-    if Pocket.picksFrame and Pocket.picksFrame:IsShown() then Pocket:PickPaint() end
+    if Pocket.picksFrame and Pocket.picksFrame:IsShown() then Pocket:PaintPicksSoon() end
     return
   end
   if event == "PLAYER_LOGIN" then

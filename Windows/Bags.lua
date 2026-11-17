@@ -632,8 +632,11 @@ function Bags:Build()
     -- merchant closing later shut a window the player had opened himself.
     ns.autoOpened = nil
     -- The anti-jump memory says what is on screen, and the screen is going away. Kept, a piece that left
-    -- while the window was shut (sold at a vendor it was not open for) would reopen as a hole.
-    Bags.catMemory, Bags.catHold, Bags.catCache = nil, nil, nil
+    -- while the window was shut (sold at a vendor it was not open for) would reopen as a hole. The plan of the
+    -- grouped view is kept, though: it is what a warm open resumes onto, and NeedsLayout compares its signature
+    -- against the list before trusting it. Dropping it here is what made the grouped view re-file every slot on
+    -- every open, whatever had changed (see Bags:CatPlanSig).
+    Bags.catMemory, Bags.catHold = nil, nil
     ns.ClearSearch(Bags.search)
     if ns.CharPicker then ns.CharPicker:Close() end
     -- The currency panel belongs to the rail, and the rail goes with the window: a panel left standing
@@ -738,7 +741,7 @@ function Bags:Build()
   self.sortBtn = sort
 
   local gear = ns.GearButton(f, close, HB)
-  gear.iconPct = 56
+  gear.iconPct = 78
   self.gearBtn = gear
 
   local bagsToggle = ns.CreateGlyphButton(f, "", HB, "icon")
@@ -2098,23 +2101,78 @@ end
 -- pass can do. The read is the container's own slot count -- the same call the pass makes.
 function Bags:SlotsMoved()
   local have = self.bagSlots or {}
+  -- A container the last pass never recorded is not a container that moved. The grouped view records none of
+  -- them -- its plan is filed by the category list and never walks the bags as blocks -- and reading a missing
+  -- entry as zero made every grouped open answer "a bag grew": the full pass, forever, which is the whole of
+  -- why a warm grouped open cost 28 ms against the grid's 4-7. A container that really changes raises a bag
+  -- event, and that fills the dirty set, which the open checks on its own.
   for _, bag in ipairs(ns.playerBags) do
-    if (have[bag] or 0) ~= (C_Container.GetContainerNumSlots(bag) or 0) then return true end
+    local was = have[bag]
+    if was ~= nil and was ~= (C_Container.GetContainerNumSlots(bag) or 0) then return true end
   end
-  return (have[ns.reagentBag] or 0) ~= (C_Container.GetContainerNumSlots(ns.reagentBag) or 0)
+  local reg = have[ns.reagentBag]
+  return reg ~= nil and reg ~= (C_Container.GetContainerNumSlots(ns.reagentBag) or 0)
+end
+
+-- What the grouped picture is made of, as one string: the list's own shape in order (every entry's id and the
+-- rules it files by, the window it is hidden in, the pieces pinned to it) and the search the view is filtered
+-- by. It says nothing about what is in the bags -- a bag that moved is the dirty set's business -- only about
+-- the rules that decide where a piece lands, so a warm open can tell "the same sections, the same cells" from
+-- "the list changed while the window was shut". Pins travel as a count and a sum of their ids: a re-pin of one
+-- piece moves the sum, and walking a section's own pins is a handful of keys, not the bag.
+function Bags:CatPlanSig()
+  local out = {}
+  local Cats = ns.Categories
+  local list = (Cats and Cats:List()) or {}
+  for i = 1, #list do
+    local c = list[i]
+    local pins, n, sum = c.pins, 0, 0
+    if type(pins) == "table" then
+      for id in pairs(pins) do n = n + 1; sum = sum + (tonumber(id) or 0) end
+    end
+    local hide = 0
+    if type(c.hide) == "table" then
+      if c.hide.bags then hide = hide + 1 end
+      if c.hide.bank then hide = hide + 2 end
+      if c.hide.warband then hide = hide + 4 end
+    end
+    out[#out + 1] = table.concat({ tostring(c.id), tostring(c.search), tostring(c.sort),
+      tostring(c.prio), tostring(c.group), tostring(c.divider), hide, n, sum }, "|")
+  end
+  local folded = 0
+  local f = WarpeeDB and WarpeeDB.catCollapsed
+  if type(f) == "table" then for _ in pairs(f) do folded = folded + 1 end end
+  out[#out + 1] = "q:" .. tostring(self.query or "")
+  out[#out + 1] = "f:" .. folded
+  return table.concat(out, ";")
 end
 
 -- Whether the open needs the full pass. The first open of a session always does; after that only a change
 -- the last full pass could not have carried does: style, face, geometry, view, a slot count, a snapshot.
 function Bags:NeedsLayout()
-  if not (self.byKey and self.openSig) then return true end
+  -- Why this open is paying for the full pass, one word per question that said yes. A number alone cannot tell a
+  -- slow open from a normal one -- the warm path and the full pass differ by a factor of five -- and the profiler
+  -- prints this word beside every open in its trend line. A recorded reference to a literal, no string built.
+  local function yes(why) self.openPath = why; return true end
+  if not (self.byKey and self.openSig) then return yes("first") end
   -- A pool warmed in combat refused its cells: the last pass drew only what it could, and a warm open
   -- must not keep that half-grid. The old full pass on every open healed it; the decision does now.
-  if self.cold or not self.warmed then return true end
-  if self.snap then return true end
-  if self:CatMode() then return true end
-  if self.openSig ~= self:LayoutSig() then return true end
-  if self:SlotsMoved() then return true end
+  if self.cold or not self.warmed then return yes("cold-pool") end
+  if self.snap then return yes("snapshot") end
+  -- The grouped view used to take the full pass on every open, because nothing in the signature above says
+  -- what its plan is made of: the buckets are filed by the category list, not by the geometry, and the plan
+  -- was dropped with the window. So a warm grouped open re-filed every slot, laid the sections out again and
+  -- walked every cell's paint guard -- 28 ms against the grid's 4-7 on the same bags. It is a full pass only
+  -- when the picture it left is no longer the right one: the list (a category renamed, reordered, hidden,
+  -- re-pinned or folded, a different search) or a bag that moved while the window was shut.
+  if self:CatMode() then
+    if not self.catPlanSig then return yes("cat-no-plan") end
+    if self.catPlanSig ~= self:CatPlanSig() then return yes("cat-list") end
+    if next(self.dirty) ~= nil then return yes("cat-dirty") end
+  end
+  if self.openSig ~= self:LayoutSig() then return yes("signature") end
+  if self:SlotsMoved() then return yes("slots") end
+  self.openPath = nil
   return false
 end
 
@@ -3508,6 +3566,11 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
   -- The bottom of the last shelf, plus the trailing gap. The Empty section sits on that shelf, so the
   -- footer is folded into this one number.
   local contentH = shelfY + shelfH + d.labelGap
+  -- The plan is remembered under the list it was filed from, but only when this pass rebuilt it: a light pass
+  -- re-places what the last full one worked out, so the signature it would write is the model's, not the plan's,
+  -- and claiming it would let a later open resume onto a plan the list has moved past. Left stale, the worst it
+  -- costs is one full pass next time.
+  if not cached then self.catPlanSig = self:CatPlanSig() end
   if self.catFree then self.catFree:Hide() end
   self:HideCatLabels(si)
   self:HideCatCounts(si)
@@ -3615,6 +3678,9 @@ function Bags:Resize(contentH)
   Theme:FitPlate(self.gridBg, self.frame)
   ns.Rebase(self.frame, "pos")
   ns.SeamHeal(seam)
+  -- Another bag, or another icon size, moves the edge a docked pocket is measured against: the pair is put
+  -- back together here, once the window has the rectangle it will be drawn at.
+  if ns.PocketDockFollow then ns.PocketDockFollow(self.frame) end
   ns.SnapWindowSoon(self.frame)
 end
 
@@ -5607,6 +5673,16 @@ function Bags:SortSettle()
   C_Timer.After(0.2, function()
     if self.sortGen ~= gen then return end
     self.sorting = false
+    -- The row of recent items is compacted in the moments nobody is watching it: on the way in and on the way
+    -- out of the window. A sort is the third such moment -- the grid is rearranged under the player's hand on
+    -- purpose, so the row tidying in the same frame reads as part of that gesture rather than a jump -- and
+    -- doing it here, on the settled order, is what keeps it to one shift: the bag updates the sort fires would
+    -- otherwise settle the row again and again while the sort is still cascading.
+    local R = ns.Recent
+    if R and R.Settle and R.args and self.frame and self.frame:IsShown() then
+      R:Settle()
+      R:Refresh()
+    end
     -- The sort moved cells, so the whole grid is re-placed rather than repainted in place; the parked set
     -- was dropped in SortBags so the pump finds nothing to move against the freshly sorted order.
     if self.newOnTop and self.frame and self.frame:IsShown() then

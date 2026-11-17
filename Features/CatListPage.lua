@@ -87,11 +87,11 @@ function factories.catlist(parent, spec)
   -- carries only the name now, so it can be generous.
   local NAME_W = math.floor((CONTENT_W - 60) * 0.72)
   local row = CreateFrame("Frame", nil, parent)
-  -- Every frame and hairline in this list is placed from the row/panel layout below (SnapPoint, PixelLine)
-  -- at build time, so the window's border pass has nothing to add here -- and a pass that rewrites those
-  -- points while the page is scrolled moves them off the layout they were built on. The list, its rows and
-  -- the panels under them are skipped by it.
-  row.wpePixelSkip = true
+  -- This list used to be skipped by the window's border pass, because the pass rewrote points that the row
+  -- layout had placed from fractional numbers -- the rows then moved under the cursor while a scroll carried
+  -- them, and the text drifted. The stack below is measured in whole pixels now, so the pass has nothing to
+  -- move on a row, and it is what puts the fields inside one on the grid: the read-out in chat counted
+  -- fifty-nine edges between pixels on this page alone, most of them inside the rows.
   row.items = {}
   -- The one panel pool, keyed by row index: each row's rule + pins panel lives here.
   row.build = {}
@@ -548,12 +548,12 @@ function factories.catlist(parent, spec)
     sf:SetScrollChild(child)
 
     local wbar = CreateFrame("Frame", nil, m)
-    wbar:SetWidth(WBAR)
+    wbar:SetWidth(ns.SnapValue(wbar, WBAR))
     wbar:SetPoint("TOPRIGHT", -3, -4)
     wbar:SetPoint("BOTTOMRIGHT", -3, 4)
     Theme:Rect(wbar, "panel", "BACKGROUND"):SetAllPoints(wbar)
     local wthumb = CreateFrame("Frame", nil, wbar)
-    wthumb:SetWidth(WBAR)
+    wthumb:SetWidth(ns.SnapValue(wthumb, WBAR))
     local wthumbTex = Theme:Rect(wthumb, "faint", "ARTWORK")
     wthumbTex:SetAllPoints(wthumb)
     m.wbar, m.wthumb = wbar, wthumb
@@ -826,7 +826,7 @@ function factories.catlist(parent, spec)
     m.levelPane:SetPoint("TOPLEFT", axisW + 10, -8)
     m.levelPane:SetSize(wordW + SCROLL_W, PROWH * 3)
     if m.levelBox then ns.SnapSize(m.levelBox, wordW + SCROLL_W - 30, 22) end
-    m.wordChild:SetWidth(wordW)
+    m.wordChild:SetWidth(ns.SnapValue(m.wordChild, wordW))
 
     local y = 0
     for i, a in ipairs(axes) do
@@ -1026,7 +1026,11 @@ function factories.catlist(parent, spec)
     for _, p in pairs(row.build) do p:Hide() end
     local y = 0
 
-    y = header.layout(y)
+    -- The stack is measured in whole physical pixels from here down: the list's top, every row height and every
+    -- step between rows is a whole number of pixels, so a one pixel border lands on one pixel at any ui scale.
+    -- Nothing below nudges a row afterwards, which is what keeps the text from drifting while a scroll gesture
+    -- carries the rows: they were never re-pointed.
+    y = ns.SnapValue(row, header.layout(y))
 
     -- One pass over the flat list, in order, and the markers lay out as rows of their own: a group
     -- header with its name field, a divider as a line with a caption. This is the
@@ -1043,7 +1047,7 @@ function factories.catlist(parent, spec)
       row.off[i] = y - y0
       if Cats.IsMarker(e) then
         local head = Cats.IsHead(e)
-        local hh = head and CAT_ROW_H or (CAT_ROW_H - 6)
+        local hh = ns.SnapValue(row, head and CAT_ROW_H or (CAT_ROW_H - 6))
         r.entry, r.catId = e, nil
         r:SetHeight(hh)
         -- Only the grip and the X of the category row are reused: a marker owns no rule, so the
@@ -1070,16 +1074,17 @@ function factories.catlist(parent, spec)
           r.nameBox.ph:SetText(Cats:GroupName(e))
           -- The cap is the field's own left edge (the grip's right plus 8) plus the X and a gap, so a long
           -- name stops beside the X instead of running under it.
-          r.nameBox:SetWidth(math.max(160, math.min(CONTENT_W - 66,
-            math.ceil(r.nameBox.ph:GetStringWidth() or 0) + 24)))
+          r.nameBox:SetWidth(ns.SnapValue(r, math.max(160, math.min(CONTENT_W - 66,
+            math.ceil(r.nameBox.ph:GetStringWidth() or 0) + 24))))
           if not r.nameBox:HasFocus() then
             r.nameBox:SetText(e.name or "")
             r.nameBox.ph:SetShown((e.name or "") == "")
           end
           part.divCap:Hide()
           part.headLine:ClearAllPoints()
-          part.headLine:SetPoint("BOTTOMLEFT", 0, 4)
-          part.headLine:SetPoint("BOTTOMRIGHT", 0, 4)
+          local hy = ns.SnapValue(r, 4)
+          part.headLine:SetPoint("BOTTOMLEFT", 0, hy)
+          part.headLine:SetPoint("BOTTOMRIGHT", 0, hy)
         else
           -- A divider carries no name: its caption sits on the line instead, so the row still reads as
           -- what it is, and the line runs from the grip to the X behind the words.
@@ -1098,7 +1103,7 @@ function factories.catlist(parent, spec)
         r:SetPoint("TOPRIGHT", 0, -y)
         r:Show()
         row.h[i] = hh
-        y = y + hh + 2
+        y = y + hh + ns.SnapValue(row, 2)
       else
         r.entry = nil
         if r.headLine then
@@ -1148,7 +1153,7 @@ function factories.catlist(parent, spec)
           -- editable. Neither is deletable, so both always stay in the list. Other keeps its count on the
           -- right (the unmatched total); Empty owns no items, so it shows none. The name takes the whole
           -- row, since there is nothing to its right to make room for.
-          r.nameBox:SetWidth(half * 2 - 18)
+          r.nameBox:SetWidth(ns.SnapValue(r, half * 2 - 18))
           r.del:Hide()
           r.addPin:Hide()
           if isOther then
@@ -1166,7 +1171,7 @@ function factories.catlist(parent, spec)
           -- Collapsed row: the name owns the left edge; the "+" (and delete, while the panel is open) sit
           -- in one aligned column at the right, off a fixed name width so they read as a tidy column, not a
           -- ragged one chasing each name.
-          r.nameBox:SetWidth(NAME_W)
+          r.nameBox:SetWidth(ns.SnapValue(r, NAME_W))
           r.addPin:Show()
           r.addPin:ClearAllPoints()
           ns.SnapPoint(r.addPin, "TOPRIGHT", r, "TOPRIGHT", -1, -4)
@@ -1209,14 +1214,20 @@ function factories.catlist(parent, spec)
           -- field's border ran through "catches N in bags". Six pixels keeps the hairline a separator instead
           -- of an overlap.
           local STEP = 6
-          p:SetPoint("TOPLEFT", 0, -(y + CAT_ROW_H + extra + STEP))
-          p:SetPoint("TOPRIGHT", 0, -(y + CAT_ROW_H + extra + STEP))
-          p:SetHeight(h)
+          -- The panel's top is a whole-pixel step under its row and its height is whole too, so the row after it
+          -- starts on the grid as well.
+          local panelTop = ns.SnapValue(row, y + CAT_ROW_H + extra + STEP)
+          p:SetPoint("TOPLEFT", 0, -panelTop)
+          p:SetPoint("TOPRIGHT", 0, -panelTop)
+          p:SetHeight(ns.SnapValue(p, h))
           p:Show()
-          panelH = h + STEP
+          panelH = ns.SnapValue(row, h + STEP)
         end
-        row.h[i] = CAT_ROW_H + extra + 2 + panelH
-        y = y + CAT_ROW_H + extra + 2 + panelH
+        -- One row, measured once in whole pixels: the height the row is given and the step the next one starts at
+        -- are the same number, so the stack never carries a remainder down the list.
+        local rowH = ns.SnapValue(row, CAT_ROW_H + extra + 2 + panelH)
+        row.h[i] = rowH
+        y = y + rowH
       end
     end
     row.listH = y - y0
@@ -1229,7 +1240,7 @@ function factories.catlist(parent, spec)
     -- longer translation ran out of it, Russian "Новый разделитель" first. When the makers and the reset
     -- do not fit side by side, the reset drops to a line of its own, still on the right, rather than
     -- overlapping them or being clipped.
-    y = y + 12
+    y = ns.SnapValue(row, y + 12)
     local GAPW, SIDEPAD = 8, 22
     local x, span, resetW = 0, 0, 0
     local packed = {}
@@ -1257,7 +1268,7 @@ function factories.catlist(parent, spec)
     -- The share line closes the page: it comes after the actions because the list above is the thing
     -- being shared and this is how it leaves and comes back. Its own layout takes the row the actions
     -- took when they wrapped, and hands back the height the page ends at.
-    row:SetHeight(share.Layout(y, stacked and 26 or 0, SIDEPAD, GAPW))
+    row:SetHeight(ns.SnapValue(row, share.Layout(y, stacked and 26 or 0, SIDEPAD, GAPW)))
   end
   -- Refresh arrives every frame of a drag; the full rebuild is capped.
   row.Refresh = function()
@@ -1343,7 +1354,16 @@ Options.helpers = {
   mmHideSet = mmHideSet,
   onOf = onOf,
   pinHint = pinHint,
-  relayout = relayout,
+  -- Every control in this list that moves itself (the priority cells, the sort chips, the show-in boxes) goes
+  -- through this relayout, and each of them re-points off a caption's measured width, which is a fractional
+  -- number of pixels. Nothing else settles the settings window after that, so a plate painted at that moment
+  -- kept a border that read as one pixel on three of its sides and two on the fourth -- exactly the 1 2 1 1
+  -- that shows up the moment a priority is changed. The grid pass is booked once here, after the layout the
+  -- click just changed, and the sub-modules keep calling plain relayout().
+  relayout = function(...)
+    relayout(...)
+    if ns.Options and ns.Options.SnapSoon then ns.Options:SnapSoon() end
+  end,
   sClearGet = sClearGet,
   sClearSet = sClearSet,
   sLinkGet = sLinkGet,

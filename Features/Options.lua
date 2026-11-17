@@ -577,7 +577,10 @@ ns.OptionControlsEnv = {
 local function buildPage(parent, list)
   local page = CreateFrame("Frame", nil, parent)
   page:SetPoint("TOPLEFT")
-  page:SetWidth(CONTENT_W)
+  -- The page is a whole number of pixels wide, so the rows that hang off both of its edges have their left and
+  -- right borders on the grid as well as their top and bottom. The vertical rhythm was always measured with
+  -- ns.SnapValue; this is the other half of the same thing.
+  page:SetWidth(ns.SnapValue(page, CONTENT_W))
   page.rows = {}
   for _, spec in ipairs(list) do
     local row = factories[spec.type](page, spec)
@@ -617,7 +620,7 @@ local function buildPage(parent, list)
         if spec.col then
           local total = spec.of or 2
           local colW = total == 3 and thirdW or halfW
-          row:SetWidth(colW)
+          row:SetWidth(ns.SnapValue(row, colW))
           ns.SnapPoint(row, "TOPLEFT", page, "TOPLEFT",
             (spec.col - 1) * (colW + (total == 3 and 10 or 14)), -sy)
           local nextCol = nx and nx.col
@@ -626,11 +629,11 @@ local function buildPage(parent, list)
           end
         elseif spec.half == "left" then
           ns.SnapPoint(row, "TOPLEFT", page, "TOPLEFT", 0, -sy)
-          row:SetWidth(halfW)
+          row:SetWidth(ns.SnapValue(row, halfW))
           if not (nx and nx.half == "right") then advance(ROW_GAP) end
         elseif spec.half == "right" then
           ns.SnapPoint(row, "TOPRIGHT", page, "TOPRIGHT", 0, -sy)
-          row:SetWidth(halfW)
+          row:SetWidth(ns.SnapValue(row, halfW))
           advance(ROW_GAP)
         else
           ns.SnapPoint(row, "TOPLEFT", page, "TOPLEFT", 0, -sy)
@@ -654,7 +657,7 @@ local function makeScrollArea(parent, list)
   sf:SetScrollChild(page)
 
   local bar = CreateFrame("Frame", nil, parent)
-  bar:SetWidth(SCROLL_W)
+  bar:SetWidth(ns.SnapValue(bar, SCROLL_W))
   local trackTex = Theme:Rect(bar, "panel", "BACKGROUND")
   trackTex:SetAllPoints(bar)
   local thumb = CreateFrame("Frame", nil, bar)

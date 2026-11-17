@@ -3540,6 +3540,9 @@ function View:Resize(st)
   Theme:FitPlate(self.gridBg, self.frame)
   ns.Rebase(self.frame, "bankPos")
   ns.SeamHeal(seam)
+  -- The tabs of the bank are windows of different heights, and a docked pocket is measured against the one
+  -- standing now: the pair is put back together after the resize, not before it.
+  if ns.PocketDockFollow then ns.PocketDockFollow(self.frame) end
   ns.SnapWindowSoon(self.frame)
 end
 

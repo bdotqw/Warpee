@@ -442,7 +442,12 @@ function ns.PlaceRect(frame, dbKey, angle, l, b, fallback)
   -- are read back after the clamp and the sub-pixel pass, so what is stored is the
   -- rectangle that is on screen rather than the one that was asked for.
   if WarpeeDB and not ns.Applying then
-    WarpeeDB[dbKey] = { p = angle, rp = angle, x = rx or x, y = ry or y }
+    -- The dock of a pocket (see PocketDockPlace) rides along with the corner it was filed under: writing the
+    -- rectangle must not throw away what the pair of windows is, or every re-place would erase the very
+    -- memory it was placed from.
+    local prev = WarpeeDB[dbKey]
+    local dock = (dbKey == "pocketPos" and prev and prev.dock) or nil
+    WarpeeDB[dbKey] = { p = angle, rp = angle, x = rx or x, y = ry or y, dock = dock }
   end
   if frame.wpeBar then frame.wpeBar:Refresh() end
   ns.SnapWindowSoon(frame)
@@ -927,6 +932,102 @@ function ns.PocketSeam()
     end
   end
   return false
+end
+
+-- A saved corner is a point on the screen, and a point is the one thing a pair of windows cannot keep across
+-- characters: the bags of a character with fewer slots make a shorter window, the pocket's point then stands
+-- further from the edge than the seam is allowed to heal, and an arrangement made once comes apart on every
+-- character but the first. What the pair really is -- which window, on which side of it, lined up with which
+-- edge -- is small enough to keep and survives any height the window may take.
+--
+-- The dock lives inside the pocket's own position record rather than beside it: it is the same window, written
+-- by the same calls, copied into a profile by the same pass and wiped by the same reset. It is only ever
+-- written when a seam really held, so a pocket parked in open air keeps its corner and nothing else.
+local function dockWindow(key)
+  if key == "bags" then return ns.Bags and ns.Bags.frame end
+  if key == "bank" then return ns.Bank and ns.Bank.frame end
+end
+
+local function dockName(frame)
+  local B, K = ns.Bags and ns.Bags.frame, ns.Bank and ns.Bank.frame
+  if frame and B and frame == B then return "bags" end
+  if frame and K and frame == K then return "bank" end
+end
+
+-- The dock a drop leaves behind: written when the pocket is standing on a seam once the drop has had its
+-- say, cleared when it was let go in open air. Reading it from the two rectangles rather than from the drop
+-- itself keeps one rule for every way the pocket can arrive -- the player dragging it, the window dragged
+-- with the pocket carried along, or a profile that puts both windows down at once.
+function ns.PocketDockFromSeam()
+  local rec = WarpeeDB and WarpeeDB.pocketPos
+  local w = pocketFrame()
+  if not (rec and w) or not ns.PocketSnapOn() then return false end
+  local list = { ns.Bags and ns.Bags.frame, ns.Bank and ns.Bank.frame }
+  for i = 1, 2 do
+    local f = list[i]
+    local key = f and dockName(f)
+    if key and f:IsShown() then
+      local rel = seamOf(f, w)
+      if rel then
+        rec.dock = { win = key, side = rel.side, align = rel.align }
+        return true
+      end
+    end
+  end
+  rec.dock = nil
+  return false
+end
+
+-- Put the pocket back on the window it was docked to, at whatever height that window has now: the arithmetic
+-- seamFix replays, run from the dock instead of from where the pocket happens to stand, which is the whole
+-- point -- the corner the pocket was left at may be anywhere by now.
+function ns.PocketDockPlace(w)
+  local rec = WarpeeDB and WarpeeDB.pocketPos
+  local d = rec and rec.dock
+  local frame = w or pocketFrame()
+  -- Snapping is the player's switch over whether the pocket belongs to the window at all, and a dock is only
+  -- that same belonging remembered: with it off the pocket is its own piece of screen, dock or no dock.
+  if not (frame and d and d.side) or not ns.PocketSnapOn() then return false end
+  local ml, mb, mr, mt = seamRect(dockWindow(d.win))
+  if not ml then return false end
+  local pw, ph = frame:GetWidth() or 0, frame:GetHeight() or 0
+  if pw <= 0 or ph <= 0 then return false end
+  -- An axis the seam could not read an alignment on keeps the pocket where it already stands on that axis:
+  -- a dock remembers a side, not a licence to slide a window the player lined up some other way.
+  local cl, cb = frame:GetLeft(), frame:GetBottom()
+  local gap = ns.SeamGap(frame, d.side)
+  local pl, pb
+  if d.side == "right" then pl = mr + gap
+  elseif d.side == "left" then pl = ml - gap - pw
+  elseif d.side == "above" then pb = mt + gap
+  elseif d.side == "below" then pb = mb - gap - ph
+  else return false end
+  local vertical = (d.side == "left" or d.side == "right")
+  if vertical then
+    if d.align == "top" then pb = mt - ph
+    elseif d.align == "bottom" then pb = mb
+    elseif d.align == "center" then pb = (mt + mb - ph) * 0.5
+    else pb = cb end
+  else
+    if d.align == "left" then pl = ml
+    elseif d.align == "right" then pl = mr - pw
+    elseif d.align == "center" then pl = (ml + mr - pw) * 0.5
+    else pl = cl end
+  end
+  if not (pl and pb) then return false end
+  ns.SetAngle(frame, "pocketPos", seamCorner(d))
+  ns.PlaceRect(frame, "pocketPos", nil, pl, pb)
+  return true
+end
+
+-- A window that changes size -- another bag, another tab of the bank, another icon size -- moves the edge a
+-- docked pocket is measured against, so the pair is put back together once the window has its new rectangle.
+-- A pocket docked to the other list, or to nothing, is left alone.
+function ns.PocketDockFollow(mover)
+  local rec = WarpeeDB and WarpeeDB.pocketPos
+  local d = rec and rec.dock
+  if not (d and mover and dockName(mover) == d.win) then return false end
+  return ns.PocketDockPlace()
 end
 
 -- On a drop the pocket is the one that gives way, whichever of the two was just put down.
@@ -1834,8 +1935,10 @@ end
 -- Why a texture and not a |T...|t escape inside the label: a texture inside a string has no shadow to be
 -- given, so the art sat flat on the band while every mark around it carried its own ground. On the icon
 -- path IconSilhouette can lay that ground.
--- The compact gear reads heavier than the taller bag at the same texture size.
--- Hard alpha on a 16px grid keeps tooth gaps open when the header resamples it.
+-- The art is 128x128 like the bag and the chest beside it, not the 16x16 pixel sprite it used to be: same soft
+-- silhouette, a white face with a diagonal fall-off, a grey slab under it and the rim picked out only on the lit
+-- side, so the three marks read as one set. Six wide teeth, not eight narrow ones -- at 22 physical pixels eight
+-- teeth dissolve into a dashed circle, which is why the old sprite had to be blocky to stay legible.
 -- The tip takes the key, not the word, so a language switch reaches it without a reload.
 function ns.GearButton(parent, close, box)
   local gear = ns.CreateGlyphButton(parent, "", box, "icon")
@@ -1846,7 +1949,7 @@ function ns.GearButton(parent, close, box)
   icon:SetTexture([[Interface\AddOns\Warpee\Media\Icons\gear.tga]])
   icon:SetPoint("CENTER")
   gear.icon = icon
-  gear.iconPct = 62
+  gear.iconPct = 76
   gear.wpeIconPaint = function(s)
     if not s.icon then return end
     local hot = s.wpeHot and not s.offDuty
