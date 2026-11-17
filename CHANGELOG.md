@@ -1,21 +1,25 @@
 # Warpee
 
-## 13.7
+## 13.8
 
 ENG
 
 **Retail / Forever**
 
-- Changed how the Ignore and Delete buttons behave: they are two separate, self-explanatory buttons now.
-- Added protection from deletion for bags, locked boxes and chests, class reagents, ammunition and profession gear.
-- Fixed how identical stacks are handled in the Cheap window.
-- Fixed scrolling in the Cheap window.
+- Reopening the bags in the category view is faster.
+- The Pocket and Popular windows open faster.
+- Fixed ragged borders in the settings at interface scales that are not whole pixels.
+- The Sort button now closes up the gaps in the Recent row right away, instead of only when the bags open or close.
+- Fixed the WoW Token price: it was not requested until the gold tooltip was first opened.
+- The pocket no longer drifts on another character: it stays against the bags or the bank, whatever height their windows have.
 
 RU
 
 **Ритейл / Форель**
 
-- Изменено поведение кнопок «Игнорировать» и «Удалить»: теперь это две отдельные, интуитивно понятные кнопки.
-- Добавлена защита от удаления сумок, закрытых коробок и сундуков, классовых реагентов, боеприпасов и профессионального снаряжения.
-- Исправлена обработка одинаковых стаков в окне «Дешёвое».
-- Исправлена работа прокрутки в окне «Дешёвое».
+- Повторное открытие сумок в виде категорий ускорено.
+- Ускорено открытие окон «Карман» и «Популярное».
+- Исправлены рваные рамки в настройках при масштабах интерфейса, не кратных пикселю.
+- Кнопка сортировки теперь сразу смыкает ряд «Недавнее», а не только при открытии и закрытии сумок.
+- Исправлена цена WoW Token: она не запрашивалась до первого наведения на золото.
+- Карман больше не сбивается на другом персонаже: он остаётся прижат к сумкам или банку, какой бы высоты ни было их окно.
