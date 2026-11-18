@@ -347,7 +347,7 @@ function Picker:Paint(keepScroll)
   top = top + extraTop
   if self.hideBtn then
     self.hideBtn:ClearAllPoints()
-    self.hideBtn:SetPoint("TOPLEFT", PAD + side + outer, -top)
+    ns.SnapPoint(self.hideBtn, "TOPLEFT", self.frame, "TOPLEFT", PAD + side + outer, -top)
     self.hideBtn.Text:SetFont(path, FONT - 2, ns.OutlineFlags())
     local w = math.max(68, math.ceil(self.hideBtn.Text:GetStringWidth()) + 18)
     self.hideBtn.wpeBoxW = w

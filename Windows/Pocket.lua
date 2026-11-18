@@ -1311,6 +1311,10 @@ function Pocket:Layout()
     if rl and wl then free = rl - wl - PAD - 4 end
   end
   self.title:SetShown(free <= 0 or self.title:GetStringWidth() <= free)
+  -- The pin map is rebuilt here when the pass placed nothing that would have asked for it: a pocket with no
+  -- pins and nothing in Recent walks neither loop, so scan never ran and keyDirty stood for good -- which made
+  -- every open after any bag event a full pass. One walk of the pin list buys the warm path back.
+  scan()
   -- The picture just built is the one a warm open compares against: the signature is written here, by the pass
   -- that laid every cell out, and never by Resume -- which places nothing and so has nothing to vouch for.
   self.openSig = self:LayoutSig()

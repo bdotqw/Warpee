@@ -30,8 +30,10 @@ local FONT     = 14
 local HDR_FONT = 11    -- a section name: under a currency's and quiet, so the currencies carry the eye
 local ICON     = 20    -- a currency's icon in a row (nearly the row's own height; the old 15 read as a smudge)
 local BOX      = 14    -- its tick box
+local ROW_GAP  = 3     -- the air between two rows: the plates, not a hairline, draw the seam
 local BTN      = 22    -- a header button: the filter and the cross
 local HEAD_UP  = 4     -- on Blizzard Flat the header pair stands this far above its plain line
+local PLATE    = 0.45  -- a row's quiet plate at rest: what the character list gives its own rows
 
 -- Blizzard Flat alone lifts the header pair (the two buttons and the title) off its line; every other skin
 -- leaves the pair where it stands.
@@ -134,6 +136,10 @@ function Pick:Row(i)
     r:SetAttribute("downbutton", "startup")
     r:SetAttribute("typerelease", "click")
   end
+  -- Every currency row stands on its own quiet plate, the way a row of the character list does: the fill is
+  -- the light's own, standing at a low alpha on every currency row and at full alpha under the pointer, and
+  -- the air between two rows (ROW_GAP, see Pick:Paint) is what draws the seam. So no row carries a hairline,
+  -- and no run of rows has to guess where it starts or ends. A heading keeps no plate at all (wpeLight).
   -- The light takes no colour key on purpose: a keyed Rect carries a recolour hook of its own, and on a
   -- switch that hook re-runs SetVertexColor at full alpha behind the row's pass, leaving rows and headings
   -- lit as if hovered (the same trap the options wash names: SetAlpha is not re-run on a theme change, but
@@ -197,19 +203,22 @@ function Pick:Row(i)
     -- and the state's alpha is set after it.
     local cr, cg, cb = Theme:C("panelHi")
     s.hl:SetVertexColor(cr, cg, cb)
-    local lit = s.wpeLive and s:IsMouseOver()
+    -- A heading is a quiet label: it stands on the panel itself, with no plate of its own, the way the
+    -- character list's realm headings do.
+    if not s.wpeLive then s.hl:SetAlpha(0); return end
+    local lit = s:IsMouseOver()
     if lit and GetMouseFocus then
       local f = GetMouseFocus()
       if not (f == s or (f and f.GetParent and f:GetParent() == s)) then lit = nil end
     end
-    s.hl:SetAlpha(lit and 1 or 0)
+    s.hl:SetAlpha(lit and 1 or PLATE)
   end
   Theme:Track(r, r.wpeLight)
   r:SetScript("OnEnter", function(s)
     s:wpeLight()
     -- The arm has to stand before the press, and the Ctrl-hover that always comes first is where it is
     -- made: laying the client's currency list out is the expensive half, and a Ctrl-hover pays it once.
-    if s.wpeID and ns.Cur.Transferable(s.wpeID) then ns.Cur:WantTransfer(s, s.wpeID) end
+    if s.wpeID and ns.Cur.TransferState(s.wpeID) then ns.Cur:WantTransfer(s, s.wpeID) end
     -- The row's tooltip is the game's own currency tooltip: it already names this very currency, its
     -- standing and its description, so the row re-states nothing of what the client knows.
     if not s.wpeID then return end
@@ -219,9 +228,7 @@ function Pick:Row(i)
     else
       GameTooltip:SetText(s.wpeName or "")
     end
-    if ns.Cur.Transferable(s.wpeID) and not (InCombatLockdown and InCombatLockdown()) then
-      GameTooltip:AddLine(ns.TipInk(ns.L["Ctrl + LMB to transfer currency from another character"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9, true)
-    end
+    ns.Cur.AddTransferTip(s.wpeID)
     -- The row's own click is a switch too, and the tooltip says which way it goes in the state the
     -- player is looking at: a tracked row offers to stop, an untracked one to start. A currency the
     -- client has never met has no tick and no switch, so it gets no promise either.
@@ -229,6 +236,13 @@ function Pick:Row(i)
       local hint = s.wpeOn and ns.L["Shift + LMB to stop tracking"]
                              or ns.L["Shift + LMB to start tracking"]
       GameTooltip:AddLine(ns.TipInk(hint, 0.9, 0.9, 0.9), 0.9, 0.9, 0.9, true)
+    else
+      -- A currency this character has never held has no tick at all -- the client refuses the pin until
+      -- one of it arrives here. In the transferable view such a row is exactly what the player came for
+      -- (the warband holds it, this character does not), so the tip says what the row cannot: one has to
+      -- be sent over before it can be tracked. A hint, not a refusal: nothing was pressed, and the press
+      -- that can be served (the transfer) stands above this line with its own key.
+      ns.Cur.AddTransferLine(ns.L["Transfer any amount to track it"])
     end
     GameTooltip:Show()
   end)
@@ -252,7 +266,9 @@ function Pick:Row(i)
       -- Combat owns no Ctrl-click on a currency: the press is left unanswered, so nothing here may arm
       -- the client's chain or walk to its protected tab.
       if InCombatLockdown and InCombatLockdown() then return end
-      if ns.Cur.Transferable(s.wpeID) then
+      -- Only a currency the client can transfer right now is caught; one it would refuse falls through to
+      -- the Shift switch, and the tip already says why (ns.Cur.AddTransferTip).
+      if ns.Cur.TransferState(s.wpeID) then
         -- An armed row has already had the client run its chain on the press; all that is left is to
         -- stand the menu beside the character panel, the way the panel itself would have. An unarmed
         -- one (a client without those frames) walks to the currency tab, where the transfer waits.
@@ -279,8 +295,9 @@ end
 
 -- The rows the panel shows, out of the rows the walk brought back: the client's sections as headings,
 -- every currency under the section it came in -- the client's own "Unused" one included, so it reads
--- like any other section -- and everything a query does not match left out with them. A currency never
--- met stays out: with no tick it would take and no door to open, it is a line nothing can be done with.
+-- like any other section -- and everything a query does not match left out with them. In the plain list
+-- a currency never met stays out: with no tick it would take and no door to open, it is a line nothing
+-- can be done with. The transfer filter is the exception, and keeps it (see keeps below).
 -- Pure on purpose -- the walk needs the game, the filtering needs only the rows.
 function Pick.Filter(rows, query, onlyTransfer)
   local out = {}
@@ -289,8 +306,16 @@ function Pick.Filter(rows, query, onlyTransfer)
   -- The one cut the header's filter makes: only what another character can send over. It applies to the
   -- client's sections, the player's own track list and a search alike, so the panel never disagrees
   -- with itself.
+  --
+  -- The two cuts are not the same question. The plain list drops a currency never met because the row
+  -- could hold no tick and open no door. The transfer filter asks what the warband could send over, and
+  -- there a currency standing at 0 that this character has never held is the whole point of the view --
+  -- the one thing a player opens the filter for, and what the client's own "all warband transferable"
+  -- list shows beside the named ones. So that filter keeps every transferable row the walk brought
+  -- back, met or not, and only the plain list keeps the never-met cut.
   local function keeps(e)
-    return e.found ~= false and (not onlyTransfer or e.transfer)
+    if onlyTransfer then return e.transfer end
+    return e.found ~= false
   end
   -- A query flattens the list: the sections step aside and every match stands on its own, so a search is a
   -- plain run of the currencies it found.
@@ -420,9 +445,11 @@ function Pick:Paint(keepScroll)
       if nw > widest then widest = nw end
       r.count:SetFont(path, FONT - 1, ns.OutlineFlags())
       r.count:SetText(ns.Cur.CountText(e.q))
-      -- The count reads in the row's own white ink at every value: a currency at its ceiling is no
-      -- different from one below it here, so the number never turns into a red warning of its own.
-      local dr, dg, db = Theme:C("text")
+      -- The count reads in the row's own white ink, save for an empty purse: a 0 drawn as bright as the
+      -- name beside it pulls the eye to a number with nothing behind it, so it steps back into the
+      -- palette's faint ink -- the same quiet the panel gives its headings. At its ceiling a count is no
+      -- different from any other, so the number never turns into a red warning of its own.
+      local dr, dg, db = Theme:C((e.q or 0) > 0 and "text" or "faint")
       r.count:SetTextColor(dr, dg, db)
       r:SetHeight(ns.SnapEven(r, ROW_H))
     end
@@ -433,7 +460,9 @@ function Pick:Paint(keepScroll)
     -- The light is re-derived rather than trusted from the last enter: the row's own pass reads the
     -- pointer (see Pick:Row), so a paint and a theme pass can never disagree about it.
     r:wpeLight()
-    y = ns.SnapValue(r, y + r:GetHeight())
+    -- The row keeps a few points of air under it: the plates bound each currency on their own, so the seam
+    -- is the panel showing through rather than a line drawn across it.
+    y = ns.SnapValue(r, y + r:GetHeight() + ROW_GAP)
   end
   for i = #rows + 1, #self.rows do self.rows[i]:Hide() end
   self.child:SetHeight(ns.SnapValue(self.child, math.max(1, y)))
@@ -719,7 +748,7 @@ function Pick:Build()
   local top = Theme:TopInset() + Theme:ContentPad("top")
   local btnTop = -(PAD - 5 + top) + headerUp()
   local title = Theme:Title(w, FONT, "accent")
-  title:SetPoint("LEFT", w, "TOPLEFT", pad, btnTop - BTN / 2)
+  ns.SnapPoint(title, "LEFT", w, "TOPLEFT", pad, btnTop - BTN / 2)
   ns.LocalText(title, "Currencies")
   self.title = title
 

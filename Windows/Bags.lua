@@ -492,16 +492,19 @@ end
 function Bags:AnchorSearchRow(row2)
   self.searchRow = row2
   if not self.search then return end
+  -- The row is placed on the pixel grid, not left for the window's snap pass: that pass runs a frame
+  -- after the open, so a raw offset showed the box and the transfer chip stepping into place once the
+  -- window was already drawn, their one pixel rims smeared until it happened.
   self.search:ClearAllPoints()
-  self.search:SetPoint("TOPLEFT", self.frame, "TOPLEFT", PAD, -row2)
+  ns.SnapPoint(self.search, "TOPLEFT", self.frame, "TOPLEFT", PAD, -row2)
   if self.txBtn and self.txBtn:IsShown() then
-    self.search:SetPoint("TOPRIGHT", self.txBtn, "TOPLEFT", -4, 0)
+    ns.SnapPoint(self.search, "TOPRIGHT", self.txBtn, "TOPLEFT", -4, 0)
   else
-    self.search:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row2)
+    ns.SnapPoint(self.search, "TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row2)
   end
   if self.txBtn then
     self.txBtn:ClearAllPoints()
-    self.txBtn:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row2)
+    ns.SnapPoint(self.txBtn, "TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row2)
   end
 end
 
@@ -527,11 +530,11 @@ function Bags:AnchorHeader()
   self:FlowHeader()
   if self.title then
     self.title:ClearAllPoints()
-    self.title:SetPoint("BOTTOMLEFT", PAD, 6 + Theme:ContentPad("bottom"))
+    ns.SnapPoint(self.title, "BOTTOMLEFT", self.frame, "BOTTOMLEFT", PAD, 6 + Theme:ContentPad("bottom"))
   end
   if self.money then
     self.money:ClearAllPoints()
-    self.money:SetPoint("BOTTOMRIGHT", -(PAD + footInset()), 6 + Theme:ContentPad("bottom"))
+    ns.SnapPoint(self.money, "BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -(PAD + footInset()), 6 + Theme:ContentPad("bottom"))
   end
   if self.charTag then
     self.charTag:ClearAllPoints()
@@ -539,8 +542,8 @@ function Bags:AnchorHeader()
   end
   if self.gaugeBg then
     self.gaugeBg:ClearAllPoints()
-    self.gaugeBg:SetPoint("TOPLEFT", self.frame, "TOPLEFT", PAD, -(GAUGE_Y + top))
-    self.gaugeBg:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -(GAUGE_Y + top))
+    ns.SnapPoint(self.gaugeBg, "TOPLEFT", self.frame, "TOPLEFT", PAD, -(GAUGE_Y + top))
+    ns.SnapPoint(self.gaugeBg, "TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -(GAUGE_Y + top))
   end
   if self.search then
     self:AnchorSearchRow(ROW2_Y + top - self:HeadShift())
@@ -579,7 +582,7 @@ function Bags:Build()
     if not self.money then
       local money = Theme:Label(f, FONT + 1, "text")
       Theme:Money(money)
-      money:SetPoint("BOTTOMRIGHT", -(PAD + footInset()), 6 + Theme:ContentPad("bottom"))
+      ns.SnapPoint(money, "BOTTOMRIGHT", f, "BOTTOMRIGHT", -(PAD + footInset()), 6 + Theme:ContentPad("bottom"))
       self.money = money
       ns.AttachGoldTooltip(money, f, function() return self.iconSize end)
     end
@@ -637,6 +640,17 @@ function Bags:Build()
     -- against the list before trusting it. Dropping it here is what made the grouped view re-file every slot on
     -- every open, whatever had changed (see Bags:CatPlanSig).
     Bags.catMemory, Bags.catHold = nil, nil
+    -- The grouped picture can be shut down mid-flight: a slot whose piece just left wears a crosshair
+    -- drawn between passes, and a held transfer's holes are the very same mark. A warm open re-places
+    -- nothing -- that is the whole saving -- so a mark left behind still stands when the window comes
+    -- back, over a spot the dropped memory no longer calls a hole. Before the warm path the full pass on
+    -- every open swept them. Now the plan is dropped whenever one is up, and the open that follows files
+    -- the view again: its pass hides both pools (HideTouchHoles at the top of LayoutCats, HideCatHoles at
+    -- its tail) and shows every cell the plan claims, parked ones included.
+    if Bags.tHoleLive or Bags.catHoleLive then
+      Bags.tHoleLive, Bags.catHoleLive = nil, nil
+      Bags.catPlanSig = nil
+    end
     ns.ClearSearch(Bags.search)
     if ns.CharPicker then ns.CharPicker:Close() end
     -- The currency panel belongs to the rail, and the rail goes with the window: a panel left standing
@@ -670,7 +684,7 @@ function Bags:Build()
   ns.CreateMoveBar(f, "pos")
 
   local title = Theme:Title(f, FONT, "accent")
-  title:SetPoint("BOTTOMLEFT", PAD, 6 + Theme:ContentPad("bottom"))
+  ns.SnapPoint(title, "BOTTOMLEFT", f, "BOTTOMLEFT", PAD, 6 + Theme:ContentPad("bottom"))
   title:SetText(ns.TITLE)
   self.title = title
 
@@ -778,7 +792,11 @@ function Bags:Build()
   -- it. The row is also the wrong place for an eighth button, since it is already wider than
   -- the narrowest the window can be.
   local reags = ns.CreateGlyphButton(f, "", HB, "icon")
-  reags:SetPoint("LEFT", charTag, "RIGHT", 4, 0)
+  -- Placed on the pixel grid, like every mark in the header row: a raw offset leaves the button's
+  -- one pixel border between two pixels at a ui scale that is not the client's pixel-perfect one, and
+  -- the window's own snap pass then moves it a frame after the window is already on screen -- the
+  -- header visibly settling into place after the open.
+  ns.SnapPoint(reags, "LEFT", charTag, "RIGHT", 4, 0)
   reags:SetScript("OnClick", function() Bags:ToggleReagents() end)
   -- The tip names the step the click will take, not the switch it stands for: with the reagent slots in the
   -- window it offers to take them out, with the block already left out it offers to bring it back. A fixed
@@ -816,7 +834,7 @@ function Bags:Build()
   -- door opens the same panel at its foot, by the row itself, and this switch stays the only way in while
   -- nothing is tracked.
   local cur = ns.CreateGlyphButton(f, "", HB, "icon")
-  cur:SetPoint("LEFT", reags, "RIGHT", 4, 0)
+  ns.SnapPoint(cur, "LEFT", reags, "RIGHT", 4, 0)
   cur:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   cur:SetScript("OnClick", function(_, button)
     -- Nothing tracked means there is no row for the left button to show or hide: an empty track list is
@@ -859,7 +877,7 @@ function Bags:Build()
   self.curBtn = cur
   Bags:PaintCurrencies(cur)
 
-  slots:SetPoint("LEFT", cur, "RIGHT", 10, 0)
+  ns.SnapPoint(slots, "LEFT", cur, "RIGHT", 10, 0)
 
   local bank = ns.CreateGlyphButton(f, "", HB, "icon")
   bank:SetScript("OnClick", function() if ns.ToggleBank then ns.ToggleBank() end end)
@@ -1001,8 +1019,8 @@ function Bags:Build()
     self:ApplySearch()
     ns.MirrorSearch("bags", text)
   end)
-  search:SetPoint("TOPLEFT", PAD, -ROW2_Y)
-  search:SetPoint("TOPRIGHT", -PAD, -ROW2_Y)
+  ns.SnapPoint(search, "TOPLEFT", f, "TOPLEFT", PAD, -ROW2_Y)
+  ns.SnapPoint(search, "TOPRIGHT", f, "TOPRIGHT", -PAD, -ROW2_Y)
   search:SetHeight(SEARCH)
   self.search = search
 
@@ -1021,8 +1039,8 @@ function Bags:Build()
   local gaugeBg = Theme:Rect(f, "panel", "BACKGROUND")
   gaugeBg:SetDrawLayer("BACKGROUND", 2)
   gaugeBg:SetHeight(2)
-  gaugeBg:SetPoint("TOPLEFT", PAD, -GAUGE_Y)
-  gaugeBg:SetPoint("TOPRIGHT", -PAD, -GAUGE_Y)
+  ns.SnapPoint(gaugeBg, "TOPLEFT", f, "TOPLEFT", PAD, -GAUGE_Y)
+  ns.SnapPoint(gaugeBg, "TOPRIGHT", f, "TOPRIGHT", -PAD, -GAUGE_Y)
   local gaugeFill = Theme:Rect(f, "accent", "ARTWORK")
   gaugeFill:SetHeight(2)
   gaugeFill:SetPoint("TOPLEFT", gaugeBg, "TOPLEFT")
@@ -1039,7 +1057,7 @@ function Bags:Build()
 
   local money = Theme:Label(f, FONT + 1, "text")
   Theme:Money(money)
-  money:SetPoint("BOTTOMRIGHT", -(PAD + footInset()), 6 + Theme:ContentPad("bottom"))
+  ns.SnapPoint(money, "BOTTOMRIGHT", f, "BOTTOMRIGHT", -(PAD + footInset()), 6 + Theme:ContentPad("bottom"))
   self.money = money
   ns.AttachGoldTooltip(money, f, function() return self.iconSize end)
 
@@ -1081,7 +1099,7 @@ function Bags:BuildBagWindow()
   ns.EscClose(w)
 
   local title = Theme:Title(w, FONT - 1, "accent")
-  title:SetPoint("TOPLEFT", BPAD, -8)
+  ns.SnapPoint(title, "TOPLEFT", w, "TOPLEFT", BPAD, -8)
   -- The window shows the bag slots, and it says so: the game's own name for them (BAGSLOTTEXT) in
   -- every language the addon draws, so the panel is not one more thing called "Bags".
   ns.LocalText(title, "Bag Slots")
@@ -1132,7 +1150,7 @@ function Bags:LayoutBagWindow()
   BHEAD = BHEAD + top
   if self.bagTitle then
     self.bagTitle:ClearAllPoints()
-    self.bagTitle:SetPoint("LEFT", w, "TOPLEFT", BPAD, -mid)
+    ns.SnapPoint(self.bagTitle, "LEFT", w, "TOPLEFT", BPAD, -mid)
   end
   if self.bagWinClose then
     self.bagWinClose:ClearAllPoints()
@@ -2013,7 +2031,7 @@ function Bags:Layout(capture, light)
     -- own label stands down rather than double it up.
     if rTop and not splitEach then
       self.reagentLabel:ClearAllPoints()
-      self.reagentLabel:SetPoint("TOPLEFT", self.content, "TOPLEFT", 2, -rTop)
+      ns.SnapPoint(self.reagentLabel, "TOPLEFT", self.content, "TOPLEFT", 2, -rTop)
       self.reagentLabel:Show()
     else
       self.reagentLabel:Hide()
@@ -2114,21 +2132,25 @@ function Bags:SlotsMoved()
   return reg ~= nil and reg ~= (C_Container.GetContainerNumSlots(ns.reagentBag) or 0)
 end
 
--- What the grouped picture is made of, as one string: the list's own shape in order (every entry's id and the
--- rules it files by, the window it is hidden in, the pieces pinned to it) and the search the view is filtered
--- by. It says nothing about what is in the bags -- a bag that moved is the dirty set's business -- only about
--- the rules that decide where a piece lands, so a warm open can tell "the same sections, the same cells" from
--- "the list changed while the window was shut". Pins travel as a count and a sum of their ids: a re-pin of one
--- piece moves the sum, and walking a section's own pins is a handful of keys, not the bag.
+-- What the grouped picture is made of, as one string: the list's own shape in order (every entry's id, the
+-- rules it files by, the window it is hidden in, whether it is switched on, the pieces pinned to it) and the
+-- search the view is filtered by. It says nothing about what is in the bags -- a bag that moved is the dirty
+-- set's business -- only about the rules that decide where a piece lands, so a warm open can tell "the same
+-- sections, the same cells" from "the list changed while the window was shut". A marker carries no id of its
+-- own, so its own fields are what tell one from another, and the pins travel as their ids in order -- a count
+-- beside a sum reads the same for {100, 200} and {140, 160}, while walking a section's pins is a handful of
+-- keys, not the bag.
 function Bags:CatPlanSig()
   local out = {}
   local Cats = ns.Categories
   local list = (Cats and Cats:List()) or {}
   for i = 1, #list do
     local c = list[i]
-    local pins, n, sum = c.pins, 0, 0
-    if type(pins) == "table" then
-      for id in pairs(pins) do n = n + 1; sum = sum + (tonumber(id) or 0) end
+    local ids
+    if type(c.pins) == "table" then
+      ids = {}
+      for id in pairs(c.pins) do ids[#ids + 1] = id end
+      table.sort(ids)
     end
     local hide = 0
     if type(c.hide) == "table" then
@@ -2136,23 +2158,28 @@ function Bags:CatPlanSig()
       if c.hide.bank then hide = hide + 2 end
       if c.hide.warband then hide = hide + 4 end
     end
-    out[#out + 1] = table.concat({ tostring(c.id), tostring(c.search), tostring(c.sort),
-      tostring(c.prio), tostring(c.group), tostring(c.divider), hide, n, sum }, "|")
+    out[#out + 1] = table.concat({ c.head and "head" or "", c.div and "div" or "",
+      tostring(c.id), tostring(c.head), tostring(c.name),
+      tostring(c.search), tostring(c.sort), tostring(c.prio),
+      -- A row switched off files nothing, so its section leaves the view: that is a different picture, not a
+      -- repaint.
+      c.enabled == false and "off" or "",
+      -- A folded band draws its heading and none of its sections. The fold lives on the marker itself
+      -- (Cats:Folded); the old WarpeeDB.catCollapsed set is cleared at login and holds nothing.
+      c.folded and "fold" or "",
+      hide, table.concat(ids or {}, ",") }, "|")
   end
-  local folded = 0
-  local f = WarpeeDB and WarpeeDB.catCollapsed
-  if type(f) == "table" then for _ in pairs(f) do folded = folded + 1 end end
   out[#out + 1] = "q:" .. tostring(self.query or "")
-  out[#out + 1] = "f:" .. folded
   return table.concat(out, ";")
 end
 
 -- Whether the open needs the full pass. The first open of a session always does; after that only a change
 -- the last full pass could not have carried does: style, face, geometry, view, a slot count, a snapshot.
 function Bags:NeedsLayout()
-  -- Why this open is paying for the full pass, one word per question that said yes. A number alone cannot tell a
-  -- slow open from a normal one -- the warm path and the full pass differ by a factor of five -- and the profiler
-  -- prints this word beside every open in its trend line. A recorded reference to a literal, no string built.
+  -- Why this open is paying for the full pass, one word per question that said yes. The addon itself never reads
+  -- it -- the decision is made by the answers, not by the word -- but the harness does (tools/luachk,
+  -- cat-warm-open-test.lua), so a test can name the branch that fired rather than only "it was slow" being
+  -- measurable. A recorded reference to a literal, no string built.
   local function yes(why) self.openPath = why; return true end
   if not (self.byKey and self.openSig) then return yes("first") end
   -- A pool warmed in combat refused its cells: the last pass drew only what it could, and a warm open
@@ -3043,6 +3070,7 @@ function Bags:HideTouchHoles()
     if t and t:IsShown() then t:Hide() end
   end
   self.tHoleN = 0
+  self.tHoleLive = nil
 end
 
 -- A cell whose piece has just left is a hole the next pass has not drawn yet: the cell is parked hidden the
@@ -3061,6 +3089,7 @@ function Bags:ParkAsHole(b)
   t:ClearAllPoints()
   ns.SnapPoint(t, "TOPLEFT", self.content, "TOPLEFT", b.wpeX or 0, b.wpeY or 0)
   t:Show()
+  self.tHoleLive = true
   b.link = nil
   b.holder:Hide()
   b:Hide()
@@ -3579,6 +3608,9 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
   self:HideCatGroups(gi)
   self:HideEmptyTiles(shownTiles)
   self:HideCatHoles(holes)
+  -- Whether this pass left a mark on screen at all: the only thing a shut window has to ask before it
+  -- decides that the picture it leaves is not one a warm open can resume onto (see the OnHide script).
+  self.catHoleLive = (holes > 0) or nil
   -- Opened with an item already on the cursor? Light the zones now; otherwise this hides them.
   self:SyncDropZones()
   return contentH, used, total
@@ -4203,15 +4235,19 @@ function Bags:FitHeader()
   if self.reagentBtn then self.reagentBtn:SetShown(showReag) end
   if self.reagentBtn and self.slotText and self.charTag then
     local left = showReag and self.reagentBtn or self.charTag
+    -- Both the switch and the count are placed on the pixel grid here, not left to the window's snap
+    -- pass: that pass runs a frame after the open, so a raw offset showed the header settling -- the
+    -- currency button and sometimes the slot count visibly stepping into place once the window was
+    -- already drawn, and their one pixel rims smeared until it happened.
     if self.curBtn then
       self.curBtn:ClearAllPoints()
-      self.curBtn:SetPoint("LEFT", left, "RIGHT", 4, 0)
+      ns.SnapPoint(self.curBtn, "LEFT", left, "RIGHT", 4, 0)
     end
     self.slotText:ClearAllPoints()
     if showCur and self.curBtn then
-      self.slotText:SetPoint("LEFT", self.curBtn, "RIGHT", 10, 0)
+      ns.SnapPoint(self.slotText, "LEFT", self.curBtn, "RIGHT", 10, 0)
     else
-      self.slotText:SetPoint("LEFT", left, "RIGHT", 10, 0)
+      ns.SnapPoint(self.slotText, "LEFT", left, "RIGHT", 10, 0)
     end
   end
   if self.slotText and self.charTag then

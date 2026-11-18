@@ -736,7 +736,7 @@ function View:Build()
   self.wbTab = wbTab
 
   local freeText = Theme:Label(f, 12, "dim")
-  freeText:SetPoint("LEFT", wbTab, "RIGHT", 12, 0)
+  ns.SnapPoint(freeText, "LEFT", wbTab, "RIGHT", 12, 0)
   self.freeText = freeText
 
   local search = ns.CreateSearchBox(f, function(text)
@@ -761,9 +761,9 @@ function View:Build()
     -- only the misses dim, so the per-button dim above is the whole of what a keystroke does.
     ns.MirrorSearch("bank", text)
   end)
-  search:SetPoint("LEFT", wbTab, "RIGHT", 12, 0)
-  search:SetPoint("RIGHT", freeText, "LEFT", -10, 0)
-  search:SetPoint("TOP", f, "TOP", 0, -5)
+  ns.SnapPoint(search, "LEFT", wbTab, "RIGHT", 12, 0)
+  ns.SnapPoint(search, "RIGHT", freeText, "LEFT", -10, 0)
+  ns.SnapPoint(search, "TOP", f, "TOP", 0, -5)
   search:SetHeight(22)
   self.search = search
 
@@ -783,7 +783,7 @@ function View:Build()
 
   local money = Theme:Label(f, 16, "text")
   Theme:Money(money)
-  money:SetPoint("BOTTOMRIGHT", -(PAD + ns.FootInset(FOOT_RIGHT)), 7 + Theme:ContentPad("bottom"))
+  ns.SnapPoint(money, "BOTTOMRIGHT", f, "BOTTOMRIGHT", -(PAD + ns.FootInset(FOOT_RIGHT)), 7 + Theme:ContentPad("bottom"))
   self.money = money
   ns.AttachGoldTooltip(money, f, function() return self:CellSize() end)
 
@@ -1014,7 +1014,7 @@ function View:AnchorHeader()
   self:AnchorSearch()
   if self.depositBtn then
     self.depositBtn:ClearAllPoints()
-    self.depositBtn:SetPoint("BOTTOMLEFT", PAD, 7 + Theme:ContentPad("bottom"))
+    ns.SnapPoint(self.depositBtn, "BOTTOMLEFT", self.frame, "BOTTOMLEFT", PAD, 7 + Theme:ContentPad("bottom"))
   end
   if self.hint then
     self.hint:ClearAllPoints()
@@ -1044,9 +1044,9 @@ function View:AnchorSearch()
     prev = tx
   end
   self.search:ClearAllPoints()
-  self.search:SetPoint("TOPLEFT", self.frame, "TOPLEFT", PAD, -row)
-  if prev then self.search:SetPoint("TOPRIGHT", prev, "TOPLEFT", -6, 0)
-  else self.search:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row) end
+  ns.SnapPoint(self.search, "TOPLEFT", self.frame, "TOPLEFT", PAD, -row)
+  if prev then ns.SnapPoint(self.search, "TOPRIGHT", prev, "TOPLEFT", -6, 0)
+  else ns.SnapPoint(self.search, "TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row) end
 end
 
 function View:UpdateCharBtn()
@@ -1177,7 +1177,7 @@ function View:LayoutBankSlots()
   head = head + top + AIR
   if self.slotsTitle then
     self.slotsTitle:ClearAllPoints()
-    self.slotsTitle:SetPoint("LEFT", w, "TOPLEFT", pad, -mid)
+    ns.SnapPoint(self.slotsTitle, "LEFT", w, "TOPLEFT", pad, -mid)
   end
   if self.slotsClose then
     self.slotsClose:ClearAllPoints()
@@ -1619,7 +1619,7 @@ function View:UpdateTabs()
   end
   if self.freeText and last then
     self.freeText:ClearAllPoints()
-    self.freeText:SetPoint("LEFT", last, "RIGHT", 12, 0)
+    ns.SnapPoint(self.freeText, "LEFT", last, "RIGHT", 12, 0)
   end
   self:AttachBlizzTabs()
 end
@@ -3679,7 +3679,7 @@ function View:UpdateFooter()
     -- sits the line closer to the window's edge), and the setting can be flipped while the window is up,
     -- so the line is re-anchored where it is written and not only where it is built.
     self.money:ClearAllPoints()
-    self.money:SetPoint("BOTTOMRIGHT", -(PAD + ns.FootInset(FOOT_RIGHT)), 7 + Theme:ContentPad("bottom"))
+    ns.SnapPoint(self.money, "BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -(PAD + ns.FootInset(FOOT_RIGHT)), 7 + Theme:ContentPad("bottom"))
     -- The face the footer is written in goes with the amount: the coin in it is sized off that face (see
     -- coinSet in Bags.lua), so a bank footer whose font ever changes keeps the coin on the digits.
     local face = select(2, self.money:GetFont())

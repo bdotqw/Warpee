@@ -540,6 +540,9 @@ end
 
 function Cur:ArmTransfer(cell, id)
   if not transferTarget(cell, id) or not IsControlKeyDown() or xferLocked() or not tokenUI() then return end
+  -- The client's own answer first: a currency it would refuse has no arm to make, and the staging below is
+  -- the expensive half of a press that could not land.
+  if not Cur.TransferState(id) then return end
   -- The arming lays the client's whole currency list out on screen, which is the expensive half of it, so
   -- a cell that already carries the arm for this very currency asks for nothing. Without this every hover
   -- of the same row paid for the staging again, and the staged list was the flash the player saw.
@@ -653,7 +656,7 @@ armWatch = function()
     local want = Cur.wantArm
     if not want then
       local cell = hoveredCell()
-      if cell and Cur.Transferable(cell.wpeID) then want = { cell = cell, id = cell.wpeID } end
+      if cell and Cur.TransferState(cell.wpeID) then want = { cell = cell, id = cell.wpeID } end
     end
     if want and not Cur.armed then Cur:ArmTransfer(want.cell, want.id) end
   end)
@@ -706,6 +709,80 @@ end
 function Cur.Transferable(id)
   local CI = C_CurrencyInfo
   return (id and CI and CI.IsAccountTransferableCurrency and CI.IsAccountTransferableCurrency(id)) and true or nil
+end
+
+-- The one line a refused transfer says, in our own words and in every language the addon ships. The
+-- client's own sentence is the one it writes on its disabled Transfer button, and a client running the
+-- game in a language the addon does not use leaves that sentence untranslated in the middle of our tip
+-- (English text between two Russian hints). So nothing is taken from the client but the reason itself,
+-- its own enum (DISABLED_ERROR_MESSAGE in Blizzard_CurrencyTransfer.lua); the wording is short, because
+-- the line stands between two other hints, and the Warband wears the name our locales give it.
+local function reasonText(reason)
+  local E = Enum and Enum.AccountCurrencyTransferResult
+  if not (E and reason) then return nil end
+  local key = (reason == E.MaxQuantity and "You already hold the maximum")
+    or (reason == E.NoValidSourceCharacter and "Not enough in the Warband")
+    or (reason == E.CannotUseCurrency and "Not for this character")
+    or (reason == E.TransactionInProgress and "Transfer in progress")
+    or (reason == E.CurrencyTransferDisabled and "Transfers are off")
+  return key and ns.L[key] or nil
+end
+
+-- Whether a Ctrl-click on this currency has anything to do right now, asked exactly the way the client's
+-- own Transfer button asks it (CurrencyTransferToggleButtonMixin:UpdateEnabledState in
+-- Blizzard_CurrencyTransfer.lua): the currency has to be the client's own Warband-transferable kind, the
+-- account data the transfer menu is built from has to be in, no transfer of the client's may be running,
+-- and CanTransferCurrency has to agree about this id. `true` means the press can be served. `nil` plus a
+-- line is the client's answer that it would refuse -- its own button is greyed with those very words, and
+-- ours must not promise a click the game would drop, nor walk the player to the currency tab for it.
+local dataAsked = 0
+function Cur.TransferState(id)
+  if not Cur.Transferable(id) then return nil end
+  local CI = C_CurrencyInfo
+  -- A client that ships no such question keeps the old door: the flag alone decides, which is what the
+  -- module did before the client started answering for itself.
+  if not (CI and CI.CanTransferCurrency) then return true end
+  if CI.IsCurrencyTransferInProgress and CI.IsCurrencyTransferInProgress() then
+    return nil, ns.L["Transfer in progress"]
+  end
+  if CI.IsAccountCharacterCurrencyDataReady and not CI.IsAccountCharacterCurrencyDataReady() then
+    -- The list behind the transfer menu is the client's to fetch; its own button asks for it the moment
+    -- it is shown, and a hover is that same moment for us. Throttled, because a hover walks the whole row.
+    local now = GetTime()
+    if now - dataAsked > 2 and not (InCombatLockdown and InCombatLockdown())
+       and CI.RequestCurrencyDataForAccountCharacters then
+      dataAsked = now
+      pcall(CI.RequestCurrencyDataForAccountCharacters)
+    end
+    return nil, ns.L["Loading transfer data"]
+  end
+  local ok, reason = CI.CanTransferCurrency(id)
+  if ok then return true end
+  return nil, reasonText(reason)
+end
+
+-- Writes one of the two transfer lines at the tip's cursor. The two are not the same line in different
+-- words: the key to the press is a hint and wears the hints' grey, while the reason is the client saying
+-- no to a press the player was about to make, and takes the kit's one red (Theme danger).
+function Cur.AddTransferLine(text, refused)
+  local r, g, b = 0.9, 0.9, 0.9
+  if refused then r, g, b = Theme:C("danger") end
+  GameTooltip:AddLine(ns.TipInk(text, r, g, b), r, g, b, true)
+end
+
+-- The one line a coin's tip says about the transfer, where the caller writes its lines in one run: the
+-- key while the press can be served, the reason while it cannot, and nothing at all for a currency the
+-- game never transfers. Combat keeps the whole thing out -- there is no door there (see Cur:WantTransfer).
+-- Callers that place the line themselves (the coin's own tip, where a refusal steps ahead of the hints)
+-- ask Cur.TransferState instead.
+function Cur.AddTransferTip(id)
+  if InCombatLockdown and InCombatLockdown() then return end
+  local ok, why = Cur.TransferState(id)
+  if ok then
+    Cur.AddTransferLine(ns.L["Ctrl + LMB to transfer currency from another character"])
+  elseif why then
+    Cur.AddTransferLine(why, true)
+  end
 end
 
 ------------------------------------------------------------------------------
@@ -1135,9 +1212,14 @@ local function unlight(row)
   if not (band and band:IsMouseOver()) then row:LightDoor(false) end
 end
 
--- The tip over one coin: the client's own currency lines where it has them, then the row's two hints.
--- Kept in one place because a shift-untrack rebuilds the row under the pointer: the same physical cell
--- can come back carrying another currency, and the tip has to be re-owned for it without a new enter.
+-- The tip over one coin: the client's own currency lines where it has them, then the row's own lines in
+-- one order for every currency -- reorder, transfer, untrack. The transfer line keeps that middle seat
+-- whether the client serves the press or refuses it: a line that jumped to the top on a refusal would
+-- read as a second, different line, and the eye that learned where it sits would lose it exactly when it
+-- matters. What changes with the state is the ink, not the seat (Cur.AddTransferLine: hint grey, or the
+-- kit's red when the client says no).
+-- Kept in one place because a shift-untrack rebuilds the row under the pointer: the same physical cell can
+-- come back carrying another currency, and the tip has to be re-owned for it without a new enter.
 local function coinTip(c)
   if not (c and c.wpeID) then return end
   GameTooltip:SetOwner(c, "ANCHOR_TOP")
@@ -1147,9 +1229,7 @@ local function coinTip(c)
     GameTooltip:SetText(c.wpeName or "")
   end
   GameTooltip:AddLine(ns.TipInk(ns.L["Drag to reorder"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9, true)
-  if Cur.Transferable(c.wpeID) and not (InCombatLockdown and InCombatLockdown()) then
-    GameTooltip:AddLine(ns.TipInk(ns.L["Ctrl + LMB to transfer currency from another character"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9, true)
-  end
+  Cur.AddTransferTip(c.wpeID)
   GameTooltip:AddLine(ns.TipInk(ns.L["Shift + LMB to stop tracking"], 0.9, 0.9, 0.9), 0.9, 0.9, 0.9, true)
   -- Which coin this seat's tip was last built for: a rebuild that hands the seat another coin is the
   -- only time the hover's transfer want has to move with it.
@@ -1174,7 +1254,7 @@ function Cur:RefreshTip()
   if not (c:IsShown() and c:IsMouseOver() and c.wpeID) then tip:Hide(); return end
   if c.wpeTipID ~= c.wpeID then
     Cur:DisarmTransfer(c, true)
-    if Cur.Transferable(c.wpeID) then Cur:WantTransfer(c, c.wpeID) end
+    if Cur.TransferState(c.wpeID) then Cur:WantTransfer(c, c.wpeID) end
   end
   coinTip(c)
 end
@@ -1233,7 +1313,10 @@ local function chip(row, i)
     -- the client's chain or walk to its protected tab.
     if IsControlKeyDown and IsControlKeyDown() then
       if InCombatLockdown and InCombatLockdown() then return end
-      if Cur.Transferable(s.wpeID) then
+      -- Only a currency the client can transfer right now is caught: one it would refuse is left to the
+      -- rest of the press (the Shift switch below), because walking to the currency tab for it only leaves
+      -- the panel the staging parked at the top-left of the screen, hidden, with nothing to show for it.
+      if Cur.TransferState(s.wpeID) then
         -- An armed cell has already had the client run its chain on the press; all that is left is to
         -- stand the menu beside the character panel. An unarmed one (a client without those frames)
         -- walks to the currency tab, where the same transfer waits.
@@ -1254,7 +1337,7 @@ local function chip(row, i)
     -- Ctrl asks for the client's own transfer, and the arm has to be in place before the press: the cell
     -- wants it on every hover, and the key going down (see Cur:WantTransfer) is where the arm is made, so
     -- a player who presses Ctrl after hovering is served the same one-press menu.
-    if Cur.Transferable(s.wpeID) then Cur:WantTransfer(s, s.wpeID) end
+    if Cur.TransferState(s.wpeID) then Cur:WantTransfer(s, s.wpeID) end
     coinTip(s)
   end)
   c:SetScript("OnLeave", function(s)

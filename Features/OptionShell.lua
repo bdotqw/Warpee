@@ -930,18 +930,17 @@ function Options:SnapBorders()
   local function walk(parent, depth)
     -- A subtree that lays itself out (the category editor does, with SnapPoint/PixelLine per row) is left
     -- alone: rewriting the points of frames that are already placed from their own layout only ever moves
-    -- them off it, and this pass runs on every scroll tick as well as on every page build.
+    -- them off it. The pass runs on a page build, on a wheel tick and on the settle after a drag, which is
+    -- often enough that a subtree it had no business walking would be rewritten for nothing.
     -- Twelve deep, not six: a settings row is six levels under the window before its own fields begin, and the
-    -- fields are where the fractional edges were -- the read-out said fifty-nine of two hundred and three, and
-    -- the worst of them were an edit box and the priority cells inside a row.
+    -- fields are where the fractional edges are -- the worst of them an edit box and the priority cells.
     if depth > 12 or not parent.GetChildren or parent.wpePixelSkip then return end
     for _, c in ipairs({ parent:GetChildren() }) do
-      -- Every frame, not only the ones that carry a border of their own. The read-out kept naming the same
-      -- edit boxes, sliders and nine by six pixel plates after this pass was already walking their page, which
-      -- could only mean the pass never saw them: a field draws its border through a backdrop or a texture, and
-      -- ns.SetEdge -- the flag this used to test for -- never ran on it. A frame that draws no border is still a
-      -- frame a bordered child hangs off, so it is measured like the rest.
-      if c:IsShown() and c.GetNumPoints and not c.wpeNoSnap then ns.SnapRect(c) end
+      -- Every frame, not only the ones that carry a border of their own. A field draws its border through a
+      -- backdrop or a texture, never through the flag this used to test for, so a pass that asked for that flag
+      -- walked past the very edit boxes and sliders it was written to fix. A frame that draws no border is still
+      -- a frame a bordered child hangs off, so it is measured like the rest.
+      if c:IsShown() and c.GetNumPoints then ns.SnapRect(c) end
       walk(c, depth + 1)
     end
   end

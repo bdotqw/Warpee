@@ -89,9 +89,8 @@ function factories.catlist(parent, spec)
   local row = CreateFrame("Frame", nil, parent)
   -- This list used to be skipped by the window's border pass, because the pass rewrote points that the row
   -- layout had placed from fractional numbers -- the rows then moved under the cursor while a scroll carried
-  -- them, and the text drifted. The stack below is measured in whole pixels now, so the pass has nothing to
-  -- move on a row, and it is what puts the fields inside one on the grid: the read-out in chat counted
-  -- fifty-nine edges between pixels on this page alone, most of them inside the rows.
+  -- them, and the text drifted. The stack below is measured in whole pixels now, the row's own height
+  -- included, so the pass has nothing to move on a row, and it is what puts the fields inside one on the grid.
   row.items = {}
   -- The one panel pool, keyed by row index: each row's rule + pins panel lives here.
   row.build = {}
@@ -1028,8 +1027,9 @@ function factories.catlist(parent, spec)
 
     -- The stack is measured in whole physical pixels from here down: the list's top, every row height and every
     -- step between rows is a whole number of pixels, so a one pixel border lands on one pixel at any ui scale.
-    -- Nothing below nudges a row afterwards, which is what keeps the text from drifting while a scroll gesture
-    -- carries the rows: they were never re-pointed.
+    -- The window's border pass still walks these rows afterwards (Options:SnapBorders), and on a layout that is
+    -- already whole it finds nothing to move -- which is what keeps the text from drifting while a scroll
+    -- gesture carries the rows.
     y = ns.SnapValue(row, header.layout(y))
 
     -- One pass over the flat list, in order, and the markers lay out as rows of their own: a group
@@ -1123,8 +1123,11 @@ function factories.catlist(parent, spec)
         r.catId = e.id
         -- The row is one clean line now: name, enable box, grip, the "+" that opens the rule/pin panel,
         -- and delete. The rule itself is edited as chips in that panel, so there is no inline field to
-        -- read back and no readout line — the row never grows.
-        r:SetHeight(CAT_ROW_H)
+        -- read back and no readout line — the row never grows. Its height is whole pixels, the same measure
+        -- the stack below steps by: a raw 26 leaves a row's bottom edge between two pixels on a ui scale that
+        -- is not one of the client's pixel-perfect ones. The panel and the step read the same number.
+        local rowHH = ns.SnapValue(r, CAT_ROW_H)
+        r:SetHeight(rowHH)
         if isOther then r.chk:Hide() else r.chk:Show(); r.chk.mark:SetShown(on) end
         r.chkHit:Show()
         r.grip:Show()
@@ -1216,16 +1219,16 @@ function factories.catlist(parent, spec)
           local STEP = 6
           -- The panel's top is a whole-pixel step under its row and its height is whole too, so the row after it
           -- starts on the grid as well.
-          local panelTop = ns.SnapValue(row, y + CAT_ROW_H + extra + STEP)
+          local panelTop = ns.SnapValue(row, y + rowHH + extra + STEP)
           p:SetPoint("TOPLEFT", 0, -panelTop)
           p:SetPoint("TOPRIGHT", 0, -panelTop)
           p:SetHeight(ns.SnapValue(p, h))
           p:Show()
           panelH = ns.SnapValue(row, h + STEP)
         end
-        -- One row, measured once in whole pixels: the height the row is given and the step the next one starts at
-        -- are the same number, so the stack never carries a remainder down the list.
-        local rowH = ns.SnapValue(row, CAT_ROW_H + extra + 2 + panelH)
+        -- One step, measured once in whole pixels: the row's own snapped height, the two points of air under
+        -- it and the panel it may open, so the stack never carries a remainder down the list.
+        local rowH = ns.SnapValue(row, rowHH + extra + 2 + panelH)
         row.h[i] = rowH
         y = y + rowH
       end
