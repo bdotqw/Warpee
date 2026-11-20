@@ -491,6 +491,11 @@ local function sectionOpen(key)
       for _ in pairs(WarpeeDB and WarpeeDB.sellMark or {}) do return true end
       return false
     end
+    -- The ignored list in the Cheap window folds away the same way: an empty set is a paragraph and a
+    -- heading over nothing, and the first ignored piece opens it.
+    if key == "cheapignored" then
+      return ((ns.Cheap and ns.Cheap:IgnoredCount()) or 0) > 0
+    end
     -- DEFAULTS.optSections carries every section key and the login path writes them all, so
     -- this is only reached by a key it does not know, and a section nobody has an opinion
     -- about starts open.

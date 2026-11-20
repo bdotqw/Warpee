@@ -25,7 +25,7 @@ local DEFAULTS = {
   cols = 16, gap = 4, iconSize = 37, slotStyle = "plate", theme = "blizzard",
   font = "Rubik Bold",
   iconZoom = 1, borderWidth = 1, gridAlpha = 0, transparency = 0, showGauge = false,
-  favShow = true, recentBags = true, recentPocket = true,
+  favShow = true, recentBags = true, recentPocket = true, recentClearClose = false,
   qualityColorIlvl = true, qualityBorder = true, mergeReagents = false,
   reagentTop = false, hideReagents = false,
   -- The other two containers of the window, one switch each plus the quiver's own merge. They live here
@@ -56,6 +56,10 @@ local DEFAULTS = {
   -- way the junk badge always did; ns.MarkJunk reads Bags.junkCoin, and the login path below carries
   -- the old badge/junkIcon state into it.
   junkCoin = true,
+  -- craftTier: the game's craft rank rhombus on gear, which the game itself draws only while the
+  -- professions window stands. On, every gear cell is handed the button flag that outranks the window;
+  -- consumables and reagents never read this key -- they wear their rank either way.
+  craftTier = false,
   reagentTint = true, ammoTint = true, unusableBorder = true,
   bagView = "grid", bankView = "grid", categories = {},
   catSort = "ilvl",
@@ -112,7 +116,7 @@ local DEFAULTS = {
   badge = ns.BadgeDefaults(),
   -- Only the keys the pages still fold with; retired ones are cleared at login.
   optSections = { badges = true, tokenexp = false, pocketsize = true, categories = true,
-                  badgeorder = false },
+                  badgeorder = false, cheapignored = false },
   autoOpen = { auction = true, bank = true, mail = true, trade = true,
                vendor = true, guildbank = true, professions = false,
                itemupgrade = true, catalyst = true },
@@ -266,6 +270,7 @@ function ns.PushConfig()
   Bags.questMarks       = WarpeeDB.questMarks
   Bags.newItemGlow      = WarpeeDB.newItemGlow
   Bags.junkCoin         = WarpeeDB.junkCoin
+  Bags.craftTier        = WarpeeDB.craftTier
   Bags.reagentTint      = WarpeeDB.reagentTint
   Bags.ammoTint         = WarpeeDB.ammoTint
   Bags.unusableBorder   = WarpeeDB.unusableBorder
@@ -435,6 +440,7 @@ function ns.Toggle(show, automatic)
   if show == nil then show = not f:IsShown() end
   if show then
     if not automatic then ns.autoOpened = nil end
+    ns.autoOpenedAtHide = nil
     Bags:RestorePos()
     -- Raised while still hidden. A strata change re-sorts the client's render list, and doing it with the
     -- grid already on screen re-sorts every cell for nothing; raising first is free either way.
@@ -456,6 +462,9 @@ function ns.Toggle(show, automatic)
     if ns.Cheap then ns.Cheap:MaybeShow() end
   else
     f:Hide()
+    -- Read inside the Hide above by the Recent row, when it has its hook on. Dropped here too, so a hide
+    -- nothing was listening to cannot leave a mark that would spare the next hand close its wipe.
+    ns.autoOpenedAtHide = nil
     if ns.Cheap then ns.Cheap:BagsClosed() end
   end
 end
@@ -620,7 +629,7 @@ function autoOpenBags(key)
   -- standing pocket aside, the way it always did; either way the pocket leaves with the bags when the
   -- window closes (Bags.OnHide).
   if ns.Pocket and WarpeeDB.pocketWithBags == false then
-    ns.Pocket:Close(true)
+    ns.Pocket:Close()
   end
   local f = Bags.frame
   if not f or not f:IsShown() then
@@ -641,6 +650,10 @@ function autoCloseBags(key)
   if key then set[key] = nil end
   if next(set) then return end
   ns.autoOpened = nil
+  -- The visit is closing the bags, not the player: the Recent row empties on a close the player asked for,
+  -- so the window going away here is marked as the visit's, the same mark Bags.OnHide keeps for a window it
+  -- opened. Ownership is dropped first, so this path has to say it itself.
+  ns.autoOpenedAtHide = true
   ns.Toggle(false)
 end
 
@@ -899,6 +912,8 @@ local function onLogin()
   -- Warband icon size is live again: not wiped here, or it is re-seeded every login.
   WarpeeDB.warbandCustomSize = nil
   WarpeeDB.bankPool = nil
+  -- The pocket's last-open flag fed a login restore that is gone with it; dropped so no save keeps it.
+  WarpeeDB.pocketOpen = nil
   -- Empty was briefly deletable and used this flag to remember a delete; it is not deletable now
   -- and EnsureEmpty always restores the row, so the flag is dead. Cleared so no save keeps it.
   WarpeeDB.emptySeeded = nil
@@ -1081,6 +1096,8 @@ local function onBankOpened()
   -- A banker or the warband portal: the one moment the account bank is readable.
   ns.Vault:StampGold()
   if ns.Bank then ns.Bank.bankerOpen = true; ns.Bank:OnBankOpened() end
+  -- A visit like any other: the close that takes the bags with it is the visit's, not the player's.
+  if ns.Recent then ns.Recent:VisitOpen() end
   autoOpenBags("bank")
 end
 
@@ -1093,6 +1110,7 @@ local function onBankClosed()
 end
 
 local function onProfessionsOpened()
+  if ns.Recent then ns.Recent:VisitOpen() end
   autoOpenBags("professions")
 end
 
@@ -1103,6 +1121,7 @@ end
 -- open for two and read the window shut while it is still up.
 local function onGuildBankOpened()
   if not ns.IsForever then return end
+  if ns.Recent then ns.Recent:VisitOpen() end
   autoOpenBags("guildbank")
 end
 
@@ -1122,7 +1141,7 @@ local function onInteractionOpened(_, a1)
     -- both of ours get out of the way. Hiding the bags takes the pocket with it when
     -- it is open beside them; one on its own needs its own word.
     ns.Toggle(false)
-    if ns.Pocket then ns.Pocket:Close(true) end
+    if ns.Pocket then ns.Pocket:Close() end
     return
   end
   if ns.Bank and IT then
@@ -1137,7 +1156,13 @@ local function onInteractionOpened(_, a1)
     end
   end
   local k = interactKey(a1)
-  if k then autoOpenBags(k) end
+  if k then
+    -- A visit is up, so the close that follows belongs to it: the Recent row keeps its list through one
+    -- closing of the bags (see Rec:VisitOpen). Set here whether or not this option opened the bags, since
+    -- the mail and the auction can bring up the game's own with no call of ours.
+    if ns.Recent then ns.Recent:VisitOpen() end
+    autoOpenBags(k)
+  end
   -- A stack-splitting window just opened: if the grouped view is up with Combine stacks on, relayout so
   -- the fold lifts and every physical stack is its own cell (Categories reads the window live). Harmless
   -- otherwise — a grid or an ungrouped window relayouts to the same picture.

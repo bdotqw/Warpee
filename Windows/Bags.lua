@@ -71,12 +71,12 @@ local kindByItem = {}
 -- answers, and the full read as the twelfth and thirteenth. A miss is a miss at both doors, and the caller
 -- leaves it uncached so the next pass asks again.
 local function itemClassSub(id)
-  local instant = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
+  local instant = C_Item and C_Item.GetItemInfoInstant
   if instant then
     local ok, _, _, _, _, _, classID, subID = pcall(instant, id)
     if ok and type(classID) == "number" then return classID, subID end
   end
-  local get = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+  local get = C_Item and C_Item.GetItemInfo
   if get then
     local ok, _, _, _, _, _, _, _, _, _, _, _, classID, subID = pcall(get, id)
     if ok and type(classID) == "number" then return classID, subID end
@@ -233,7 +233,7 @@ local Bags = { pool = {}, vpool = {}, cols = COLS_DEFAULT, gap = GAP_DEFAULT, ic
                slotStyle = "tile", showGauge = true, goldLetters = false, goldOnly = false,
                font = ns.Fonts.DEFAULT, query = "", dirty = {},
                badge = ns.BadgeDefaults(),
-               qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, junkCoin = true, reagentTint = true, ammoTint = true, unusableBorder = true,
+               qualityColorIlvl = false, qualityBorder = false, iconZoom = 1, borderWidth = 2, mergeReagents = false, questMarks = false, newItemGlow = false, junkCoin = true, craftTier = false, reagentTint = true, ammoTint = true, unusableBorder = true,
                revFill = false, fillUp = false, newOnTop = false, reagentTop = false, hideReagents = false,
                splitBags = false, splitGapBags = 12, splitGapBank = 12, splitGapWb = 12,
                nameBags = true,
@@ -633,6 +633,10 @@ function Bags:Build()
     -- and the game's own sync all land here. Leaving the mark up made the next hand
     -- opened window read as an auto open, so it did not pull the pocket with it, and a
     -- merchant closing later shut a window the player had opened himself.
+    -- Kept for the Recent row's hook below, which runs after this script: a window a visit opened is going
+    -- away with that visit, and the row is not the player's to clear then. The ownership itself still ends
+    -- here, for the pocket and for the next hand open.
+    ns.autoOpenedAtHide = ns.autoOpened and true or nil
     ns.autoOpened = nil
     -- The anti-jump memory says what is on screen, and the screen is going away. Kept, a piece that left
     -- while the window was shut (sold at a vendor it was not open for) would reopen as a hole. The plan of the
@@ -659,7 +663,7 @@ function Bags:Build()
     if Bags.bagWindow then Bags.bagWindow:Hide() end
     -- The pocket travels with the bags, an automatic close included: walking away from the auction house
     -- shuts the bags, and the pocket that came up beside them has nothing left to sit next to.
-    if ns.Pocket and not ns.Pocket.solo then ns.Pocket:Close(true)
+    if ns.Pocket and not ns.Pocket.solo then ns.Pocket:Close()
     elseif ns.Pocket and ns.Pocket.ApplySearch then ns.Pocket:ApplySearch() end
     if ns.Vault:SetView("bags", nil) then
       -- The same hand-back, for the window closing while a saved box was on screen: the next open lays the live

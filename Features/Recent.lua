@@ -81,6 +81,17 @@ end
 function Rec:BagsOn() return flag("recentBags") end
 function Rec:PocketOn() return flag("recentPocket") end
 
+-- Clear on close: the player asked the list to be gone with the bags rather than kept for the session.
+-- Read where the window goes, never stored in a second place, so the switch means what the save says.
+function Rec:ClearOnClose() return (WarpeeDB and WarpeeDB.recentClearClose) and true or false end
+
+-- A visit window opened (Core calls this on mail, auction, merchant, bank, professions). The next time the
+-- bags go away it is the visit going with them, not the player asking for the row to be emptied: one Escape
+-- on a mailbox or an auction hides both frames in the same press, so the close cannot be read on its own.
+-- The mark is taken by the close it belongs to and no other, which is what keeps a hand open beside a
+-- visit, or bags the game itself opened with the window, on the same footing.
+function Rec:VisitOpen() self.visitOpen = true end
+
 -- What the collection itself watches. With both switches off the list keeps its cells but takes
 -- nothing new.
 function Rec:Live() return self:BagsOn() or self:PocketOn() end
@@ -163,12 +174,22 @@ local function scanBag(bag, counts)
   end
 end
 
-local function tally()
+-- `only` is the container one BAG_UPDATE named. A bag event that names its bag is answered by reading that
+-- bag: the row only has to know what moved there, and sweeping every bag on every event was 4700 client
+-- reads in one watch with nothing on screen. The two arrival events name no bag at all, so they keep the
+-- sweep -- that is the path the row appears on, and it is not the one this cuts.
+local function tally(only)
   local counts = {}
-  wipe(locBag); wipe(locSlot); wipe(poor)
+  -- Where a cell stands survives a one-bag pass: the bag that was not read still holds what it held, and a
+  -- cell whose position were wiped would be painted nowhere and pruned nowhere. A whole sweep rebuilds the
+  -- map, and a cell that leaves takes its entry with it (hole, remove, Wipe).
+  if not only then wipe(locBag); wipe(locSlot) end
+  wipe(poor)
   wipe(guidNow); wipe(guidItem)
-  for _, bag in ipairs(ns.playerBags) do scanBag(bag, counts) end
-  if ns.reagentBag then scanBag(ns.reagentBag, counts) end
+  for _, bag in ipairs(ns.playerBags) do
+    if not only or bag == only then scanBag(bag, counts) end
+  end
+  if ns.reagentBag and (not only or ns.reagentBag == only) then scanBag(ns.reagentBag, counts) end
   return counts
 end
 
@@ -214,6 +235,7 @@ local function hole(i, key)
   cells[i] = nil
   seq[key], got[key], base[key] = nil, nil, nil
   missed[key] = nil
+  locBag[key], locSlot[key] = nil, nil
 end
 
 local function add(key, n, delta, total)
@@ -256,6 +278,7 @@ local function remove(id)
     if cells[i] == id then hole(i, id) end
   end
   seq[id], got[id], base[id] = nil, nil, nil
+  locBag[id], locSlot[id] = nil, nil
 end
 
 -- Slot order belongs to the window, not to arrival age: refilling one hole must not move its neighbours.
@@ -289,19 +312,24 @@ local function viewFeed(view, n, refill)
   return out
 end
 
-local function prune(counts)
+local function prune(counts, only)
   -- Nothing is counted or dropped while the cursor carries an item. A picked-up item is in
   -- no bag at all until it lands, so every key reads as gone for the pass.
   if GetCursorInfo() then return false end
+  -- A pass that read one bag judges the cells standing in that bag and nothing else: every other cell reads
+  -- as missing only because it was not looked at, and dropping it would take away a cell whose item is still
+  -- there. locBag keeps the last known position across a one-bag pass, so the bag a cell stands in is still
+  -- known when the pass that has to decide about it did not read it.
   for i = 1, MAX_SLOTS do
     local key = cells[i]
+    local judged = (not only) or (key and locBag[key] == only)
     local here = key and (type(key) == "string" and guidNow[key] or counts[key])
     -- A cell goes the moment its item is not in the bags: using, selling, mailing and destroying all
     -- read the same here, and the pass that saw it gone is the pass that saw it leave -- holding the
     -- cell for two more passes left a used-up row standing with nothing left in it, which is the shape
     -- of a row that does not disappear. The guards above are what keeps this honest: a pass with no
     -- container answer at all and a pass with something on the cursor decide nothing.
-    if key and (not here or poor[key]) then hole(i, key) end
+    if key and judged and (not here or poor[key]) then hole(i, key) end
   end
   -- Nothing left to ask for: a cell that missed is gone on this pass, so there is no counter to push
   -- over and no extra look to schedule.
@@ -381,8 +409,8 @@ end
 -- Declared here because detect needs it: see the note on the miss counter in prune.
 local soon
 
-local function detect()
-  local counts = tally()
+local function detect(only)
+  local counts = tally(only)
   local seen = bodyDiff()
   -- Nothing is decided while the cursor carries an item, the same guard prune keeps. A split lifts part of
   -- a stack onto the cursor, so this pass would read the source slot as shrunk, write the smaller number as
@@ -396,8 +424,10 @@ local function detect()
   -- go away together, and the pass is over before either answers again. Judged on its own it
   -- would drop everything the row knows, and the lot walks back in as arrivals the moment the
   -- read returns, which is the whole inventory arriving as new. Such a pass decides nothing,
-  -- and it is not worth asking for another look on either.
-  if not (next(counts) or next(guidNow) or seen) then return end
+  -- and it is not worth asking for another look on either. Only a whole pass can tell an empty
+  -- inventory from a client that is not there: a single bag read empty is a bag that was emptied,
+  -- and its cells have to go.
+  if not only and not (next(counts) or next(guidNow) or seen) then return end
   local hold = not primed or frozen() or not Rec:Live()
      or (GetTime() - primed) < SETTLE
   if not primed and (C_Container.GetContainerNumSlots(0) or 0) > 0 then
@@ -436,7 +466,7 @@ local function detect()
   -- row left standing empty because a mailbox happens to be open is the same bug as anywhere else, so the
   -- cells are still pruned; only the accounting waits for the letter to go.
   local mail = mailing()
-  if not mail then
+  if not only and not mail then
     for id in pairs(known) do
       if not counts[id] and not equipped(id) then
         local m = (missed[id] or 0) + 1
@@ -451,13 +481,18 @@ local function detect()
   -- ever the bag events that happen to arrive. The event that takes an item out of the bags
   -- is usually the last one for a while, so the third pass never comes on its own, and the
   -- cell outlives the item it was showing. The count is asked for another look instead.
-  if prune(counts) then soon() end
-  for g in pairs(guidHad) do
-    if guidNow[g] then guidMiss[g] = nil
-    else
-      local m = (guidMiss[g] or 0) + 1
-      if m >= 3 then guidHad[g] = nil; guidMiss[g] = nil
-      else guidMiss[g] = m end
+  if prune(counts, only) then soon() end
+  -- The three-pass decay is bookkeeping for the whole inventory, so only the full sweep runs it: in a one-bag
+  -- pass every other bag's ids and guids would read as missing, and three of those passes would forget
+  -- baselines that never went anywhere. BAG_UPDATE_DELAYED follows every burst with a full pass anyway.
+  if not only then
+    for g in pairs(guidHad) do
+      if guidNow[g] then guidMiss[g] = nil
+      else
+        local m = (guidMiss[g] or 0) + 1
+        if m >= 3 then guidHad[g] = nil; guidMiss[g] = nil
+        else guidMiss[g] = m end
+      end
     end
   end
   for g in pairs(guidNow) do guidHad[g] = true end
@@ -519,10 +554,16 @@ end
 
 function Rec:Wipe()
   wipe(cells); wipe(seq); wipe(got); wipe(base)
+  wipe(locBag); wipe(locSlot)
   wipe(bagView.cells); wipe(pocketView.cells)
   -- Clear is the player saying the list is done, so the band goes with it: leaving the space until
   -- the next opening kept an empty caption over nothing and made Clear look like it had not worked.
   self.armed = false
+  -- The row is put away too, not only forgotten. Wiped while the window is shut, the cells keep their
+  -- shown state, and the window's own Show draws them again: the reopen showed the cleared row for the
+  -- frame it took the deferred layout to take the band away, which reads as the list clearing on the open
+  -- rather than on the close. Hidden here, there is nothing left for that Show to draw.
+  self:Hide()
   self:Refresh()
 end
 
@@ -629,6 +670,22 @@ function Rec:Apply(bags, x, top, size, gap)
       Rec:Refresh()
     end)
     frame:HookScript("OnHide", function()
+      -- Cleared as the bags go, before the settle below: a list the player asked to be gone is not
+      -- worth tidying, and the history is dropped here rather than left standing for the next opening.
+      -- The pocket draws the same list, so it goes with it, which is what the switch says.
+      -- A close the visit caused is not the player closing the window: one Escape on a mailbox or an auction
+      -- hides both frames in the same press, in an order the client picks, and emptying the row there means
+      -- the next opening, a second later, comes up blank. Two things say which close this was, and either is
+      -- enough: a window a visit opened leaves with that visit (ns.autoOpenedAtHide, kept by Bags.OnHide and
+      -- by autoCloseBags in Core), and a visit that opened at all claims the first close after it
+      -- (Rec:VisitOpen), which is what covers bags the game itself brought up with the mailbox. Both are read
+      -- once here and dropped with the row.
+      local visit = ns.autoOpenedAtHide or self.visitOpen
+      ns.autoOpenedAtHide, self.visitOpen = nil, nil
+      if Rec:ClearOnClose() and not visit then
+        Rec:Wipe()
+        return
+      end
       Rec.armed = nil
       -- A pass on the way out catches whatever is already known, so a quick reopen usually has nothing left
       -- to do. It cannot be the only pass: an item used just before closing may still be in the history when
@@ -713,7 +770,19 @@ function Rec:Refresh()
   local a = self.args
   local live = (a and a.bags and a.bags.frame and a.bags.frame:IsShown()) and true or false
   if live and self:Height(a.size) ~= (a.bags.recentH or 0) then
-    a.bags:Layout()
+    -- The grid has to move, but not from inside a bag event: a full Bags:Layout there relayed out every cell
+    -- on the screen, 10 to 16 ms on the same event that brings the row in, and the player felt it as the
+    -- window freezing on a loot. The request is made once and the next frame does it, so a burst of events
+    -- that changes the row three times still costs one layout.
+    if not self.needLayout then
+      self.needLayout = true
+      C_Timer.After(0, function()
+        self.needLayout = nil
+        local b = ns.Bags
+        local f = b and b.frame
+        if f and f.IsShown and f:IsShown() then b:Layout() end
+      end)
+    end
     return
   end
   if live then
@@ -728,13 +797,22 @@ function Rec:Refresh()
 end
 
 local queued = false
+-- What the burst now waiting has asked for: the bag a BAG_UPDATE named, or the whole inventory when an event
+-- that names no bag came in. A second bag inside the same wait widens it to everything -- one sweep for two
+-- bags is still cheaper than two sweeps, and it keeps the answer whole.
+local pendingBag, pendingAll = nil, false
 
-soon = function()
+soon = function(bag)
+  if bag == nil then pendingAll = true
+  elseif pendingBag == nil then pendingBag = bag
+  elseif pendingBag ~= bag then pendingAll = true end
   if queued then return end
   queued = true
   C_Timer.After(0.05, function()
     queued = false
-    detect()
+    local only = (not pendingAll) and pendingBag or nil
+    pendingBag, pendingAll = nil, false
+    detect(only)
     Rec:Refresh()
   end)
 end
@@ -787,7 +865,13 @@ ev:SetScript("OnEvent", function(_, event, arg1, arg2)
     if arg1 or arg2 then Rec:Wipe() end
     return
   end
-  if event == "BAG_UPDATE" or event == "BAG_NEW_ITEMS_UPDATED" or event == "ITEM_PUSH" then
+  if event == "BAG_UPDATE" then
+    -- The event names the container that moved. One bag is read for it; a client that sends no bag falls
+    -- back to the full sweep through soon()'s nil.
+    soon(arg1)
+    return
+  end
+  if event == "BAG_NEW_ITEMS_UPDATED" or event == "ITEM_PUSH" then
     soon()
     return
   end

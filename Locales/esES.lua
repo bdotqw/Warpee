@@ -349,6 +349,9 @@ local STRINGS = {
   ["Quick access"] = "Acceso rápido",
   ["New item glow"] = "Brillo de los objetos nuevos",
   ["Junk coin"] = "Moneda en la basura",
+  ["Gear craft rank"] = "Rango de fabricación de equipo",
+  ["The rhombus in the corner of crafted armor, weapons and profession equipment: the rank the piece rolled. Kept on the cell in the bags even with the professions window closed; consumables and reagents wear theirs either way."] =
+    "El rombo de la esquina de la armadura, las armas y el equipo de profesión fabricados: el rango que sacó la pieza. Se ve en las bolsas incluso con la ventana de profesión cerrada; los consumibles y componentes llevan el suyo igual.",
   ["Reagent border"] = "Borde de los componentes",
   ["Ammo / soul border"] = "Borde de munición / almas",
   ["Tint the slots of the quiver, the ammo pouch and the soul bag, in the grouped view too."] =
@@ -584,6 +587,9 @@ local STRINGS = {
   ["Favorites"] = "Favoritos",
   ["Recent"] = "Recientes",
   ["Recent in bags"] = "Recientes en las bolsas",
+  ["Clear recent on bags close"] = "Vaciar recientes al cerrar las bolsas",
+  ["The list empties when the bags close, so the next opening starts empty. The pocket draws the same list and empties with it."] =
+    "La lista se vacía al cerrar las bolsas y la próxima apertura empieza vacía. El bolsillo muestra la misma lista, así que también se vacía.",
   ["Recent in the pocket"] = "Recientes en el bolsillo",
   ["The same recent row as in the bags, above the pocket cells. Clearing it in one window clears it in the other."] = "La misma fila que en las bolsas, sobre las casillas del bolsillo. Si la vacías en una ventana, se vacía en la otra.",
   ["A row above the favorites with what arrived this session, gray items aside. The oldest leaves when it fills; logging out or reloading clears it."] = "Una fila sobre los favoritos con lo que llegó en esta sesión, sin objetos grises. Cuando se llena sale lo más antiguo; cerrar sesión o recargar la vacía.",
@@ -843,9 +849,9 @@ local STRINGS = {
   ["Cheap"] = "Barato",
   ["Merchant"] = "Comerciante",
   ["Never"] = "Nunca",
-  ["Hide the cheap window"] = "Ocultar la ventana «Barato»",
-  ["The list never opens with the bags. Its settings stay as they are, and switching this off brings the window back."] =
-    "La lista nunca se abre con las bolsas. Su configuración no cambia, y al desactivar esto la ventana vuelve.",
+  ["Cheap window"] = "Ventana «Barato»",
+  ["The list opens and closes with the bags. Off leaves its settings as they are; switching it back on brings the window with the bags again."] =
+    "La lista se abre y se cierra con las bolsas. Desactivada conserva sus ajustes; al volver a activarla, la ventana vuelve con las bolsas.",
   ["Subtract the auction cut"] = "Restar la comisión de subasta",
   ["The auction house keeps 5% of every sale, so the auction side of a row shows what you would really get: the listed price less 5%. Switch it off to compare against the raw price."] =
     "La casa de subastas se queda con el 5 % de cada venta, así que el lado de subasta de una fila muestra lo que recibirías de verdad: el precio anunciado menos el 5 %. Desactívalo para comparar con el precio bruto.",
@@ -856,12 +862,12 @@ local STRINGS = {
   ["Auto"] = "Automático",
   ["Vendor only"] = "Solo vendedor",
   ["Kept from the list"] = "Fuera de la lista",
-  ["These never earn a row, whatever they are worth. The switches cover deleting: a piece you marked for sale is still a merchant's to take."] = "Estos objetos nunca reciben una fila, valgan lo que valgan. Los interruptores solo afectan al borrado: un objeto marcado para vender sigue siendo del vendedor.",
+  ["A row is a stack one click from being destroyed, so these kinds never get one. Untick a kind to list it again; a merchant buys them whatever the switches say."] = "Una fila es una pila a un clic de ser destruida, así que estos tipos no reciben ninguna. Desmarca uno y volverá a la lista; un mercader los compra igual.",
   ["Potions and food"] = "Pociones y comida",
-  ["Every consumable: potions, elixirs, flasks, food and drink, bandages, weapon oils and scrolls. A buff or a meal is never one click from the bin."] = "Cualquier consumible: pociones, elixires, frascos, comida y bebida, vendas, aceites de arma y pergaminos. Un beneficio o una comida nunca están a un clic de la basura.",
-  ["Recipes, plans and patterns. They are learned or sold, not thrown away."] = "Recetas, planos y patrones. Se aprenden o se venden, no se tiran.",
+  ["Potions, elixirs, flasks, food and drink, bandages, weapon oils and scrolls: no row, so a buff or a meal is never one click from being destroyed. Unticked, they are listed again."] = "Pociones, elixires, frascos, comida y bebida, vendas, aceites de arma y pergaminos: sin fila, así que un beneficio o una comida nunca están a un clic de ser destruidos. Sin marcar, vuelven a la lista.",
+  ["Recipes, plans and patterns: no row, because they are learned or sold, not destroyed. Unticked, they are listed again."] = "Recetas, planos y patrones: sin fila, porque se aprenden o se venden, no se destruyen. Sin marcar, vuelven a la lista.",
   ["Toys, mounts and pets"] = "Juguetes, monturas y mascotas",
-  ["Anything the client files as a toy, a mount or a battle pet. A deleted one cannot be got back."] = "Todo lo que el cliente clasifica como juguete, montura o mascota de combate. Lo borrado no se recupera.",
+  ["Toys, mounts and battle pets: no row, because a destroyed one cannot be got back. Unticked, they are listed again."] = "Juguetes, monturas y mascotas de combate: sin fila, porque lo destruido no se recupera. Sin marcar, vuelven a la lista.",
   ["Ignored items"] = "Objetos ignorados",
   ["Click the - on an item's icon in the list to leave it out of it. The list never offers it again; the minus here puts it back."] = "Haz clic en el - del icono de un objeto en la lista para dejarlo fuera. La lista ya no lo ofrecerá; el - de aquí lo devuelve.",
   ["Nothing is ignored: click the - on an item's icon in the list to leave it out."] = "No hay nada ignorado: haz clic en el - del icono de un objeto en la lista.",

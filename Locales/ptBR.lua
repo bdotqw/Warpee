@@ -340,6 +340,9 @@ local STRINGS = {
   ["Quick access"] = "Acesso rápido",
   ["New item glow"] = "Brilho de item novo",
   ["Junk coin"] = "Moeda na sucata",
+  ["Gear craft rank"] = "Grau de fabricação do equipamento",
+  ["The rhombus in the corner of crafted armor, weapons and profession equipment: the rank the piece rolled. Kept on the cell in the bags even with the professions window closed; consumables and reagents wear theirs either way."] =
+    "O losango no canto de armaduras, armas e equipamentos de profissão fabricados: o grau que a peça tirou. Aparece nas bolsas mesmo com a janela de profissão fechada; consumíveis e reagentes trazem o seu de qualquer forma.",
   ["Reagent border"] = "Borda de reagentes",
   ["Ammo / soul border"] = "Borda de munição / almas",
   ["Tint the slots of the quiver, the ammo pouch and the soul bag, in the grouped view too."] =
@@ -575,6 +578,9 @@ local STRINGS = {
   ["Favorites"] = "Favoritos",
   ["Recent"] = "Recentes",
   ["Recent in bags"] = "Recentes nas bolsas",
+  ["Clear recent on bags close"] = "Limpar recentes ao fechar as bolsas",
+  ["The list empties when the bags close, so the next opening starts empty. The pocket draws the same list and empties with it."] =
+    "A lista é limpa ao fechar as bolsas e a próxima abertura começa vazia. O bolso mostra a mesma lista, então também é limpo.",
   ["Recent in the pocket"] = "Recentes no bolso",
   ["The same recent row as in the bags, above the pocket cells. Clearing it in one window clears it in the other."] = "A mesma linha das bolsas, acima das células do bolso. Limpá-la em uma janela limpa na outra.",
   ["A row above the favorites with what arrived this session, gray items aside. The oldest leaves when it fills; logging out or reloading clears it."] = "Uma linha acima dos favoritos com o que chegou nesta sessão, sem itens cinzas. Quando enche, o mais antigo sai; sair do jogo ou recarregar a esvazia.",
@@ -834,9 +840,9 @@ local STRINGS = {
   ["Cheap"] = "Barato",
   ["Merchant"] = "Comerciante",
   ["Never"] = "Nunca",
-  ["Hide the cheap window"] = "Ocultar a janela «Barato»",
-  ["The list never opens with the bags. Its settings stay as they are, and switching this off brings the window back."] =
-    "A lista nunca abre com as bolsas. As configurações continuam, e desligar isto traz a janela de volta.",
+  ["Cheap window"] = "Janela «Barato»",
+  ["The list opens and closes with the bags. Off leaves its settings as they are; switching it back on brings the window with the bags again."] =
+    "A lista abre e fecha com as bolsas. Desativada, mantém as configurações; ao reativar, a janela volta com as bolsas.",
   ["Subtract the auction cut"] = "Descontar a taxa do leilão",
   ["The auction house keeps 5% of every sale, so the auction side of a row shows what you would really get: the listed price less 5%. Switch it off to compare against the raw price."] =
     "A casa de leilões fica com 5% de cada venda, então o lado de leilão da linha mostra o que você receberia de fato: o preço anunciado menos 5%. Desligue para comparar com o preço bruto.",
@@ -847,12 +853,12 @@ local STRINGS = {
   ["Auto"] = "Automático",
   ["Vendor only"] = "Somente vendedor",
   ["Kept from the list"] = "Fora da lista",
-  ["These never earn a row, whatever they are worth. The switches cover deleting: a piece you marked for sale is still a merchant's to take."] = "Estes itens nunca recebem uma linha, valham o que valerem. Os interruptores cobrem apenas a exclusão: um item marcado para venda continua sendo do vendedor.",
+  ["A row is a stack one click from being destroyed, so these kinds never get one. Untick a kind to list it again; a merchant buys them whatever the switches say."] = "Uma linha é uma pilha a um clique de ser destruída, então esses tipos nunca recebem uma. Desmarque um e ele volta à lista; um mercador compra de qualquer forma.",
   ["Potions and food"] = "Poções e comida",
-  ["Every consumable: potions, elixirs, flasks, food and drink, bandages, weapon oils and scrolls. A buff or a meal is never one click from the bin."] = "Todo consumível: poções, elixires, frascos, comida e bebida, ataduras, óleos de arma e pergaminhos. Um efeito ou uma refeição nunca estão a um clique do lixo.",
-  ["Recipes, plans and patterns. They are learned or sold, not thrown away."] = "Receitas, projetos e moldes. Eles são aprendidos ou vendidos, não jogados fora.",
+  ["Potions, elixirs, flasks, food and drink, bandages, weapon oils and scrolls: no row, so a buff or a meal is never one click from being destroyed. Unticked, they are listed again."] = "Poções, elixires, frascos, comida e bebida, ataduras, óleos de arma e pergaminhos: sem linha, então um efeito ou uma refeição nunca estão a um clique de serem destruídos. Desmarcados, voltam à lista.",
+  ["Recipes, plans and patterns: no row, because they are learned or sold, not destroyed. Unticked, they are listed again."] = "Receitas, projetos e moldes: sem linha, porque são aprendidos ou vendidos, não destruídos. Desmarcados, voltam à lista.",
   ["Toys, mounts and pets"] = "Brinquedos, montarias e mascotes",
-  ["Anything the client files as a toy, a mount or a battle pet. A deleted one cannot be got back."] = "Tudo o que o cliente classifica como brinquedo, montaria ou mascote de batalha. O que foi excluído não volta.",
+  ["Toys, mounts and battle pets: no row, because a destroyed one cannot be got back. Unticked, they are listed again."] = "Brinquedos, montarias e mascotes de batalha: sem linha, porque o que foi destruído não volta. Desmarcados, voltam à lista.",
   ["Ignored items"] = "Itens ignorados",
   ["Click the - on an item's icon in the list to leave it out of it. The list never offers it again; the minus here puts it back."] = "Clique no - no ícone de um item na lista para deixá-lo de fora. A lista não o oferece mais; o - aqui o devolve.",
   ["Nothing is ignored: click the - on an item's icon in the list to leave it out."] = "Nada ignorado: clique no - no ícone de um item na lista.",

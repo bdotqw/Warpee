@@ -46,6 +46,10 @@ fav.recentPocketSet = function(v)
   WarpeeDB.recentPocket = v and true or false
   relayout()
 end
+-- The row that empties with the bags: a stored switch with nothing to repaint, because the list it
+-- governs is dropped at the next close, not at the click.
+fav.recentClearGet = function() return ns.Recent and ns.Recent:ClearOnClose() end
+fav.recentClearSet = function(v) WarpeeDB.recentClearClose = v and true or false end
 -- The pocket keys whose redraw belongs to this page are declared here through the same writer; the rest
 -- are written by the window (Windows/Pocket.lua), where their redraw lives. Snapping is only stored: no
 -- window draws it until the next open. No row below stores a pocket key itself, so each key has one writer
@@ -54,8 +58,8 @@ local setPocketShow = ns.Setting("pocketShow", function(v)
   if ns.Pocket then
     -- Switched on is a request for the window, not just permission for it: the pocket has no button on the
     -- bags' header (POCKET_BTN), and the old branch only reopened a pocket that was standing at that
-    -- moment -- `pocketOpen` is cleared by every close, so the toggle re-armed a window that was never
-    -- there. The window is opened here, once, and only if it is not already up.
+    -- moment, so the toggle re-armed a window that was never there. The window is opened here, once, and
+    -- only if it is not already up.
     local w = ns.Pocket.frame
     if v then
       if not (w and w:IsShown()) then ns.Pocket:Open() end
@@ -270,6 +274,11 @@ local POCKET_PAGE = {
 
 -- Skipping Forever's ammo switch must not leave an empty half-row on Retail.
 local function markerRows()
+  -- The craft tier's pair is made here rather than at the top of the chunk: this chunk spends all 200
+  -- locals Lua allows it, and two more stopped the whole file from compiling -- the window then opened
+  -- with no pages at all (Options.pages nil in Build). A getter and a setter that one row reads are this
+  -- function's own business, and here they cost the chunk nothing.
+  local craftGet, craftSet = styleField("craftTier")
   local rows = {
     { type = "toggle", name = "Reagent border", col = 1,
       get = function() return Bags.reagentTint end,
@@ -294,6 +303,13 @@ local function markerRows()
       desc = "Tint the slots of the quiver, the ammo pouch and the soul bag, in the grouped view too." },
     { type = "toggle", name = "Quality border", col = 1, get = qBorderGet, set = qBorderSet,
       desc = "A border in the item's quality color; quest items take the quest yellow. Reagent and unwearable borders come first." },
+    -- Gear is the one place the ceiling is the game's own window: a crafted piece wears its rhombus only
+    -- while the professions window stands. The item button carries a flag that outranks the window, and the
+    -- row is that flag on every gear cell. Consumables and reagents are not in it -- they wear their rank
+    -- with the row off just the same, which is the look those cells have always had.
+    { type = "toggle", name = "Gear craft rank", col = 2, hidden = function() return ns.IsForever end,
+      get = craftGet, set = craftSet,
+      desc = "The rhombus in the corner of crafted armor, weapons and profession equipment: the rank the piece rolled. Kept on the cell in the bags even with the professions window closed; consumables and reagents wear theirs either way." },
     { type = "toggle", name = "Quest marker", col = 2, get = questGet, set = questSet,
       desc = "The exclamation mark on items for quests you have not picked up yet. Not shown in the warband bank." },
     { type = "toggle", name = "New item glow", col = 1, get = newGet, set = newSet,
@@ -560,6 +576,9 @@ local GRID_PAGE = {
         desc = pinHint(
           "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; hovering a slot and pressing %s clears it.",
           "A row of slots above the grid, always in sight. Drag an item onto one to keep it a click away; a slot under the pointer can be cleared with a key of its own." ) },
+      { type = "toggle", name = "Clear recent on bags close",
+        get = fav.recentClearGet, set = fav.recentClearSet,
+        desc = "The list empties when the bags close, so the next opening starts empty. The pocket draws the same list and empties with it." },
       { type = "select", name = "Bags growth corner", col = 1, of = 2,
         get = function() return angleGet("pos") end,
         set = function(v) angleSet("pos", v) end,
@@ -980,8 +999,9 @@ local CATS_PAGE = {
   { type = "catlist", section = "categories" },
 }
 
--- The Cheap window's own page, Forever only. Both rows are the rules the window itself reads: the best quality
--- that still earns a row, and the quality at which a click asks before it destroys something.
+-- The Cheap window's own page, Forever only. Every key on it is written by the window's own setter
+-- (Windows/Cheap.lua), which carries the pass behind it: this page reads the save and asks for the change,
+-- the way every other page here does, and never writes a key on its own.
 local QUALITY_KEYS = { "poor", "common", "uncommon", "rare", "epic", "legendary" }
 local CONFIRM_KEYS = { "never", "poor", "common", "uncommon", "rare", "epic", "legendary" }
 -- Which addon the auction side reads. Auto is the pair in the order the addon has always taken them; the two
@@ -993,40 +1013,18 @@ local function qualityLabel(k)
   return (ns.TokenDisplay and ns.TokenDisplay(k)) or k
 end
 
--- A ceiling the list is drawn from: raising or lowering it re-reads the bags, so the rows on screen are the
--- rows the new rule gives, not the ones the last scan left behind.
-local function cheapPaint()
-  local C = ns.Cheap
-  if not (C and C.frame and C.frame:IsShown()) then return end
-  C:Scan()
-  C:Paint()
-end
-
-local function cheapHideGet() return WarpeeDB and WarpeeDB.cheapShow == false end
-local function cheapHideSet(v)
-  WarpeeDB.cheapShow = not v
-  if v then
-    if ns.Cheap and ns.Cheap.Close then ns.Cheap:Close() end
-  elseif ns.Cheap and ns.Cheap.MaybeShow then
-    -- Unchecked while the bags stand open: the same door that brings the window with them puts it back now,
-    -- rather than leaving the player to close and reopen the bags to see it again.
-    ns.Cheap:MaybeShow()
-  end
-end
+-- The window's master switch reads the same way as every other window's ("Pocket window", "Recent in bags"):
+-- on means the window is there. The key behind it stays `cheapShow`, so a save written under the old, negative
+-- row means exactly what it did before.
+local function cheapShowGet() return not (WarpeeDB and WarpeeDB.cheapShow == false) end
+local function cheapShowSet(v) if ns.Cheap then ns.Cheap:SetShown(v) end end
 local function cheapCutGet() return not (WarpeeDB and WarpeeDB.cheapCut == false) end
-local function cheapCutSet(v)
-  WarpeeDB.cheapCut = v and true or false
-  if ns.Cheap and ns.Cheap.ClearAuction then ns.Cheap:ClearAuction() end
-  cheapPaint()
-end
-
+local function cheapCutSet(v) if ns.Cheap then ns.Cheap:SetCut(v) end end
 local function cheapMaxGet() return (WarpeeDB and WarpeeDB.cheapMaxQuality) or "uncommon" end
-local function cheapMaxSet(v) WarpeeDB.cheapMaxQuality = v; cheapPaint() end
+local function cheapMaxSet(v) if ns.Cheap then ns.Cheap:SetMaxQuality(v) end end
 local function cheapConfGet() return (WarpeeDB and WarpeeDB.cheapConfirm) or "common" end
-local function cheapConfSet(v) WarpeeDB.cheapConfirm = v end
+local function cheapConfSet(v) if ns.Cheap then ns.Cheap:SetConfirm(v) end end
 
--- Every cached price was an answer from the addon that was chosen before this click: the cache goes, and an open
--- list is redrawn from the new source rather than from the numbers the last one left behind.
 -- Only the addons that are actually installed are offered: a player without TSM is never asked to pick it, and
 -- a choice left over from one that has since been turned off reads as Auto instead of as a dead row.
 local function cheapSrcKeys()
@@ -1040,34 +1038,33 @@ local function cheapSrcGet()
   return v
 end
 
-local function cheapSrcSet(v)
-  WarpeeDB.cheapAuctionSource = v
-  if ns.Cheap and ns.Cheap.ClearAuction then ns.Cheap:ClearAuction() end
-  cheapPaint()
-end
+local function cheapSrcSet(v) if ns.Cheap then ns.Cheap:SetAuctionSource(v) end end
 
 -- The kinds the list leaves alone. Absent reads as on, so a save from before these switches keeps protecting
 -- what the shipped answer protects; the module reads the same keys and treats them the same way.
 local function cheapKeepGet(key) return not (WarpeeDB and WarpeeDB[key] == false) end
-local function cheapKeepSet(key, v)
-  WarpeeDB[key] = v and true or false
-  cheapPaint()
-end
+local function cheapKeepSet(key, v) if ns.Cheap then ns.Cheap:SetKeep(key, v) end end
 
 local CHEAP_PAGE = {
   { type = "description",
     name = "The list that opens with the bags: the stacks a merchant pays least for, cheapest first. A stack the auction house values above its vendor price is marked AH." },
-  { type = "toggle", name = "Hide the cheap window", col = 1, of = 2, get = cheapHideGet, set = cheapHideSet,
-    desc = "The list never opens with the bags. Its settings stay as they are, and switching this off brings the window back." },
+  { type = "toggle", name = "Cheap window", col = 1, of = 2, get = cheapShowGet, set = cheapShowSet,
+    desc = "The list opens and closes with the bags. Off leaves its settings as they are; switching it back on brings the window with the bags again." },
+  -- With the window switched off nothing below it has a screen to act on, so every rule is greyed the way the
+  -- pocket's page greys its own; the master row above keeps its place and is never gated.
   { type = "toggle", name = "Subtract the auction cut", col = 2, of = 2, get = cheapCutGet, set = cheapCutSet,
+    disabled = function() return not cheapShowGet() end,
     desc = "The auction house keeps 5% of every sale, so the auction side of a row shows what you would really get: the listed price less 5%. Switch it off to compare against the raw price." },
   { type = "select", name = "Highest quality shown", get = cheapMaxGet, set = cheapMaxSet,
+    disabled = function() return not cheapShowGet() end,
     keys = function() return QUALITY_KEYS end, label = qualityLabel,
     desc = "The best quality that earns a row. Anything above it is left out, so the list stays about what is worth throwing away." },
   { type = "select", name = "Ask before deleting", get = cheapConfGet, set = cheapConfSet,
+    disabled = function() return not cheapShowGet() end,
     keys = function() return CONFIRM_KEYS end, label = qualityLabel,
     desc = "The quality a delete asks about first: below it a click throws the stack away at once, at it and above the game asks yes or no. Never turns the question off." },
   { type = "select", name = "Auction prices from", get = cheapSrcGet, set = cheapSrcSet,
+    disabled = function() return not cheapShowGet() end,
     keys = cheapSrcKeys, label = function(k) return T(AUCTION_LABEL[k] or k) end,
     desc = "Which addon the auction side reads. Auto takes Auctionator when it is installed and TSM after it. Vendor only shows every row at the merchant's price, and a gray stack is never asked at an auction house." },
   -- The kinds a delete leaves alone. A kind is the client's own class rather than a list of ids, so a potion
@@ -1075,26 +1072,29 @@ local CHEAP_PAGE = {
   -- marked for sale is still the player's to sell.
   { type = "header", name = "Kept from the list" },
   { type = "description",
-    name = "These never earn a row, whatever they are worth. The switches cover deleting: a piece you marked for sale is still a merchant's to take." },
+    name = "A row is a stack one click from being destroyed, so these kinds never get one. Untick a kind to list it again; a merchant buys them whatever the switches say." },
   { type = "toggle", name = "Potions and food", col = 1, of = 3,
     get = function() return cheapKeepGet("cheapKeepConsumable") end,
     set = function(v) cheapKeepSet("cheapKeepConsumable", v) end,
-    desc = "Every consumable: potions, elixirs, flasks, food and drink, bandages, weapon oils and scrolls. A buff or a meal is never one click from the bin." },
+    disabled = function() return not cheapShowGet() end,
+    desc = "Potions, elixirs, flasks, food and drink, bandages, weapon oils and scrolls: no row, so a buff or a meal is never one click from being destroyed. Unticked, they are listed again." },
   { type = "toggle", name = "Recipes", col = 2, of = 3,
     get = function() return cheapKeepGet("cheapKeepRecipe") end,
     set = function(v) cheapKeepSet("cheapKeepRecipe", v) end,
-    desc = "Recipes, plans and patterns. They are learned or sold, not thrown away." },
+    disabled = function() return not cheapShowGet() end,
+    desc = "Recipes, plans and patterns: no row, because they are learned or sold, not destroyed. Unticked, they are listed again." },
   { type = "toggle", name = "Toys, mounts and pets", col = 3, of = 3,
     get = function() return cheapKeepGet("cheapKeepCollectible") end,
     set = function(v) cheapKeepSet("cheapKeepCollectible", v) end,
-    desc = "Anything the client files as a toy, a mount or a battle pet. A deleted one cannot be got back." },
+    disabled = function() return not cheapShowGet() end,
+    desc = "Toys, mounts and battle pets: no row, because a destroyed one cannot be got back. Unticked, they are listed again." },
   -- The list of what the window was told to skip: the same shape as the marked-for-sale list beside it, because
   -- it is the same kind of thing -- item ids saved by hand, with the minus that takes each one back out.
   { type = "header", name = "Ignored items", key = "cheapignored",
     state = function() return ns.LN("%d items", (ns.Cheap and ns.Cheap:IgnoredCount()) or 0) end },
   { type = "description", section = "cheapignored",
     name = "Click the - on an item's icon in the list to leave it out of it. The list never offers it again; the minus here puts it back." },
-  { type = "cheaplist", section = "cheapignored" },
+  { type = "cheaplist", section = "cheapignored", disabled = function() return not cheapShowGet() end },
 }
 
 local VENDOR_SUBS = { { name = "Merchant", list = VENDOR_MAIN } }

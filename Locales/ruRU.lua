@@ -412,6 +412,9 @@ local STRINGS = {
   ["Quick access"] = "Быстрый доступ",
   ["New item glow"] = "Свечение новых предметов",
   ["Junk coin"] = "Монета на хламе",
+  ["Gear craft rank"] = "Тир крафта снаряжения",
+  ["The rhombus in the corner of crafted armor, weapons and profession equipment: the rank the piece rolled. Kept on the cell in the bags even with the professions window closed; consumables and reagents wear theirs either way."] =
+    "Ромбик в углу скрафченной брони, оружия и снаряжения профессий — тир, который выпал предмету. Виден в сумках, даже когда окно профессий закрыто; у расходников и реагентов он есть всегда.",
   ["Reagent border"] = "Рамка реагентов",
   ["Ammo / soul border"] = "Рамка боеприпасов / душ",
   ["Tint the slots of the quiver, the ammo pouch and the soul bag, in the grouped view too."] =
@@ -647,6 +650,9 @@ local STRINGS = {
   ["Favorites"] = "Избранное",
   ["Recent"] = "Недавнее",
   ["Recent in bags"] = "Недавнее в сумках",
+  ["Clear recent on bags close"] = "Очищать «Недавнее» при закрытии сумок",
+  ["The list empties when the bags close, so the next opening starts empty. The pocket draws the same list and empties with it."] =
+    "Список очищается, когда закрываются сумки, и следующее открытие начинается с пустого. Карман показывает тот же список, поэтому очищается вместе с ним.",
   ["Recent in the pocket"] = "Недавнее в кармане",
   ["The same recent row as in the bags, above the pocket cells. Clearing it in one window clears it in the other."] = "Та же строка, что в сумках, над ячейками кармана. Очистишь в одном окне — очистится и в другом.",
   ["A row above the favorites with what arrived this session, gray items aside. The oldest leaves when it fills; logging out or reloading clears it."] = "Строка над избранным с тем, что пришло за эту сессию, без серых предметов. Когда она заполнена, самое старое уходит; выход из игры или перезагрузка её очищают.",
@@ -893,9 +899,9 @@ local STRINGS = {
   ["Cheap"] = "Дешёвое",
   ["Merchant"] = "Торговец",
   ["Never"] = "Никогда",
-  ["Hide the cheap window"] = "Скрыть окно «Дешёвое»",
-  ["The list never opens with the bags. Its settings stay as they are, and switching this off brings the window back."] =
-    "Список никогда не открывается вместе с сумками. Его настройки остаются, а если снять эту галочку, окно вернётся.",
+  ["Cheap window"] = "Окно «Дешёвое»",
+  ["The list opens and closes with the bags. Off leaves its settings as they are; switching it back on brings the window with the bags again."] =
+    "Список открывается и закрывается вместе с сумками. Выключенный, он сохраняет настройки; включённый снова, возвращается вместе с сумками.",
   ["Subtract the auction cut"] = "Вычитать аукционный сбор",
   ["The auction house keeps 5% of every sale, so the auction side of a row shows what you would really get: the listed price less 5%. Switch it off to compare against the raw price."] =
     "Аукцион забирает 5% с каждой продажи, поэтому аукционная сторона строки показывает, сколько вы получите на самом деле: цену лота минус 5%. Снимите галочку, чтобы сравнивать с полной ценой.",
@@ -906,12 +912,12 @@ local STRINGS = {
   ["Auto"] = "Авто",
   ["Vendor only"] = "Только торговец",
   ["Kept from the list"] = "Что не попадает в список",
-  ["These never earn a row, whatever they are worth. The switches cover deleting: a piece you marked for sale is still a merchant's to take."] = "Эти предметы никогда не попадают в список, сколько бы они ни стоили. Переключатели касаются только удаления: помеченное для продажи по-прежнему может забрать торговец.",
+  ["A row is a stack one click from being destroyed, so these kinds never get one. Untick a kind to list it again; a merchant buys them whatever the switches say."] = "Строка списка — это стак в одном клике от уничтожения, поэтому такие предметы в список не попадают. Сними галочку любого вида — он снова начнёт появляться; торговцу их можно продать в любом случае.",
   ["Potions and food"] = "Зелья и еда",
-  ["Every consumable: potions, elixirs, flasks, food and drink, bandages, weapon oils and scrolls. A buff or a meal is never one click from the bin."] = "Любые расходники: зелья, эликсиры, настои, еда и питьё, бинты, масла для оружия и свитки. Бафф или обед никогда не окажутся в одном клике от корзины.",
-  ["Recipes, plans and patterns. They are learned or sold, not thrown away."] = "Рецепты, чертежи и выкройки. Их учат или продают, а не выбрасывают.",
+  ["Potions, elixirs, flasks, food and drink, bandages, weapon oils and scrolls: no row, so a buff or a meal is never one click from being destroyed. Unticked, they are listed again."] = "Зелья, эликсиры, настои, еда и питьё, бинты, масла для оружия и свитки: строки нет, поэтому бафф или обед не уничтожить одним кликом. Без галочки они снова в списке.",
+  ["Recipes, plans and patterns: no row, because they are learned or sold, not destroyed. Unticked, they are listed again."] = "Рецепты, чертежи и выкройки: строки нет, потому что их учат или продают, а не уничтожают. Без галочки они снова в списке.",
   ["Toys, mounts and pets"] = "Игрушки, скакуны и питомцы",
-  ["Anything the client files as a toy, a mount or a battle pet. A deleted one cannot be got back."] = "Всё, что клиент считает игрушкой, скакуном или боевым питомцем. Удалённое не вернуть.",
+  ["Toys, mounts and battle pets: no row, because a destroyed one cannot be got back. Unticked, they are listed again."] = "Игрушки, скакуны и боевые питомцы: строки нет, потому что уничтоженное не вернуть. Без галочки они снова в списке.",
   ["Ignored items"] = "Игнорируемые предметы",
   ["Click the - on an item's icon in the list to leave it out of it. The list never offers it again; the minus here puts it back."] = "Нажми на - на иконке предмета в списке, чтобы не предлагать его. Список больше его не покажет; минус здесь вернёт его обратно.",
   ["Nothing is ignored: click the - on an item's icon in the list to leave it out."] = "Ничего не игнорируется: нажми на - на иконке предмета в списке.",

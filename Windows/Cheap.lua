@@ -115,7 +115,7 @@ local Cheap = { rows = {} }
 ns.Cheap = Cheap
 
 local function itemGet()
-  return (C_Item and C_Item.GetItemInfo) or GetItemInfo
+  return C_Item and C_Item.GetItemInfo
 end
 
 local function containerInfo(bag, slot)
@@ -1143,3 +1143,41 @@ ev:SetScript("OnEvent", function(_, event)
     Cheap:Refresh()
   end)
 end)
+
+-- The window's own settings, declared beside the passes they owe, the way every other window keeps them
+-- (Core/Settings.lua): the options page asks for a change and this file writes the key, so no page puts a
+-- value in the save on its own and no change lands without the repaint behind it.
+local function repaint()
+  if Cheap.frame and Cheap.frame:IsShown() then Cheap:Paint() end
+end
+
+local setShow = ns.Setting("cheapShow", function(value)
+  -- Switched on is a request for the window, not just permission for it: with the bags up the list comes
+  -- back now, through the same door that brings it with them; switched off it leaves the screen at once.
+  if value then
+    if Cheap.MaybeShow then Cheap:MaybeShow() end
+  elseif Cheap.Close then
+    Cheap:Close()
+  end
+end)
+-- A cut or a source change moves every number on the list, and each cached price was an answer from the rule
+-- that stood before the click: the cache goes and the open list is painted from the new rule.
+local setCut = ns.Setting("cheapCut", function() Cheap:ClearAuction(); repaint() end)
+local setMax = ns.Setting("cheapMaxQuality", repaint)
+local setConfirm = ns.Setting("cheapConfirm")
+local setSource = ns.Setting("cheapAuctionSource", function() Cheap:ClearAuction(); repaint() end)
+local setKeepConsumable = ns.Setting("cheapKeepConsumable", repaint)
+local setKeepRecipe = ns.Setting("cheapKeepRecipe", repaint)
+local setKeepCollectible = ns.Setting("cheapKeepCollectible", repaint)
+
+function Cheap:SetShown(value) setShow(value and true or false) end
+function Cheap:SetCut(value) setCut(value and true or false) end
+function Cheap:SetMaxQuality(value) setMax(value) end
+function Cheap:SetConfirm(value) setConfirm(value) end
+function Cheap:SetAuctionSource(value) setSource(value) end
+function Cheap:SetKeep(key, value)
+  if key == "cheapKeepConsumable" then setKeepConsumable(value and true or false)
+  elseif key == "cheapKeepRecipe" then setKeepRecipe(value and true or false)
+  elseif key == "cheapKeepCollectible" then setKeepCollectible(value and true or false)
+  end
+end

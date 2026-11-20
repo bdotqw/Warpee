@@ -308,6 +308,9 @@ local STRINGS = {
   ["Quick access"] = "빠른 접근",
   ["New item glow"] = "새 아이템 반짝임",
   ["Junk coin"] = "잡동사니 동전",
+  ["Gear craft rank"] = "장비 제작 등급",
+  ["The rhombus in the corner of crafted armor, weapons and profession equipment: the rank the piece rolled. Kept on the cell in the bags even with the professions window closed; consumables and reagents wear theirs either way."] =
+    "제작한 방어구, 무기, 전문 기술 장비의 모서리에 있는 마름모, 즉 제작된 등급입니다. 전문 기술 창을 닫아도 가방에서 보이며, 소모품과 재료는 항상 표시됩니다.",
   ["Reagent border"] = "재료 테두리",
   ["Ammo / soul border"] = "탄약 / 영혼 테두리",
   ["Tint the slots of the quiver, the ammo pouch and the soul bag, in the grouped view too."] =
@@ -509,6 +512,9 @@ local STRINGS = {
   ["Favorites"] = "즐겨찾기",
   ["Recent"] = "최근",
   ["Recent in bags"] = "가방의 최근 줄",
+  ["Clear recent on bags close"] = "가방을 닫으면 최근 줄 비우기",
+  ["The list empties when the bags close, so the next opening starts empty. The pocket draws the same list and empties with it."] =
+    "가방을 닫을 때 목록을 비워서 다음에 열면 빈 목록으로 시작합니다. 주머니는 같은 목록을 보여 주므로 함께 비워집니다.",
   ["Recent in the pocket"] = "주머니의 최근 줄",
   ["The same recent row as in the bags, above the pocket cells. Clearing it in one window clears it in the other."] = "가방과 같은 최근 줄을 주머니 칸 위에 보여줍니다. 한 창에서 비우면 다른 창에서도 비워집니다.",
   ["A row above the favorites with what arrived this session, gray items aside. The oldest leaves when it fills; logging out or reloading clears it."] = "즐겨찾기 위의 줄로, 이번 접속 중에 들어온 것들을 회색 아이템을 빼고 보여줍니다. 가득 차면 가장 오래된 것이 빠지고, 접속을 끊거나 다시 불러오면 비워집니다.",
@@ -788,9 +794,9 @@ local STRINGS = {
   ["Cheap"] = "저렴한 물건",
   ["Merchant"] = "상인",
   ["Never"] = "안 함",
-  ["Hide the cheap window"] = "‘저렴한 물건’ 창 숨기기",
-  ["The list never opens with the bags. Its settings stay as they are, and switching this off brings the window back."] =
-    "목록이 가방과 함께 열리지 않습니다. 설정은 그대로 남고, 이 옵션을 끄면 창이 다시 나타납니다.",
+  ["Cheap window"] = "‘저렴한 물건’ 창",
+  ["The list opens and closes with the bags. Off leaves its settings as they are; switching it back on brings the window with the bags again."] =
+    "목록은 가방과 함께 열리고 닫힙니다. 끄면 설정은 그대로이며, 다시 켜면 가방과 함께 창이 돌아옵니다.",
   ["Subtract the auction cut"] = "경매 수수료 빼기",
   ["The auction house keeps 5% of every sale, so the auction side of a row shows what you would really get: the listed price less 5%. Switch it off to compare against the raw price."] =
     "경매장은 판매할 때마다 5%를 가져가므로, 줄의 경매 쪽에는 실제로 받게 될 금액(표시 가격에서 5%를 뺀 값)이 보입니다. 끄면 원래 가격과 비교합니다.",
@@ -801,12 +807,12 @@ local STRINGS = {
   ["Auto"] = "자동",
   ["Vendor only"] = "상인만",
   ["Kept from the list"] = "목록에서 제외됨",
-  ["These never earn a row, whatever they are worth. The switches cover deleting: a piece you marked for sale is still a merchant's to take."] = "이 물건들은 값과 상관없이 목록에 오르지 않습니다. 스위치는 삭제에만 적용됩니다: 판매 표시한 물건은 여전히 상인이 가져갈 수 있습니다.",
+  ["A row is a stack one click from being destroyed, so these kinds never get one. Untick a kind to list it again; a merchant buys them whatever the switches say."] = "목록의 한 줄은 한 번의 클릭으로 파괴되는 더미이므로, 이 종류는 줄이 생기지 않습니다. 체크를 풀면 다시 목록에 오르며, 상인은 어느 쪽이든 삽니다.",
   ["Potions and food"] = "물약과 음식",
-  ["Every consumable: potions, elixirs, flasks, food and drink, bandages, weapon oils and scrolls. A buff or a meal is never one click from the bin."] = "모든 소모품: 물약, 비약, 영약, 음식과 음료, 붕대, 무기 기름, 두루마리. 버프나 식사가 한 번의 클릭으로 쓰레기통에 가지 않습니다.",
-  ["Recipes, plans and patterns. They are learned or sold, not thrown away."] = "제작법, 도면, 도안. 배우거나 팔 것이지 버릴 것이 아닙니다.",
+  ["Potions, elixirs, flasks, food and drink, bandages, weapon oils and scrolls: no row, so a buff or a meal is never one click from being destroyed. Unticked, they are listed again."] = "물약, 비약, 영약, 음식과 음료, 붕대, 무기 기름, 두루마리: 줄이 없으므로 버프나 식사를 한 번의 클릭으로 파괴할 수 없습니다. 체크를 풀면 다시 목록에 오릅니다.",
+  ["Recipes, plans and patterns: no row, because they are learned or sold, not destroyed. Unticked, they are listed again."] = "제작법, 도면, 도안: 배우거나 팔 것이지 파괴할 것이 아니므로 줄이 없습니다. 체크를 풀면 다시 목록에 오릅니다.",
   ["Toys, mounts and pets"] = "장난감, 탈것, 애완동물",
-  ["Anything the client files as a toy, a mount or a battle pet. A deleted one cannot be got back."] = "클라이언트가 장난감, 탈것, 전투 애완동물로 분류하는 모든 것. 삭제한 것은 되찾을 수 없습니다.",
+  ["Toys, mounts and battle pets: no row, because a destroyed one cannot be got back. Unticked, they are listed again."] = "장난감, 탈것, 전투 애완동물: 파괴한 것은 되찾을 수 없으므로 줄이 없습니다. 체크를 풀면 다시 목록에 오릅니다.",
   ["Ignored items"] = "무시한 물건",
   ["Click the - on an item's icon in the list to leave it out of it. The list never offers it again; the minus here puts it back."] = "목록에서 물건 아이콘의 -를 클릭하면 그 물건을 목록에서 뺍니다. 목록은 다시는 그것을 제안하지 않으며, 여기의 -로 되돌립니다.",
   ["Nothing is ignored: click the - on an item's icon in the list to leave it out."] = "무시한 물건이 없습니다: 목록에서 물건 아이콘의 -를 클릭하세요.",

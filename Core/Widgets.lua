@@ -1156,30 +1156,6 @@ local function snapParity(host, v, axis)
   if (n % 2 == 1) ~= (bpx % 2 == 1) then n = n + 1 end
   return n * u
 end
-local function fitArm(host, d, sh, len, px)
-  d:ClearAllPoints()
-  d:SetPoint("CENTER", host, "CENTER", 0, 0)
-  local a = d.wpeAngle
-  if a == 90 then
-    -- Axis-aligned bars are sized straight, never rotated: rotating a bar on
-    -- a discrete grid rounds its centre to one side on every size.
-    d:SetSize(px, len)
-  else
-    d:SetSize(len, px)
-    if a ~= 0 then d:SetRotation(math.rad(a)) end
-  end
-  if not sh then return end
-  local u = ns.PX(host, 1)
-  sh:ClearAllPoints()
-  sh:SetPoint("CENTER", host, "CENTER", 0, 0)
-  -- Proud of its arm on every side, the ends included. A bar the same length as the stroke rimmed
-  -- the two long sides and left both tips bare, so there the stroke met the panel with nothing
-  -- between them. The bar grows by a pixel at each end, which is the outline the mark has promised
-  -- since it was drawn -- and because the growth is even and the stroke itself is snapped, an arm
-  -- that lands on the grid still gets exactly one pixel on either side.
-  sh:SetSize(len + 2 * u, px + 2 * u)
-  sh:SetRotation(math.rad(sh.wpeAngle))
-end
 -- A measure that a mark is laid out by, in whole physical pixels and always an even count. The marks
 -- that are built from axis-aligned rectangles rather than turned arms -- the padlock and the question
 -- mark -- lay every one of their parts out from the centre of the box, and half of an odd measure is a

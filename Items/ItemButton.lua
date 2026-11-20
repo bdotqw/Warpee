@@ -477,21 +477,42 @@ local function tierTake(b, src)
   t:SetPoint("TOPLEFT", b, "TOPLEFT", -3 * k, 2 * k)
   t:SetAlpha((b.searchMiss or b.bagMiss) and ns.BADGE_DIM or 1)
   t:Show()
+  -- Taking the atlas away is part of the take, not a word that the rhombus is gone: the hide hook below
+  -- is told so, or it would drop the mirror that was just put up.
+  src.wpeTierOwn = true
   src:Hide()
+  src.wpeTierOwn = nil
 end
 
--- The professions window opening or closing shows the game's rhombus on its own, on a pass
--- of ours that never runs, so the texture is watched for the show rather than for the pass.
+-- The game takes its rhombus down the same way it puts it up: closing the professions window runs the same
+-- pass that showed it, and the texture is hidden by that pass. A mirror that only listened for the show
+-- stayed behind, and the bags kept a craft rank on a piece after the window that drew it was gone. The
+-- mirror is dropped with its source, and only its own source can drop it.
+local function tierDrop(b, src)
+  local t = b and b.wpeTier
+  if not (t and t.wpeSrc == src) then return end
+  t:Hide()
+  t.wpeSrc, t.wpeLink, t.wpeW0, t.wpeH0 = nil, nil, nil, nil
+  b.wpeTierShown = nil
+end
+
+-- The professions window opening or closing shows and hides the game's rhombus on its own, on a pass
+-- of ours that never runs, so the texture is watched for both directions rather than for the pass.
 local function tierHook(t)
   if t.wpeTierHook then return end
   t.wpeTierHook = true
   local function shown(s)
     if tierAtlas(s) then tierTake(s:GetParent(), s) end
   end
+  local function hidden(s)
+    if s.wpeTierOwn then return end
+    tierDrop(s:GetParent(), s)
+  end
   hooksecurefunc(t, "Show", shown)
+  hooksecurefunc(t, "Hide", hidden)
   if t.SetShown then
     hooksecurefunc(t, "SetShown", function(s, on)
-      if on then shown(s) end
+      if on then shown(s) else hidden(s) end
     end)
   end
 end
@@ -2268,6 +2289,15 @@ function ns.UpdateItemButton(b)
   -- and verified against. Moving to another link also drops what the cell has seen of the game's overlay,
   -- since the atlas standing on it now says nothing about the piece arriving.
   if b.wpeQualityLink ~= hl then b.wpeQualityLink, b.wpeTierShown = hl, nil end
+  -- The rank the game draws is the button's own overlay, and the professions window is its switch: a crafted
+  -- piece carries the rhombus only while that window stands. Its item button has a flag that outranks the
+  -- window -- the profession UI itself uses it where a rank has to stay up -- and the quality call below
+  -- spends it. So the answer is handed down here, before that call: gear follows the marker in Items >
+  -- Markers, and a consumable or a reagent keeps the rank on whether the marker is ticked or not, which is
+  -- the look those cells have always had. Profession equipment is gear on an equip location even when it is
+  -- not filed under Armor or Weapon.
+  local gear = isGear or (iEquipLoc and iEquipLoc ~= "")
+  b.alwaysShowProfessionsQuality = (not gear) or (ns.Bags.craftTier and true or false)
   SetItemButtonQuality(b, info and info.quality, hl, false, info and info.isBound)
   ns.FitOverlays(b)
   ns.ApplyIconZoom(b)

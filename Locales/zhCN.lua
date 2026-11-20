@@ -321,6 +321,9 @@ local STRINGS = {
   ["Quick access"] = "快速访问",
   ["New item glow"] = "新物品光效",
   ["Junk coin"] = "垃圾硬币",
+  ["Gear craft rank"] = "装备制造等级",
+  ["The rhombus in the corner of crafted armor, weapons and profession equipment: the rank the piece rolled. Kept on the cell in the bags even with the professions window closed; consumables and reagents wear theirs either way."] =
+    "制造的护甲、武器和专业装备角落里的菱形，也就是这件装备制造出的等级。即使专业窗口已关闭也会在背包中显示；消耗品和材料本来就会显示。",
   ["Reagent border"] = "材料边框",
   ["Ammo / soul border"] = "弹药 / 灵魂边框",
   ["Tint the slots of the quiver, the ammo pouch and the soul bag, in the grouped view too."] =
@@ -522,6 +525,9 @@ local STRINGS = {
   ["Favorites"] = "收藏",
   ["Recent"] = "最近",
   ["Recent in bags"] = "背包里的最近栏",
+  ["Clear recent on bags close"] = "关闭背包时清空最近栏",
+  ["The list empties when the bags close, so the next opening starts empty. The pocket draws the same list and empties with it."] =
+    "关闭背包时清空列表，下次打开就是空的。口袋显示同一个列表，所以也会一起清空。",
   ["Recent in the pocket"] = "口袋里的最近栏",
   ["The same recent row as in the bags, above the pocket cells. Clearing it in one window clears it in the other."] = "与背包相同的最近物品行，显示在口袋格子之上。在一个窗口清空，另一个窗口也会清空。",
   ["A row above the favorites with what arrived this session, gray items aside. The oldest leaves when it fills; logging out or reloading clears it."] = "收藏夹上方的一行，显示本次登录期间获得的物品，灰色物品除外。填满后最早的一件移出；退出登录或重载会清空。",
@@ -779,9 +785,9 @@ local STRINGS = {
   ["Cheap"] = "廉价物品",
   ["Merchant"] = "商人",
   ["Never"] = "从不",
-  ["Hide the cheap window"] = "隐藏「廉价物品」窗口",
-  ["The list never opens with the bags. Its settings stay as they are, and switching this off brings the window back."] =
-    "该列表不会随背包一起打开。设置保持不变，关闭此项后窗口会重新出现。",
+  ["Cheap window"] = "「廉价物品」窗口",
+  ["The list opens and closes with the bags. Off leaves its settings as they are; switching it back on brings the window with the bags again."] =
+    "列表随背包一起打开和关闭。关闭后设置保留；重新开启时窗口会随背包回来。",
   ["Subtract the auction cut"] = "扣除拍卖行手续费",
   ["The auction house keeps 5% of every sale, so the auction side of a row shows what you would really get: the listed price less 5%. Switch it off to compare against the raw price."] =
     "拍卖行会从每笔交易中抽取 5%，因此每行的拍卖价格显示的是你实际能拿到的数额：标价减去 5%。关闭后与原始价格比较。",
@@ -792,12 +798,12 @@ local STRINGS = {
   ["Auto"] = "自动",
   ["Vendor only"] = "仅商人",
   ["Kept from the list"] = "不进入列表",
-  ["These never earn a row, whatever they are worth. The switches cover deleting: a piece you marked for sale is still a merchant's to take."] = "这些物品无论价值多少都不会出现在列表中。开关只影响删除：标记出售的物品仍然可以被商人收购。",
+  ["A row is a stack one click from being destroyed, so these kinds never get one. Untick a kind to list it again; a merchant buys them whatever the switches say."] = "列表里的一行就是一键销毁的一堆物品，所以这些类别不会出现在列表里。取消勾选即可让它重新进入列表；商人无论如何都会收购它们。",
   ["Potions and food"] = "药水与食物",
-  ["Every consumable: potions, elixirs, flasks, food and drink, bandages, weapon oils and scrolls. A buff or a meal is never one click from the bin."] = "所有消耗品：药水、药剂、合剂、食物与饮料、绷带、武器油和卷轴。增益或一餐永远不会只差一次点击就被扔掉。",
-  ["Recipes, plans and patterns. They are learned or sold, not thrown away."] = "配方、图纸和图样。它们是用来学习或出售的，不是用来扔的。",
+  ["Potions, elixirs, flasks, food and drink, bandages, weapon oils and scrolls: no row, so a buff or a meal is never one click from being destroyed. Unticked, they are listed again."] = "药水、药剂、合剂、食物和饮料、绷带、武器油和卷轴：不会出现在列表里，增益或一餐永远不会被一键销毁。取消勾选后重新出现在列表里。",
+  ["Recipes, plans and patterns: no row, because they are learned or sold, not destroyed. Unticked, they are listed again."] = "配方、图纸和图样：不会出现在列表里，因为它们是用来学习或出售的，不是用来销毁的。取消勾选后重新出现在列表里。",
   ["Toys, mounts and pets"] = "玩具、坐骑和宠物",
-  ["Anything the client files as a toy, a mount or a battle pet. A deleted one cannot be got back."] = "客户端归类为玩具、坐骑或战斗宠物的任何物品。删除后就再也拿不回来。",
+  ["Toys, mounts and battle pets: no row, because a destroyed one cannot be got back. Unticked, they are listed again."] = "玩具、坐骑和战斗宠物：不会出现在列表里，因为销毁后就拿不回来了。取消勾选后重新出现在列表里。",
   ["Ignored items"] = "已忽略物品",
   ["Click the - on an item's icon in the list to leave it out of it. The list never offers it again; the minus here puts it back."] = "在列表里点击物品图标上的 - 即可把它排除在外。列表不会再提供它；这里的 - 可以把它放回来。",
   ["Nothing is ignored: click the - on an item's icon in the list to leave it out."] = "没有已忽略的物品：在列表里点击物品图标上的 -。",

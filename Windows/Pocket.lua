@@ -292,7 +292,7 @@ end
 -- The pocket's own settings: each is declared here, beside the window that has to be redrawn, so the
 -- options page and the lock button go through one setter and neither can save a value without the pass
 -- behind it. What the window only reads is not a setting and stays out of this block: `pocket` is the pin
--- list, `pocketOpen` is session state, `pocketBind` records a one-time key assignment.
+-- list, `pocketBind` records a one-time key assignment.
 local setLock = ns.Setting("pocketLock", function() Pocket:Refresh() end)
 local setRows = ns.Setting("pocketRows", function() Pocket:Refresh() end)
 local setCols = ns.Setting("pocketCols", function() Pocket:Refresh() end)
@@ -1620,7 +1620,6 @@ function Pocket:Open()
       w:SetPoint("CENTER")
     end
   end
-  WarpeeDB.pocketOpen = true
   -- The bag window's warm open, in this window's terms: a picture that has not changed is shown, not built. The
   -- layout still runs before the show, the way it always did, so the first open costs no more than it did.
   if self:NeedsLayout() then self:Layout() else self:Resume() end
@@ -1641,11 +1640,11 @@ function Pocket:Open()
   if ns.PocketSeam then ns.PocketSeam() end
 end
 
-function Pocket:Close(keep)
+function Pocket:Close()
   if self.idField then self.idField.box:SetText(""); self.idField.box:ClearFocus(); self.idField:Preview() end
   if self.picksFrame then self.picksFrame:Hide() end
   if self.frame then self.frame:Hide() end
-  if not keep then WarpeeDB.pocketOpen, self.solo = nil, nil end
+  self.solo = nil
 end
 
 function Pocket:Toggle()
@@ -1725,7 +1724,7 @@ function Pocket:Hotkey()
 end
 
 function Pocket:Apply()
-  if not self:Enabled() then self:Close(true); return end
+  if not self:Enabled() then self:Close(); return end
   self:Refresh()
 end
 

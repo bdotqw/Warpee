@@ -9,6 +9,7 @@ local L = ns.L
 -- kind of thing -- a saved set of item ids the player edits by hand -- and it keeps its own small pool for the
 -- same reason that one does.
 local env = ns.OptionControlsEnv
+local offDuty = env.offDuty
 local BASE_FONT = env.baseFont
 local CONTENT_W = env.contentW
 local track = env.track
@@ -59,6 +60,9 @@ function factories.cheaplist(parent, spec)
   row.empty = empty
   row.Rebuild = function()
     local list = (ns.Cheap and ns.Cheap.IgnoredList and ns.Cheap:IgnoredList()) or {}
+    -- The window switched off greys the whole page behind its master row, this list included: the rows stay
+    -- where they are and the minus stops taking a click, the same face a rule row wears when gated.
+    local off = (spec.disabled and spec.disabled()) and true or nil
     local y = 0
     row.empty:SetShown(#list == 0)
     if #list == 0 then
@@ -69,6 +73,8 @@ function factories.cheaplist(parent, spec)
         c.itemID = e.itemID
         c.Text:SetText(e.name or tostring(e.itemID))
         c.icon:SetTexture(e.icon)
+        offDuty(c, off)
+        c.del:EnableMouse(not off)
         c:ClearAllPoints()
         c:SetPoint("TOPLEFT", 0, -y)
         c:SetPoint("TOPRIGHT", 0, -y)

@@ -341,6 +341,9 @@ local STRINGS = {
   ["Quick access"] = "Accesso rapido",
   ["New item glow"] = "Bagliore oggetti nuovi",
   ["Junk coin"] = "Moneta sulle cianfrusaglie",
+  ["Gear craft rank"] = "Grado dell'equipaggiamento",
+  ["The rhombus in the corner of crafted armor, weapons and profession equipment: the rank the piece rolled. Kept on the cell in the bags even with the professions window closed; consumables and reagents wear theirs either way."] =
+    "Il rombo nell'angolo di armature, armi ed equipaggiamento di professione creati: il grado uscito al pezzo. Si vede nelle borse anche a finestra delle professioni chiusa; consumabili e reagenti portano il loro comunque.",
   ["Reagent border"] = "Bordo reagenti",
   ["Ammo / soul border"] = "Bordo munizioni / anime",
   ["Tint the slots of the quiver, the ammo pouch and the soul bag, in the grouped view too."] =
@@ -576,6 +579,9 @@ local STRINGS = {
   ["Favorites"] = "Preferiti",
   ["Recent"] = "Recenti",
   ["Recent in bags"] = "Recenti nelle borse",
+  ["Clear recent on bags close"] = "Svuota i recenti alla chiusura delle borse",
+  ["The list empties when the bags close, so the next opening starts empty. The pocket draws the same list and empties with it."] =
+    "L'elenco si svuota alla chiusura delle borse e la prossima apertura parte vuota. La tasca mostra lo stesso elenco, quindi si svuota anche lei.",
   ["Recent in the pocket"] = "Recenti nella tasca",
   ["The same recent row as in the bags, above the pocket cells. Clearing it in one window clears it in the other."] = "La stessa riga delle borse, sopra le celle della tasca. Svuotarla in una finestra la svuota anche nell'altra.",
   ["A row above the favorites with what arrived this session, gray items aside. The oldest leaves when it fills; logging out or reloading clears it."] = "Una riga sopra i preferiti con ciò che è arrivato in questa sessione, esclusi gli oggetti grigi. Quando è piena esce il più vecchio; uscire o ricaricare la svuota.",
@@ -835,9 +841,9 @@ local STRINGS = {
   ["Cheap"] = "Economico",
   ["Merchant"] = "Mercante",
   ["Never"] = "Mai",
-  ["Hide the cheap window"] = "Nascondi la finestra «Economico»",
-  ["The list never opens with the bags. Its settings stay as they are, and switching this off brings the window back."] =
-    "La lista non si apre mai con le borse. Le sue impostazioni restano, e disattivando questa opzione la finestra torna.",
+  ["Cheap window"] = "Finestra «Economico»",
+  ["The list opens and closes with the bags. Off leaves its settings as they are; switching it back on brings the window with the bags again."] =
+    "L'elenco si apre e si chiude con le borse. Disattivato conserva le sue impostazioni; riattivandolo, la finestra torna con le borse.",
   ["Subtract the auction cut"] = "Sottrai la commissione d'asta",
   ["The auction house keeps 5% of every sale, so the auction side of a row shows what you would really get: the listed price less 5%. Switch it off to compare against the raw price."] =
     "La casa d'aste trattiene il 5% di ogni vendita, quindi il lato d'asta di una riga mostra quanto incasseresti davvero: il prezzo richiesto meno il 5%. Disattivalo per confrontare con il prezzo lordo.",
@@ -848,12 +854,12 @@ local STRINGS = {
   ["Auto"] = "Automatico",
   ["Vendor only"] = "Solo mercante",
   ["Kept from the list"] = "Tenuti fuori dalla lista",
-  ["These never earn a row, whatever they are worth. The switches cover deleting: a piece you marked for sale is still a merchant's to take."] = "Questi oggetti non ricevono mai una riga, qualunque sia il loro valore. Gli interruttori riguardano solo l'eliminazione: un oggetto segnato per la vendita resta del mercante.",
+  ["A row is a stack one click from being destroyed, so these kinds never get one. Untick a kind to list it again; a merchant buys them whatever the switches say."] = "Una riga è una pila a un clic dall'essere distrutta, quindi queste categorie non ne hanno. Togli la spunta e tornano nella lista; un mercante le compra comunque.",
   ["Potions and food"] = "Pozioni e cibo",
-  ["Every consumable: potions, elixirs, flasks, food and drink, bandages, weapon oils and scrolls. A buff or a meal is never one click from the bin."] = "Ogni consumabile: pozioni, elisir, fiale, cibo e bevande, bende, oli per armi e pergamene. Un beneficio o un pasto non sono mai a un clic dalla spazzatura.",
-  ["Recipes, plans and patterns. They are learned or sold, not thrown away."] = "Ricette, progetti e modelli. Si imparano o si vendono, non si buttano.",
+  ["Potions, elixirs, flasks, food and drink, bandages, weapon oils and scrolls: no row, so a buff or a meal is never one click from being destroyed. Unticked, they are listed again."] = "Pozioni, elisir, fiale, cibo e bevande, bende, oli per armi e pergamene: nessuna riga, così un beneficio o un pasto non sono mai a un clic dall'essere distrutti. Senza spunta tornano nella lista.",
+  ["Recipes, plans and patterns: no row, because they are learned or sold, not destroyed. Unticked, they are listed again."] = "Ricette, progetti e modelli: nessuna riga, perché si imparano o si vendono, non si distruggono. Senza spunta tornano nella lista.",
   ["Toys, mounts and pets"] = "Giocattoli, cavalcature e mascotte",
-  ["Anything the client files as a toy, a mount or a battle pet. A deleted one cannot be got back."] = "Tutto ciò che il client classifica come giocattolo, cavalcatura o mascotte da combattimento. Ciò che viene eliminato non torna.",
+  ["Toys, mounts and battle pets: no row, because a destroyed one cannot be got back. Unticked, they are listed again."] = "Giocattoli, cavalcature e mascotte da combattimento: nessuna riga, perché ciò che è distrutto non torna. Senza spunta tornano nella lista.",
   ["Ignored items"] = "Oggetti ignorati",
   ["Click the - on an item's icon in the list to leave it out of it. The list never offers it again; the minus here puts it back."] = "Clicca sul - sull'icona di un oggetto nella lista per lasciarlo fuori. La lista non lo offrirà più; il - qui lo rimette.",
   ["Nothing is ignored: click the - on an item's icon in the list to leave it out."] = "Niente è ignorato: clicca sul - sull'icona di un oggetto nella lista.",
