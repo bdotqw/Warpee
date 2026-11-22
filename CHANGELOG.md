@@ -1,21 +1,23 @@
 # Warpee
 
-## 14.0
+## 14.1
 
 ENG
 
 **Retail / Forever**
 
-- Retail: fixed, the craft rank rhombus stayed on armor, weapons and profession equipment after the professions window was closed.
-- Retail: added a checkbox, "Gear craft rank", that turns the always-on craft rank of armor, weapons and profession equipment on and off.
-- Added an option, "Clear recent on bags close", that empties the Recent row as the bags go.
-- The Recent row costs a fraction of what it did to open.
+- Fixed, the Recent row took items off wrong while the mail was emptied: each item taken now takes exactly one off.
+- Fixed, Recent cells could flicker and empty early while the bags were read one at a time: the row now redraws only after a whole sweep.
+- Fixed, a renamed equipment set kept its old name in the bags: the new one now shows at once.
+- Fixed, the bank header shifted while items were moved: every element in it now lands on the pixel grid at once.
+- Fixed, the Font row kept the name of a font whose addon was turned off: the pick is kept and comes back when that addon is enabled again.
 
 RU
 
 **Ритейл / Форель**
 
-- Ритейл: исправлено, ромбик тира крафта оставался на броне, оружии и снаряжении профессий после закрытия окна профессий.
-- Ритейл: добавлен чекбокс «Тир крафта снаряжения», который включает и отключает постоянное отображение тира крафта на броне, оружии и снаряжении профессий.
-- Добавлена опция «Очистка недавнего при закрытии сумок», строка пустеет вместе с закрытием сумок.
-- Строка «Недавние» стала дешевле открываться.
+- Исправлено некорректное списание предметов из строки «Недавние» при разборе почты: теперь каждый открытый предмет уменьшает количество ровно на единицу.
+- Исправлено мигание и преждевременное опустошение ячеек «Недавних» при последовательном чтении сумок. Теперь строка обновляется только после полного прохода.
+- Исправлено обновление названий комплектов снаряжения в сумках: после переименования новое название отображается сразу.
+- Исправлено смещение элементов в шапке банка при перемещении предметов. Все элементы теперь сразу выравниваются по пиксельной сетке.
+- Исправлено отображение выбранного шрифта после отключения аддона, из которого он был загружен. Выбор сохраняется и автоматически восстанавливается после повторного включения аддона.
