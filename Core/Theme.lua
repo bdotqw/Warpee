@@ -1980,11 +1980,28 @@ needFilter = function(names)
   return (#out > 0) and out or names
 end
 
+local function isListed(name)
+  for _, f in ipairs(BUILTIN) do
+    if f.name == name then return true end
+  end
+  local lsm = LSM()
+  return (lsm and lsm:IsValid("font", name)) and true or false
+end
+
+-- A name the media list does not hold is not thrown away: the addon that brought the font can be
+-- back at the next login, and the player's pick is worth more than one session's truth. Until then
+-- the window draws in the addon's own default, which is the client font, so this names that and the
+-- menu ticks it, while the saved name waits in the save for its file to return.
+function ns.Fonts:Shown(name)
+  if name and isListed(name) then return name end
+  return self.DEFAULT
+end
+
 -- A name is drawn as it is. Nothing swaps a font behind the player's back, so the name in
 -- the list and the text on screen stay the same thing. The client font is used only when the
 -- file is not there at all, which is a fact and not a guess about its glyphs.
 function ns.Fonts:Path(name)
-  local p = rawPath(name)
+  local p = rawPath(self:Shown(name))
   if not pathUsable(p) then return clientFont() end
   return p
 end

@@ -1030,17 +1030,21 @@ function View:AnchorSearch()
   local tx, b = self.txBtn, self.charBtn
   local row = 34 + Theme:TopInset() + Theme:ContentPad("top")
   -- Right to left: the character picker takes the edge while it stands, then the transfer chip, then
-  -- the search box, each one claiming its place only while it is shown.
+  -- the search box, each one claiming its place only while it is shown. Every one of them is placed on
+  -- the pixel grid here, not left for the window's snap pass: this runs again on every changed slot
+  -- (UpdateMeta), and a raw offset put back by that repeat had the pass moving the picker and the chip
+  -- a frame later -- the header stepping once per move. The bags' own search row is anchored the same
+  -- way (Bags:AnchorSearchRow), which is why a piece landing there never stirs its header.
   local prev
   if b and b:IsShown() then
     b:ClearAllPoints()
-    b:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row)
+    ns.SnapPoint(b, "TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row)
     prev = b
   end
   if tx and tx:IsShown() then
     tx:ClearAllPoints()
-    if prev then tx:SetPoint("TOPRIGHT", prev, "TOPLEFT", -6, 0)
-    else tx:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row) end
+    if prev then ns.SnapPoint(tx, "TOPRIGHT", prev, "TOPLEFT", -6, 0)
+    else ns.SnapPoint(tx, "TOPRIGHT", self.frame, "TOPRIGHT", -PAD, -row) end
     prev = tx
   end
   self.search:ClearAllPoints()
@@ -1611,7 +1615,10 @@ function View:UpdateTabs()
     self.wbTab:SetShown(wbOn)
     self.wbTab:ClearAllPoints()
     if bankOn then
-      self.wbTab:SetPoint("LEFT", self.bankTab, "RIGHT", 4, 0)
+      -- Snapped like every other mark in this row: the tab and the slot count hanging off its right edge
+      -- are re-anchored on every pass, and a raw offset left the window's snap pass to move them a frame
+      -- later, so each relayout showed the pair settling by a pixel.
+      ns.SnapPoint(self.wbTab, "LEFT", self.bankTab, "RIGHT", 4, 0)
     else
       ns.SnapPoint(self.wbTab, "TOPLEFT", self.frame, "TOPLEFT", PAD, -row1)
     end
@@ -2982,7 +2989,7 @@ function View:ArmTransfer(force)
   elseif not busy then
     tx.Text:SetText(ns.L["Transfer"])
   end
-  tx:SetWidth(math.max(58, math.ceil(tx.Text:GetStringWidth()) + 20))
+  tx:SetWidth(ns.SnapValue(tx, math.max(58, math.ceil(tx.Text:GetStringWidth()) + 20)))
   ns.SetButtonEnabled(tx, busy or (n > 0 and ns.Categories:Free() and bagsHaveRoom()))
 end
 
@@ -3353,10 +3360,13 @@ function View:Fonts()
     if fs then fs:SetFont(path, math.max(7, base + (delta or 0)), ns.OutlineFlags()) end
   end
   local bh = math.max(20, base + 6)
+  -- A measured width is a fraction of a pixel at most ui scales, and this pass runs on every layout: left
+  -- raw, the window's snap pass resized each of these a frame later, and the next layout put the fraction
+  -- back -- the tabs and the footer buttons changed size by a pixel on every deposit. SnapSize asks the
+  -- same question that pass asks, so a repeat pass leaves the size alone, as the bags' header does.
   local function fit(btn, minW, pad, h)
     if not (btn and btn.Text) then return end
-    btn:SetHeight(h or bh)
-    btn:SetWidth(math.max(minW, math.ceil(btn.Text:GetStringWidth()) + (pad or 16)))
+    ns.SnapSize(btn, math.max(minW, math.ceil(btn.Text:GetStringWidth()) + (pad or 16)), h or bh)
   end
   put(self.freeText, -1)
   put(self.hint, 0)
@@ -3367,18 +3377,21 @@ function View:Fonts()
   end
   put(self.moneyCaption, -3)
   local sh = math.max(22, base + 8)
-  if self.search then put(self.search, 0); put(self.search.Hint, 0); self.search:SetHeight(sh) end
+  -- The search box carries a box job of its own (ns.CreateSearchBox), which refits its height on the
+  -- window's snap pass from the target stored there. Handing it the same height here, instead of setting
+  -- the frame alone, keeps that target equal to what is on screen, so the pass has nothing left to change.
+  if self.search then put(self.search, 0); put(self.search.Hint, 0); ns.SnapBox(self.search, nil, sh) end
   if self.bankTab then put(self.bankTab.Text, -1); fit(self.bankTab, 52, nil, HBTN) end
   if self.wbTab then put(self.wbTab.Text, -1); fit(self.wbTab, 68, nil, HBTN) end
   if self.charBtn then
     put(self.charBtn.Text, -1)
     self.charBtn.Text:SetFont(path, math.max(7, base - 1), ns.OutlineFlags())
-    self.charBtn:SetHeight(sh)
+    self.charBtn:SetHeight(ns.SnapValue(self.charBtn, sh))
   end
   if self.txBtn then
     put(self.txBtn.Text, -1)
     self.txBtn.Text:SetFont(path, math.max(7, base - 1), ns.OutlineFlags())
-    self.txBtn:SetHeight(sh)
+    self.txBtn:SetHeight(ns.SnapValue(self.txBtn, sh))
   end
   if self.depositBtn then put(self.depositBtn.Text, -1); fit(self.depositBtn, 70, 18) end
   if self.withdrawBtn then put(self.withdrawBtn.Text, -1); fit(self.withdrawBtn, 76, 18) end
@@ -3634,9 +3647,11 @@ function View:UpdateFooter()
       self.depItemsBtn.Text:SetText(ns.L[account and "Deposit warbound items" or "Deposit reagents"])
       -- Width follows the label: the words differ by bank type and locale, so a fixed box clipped the
       -- longer ones. Pad each side so the text is never flush to the edge, and keep the header height.
+      -- Measured, so it is put on the pixel grid here: the flow below hangs the reagents box off this
+      -- button's left edge, and a fractional width left both of them between two pixels, with the window's
+      -- snap pass moving them on the frame after every money change.
       local w = math.ceil(self.depItemsBtn.Text:GetStringWidth()) + 24
-      self.depItemsBtn:SetWidth(math.max(70, w))
-      self.depItemsBtn:SetHeight(HBTN)
+      ns.SnapSize(self.depItemsBtn, math.max(70, w), HBTN)
     end
     -- The reagents box is a warband idea: only the account bank sorts reagents into a reagent tab, so the
     -- character bank offers the deposit button without it, exactly as the default frame gates it.

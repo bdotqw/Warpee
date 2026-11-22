@@ -1768,10 +1768,18 @@ local function setLoc(packed)
   return nil
 end
 
-local Sets = { map = {}, dirty = true }
+local Sets = { map = {}, dirty = true, epoch = 0 }
 ns.Sets = Sets
 
-function Sets:Dirty() self.dirty = true end
+-- A renamed set moves no link, no count and no key on any cell: the map is rebuilt, but every cell that wears a
+-- set name answers the paint guard with the same facts as before and keeps the old name until something else
+-- moves the piece, which is why a rename sat on the row until a reload or an unequip. The epoch is that fact: it
+-- moves whenever the sets can have changed, and a gear cell whose stamp is behind it is painted again. Only gear
+-- can wear the name, so the other cells of the window pay one comparison and nothing else.
+function Sets:Dirty()
+  self.dirty = true
+  self.epoch = self.epoch + 1
+end
 
 function Sets:Map()
   if not self.dirty then return self.map end
@@ -2157,6 +2165,7 @@ function ns.UpdateItemButton(b)
     elseif b.wpeBound ~= bound then why = "bound"
     elseif b.wpeItemLocked ~= locked then why = "lock"
     elseif b.wpeUnusable ~= unusable then why = "verdict"
+    elseif b.meta and b.meta.isGear and b.wpeSetEpoch ~= Sets.epoch then why = "outfit"
     end
   end
   if not why then
@@ -2168,7 +2177,8 @@ function ns.UpdateItemButton(b)
     return b.itemName
   end
   paintSeenMark(b, link)
-  b.link, b.wpeCount, b.wpeMark, b.wpeQuestKey, b.wpeBound = link, count, mark, qkey, bound
+  b.link, b.wpeCount, b.wpeMark, b.wpeQuestKey, b.wpeBound, b.wpeSetEpoch =
+    link, count, mark, qkey, bound, Sets.epoch
   b.wpeUnusable = unusable
   -- The cell is about to be drawn, so what the search pass applied to it no longer describes it: a paint
   -- can move or clear any badge its alphas reach for, and its meta is rewritten below. The record is

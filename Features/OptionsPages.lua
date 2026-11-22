@@ -180,7 +180,11 @@ local GENERAL_PAGE = {
       { type = "select", name = "Language", col = 1, of = 2, get = localeGet, set = localeSet,
         keys = localeKeys, label = localeLabel,
         desc = "Language for the addon's own text. Item names always come from the game." },
-      { type = "select", name = "Font", col = 2, of = 2, get = fontGet,
+      -- The row names the face the window is drawn in. A pick whose addon is off stays in the save
+      -- (ns.Fonts:Shown explains why) and comes back with the font, so what is shown is the default
+      -- that is drawing in its place rather than a name the list no longer holds.
+      { type = "select", name = "Font", col = 2, of = 2,
+        get = function() return ns.Fonts:Shown(fontGet()) end,
         set = function(v) fontSet(v); Options:ApplyFont() end,
         keys = fontKeys, label = function(k) return k end,
         desc = "Used for every label Warpee draws. Other addons can add to this list." },

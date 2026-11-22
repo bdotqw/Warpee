@@ -16,6 +16,12 @@ local bagView, pocketView = { cells = {} }, { cells = {} }
 local missed, guidMiss = {}, {}
 local locBag, locSlot = {}, {}
 local poor = {}
+-- What each bag held of an id on the last pass that read it, so a pass that reads one bag can replace that
+-- bag's share of the total instead of writing the share itself as the total. Rebuilt whole on every sweep.
+local bagKnown = {}
+-- Ids one slot answered with a container id but no item data: the pass cannot count them, so it must not
+-- decide their totals either (see tally and detect).
+local unread = {}
 -- Items a scan saw in a slot but could not read yet: GetContainerItemInfo answers nil for an item whose
 -- data has not reached the client (a gem just taken from the mail is the common case). The id is kept here
 -- and its load requested, so the ITEM_DATA_LOAD_RESULT handler can run one more detect the moment it caches
@@ -138,7 +144,8 @@ local function capacity()
   local n = pocket and pocket.RecentCount and pocket:RecentCount() or 0
   return math.max(bagCapacity(), math.min(n, MAX_SLOTS))
 end
-local function scanBag(bag, counts)
+local function scanBag(bag, counts, mine)
+  mine = mine or counts
   for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
     local info = C_Container.GetContainerItemInfo(bag, slot)
     local id = info and info.itemID
@@ -152,6 +159,7 @@ local function scanBag(bag, counts)
       local pid = C_Container.GetContainerItemID and C_Container.GetContainerItemID(bag, slot)
       if pid then
         pending[pid] = true
+        unread[pid] = true
         if C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(pid) end
       end
     end
@@ -166,9 +174,14 @@ local function scanBag(bag, counts)
         locBag[g], locSlot[g] = bag, slot
         if info.quality == 0 then poor[g] = true end
       else
-        counts[id] = (counts[id] or 0) + (info.stackCount or 1)
+        local held = info.stackCount or 1
+        counts[id] = (counts[id] or 0) + held
+        if mine ~= counts then mine[id] = (mine[id] or 0) + held end
         if info.quality == 0 then poor[id] = true end
-        if not locBag[id] then locBag[id], locSlot[id] = bag, slot end
+        -- The slot a cell binds is re-pointed on every pass that sees the id, not only on its first:
+        -- the stack it was seated on is often the one the player just used, and a cell left bound to an
+        -- empty slot until the whole pass drew a blank there for a frame.
+        locBag[id], locSlot[id] = bag, slot
       end
     end
   end
@@ -180,17 +193,29 @@ end
 -- sweep -- that is the path the row appears on, and it is not the one this cuts.
 local function tally(only)
   local counts = {}
+  -- A whole pass also reads every bag's own part; the parts are handed back rather than written here, so a
+  -- pass that decides nothing (an item on the cursor, the client between worlds) leaves the last consistent
+  -- set in place instead of pairing fresh parts with totals from before the pass that did not run.
+  local parts
   -- Where a cell stands survives a one-bag pass: the bag that was not read still holds what it held, and a
   -- cell whose position were wiped would be painted nowhere and pruned nowhere. A whole sweep rebuilds the
   -- map, and a cell that leaves takes its entry with it (hole, remove, Wipe).
-  if not only then wipe(locBag); wipe(locSlot) end
+  if not only then wipe(locBag); wipe(locSlot); parts = {} end
   wipe(poor)
-  wipe(guidNow); wipe(guidItem)
+  wipe(guidNow); wipe(guidItem); wipe(unread)
   for _, bag in ipairs(ns.playerBags) do
-    if not only or bag == only then scanBag(bag, counts) end
+    if not only or bag == only then
+      local mine = parts and {} or counts
+      if parts then parts[bag] = mine end
+      scanBag(bag, counts, mine)
+    end
   end
-  if ns.reagentBag and (not only or ns.reagentBag == only) then scanBag(ns.reagentBag, counts) end
-  return counts
+  if ns.reagentBag and (not only or ns.reagentBag == only) then
+    local mine = parts and {} or counts
+    if parts then parts[ns.reagentBag] = mine end
+    scanBag(ns.reagentBag, counts, mine)
+  end
+  return counts, parts
 end
 
 local function used()
@@ -312,24 +337,23 @@ local function viewFeed(view, n, refill)
   return out
 end
 
-local function prune(counts, only)
+local function prune(counts)
   -- Nothing is counted or dropped while the cursor carries an item. A picked-up item is in
   -- no bag at all until it lands, so every key reads as gone for the pass.
   if GetCursorInfo() then return false end
-  -- A pass that read one bag judges the cells standing in that bag and nothing else: every other cell reads
-  -- as missing only because it was not looked at, and dropping it would take away a cell whose item is still
-  -- there. locBag keeps the last known position across a one-bag pass, so the bag a cell stands in is still
-  -- known when the pass that has to decide about it did not read it.
+  -- Only a whole sweep prunes. A pass that read one bag cannot tell a cell whose item left that bag from one
+  -- whose item still lies in another bag: the count it has is that bag's share, not the total, and dropping
+  -- a cell on it took the row away while the piece was still carried. The sweep the delayed bag event brings
+  -- answers it a moment later.
   for i = 1, MAX_SLOTS do
     local key = cells[i]
-    local judged = (not only) or (key and locBag[key] == only)
-    local here = key and (type(key) == "string" and guidNow[key] or counts[key])
+    local here = key and (type(key) == "string" and guidNow[key] or counts[key] or unread[key])
     -- A cell goes the moment its item is not in the bags: using, selling, mailing and destroying all
     -- read the same here, and the pass that saw it gone is the pass that saw it leave -- holding the
     -- cell for two more passes left a used-up row standing with nothing left in it, which is the shape
     -- of a row that does not disappear. The guards above are what keeps this honest: a pass with no
     -- container answer at all and a pass with something on the cursor decide nothing.
-    if key and judged and (not here or poor[key]) then hole(i, key) end
+    if key and (not here or poor[key]) then hole(i, key) end
   end
   -- Nothing left to ask for: a cell that missed is gone on this pass, so there is no counter to push
   -- over and no extra look to schedule.
@@ -410,7 +434,7 @@ end
 local soon
 
 local function detect(only)
-  local counts = tally(only)
+  local counts, parts = tally(only)
   local seen = bodyDiff()
   -- Nothing is decided while the cursor carries an item, the same guard prune keeps. A split lifts part of
   -- a stack onto the cursor, so this pass would read the source slot as shrunk, write the smaller number as
@@ -428,6 +452,8 @@ local function detect(only)
   -- inventory from a client that is not there: a single bag read empty is a bag that was emptied,
   -- and its cells have to go.
   if not only and not (next(counts) or next(guidNow) or seen) then return end
+  -- This pass commits: its parts and the totals below are read off the same inventory.
+  if parts then bagKnown = parts end
   local hold = not primed or frozen() or not Rec:Live()
      or (GetTime() - primed) < SETTLE
   if not primed and (C_Container.GetContainerNumSlots(0) or 0) > 0 then
@@ -437,27 +463,68 @@ local function detect(only)
   for g in pairs(guidNow) do
     if not (guidHad[g] or everWorn[g] or hold or poor[g] or fromShed(guidItem[g])) then add(g, n, nil) end
   end
-  for id, c in pairs(counts) do
-    local was = known[id] or 0
-    if c > was then
-      local d = pardon(id, c - was)
-      -- An increase in an id the cursor is carrying (or just put down) is a split or a move landing, not
-      -- loot: swallow it so the player's own stack surgery never lists as recent. known still moves to the
-      -- new count below, so the piece is accounted for, just not announced.
-      if d > 0 and not hold and not poor[id] and not fromCursor(id) then
-        -- An id already in the row needs nothing here: the number below is derived from the base it
-        -- entered with, so a second arrival is counted by the same read that reports the bags.
-        if not seq[id] then add(id, n, d, c) end
+  -- The number a cell wears is the total over every bag, so a one-bag pass must not write its own share as
+  -- that total. The share this bag held last pass is subtracted and the share it holds now is added back, so
+  -- the total moves by exactly what moved in that bag. Without the subtraction one bag of a stack read as the
+  -- whole id (fourteen pieces across bags fell to "2"), a cell read short was dropped while the rest still lay
+  -- elsewhere, and a cell seated again after that took its baseline from the short read, so its number began
+  -- part way into the bag. Only a bag whose part is already on record can be accounted this way; before the
+  -- first sweep there is nothing to subtract, and a whole pass is left to seat it.
+  local totals = counts
+  if only then
+    local prev = bagKnown[only]
+    if prev then
+      totals = {}
+      -- The bag's own record is rewritten in place: this pass is the only reader, and a copy per pass would
+      -- put a whole bag of ids on the collector for every item used.
+      local mine = prev
+      for id in pairs(prev) do
+        if not unread[id] then totals[id] = math.max(0, (known[id] or 0) - prev[id]) end
+      end
+      for id, c in pairs(counts) do
+        if not unread[id] then
+          totals[id] = math.max(0, (known[id] or 0) - (prev[id] or 0) + c)
+          mine[id] = c
+        end
+      end
+      -- An id that left the bag left it only if every slot of the bag answered: a slot whose item data has
+      -- not landed keeps its old share and its total as it was, and the load it asked for runs the pass that
+      -- can read it.
+      for id in pairs(prev) do
+        if not counts[id] and not unread[id] then mine[id] = nil end
+      end
+      bagKnown[only] = mine
+    else
+      totals = nil
+    end
+  end
+  if totals then
+    for id, c in pairs(totals) do
+      -- A slot whose data has not reached the client counts for nothing; the whole pass its load brings is
+      -- the one that can read it, so this pass leaves the id's total and baseline exactly as they were.
+      if not unread[id] then
+        local was = known[id] or 0
+        if c > was then
+          local d = pardon(id, c - was)
+          -- An increase in an id the cursor is carrying (or just put down) is a split or a move landing, not
+          -- loot: swallow it so the player's own stack surgery never lists as recent. known still moves to the
+          -- new count below, so the piece is accounted for, just not announced.
+          if d > 0 and not hold and not poor[id] and not fromCursor(id) then
+            -- An id already in the row needs nothing here: the number below is derived from the base it
+            -- entered with, so a second arrival is counted by the same read that reports the bags.
+            if not seq[id] then add(id, n, d, c) end
+          end
+        end
+        -- The row's number, read off the live total rather than carried: what the id holds now against what it
+        -- held when it appeared. A pass that reads short for a frame (a stack on the cursor, a slot the read
+        -- missed) costs that frame and no more, because nothing is subtracted here and nothing is clipped.
+        if base[id] then
+          local live = c - base[id]
+          if live > 0 then got[id] = live else remove(id) end
+        end
+        known[id] = c
       end
     end
-    -- The row's number, read off the live total rather than carried: what the id holds now against what it
-    -- held when it appeared. A pass that reads short for a frame (a stack on the cursor, a slot the read
-    -- missed) costs that frame and no more, because nothing is subtracted here and nothing is clipped.
-    if base[id] then
-      local live = c - base[id]
-      if live > 0 then got[id] = live else remove(id) end
-    end
-    known[id] = c
   end
   -- The mail frame is the one place where the bags change without anything arriving: a letter is filled
   -- out of them and emptied back into them, and the client pushes every one of those moves through the
@@ -468,7 +535,7 @@ local function detect(only)
   local mail = mailing()
   if not only and not mail then
     for id in pairs(known) do
-      if not counts[id] and not equipped(id) then
+      if not counts[id] and not unread[id] and not equipped(id) then
         local m = (missed[id] or 0) + 1
         if m >= 3 then known[id] = nil; missed[id] = nil
         else missed[id] = m end
@@ -481,7 +548,7 @@ local function detect(only)
   -- ever the bag events that happen to arrive. The event that takes an item out of the bags
   -- is usually the last one for a while, so the third pass never comes on its own, and the
   -- cell outlives the item it was showing. The count is asked for another look instead.
-  if prune(counts, only) then soon() end
+  if not only and prune(counts) then soon() end
   -- The three-pass decay is bookkeeping for the whole inventory, so only the full sweep runs it: in a one-bag
   -- pass every other bag's ids and guids would read as missing, and three of those passes would forget
   -- baselines that never went anywhere. BAG_UPDATE_DELAYED follows every burst with a full pass anyway.
@@ -813,7 +880,10 @@ soon = function(bag)
     local only = (not pendingAll) and pendingBag or nil
     pendingBag, pendingAll = nil, false
     detect(only)
-    Rec:Refresh()
+    -- A one-bag pass only books what moved in that bag; it is not a picture. Painting on it drew the row
+    -- from a position that may belong to a stack just used (the cell's slot is re-pointed by the whole pass
+    -- the delayed bag event brings), so the row blinked through a blank there. The whole pass paints.
+    if not only then Rec:Refresh() end
   end)
 end
 
