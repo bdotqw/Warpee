@@ -663,11 +663,30 @@ end
 -- and compact them once it closes). Cheap and idempotent, so it no-ops for a plain grid or a closed window.
 -- Deferred one frame: the interaction-manager state is only updated after the event, so a layout run inside
 -- the handler would still read the window as open and keep the holes the close was meant to settle.
-function ns.RelayoutForSplit()
+-- The close can land before the client stops reporting the interaction, so the pass below runs once more
+-- over the lifted fold and the grid is left unfolded with nothing to bring it back. Watch for the moment
+-- the client says the window is gone, then lay out once more: a tenth of a second apart, at most two
+-- seconds, and only while a picture that lifted the fold is on screen. A window opened again in that time
+-- is left to its own close, which arms this again.
+local function settleFold(tries)
+  if not (ns.Categories and ns.Categories.foldLifted) then return end
+  -- Either grouped window can be the one that lifted the fold, and either can be the one on screen.
+  local shown = (Bags.frame and Bags.frame:IsShown())
+                or (ns.Bank and ns.Bank.frame and ns.Bank.frame:IsShown())
+  if not shown then return end
+  if ns.SplitWindowOpen and ns.SplitWindowOpen() then
+    if tries < 20 then C_Timer.After(0.1, function() settleFold(tries + 1) end) end
+    return
+  end
+  ns.RelayoutForSplit()
+end
+
+function ns.RelayoutForSplit(settle)
   if ns.Categories and ns.Categories.MoveQuiet and ns.Categories:MoveQuiet() then return end
   C_Timer.After(0, function()
     if Bags.frame and Bags.frame:IsShown() and Bags.CatMode and Bags:CatMode() then Bags:Layout() end
     if ns.Bank and ns.Bank.Refresh then ns.Bank:Refresh() end
+    if settle then settleFold(0) end
   end)
 end
 
@@ -688,6 +707,12 @@ local function interactKey(t)
     -- nil key inside the literal above would take the whole addon down at load, and Forever ships neither.
     if IT.ItemUpgrade and not ns.IsForever then INTERACT_KEY[IT.ItemUpgrade] = "itemupgrade" end
     if IT.ItemInteraction and not ns.IsForever then INTERACT_KEY[IT.ItemInteraction] = "catalyst" end
+    -- The scrapper and the void storage take items out of the bags one at a time exactly as a merchant
+    -- and a banker do, so each rides the switch the like of it already has instead of shipping another:
+    -- the bags come up beside them and leave when they close. Without this they had no key at all, so
+    -- neither the open nor the close ran for them and the bags ignored both.
+    if IT.ScrappingMachine then INTERACT_KEY[IT.ScrappingMachine] = "vendor" end
+    if IT.VoidStorageBanker then INTERACT_KEY[IT.VoidStorageBanker] = "bank" end
   end
   return INTERACT_KEY[t]
 end
@@ -732,6 +757,7 @@ for _, e in ipairs({ "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CH
                      "REAGENTBANK_UPDATE", "BANK_TABS_CHANGED", "BANK_TAB_SETTINGS_UPDATED",
                      "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED", "ACCOUNT_MONEY",
                      "TRADE_SKILL_SHOW", "TRADE_SKILL_CLOSE",
+                     "TRADE_SHOW", "TRADE_CLOSED", "MAIL_SHOW", "MAIL_CLOSED",
                      "UI_SCALE_CHANGED", "DISPLAY_SIZE_CHANGED", "CVAR_UPDATE",
                      "PLAYER_REGEN_ENABLED", "PLAYER_ENTERING_WORLD",
                      "UPDATE_FACTION", "PLAYER_SPECIALIZATION_CHANGED", "PVP_RATING_UPDATE",
@@ -1106,7 +1132,7 @@ local function onBankClosed()
   autoCloseBags("bank")
   -- Settle the grouped anti-jump freeze the bank interactions left: holes held in place while the
   -- banker was open (a deposit from the bags, a withdraw in the bank) relay into the packed order now.
-  ns.RelayoutForSplit()
+  ns.RelayoutForSplit(true)
 end
 
 local function onProfessionsOpened()
@@ -1119,15 +1145,55 @@ end
 -- bank announces itself on its own event instead, and the same switch is answered here. Retail is left
 -- alone -- it reports the same visit through the manager, and answering both events there would take one
 -- open for two and read the window shut while it is still up.
+
+-- The manager is the one place a visit is announced on retail. A client without one has only each
+-- window's own event, and the pairs below exist for exactly that client.
+local HAS_INT_MANAGER = (C_PlayerInteractionManager
+                         and C_PlayerInteractionManager.IsInteractingWithNpcOfType) and true or false
+
 local function onGuildBankOpened()
   if not ns.IsForever then return end
   if ns.Recent then ns.Recent:VisitOpen() end
   autoOpenBags("guildbank")
+  -- The guild bank takes items one stack at a time, like a trade: the grouped view has to lift the
+  -- Combine-stacks fold while it stands, the same pass the manager path runs for retail.
+  ns.RelayoutForSplit()
 end
 
 local function onGuildBankClosed()
   if not ns.IsForever then return end
   autoCloseBags("guildbank")
+  -- And the fold goes back, with the holes the visit held settled into the packed order.
+  ns.RelayoutForSplit(true)
+end
+
+-- A trade and a mailbox the same way, for the client the manager is missing on: the bags come up with
+-- the visit and leave with it, as at the guild bank. Retail answers these two through the manager, so
+-- the pair stands aside there rather than taking one visit for two.
+local function onTradeOpened()
+  if HAS_INT_MANAGER then return end
+  if ns.Recent then ns.Recent:VisitOpen() end
+  autoOpenBags("trade")
+  ns.RelayoutForSplit()
+end
+
+local function onTradeClosed()
+  if HAS_INT_MANAGER then return end
+  autoCloseBags("trade")
+  ns.RelayoutForSplit(true)
+end
+
+local function onMailOpened()
+  if HAS_INT_MANAGER then return end
+  if ns.Recent then ns.Recent:VisitOpen() end
+  autoOpenBags("mail")
+  ns.RelayoutForSplit()
+end
+
+local function onMailClosed()
+  if HAS_INT_MANAGER then return end
+  autoCloseBags("mail")
+  ns.RelayoutForSplit(true)
 end
 
 local function onProfessionsClosed()
@@ -1140,6 +1206,13 @@ local function onInteractionOpened(_, a1)
     -- The transmog window covers most of the screen and no bag is needed on it, so
     -- both of ours get out of the way. Hiding the bags takes the pocket with it when
     -- it is open beside them; one on its own needs its own word.
+    -- What was on screen is noted first: the window that sent them away is the one that puts them
+    -- back, so a player who had the bags open before it opened does not have to press the key again
+    -- after it closes.
+    ns.transmogWas = {
+      bags = (Bags.frame and Bags.frame:IsShown()) and true or nil,
+      pocket = (ns.Pocket and ns.Pocket.frame and ns.Pocket.frame:IsShown()) and true or nil,
+    }
     ns.Toggle(false)
     if ns.Pocket then ns.Pocket:Close() end
     return
@@ -1171,6 +1244,18 @@ end
 
 local function onInteractionClosed(_, a1)
   local IT = Enum and Enum.PlayerInteractionType
+  local was = ns.transmogWas
+  if was and IT and a1 == IT.Transmogrifier then
+    -- Back the way the window found them: the pocket first (one standing on its own is not the bags'
+    -- to bring), then the bags, whose own open decides the pocket's fate when it comes with them.
+    ns.transmogWas = nil
+    if was.pocket and ns.Pocket and not (ns.Pocket.frame and ns.Pocket.frame:IsShown()) then
+      ns.Pocket:Open()
+    end
+    if was.bags and not (Bags.frame and Bags.frame:IsShown()) then
+      ns.Toggle(true)
+    end
+  end
   if ns.Bank and IT and (a1 == IT.AccountBanker or a1 == IT.Banker
      or a1 == IT.CharacterBanker) then
     -- Fallback close: BANKFRAME_CLOSED is dropped now and then and strands the window open and
@@ -1186,7 +1271,7 @@ local function onInteractionClosed(_, a1)
   local k = interactKey(a1)
   if k then autoCloseBags(k) end
   -- The window closed: fold the stacks back if Combine stacks is on.
-  ns.RelayoutForSplit()
+  ns.RelayoutForSplit(true)
 end
 
 local function onBankSlots()
@@ -1223,6 +1308,10 @@ on.BANKFRAME_OPENED = onBankOpened
 on.BANKFRAME_CLOSED = onBankClosed
 on.TRADE_SKILL_SHOW = onProfessionsOpened
 on.TRADE_SKILL_CLOSE = onProfessionsClosed
+on.TRADE_SHOW = onTradeOpened
+on.TRADE_CLOSED = onTradeClosed
+on.MAIL_SHOW = onMailOpened
+on.MAIL_CLOSED = onMailClosed
 on.GUILDBANKFRAME_OPENED = onGuildBankOpened
 on.GUILDBANKFRAME_CLOSED = onGuildBankClosed
 on.PLAYER_INTERACTION_MANAGER_FRAME_SHOW = onInteractionOpened

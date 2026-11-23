@@ -20,20 +20,35 @@ Cats.EMPTY_ID = "empty"
 -- physical stack its own cell again for the duration, then the fold returns when the window closes.
 -- Read live each layout; the events that open and close these windows already relayout the grouped view.
 local SPLIT_TYPES
+-- The windows themselves, for the client whose interaction manager names no types at all (the classic
+-- build): the visits the list above names, read off the frames that are on screen. Names rather than
+-- frames, since the frame a lookup finds is the one standing now, not the one that stood the first time
+-- this was asked.
+local SPLIT_FRAME_NAMES = { "TradeFrame", "MailFrame", "MerchantFrame", "BankFrame", "GuildBankFrame",
+                            "VoidStorageFrame" }
 local function splitWindowOpen()
   local M = C_PlayerInteractionManager
   local IT = Enum and Enum.PlayerInteractionType
-  if not (M and M.IsInteractingWithNpcOfType and IT) then return false end
-  if not SPLIT_TYPES then
-    SPLIT_TYPES = {}
-    for _, k in ipairs({ "TradePartner", "MailInfo", "Merchant", "Banker", "CharacterBanker",
-                         "AccountBanker", "GuildBanker", "ScrappingMachine", "ItemInteraction",
-                         "VoidStorageBanker" }) do
-      if IT[k] then SPLIT_TYPES[#SPLIT_TYPES + 1] = IT[k] end
+  if M and M.IsInteractingWithNpcOfType and IT then
+    if not SPLIT_TYPES then
+      -- Built once, from whatever this client has: a type it does not know would be a nil key.
+      SPLIT_TYPES = {}
+      for _, k in ipairs({ "TradePartner", "MailInfo", "Merchant", "Banker", "CharacterBanker",
+                           "AccountBanker", "GuildBanker", "ScrappingMachine", "ItemInteraction",
+                           "VoidStorageBanker" }) do
+        if IT[k] then SPLIT_TYPES[#SPLIT_TYPES + 1] = IT[k] end
+      end
+    end
+    for _, t in ipairs(SPLIT_TYPES) do
+      if M.IsInteractingWithNpcOfType(t) then return true end
     end
   end
-  for _, t in ipairs(SPLIT_TYPES) do
-    if M.IsInteractingWithNpcOfType(t) then return true end
+  -- No answer from the manager -- a client built without one, or one that never names these visits:
+  -- the windows themselves answer. Without this the fold stayed down and a physical stack could not be
+  -- picked up on its own in a trade, a mailbox or the guild bank there.
+  for _, name in ipairs(SPLIT_FRAME_NAMES) do
+    local f = _G[name]
+    if f and f.IsShown and f:IsShown() then return true end
   end
   return false
 end
@@ -2010,7 +2025,14 @@ local function bucketsCore(snap, snapMode, bagList, reagentBag, memory)
   -- Suppressed while a stack-splitting window is open (trade, mail, merchant, bank, scrapper, socket):
   -- a folded cell hides the individual physical stacks, so a piece split off to hand over could not be
   -- picked up on its own. Unfolding for the duration puts every physical stack back as its own cell.
-  local combine = (WarpeeDB and WarpeeDB.catCombine and not splitWindowOpen()) and true or false
+  local split = splitWindowOpen()
+  -- What this pass drew, for the passes that come after: the fold is on but a stack-splitting window
+  -- lifted it, so every physical stack stands as its own cell. A picture left like that must not be
+  -- resumed onto once the window is gone (Bags:CatPlanSig), and nothing on screen lays it out again on
+  -- its own when the close lands late (ns.RelayoutForSplit reads this). Shared by the bags and the bank:
+  -- both file through bucketsCore.
+  Cats.foldLifted = (WarpeeDB and WarpeeDB.catCombine and split) and true or nil
+  local combine = (WarpeeDB and WarpeeDB.catCombine and not split) and true or false
   -- One buckets pass files a slot from its meta whatever built it: a live container reads it straight,
   -- a snapshot rebuilds the same meta from the record the Vault kept. The sort keys ride on the slot
   -- entry, read off the scratch meta now, since the meta is reused on the next slot and would be gone
@@ -2024,7 +2046,7 @@ local function bucketsCore(snap, snapMode, bagList, reagentBag, memory)
     -- on or not: one cell per slot would draw "1" over and over for a warlock's shards, and the only place
     -- their number can appear is a fold. The one guard the setting keeps is the stack-splitting windows --
     -- a hand-over needs every physical stack pickable, so they stay apart there like any other fold.
-    local always = m.id and ns.CountMany(m.id) and not splitWindowOpen()
+    local always = m.id and ns.CountMany(m.id) and not split
     local canMerge = (combine or always) and m.id and not (m.isGear or m.battlepet or m.keystone)
     if canMerge then
       dest.byId = dest.byId or {}

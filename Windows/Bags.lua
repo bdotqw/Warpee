@@ -2174,6 +2174,13 @@ function Bags:CatPlanSig()
       hide, table.concat(ids or {}, ",") }, "|")
   end
   out[#out + 1] = "q:" .. tostring(self.query or "")
+  -- Whether the fold is lifted right now is part of the picture, not a repaint. A plan filed while a
+  -- trade, a mail or a merchant had it lifted draws every physical stack; resumed onto after that
+  -- window closed, it leaves the grid unfolded until something else lays it out. Read live, so the open
+  -- compares what the plan drew against what the view would draw now.
+  if WarpeeDB and WarpeeDB.catCombine then
+    out[#out + 1] = (ns.SplitWindowOpen and ns.SplitWindowOpen()) and "split" or "whole"
+  end
   return table.concat(out, ";")
 end
 

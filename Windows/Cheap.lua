@@ -1123,6 +1123,8 @@ ev:RegisterEvent("PLAYER_MONEY")
 pcall(ev.RegisterEvent, ev, "AUCTION_HOUSE_SHOW")
 pcall(ev.RegisterEvent, ev, "MERCHANT_SHOW")
 pcall(ev.RegisterEvent, ev, "MERCHANT_CLOSED")
+-- The visit's close takes the window with it (see the handler): a plate that promised a sale a moment ago
+-- must not answer the same click with a delete.
 -- A listing bought or sold moves the numbers under the list, and a miss from before it is remembered as firmly
 -- as a hit, so opening and closing the auction house clears both (Auctionator's own update hook lives beside
 -- ClearAuction).
@@ -1133,6 +1135,13 @@ ev:SetScript("OnEvent", function(_, event)
   if event == "AUCTION_HOUSE_SHOW" or event == "AUCTION_HOUSE_CLOSED" then
     Cheap:ClearAuction()
     if Cheap.frame and Cheap.frame:IsShown() then Cheap:Refresh() end
+    return
+  end
+  -- The merchant's counter is the one place the plate offers a sale, and the sale ends with him: a
+  -- repaint here turned every Sell into Delete under the hand that was reaching for it, on the same
+  -- stack. The list goes with the visit instead, and the next open asks again.
+  if event == "MERCHANT_CLOSED" then
+    if Cheap.frame and Cheap.frame:IsShown() then Cheap:Close() end
     return
   end
   if not (Cheap.frame and Cheap.frame:IsShown()) then return end
