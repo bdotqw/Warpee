@@ -39,20 +39,35 @@ local ILOC
 -- always the go-between. The plain "freeze while GetCursorInfo is set" guard is not enough: at pickup the
 -- source slot shrinks and fires BAG_UPDATE a frame before the cursor reads as holding the item, so a pass
 -- can slip in, read the shrunk total, and write it as the new baseline; then the piece landing reads as an
--- arrival of that difference and lists the player's own split. Stamping the id the moment the cursor shows
--- it (a CURSOR_CHANGED pass) and swallowing that id's next increase closes the window the freeze leaves open.
-local carriedId, carriedAt, carrying = nil, 0, false
+-- arrival of that difference and lists the player's own split.
+--
+-- A piece sent to another bag widens that window: the bag it left has already shrunk in one container update
+-- and the bag it is landing in answers for it only in the next, so a pass between the two reads the whole id
+-- short. Swallowing the increase alone could not cover that, because the short read had already been written
+-- as the baseline and the landing pass then read as an increase against it; and a piece carried across to
+-- another bag is held long enough, or its pickup event early enough, that the carry could go unseen. So the
+-- id the cursor is on is now left entirely uncommitted until it has landed: no baseline, no number, no
+-- going, no arrival. Nothing about a move is the inventory changing shape.
+local carriedId, carriedAt = nil, 0
 local CARRY_HOLD = 1.5
-local function noteCursor()
+-- Which id the cursor holds, asked fresh, and noted so a pass that runs while it is held has it on record:
+-- the pickup's own CURSOR_CHANGED can arrive before the cursor reports the item, and the bag event that
+-- follows is the first look that can still see what was lifted.
+local function cursorCarry()
   local t, id = GetCursorInfo()
-  if t == "item" and id then
-    carriedId, carrying = id, true
-  elseif carrying then
-    carrying, carriedAt = false, GetTime()
-  end
+  if t == "item" and id then carriedId = id; return id end
+  return nil
+end
+-- A cursor change: the item it is taking, or the moment it let go. The release is stamped on every change
+-- out, not only for a carry this code saw begin, so a pickup that went unseen cannot leave the whole move
+-- unstamped and its landing free to announce itself as loot.
+local function noteCursor()
+  if not cursorCarry() then carriedAt = GetTime() end
 end
 local function fromCursor(id)
-  return carriedId == id and (carrying or (GetTime() - carriedAt) < CARRY_HOLD)
+  if not id or carriedId ~= id then return false end
+  local t, cur = GetCursorInfo()
+  return (t == "item" and cur == id) or (GetTime() - carriedAt) < CARRY_HOLD
 end
 -- Shared with the bags' new-on-top: the same "did this come off the cursor" test, one tracker, so a
 -- hand-placed item or a split is told apart from an arrival in both places off one CURSOR_CHANGED feed.
@@ -353,7 +368,11 @@ local function prune(counts)
     -- cell for two more passes left a used-up row standing with nothing left in it, which is the shape
     -- of a row that does not disappear. The guards above are what keeps this honest: a pass with no
     -- container answer at all and a pass with something on the cursor decide nothing.
-    if key and (not here or poor[key]) then hole(i, key) end
+    -- A cell whose piece the cursor has not finished putting down is not gone: the bags read short until it
+    -- lands, and holing it here loses the cell for good, since the landing pass books nothing for an id in
+    -- flight and so has nothing to seat it again with.
+    local held = type(key) == "string" and guidItem[key] or key
+    if key and (not here or poor[key]) and not fromCursor(held) then hole(i, key) end
   end
   -- Nothing left to ask for: a cell that missed is gone on this pass, so there is no counter to push
   -- over and no extra look to schedule.
@@ -434,6 +453,9 @@ end
 local soon
 
 local function detect(only)
+  -- The cursor is read before the bags for the same reason: a pickup that came in ahead of the read leaves the
+  -- id unrecorded, and this pass is the first one that can still catch it before the piece is placed.
+  cursorCarry()
   local counts, parts = tally(only)
   local seen = bodyDiff()
   -- Nothing is decided while the cursor carries an item, the same guard prune keeps. A split lifts part of
@@ -503,26 +525,40 @@ local function detect(only)
       -- A slot whose data has not reached the client counts for nothing; the whole pass its load brings is
       -- the one that can read it, so this pass leaves the id's total and baseline exactly as they were.
       if not unread[id] then
-        local was = known[id] or 0
-        if c > was then
-          local d = pardon(id, c - was)
-          -- An increase in an id the cursor is carrying (or just put down) is a split or a move landing, not
-          -- loot: swallow it so the player's own stack surgery never lists as recent. known still moves to the
-          -- new count below, so the piece is accounted for, just not announced.
-          if d > 0 and not hold and not poor[id] and not fromCursor(id) then
-            -- An id already in the row needs nothing here: the number below is derived from the base it
-            -- entered with, so a second arrival is counted by the same read that reports the bags.
-            if not seq[id] then add(id, n, d, c) end
+        -- The id the cursor has not finished putting down. Nothing about it is committed on this pass: the
+        -- piece is between bags, so its total reads short, and writing that read as the baseline is what
+        -- turned the landing into an arrival of the player's own split.
+        local flight = fromCursor(id)
+        -- Only a whole sweep books an arrival or moves the baseline. A pass that read one bag cannot tell a
+        -- piece that has just come in from the player's own stack surgery: a stack moved or merged into that
+        -- bag is still counted in the bag it came from until the client hands the emptied bag over, so the
+        -- total it computes reads higher than the inventory holds. Written as the baseline and booked as an
+        -- arrival, that read is a sorted or hand-moved stack landing in the row as if it had just been
+        -- looted, and it is the scattered pieces of such a stack, the ones a sort has to pull together across
+        -- bags, that make it happen at some sorts and not at others. The sweep the delayed bag event brings
+        -- reads every bag at once, so it is the one pass that can decide, and it books the real increases then;
+        -- nothing is lost by waiting, because a partial pass never painted the row either.
+        if not only and not flight then
+          local was = known[id] or 0
+          if c > was then
+            local d = pardon(id, c - was)
+            -- A piece off the cursor is a split or a move, not loot, and the flight test above has already
+            -- left that id uncommitted, so the player's own stack surgery never lists as recent.
+            if d > 0 and not hold and not poor[id] then
+              -- An id already in the row needs nothing here: the number below is derived from the base it
+              -- entered with, so a second arrival is counted by the same read that reports the bags.
+              if not seq[id] then add(id, n, d, c) end
+            end
           end
         end
         -- The row's number, read off the live total rather than carried: what the id holds now against what it
         -- held when it appeared. A pass that reads short for a frame (a stack on the cursor, a slot the read
         -- missed) costs that frame and no more, because nothing is subtracted here and nothing is clipped.
-        if base[id] then
+        if base[id] and not flight then
           local live = c - base[id]
           if live > 0 then got[id] = live else remove(id) end
         end
-        known[id] = c
+        if not only and not flight then known[id] = c end
       end
     end
   end
@@ -535,7 +571,9 @@ local function detect(only)
   local mail = mailing()
   if not only and not mail then
     for id in pairs(known) do
-      if not counts[id] and not unread[id] and not equipped(id) then
+      -- Nor while the cursor is still putting the piece down: its total reads short, and three of these
+      -- passes would forget a baseline that never went anywhere.
+      if not counts[id] and not unread[id] and not equipped(id) and not fromCursor(id) then
         local m = (missed[id] or 0) + 1
         if m >= 3 then known[id] = nil; missed[id] = nil
         else missed[id] = m end

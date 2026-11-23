@@ -413,18 +413,31 @@ ns.BankDepositMove = bankDepositMove
 -- the bag a second later, which reads as the click being undone. A claim dies as soon as its slot holds
 -- something, and an old one dies too, so a move that never landed does not keep a slot out of use.
 --
--- How long a claim may keep a slot out of use when the move it went with never fills it. A round trip is
--- a moment; anything this old is a move that did not land, and the slot is worth aiming at again.
-local CLICK_CLAIM_TTL = 10
+-- How long a click's claim keeps its slot out of use. A click and the clicks that follow it inside a server
+-- round trip are one gesture, and that is all the window is for. Ten seconds outlived the gesture by far: a
+-- piece taken back out of the bank left its slot claimed, the next deposit skipped it and opened the slot
+-- after it, and deposit, withdraw, deposit walked down the tab a slot at a time.
+local CLICK_BURST = 1
 
--- Drop the claims whose slot now holds something (the move landed) and the ones that are too old to mean
--- anything. Runs on every click, so the table never needs a sweep of its own.
+-- Whether the claims in `alloc` still belong to a gesture in flight: one made less than a burst ago is a move
+-- the server has not answered yet, and the click that follows it is still the same gesture. Anything older
+-- says nothing about the bank as it stands.
+local function clickBurst(alloc)
+  local now = GetTime()
+  for key, at in pairs(alloc or {}) do
+    if type(key) == "number" and (now - (tonumber(at) or now)) < CLICK_BURST then return true end
+  end
+  return false
+end
+
+-- Drop the claims whose slot now holds something (the move landed) and the ones whose gesture is over. Runs
+-- on every click, so the table never needs a sweep of its own.
 local function releaseClickClaims(alloc)
   local now = GetTime()
   for key, at in pairs(alloc) do
     if type(key) == "number" then
       local info = C_Container.GetContainerItemInfo(math.floor(key / 1000), key % 1000)
-      if (info and (info.hyperlink or info.itemID)) or (now - (tonumber(at) or now)) > CLICK_CLAIM_TTL then
+      if (info and (info.hyperlink or info.itemID)) or (now - (tonumber(at) or now)) > CLICK_BURST then
         alloc[key] = nil
       end
     end
@@ -445,6 +458,12 @@ function ns.BankRightClickDeposit(b)
   local alloc = B.clickAlloc
   if not alloc then alloc = {}; B.clickAlloc = alloc end
   releaseClickClaims(alloc)
+  -- A new gesture walks the bank afresh. The free-slot list is a picture of where the empties stood when it
+  -- was taken, and its cursor only moves forward: a piece withdrawn since sits behind it, so the walk never
+  -- reaches the slot the piece just left and every deposit opens the one after it. The claims cannot carry
+  -- that either, since a slot a piece landed in and was then taken out of reads exactly like one still in
+  -- flight; what separates the two is the gesture, which is the same clock the claims are kept on.
+  if alloc.bank and not clickBurst(alloc) then alloc.bank = nil end
   -- The tabs this click may aim at, from the view: the tab on screen first, then the ones whose rules name
   -- the piece, then the rest of that bank. A view that cannot answer (a client without the tab data) hands
   -- nothing over, and the move falls back to the bank's own order, which is still that bank's tabs.

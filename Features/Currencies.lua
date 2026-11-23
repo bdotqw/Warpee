@@ -721,7 +721,7 @@ local function reasonText(reason)
   local E = Enum and Enum.AccountCurrencyTransferResult
   if not (E and reason) then return nil end
   local key = (reason == E.MaxQuantity and "You already hold the maximum")
-    or (reason == E.NoValidSourceCharacter and "Not enough in the Warband")
+    or (reason == E.NoValidSourceCharacter and "Not enough currency in the Warband to transfer")
     or (reason == E.CannotUseCurrency and "Not for this character")
     or (reason == E.TransactionInProgress and "Transfer in progress")
     or (reason == E.CurrencyTransferDisabled and "Transfers are off")

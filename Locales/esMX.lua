@@ -95,6 +95,7 @@ local STRINGS = {
   ["Which section claims an item that more than one rule matches: the higher priority wins, whatever the order in the list. Left at 0, the section higher in the list wins, as before."] = "Qué sección se queda con un objeto que encaja con más de una regla: gana la prioridad más alta, sin importar el orden en la lista. Si la dejas en 0, se lo queda la sección de más arriba, como antes.",
   ["Which windows this category shows in. Unchecked windows drop its items through to the next matching category."] = "En qué ventanas aparece esta categoría. Las ventanas sin marcar dejan pasar sus objetos a la siguiente categoría que encaje.",
   ["Transferable currencies only"] = "Solo monedas transferibles",
+  ["Not enough currency in the Warband to transfer"] = "No hay suficiente moneda en la tropa para transferir",
   ["Open the transfer window"] = "Abre la ventana de transferencia",
 }
 
