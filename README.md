@@ -2,7 +2,7 @@
 
 Bag and bank windows for World of Warcraft Retail (Midnight, 12.x) and WoW Forever. Grid or categories, fast, themed.
 
-Current addon version: **14.2**.
+Current addon version: **14.3**.
 
 Warband bank, guild bank skin and WoW Token features are Retail-only.
 

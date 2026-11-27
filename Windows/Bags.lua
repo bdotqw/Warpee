@@ -173,6 +173,7 @@ local function footInset(base)
   base = base or FOOT_RIGHT
   local B = ns.Bags
   if not B then return base end
+  if B.goldShort then return base - FOOT_GOLD end
   if B.goldOnly and B.goldLetters then return base - FOOT_GOLD_LETTERS end
   if B.goldOnly or B.goldLetters then return base - FOOT_GOLD end
   return base
@@ -592,7 +593,7 @@ function Bags:Build()
     -- line above does.
     ns.Cur:Attach(f)
     if not self.reagentLabel then
-      local rlabel = Theme:Label(self.content, FONT - 4, "reagent")
+      local rlabel = Theme:Label(self.content, ns.HeadSize(FONT - 4), "reagent")
       ns.LocalText(rlabel, "Reagents")
       rlabel:Hide()
       self.reagentLabel = rlabel
@@ -1069,7 +1070,7 @@ function Bags:Build()
   -- (CurrencyPlace) under the grid.
   ns.Cur:Attach(f)
 
-  local rlabel = Theme:Label(content, FONT - 4, "reagent")
+  local rlabel = Theme:Label(content, ns.HeadSize(FONT - 4), "reagent")
   ns.LocalText(rlabel, "Reagents")
   rlabel:Hide()
   self.reagentLabel = rlabel
@@ -1564,9 +1565,9 @@ function Bags:Layout(capture, light)
     self.money:SetFont(self.fontPath, FONT + 1, ns.OutlineFlags())
     Theme:Money(self.money)
   end
-  if self.reagentLabel then self.reagentLabel:SetFont(self.fontPath, FONT - 4, ns.OutlineFlags()) end
+  if self.reagentLabel then self.reagentLabel:SetFont(self.fontPath, ns.HeadSize(FONT - 4), ns.OutlineFlags()) end
   if self.bagLabels then
-    for i = 1, #self.bagLabels do self.bagLabels[i]:SetFont(self.fontPath, FONT - 4, ns.OutlineFlags()) end
+    for i = 1, #self.bagLabels do self.bagLabels[i]:SetFont(self.fontPath, ns.HeadSize(FONT - 4), ns.OutlineFlags()) end
   end
   if self.slotText then self.slotText:SetFont(self.fontPath, FONT - 3, ns.OutlineFlags()) end
   if self.search then
@@ -1968,13 +1969,19 @@ function Bags:Layout(capture, light)
         lbl:SetTextColor(Theme:C(colKey))
         capH = math.ceil(lbl:GetStringHeight() or 0)
         if capH <= 0 then capH = FONT end
-      elseif reagName and bi == 1 then
+      elseif reagName then
         capH = math.ceil(self.reagentLabel:GetStringHeight() or 0)
         if capH <= 0 then capH = FONT end
       end
-      local blockGap = (capText or reagName) and math.max(gapBlocks, CAP_ROOM) or math.max(gapBlocks, gap)
+      -- The room a caption takes over its cells is measured, never the standing floor alone: "Heading size"
+      -- adds points to the name and leaves CAP_ROOM where it was, so a raised caption ran up into the last
+      -- row of the block above it -- a few points at the first step, and the whole of the name at the top of
+      -- the slider. Six points over its own cells and two of air under the block above, whatever the heads
+      -- are set to; the gap slider opens the air above the name rather than under it.
+      local capRoom = capH > 0 and (capH + 8) or 0
+      local blockGap = (capText or reagName) and math.max(gapBlocks, CAP_ROOM, capRoom) or math.max(gapBlocks, gap)
       local above = blockGap
-      if bi == 1 then above = (capText or reagName) and (capH + 8) or 0 end
+      if bi == 1 then above = capRoom end
       y = y + above
       local top = y
       -- The seam over a run that starts a new container: the gap between two blocks is already there, so
@@ -2022,8 +2029,9 @@ function Bags:Layout(capture, light)
       elseif capText then
         self:BagOrdLabel(capN):Hide()
       end
-      -- Over the gap the block actually stands on, so the first block's own caption room counts here too.
-      if blk.reagent then rTop = top - above + 6 end
+      -- Bottom-anchored the way a block caption is: six points over the reagent cells, not at the top of the
+      -- gap, so the standing label and the pooled ones keep the same distance to what they name.
+      if blk.reagent then rTop = top - 6 - capH end
       y = top + Layout.GridHeight(rows, step, size)
     end
     self:HideBagLabels(capN)
@@ -2309,7 +2317,7 @@ function Bags:CatLabel(i)
   self.catLabels = self.catLabels or {}
   local fs = self.catLabels[i]
   if not fs then
-    fs = Theme:Label(self.content, FONT - 4, "dim")
+    fs = Theme:Label(self.content, ns.HeadSize(FONT - 4), "dim")
     fs:SetJustifyH("LEFT")
     self.catLabels[i] = fs
   end
@@ -2330,11 +2338,11 @@ function Bags:BagLabel(i)
   self.bagLabels = self.bagLabels or {}
   local fs = self.bagLabels[i]
   if not fs then
-    fs = Theme:Label(self.content, FONT - 4, "dim")
+    fs = Theme:Label(self.content, ns.HeadSize(FONT - 4), "dim")
     fs:SetJustifyH("LEFT")
     self.bagLabels[i] = fs
   end
-  fs:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, ns.OutlineFlags())
+  fs:SetFont(self.fontPath or ns.Fonts:Current(), ns.HeadSize(FONT - 4), ns.OutlineFlags())
   return fs
 end
 
@@ -2344,11 +2352,11 @@ function Bags:BagOrdLabel(i)
   self.ordLabels = self.ordLabels or {}
   local fs = self.ordLabels[i]
   if not fs then
-    fs = Theme:Label(self.content, FONT - 4, "dim")
+    fs = Theme:Label(self.content, ns.HeadSize(FONT - 4), "dim")
     fs:SetJustifyH("RIGHT")
     self.ordLabels[i] = fs
   end
-  fs:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, ns.OutlineFlags())
+  fs:SetFont(self.fontPath or ns.Fonts:Current(), ns.HeadSize(FONT - 4), ns.OutlineFlags())
   return fs
 end
 
@@ -2391,7 +2399,7 @@ function Bags:CatCount(i)
   self.catCounts = self.catCounts or {}
   local fs = self.catCounts[i]
   if not fs then
-    fs = Theme:Label(self.content, FONT - 4, "dim")
+    fs = Theme:Label(self.content, ns.HeadSize(FONT - 4), "dim")
     fs:SetJustifyH("RIGHT")
     self.catCounts[i] = fs
   end
@@ -2421,7 +2429,7 @@ function Bags:CatGroupLabel(i)
   self.catGLabels = self.catGLabels or {}
   local fs = self.catGLabels[i]
   if not fs then
-    fs = Theme:Label(self.content, FONT - 2, "azure")
+    fs = Theme:Label(self.content, ns.HeadSize(FONT - 2), "azure")
     fs:SetJustifyH("LEFT")
     self.catGLabels[i] = fs
   end
@@ -2442,7 +2450,7 @@ function Bags:CatGroupCount(i)
   self.catGCounts = self.catGCounts or {}
   local fs = self.catGCounts[i]
   if not fs then
-    fs = Theme:Label(self.content, FONT - 4, "dim")
+    fs = Theme:Label(self.content, ns.HeadSize(FONT - 4), "dim")
     fs:SetJustifyH("LEFT")
     self.catGCounts[i] = fs
   end
@@ -3155,40 +3163,23 @@ end)
 -- ellipsis rather than buying columns, since those columns would be paid for on every shelf. A section
 -- is always drawn whole, and only a group band folds, from the caption row above its own sections.
 -- A search changes none of that: it dims the cells it did not match and moves nothing.
--- How long a piece that left with no window open keeps its cell after it went. A destroy is over in one
--- frame and leaves nothing behind to watch, so the hold is armed by the removal itself and slides with
--- each further one; when it runs out the view compacts, the way it does the moment a window closes.
-local CATHOLD = 8
+-- A piece that left keeps its cell for as long as the window is open, and the hold ends with the window
+-- rather than on a clock: OnHide drops the memory, so the open that follows files the view again and the
+-- gaps close while the player is not looking at them. A gap that snapped shut eight seconds in moved every
+-- cell after it under the cursor the player was still working with.
 
 -- Full bucketing pass for the grouped view: classify, slot-memory reconcile and hole compaction. Only full
 -- passes come through here; a light (geometry-only) pass reuses what the last full one left in catCache,
 -- since membership and order cannot move under a geometry drag.
 function Bags:BucketCats()
   local Cats = ns.Categories
-  local open = ns.SplitWindowOpen and ns.SplitWindowOpen()
   local live = not self.snap
-  local now = GetTime()
-  local hold = live and (open or (self.catHold and now < self.catHold))
+  -- Held on every live pass, a take-items window or not: nothing the grouped view draws for itself may
+  -- reflow while the window is up.
+  local hold = live
   local buckets, used, total = Cats:Buckets(self,
     live and (self.catMemory or Cats.EMPTY_MEMORY) or nil)
   if live then
-    if open then
-      self.catHold = nil
-    else
-      local left = 0
-      for i = 1, #buckets do left = left + (buckets[i].left or 0) end
-      if left > 0 then
-        self.catHold = now + CATHOLD
-        -- Nothing else would bring the view back when the hold runs out: the gap would stand in a quiet
-        -- moment looking like a slot that is really there. The layout is idempotent, so this pass is
-        -- wasted only if the bags are shut or a window has taken the hold over.
-        C_Timer.After(CATHOLD + 0.1, function()
-          if Bags.frame and Bags.frame:IsShown() then Bags:Layout() end
-        end)
-      end
-    end
-    -- Re-read after arming: the removal just seen has to be held on this very pass, not the next one.
-    hold = open or (self.catHold and now < self.catHold)
     self.catMemory = Cats:CaptureMemory(buckets, hold)
   else
     self.catMemory, self.catHold, hold = nil, nil, false
@@ -3217,7 +3208,7 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
   -- beneath it, and the three or four points the grid keeps between a label and its box read here as
   -- a gap that belongs to nothing. Every section pays it once, so a bag of twenty sections pays it
   -- twenty times -- more than any repacking of the rows ever saved.
-  local capH = d.labelH + 1
+  local capH = ns.HeadSize(d.labelH + 1)
   local gridW = gridWidth(size, cols, gap)
   -- The group caption sits at labelX with its caret in the gap to its left. A section caption sits at
   -- capX, flush with the left edge of its own first cell, so the name reads as the heading of the
@@ -3413,7 +3404,7 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
     -- whole of the heading and the band starts right below it.
     if band.key then
       gi = gi + 1
-      local gcapH = math.max(capH, d.font + 4)
+      local gcapH = math.max(capH, ns.HeadSize(d.font + 4))
       local top = shelfY
       local textY = shelfY
       local isHead = Cats.IsHead(band.key)
@@ -3440,8 +3431,8 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
         -- points above a caption, a band read no larger than the caption under it, and in a narrow-caps face it
         -- read smaller still. One point under the body font, against the caption's four under it, makes the band
         -- the first word the eye takes on the page.
-        glabel:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 1, ns.OutlineFlags())
-        glabel:SetTextColor(Theme:C("azure"))
+        glabel:SetFont(self.fontPath or ns.Fonts:Current(), ns.HeadSize(FONT - 1), ns.OutlineFlags())
+        glabel:SetTextColor(ns.HeadingInk("azure"))
         fitLabel(glabel, Cats:GroupName(band.key), gridW - labelX, true)
         glabel:ClearAllPoints()
         ns.SnapPoint(glabel, "TOPLEFT", self.content, "TOPLEFT", labelX, -textY)
@@ -3480,11 +3471,12 @@ function Bags:LayoutCats(place, park, size, gap, step, cols, light)
     local name = b.name
     local n = isEmpty and emptyTiles or #b.slots
     local label = self:CatLabel(si)
-    -- Set as a file every layout so a font change reaches the caption. Full accent, one step under the band
-    -- and in the name's own case: this is the word the player scans for, so it is the one heading that gets
-    -- the theme's colour at full strength.
-    label:SetFont(self.fontPath or ns.Fonts:Current(), FONT - 4, ns.OutlineFlags())
-    label:SetTextColor(Theme:C("accent"))
+    -- Set as a file every layout so a font change reaches the caption. The accent, one step under the band and
+    -- in the name's own case: this is the word the player scans for, so it is the heading that gets the
+    -- theme's colour. HeadingInk holds that colour off the item palette where the two would meet, so a caption
+    -- in a pink or class-colored theme does not wear the hue of the numbers under it.
+    label:SetFont(self.fontPath or ns.Fonts:Current(), ns.HeadSize(FONT - 4), ns.OutlineFlags())
+    label:SetTextColor(ns.HeadingInk("accent"))
     -- No tally beside a caption any more. The cells under it already say how many things there are, and a
     -- parenthesised number set in the caption's own ink read as a second heading on every section. The
     -- pool entry is hidden on every pass rather than left alone, so a build that printed one clears it.
@@ -3729,19 +3721,20 @@ end
 
 local function groupNumber(n, sep)
   local out = tostring(math.floor(n))
+  -- No separator means nothing to group: the pattern would keep matching its own output ("1234567" comes
+  -- back unchanged) and the loop would never end.
+  if sep == nil or sep == "" then return out end
   local k
   repeat out, k = out:gsub("^(%d+)(%d%d%d)", "%1" .. sep .. "%2") until k == 0
   return out
 end
 
 -- The short form itself lives in Core/Locale.lua (ns.ShortNumber) and the units are locale data; the
--- cell badges fold through their own, tighter token there (ns.ShortCount). The coin line keeps its
--- own setting here.
+-- cell badges fold through their own, tighter token there (ns.ShortCount). Whether a number folds at all
+-- is the Short amounts switch, and the separator between its hundreds is a setting of its own.
 function ns.FormatNumber(n)
-  local mode = WarpeeDB and WarpeeDB.goldFormat or "commas"
-  if mode == "short" then return ns.ShortNumber(n) end
-  local sep = (mode == "dots" and ".") or (mode == "spaces" and " ") or ","
-  return groupNumber(n, sep)
+  if Bags.goldShort then return ns.ShortNumber(n) end
+  return groupNumber(n, ns.GoldSep())
 end
 
 -- A coin in a line of money is either ours or the client's. Both are written here as a texture escape, so
@@ -3799,9 +3792,11 @@ local function whiteNum(str, deep, plain)
   return "|cff" .. Theme:Hex(deep and "overlay" or "text") .. str .. "|r"
 end
 
-local function coinUnit(letter, font)
-  -- A letter is a word and outranks both coins: asking for letters asks for no coin at all.
-  if Bags.goldLetters then
+local function coinUnit(letter, font, letters)
+  -- A letter is a word and outranks both coins: asking for letters asks for no coin at all. The folded form
+  -- asks for one outright (see letterParts): its own units are letters, so under the first unit the purse is
+  -- written in letters too, and a coin picture there would be the only picture in a line of words.
+  if letters or Bags.goldLetters then
     -- The space before the letter: "123 g" reads as a number and a unit, where "123g" reads as a weight.
     return " " .. "|cff" .. COIN_HEX[letter] .. ns.CoinLetter(letter) .. "|r"
   end
@@ -3809,8 +3804,57 @@ local function coinUnit(letter, font)
   return Bags.goldBlizzard and set.blizz[letter] or set.own[letter]
 end
 
-local function coinSeg(num, letter, deep, plain, font)
-  return whiteNum(num, deep, plain) .. coinUnit(letter, font)
+local function coinSeg(num, letter, deep, plain, font, letters)
+  return whiteNum(num, deep, plain) .. coinUnit(letter, font, letters)
+end
+
+-- An unfolded price must not lose copper or turn a nonempty purse into zero.
+function ns.ShortGoldParts(money)
+  local num, unit = ns.ShortUnits(math.floor(money / 10000), true)
+  local copper = money % 10000
+  if not unit and copper ~= 0 then
+    num = num .. ns.ShortDec(ns.ShortForm()) .. ("%04d"):format(copper):gsub("0+$", "")
+  end
+  return num, unit
+end
+
+local function shortMoney(money, deep, plain)
+  local num, unit = ns.ShortGoldParts(money)
+  local text = whiteNum(num, deep, plain)
+  return unit and (text .. "|cff" .. COIN_HEX.g .. unit .. "|r") or text
+end
+
+-- A thousand gold, in copper: the amount the folded form starts at. Below it nothing folds, so the purse is
+-- written out exactly (see letterMoney).
+local SHORT_FLOOR = 10000000
+
+-- The purse under the first unit, written in letters. The folded units are letters (K, M), so an amount too
+-- small to fold speaks the same vocabulary: the bare "834" this band used to leave said nothing about what
+-- it counted, and a purse of copper came out as 0.0009 of a gold.
+-- The folded form has room for one figure, so it carries the gold and nothing else: its own units are gold, and
+-- a purse of 834 gold 72 silver is 834 g to a line that has already given up its silver and copper to say so.
+-- A purse that has not reached a gold reads as "0 g" rather than spilling silver and copper into a form that
+-- speaks in gold alone.
+local function letterParts(money, deep, plain, font)
+  return coinSeg(ns.FormatNumber(math.floor(money / 10000)), "g", deep, plain, font, true)
+end
+
+-- The same purse as one line: the pieces letterParts hands a column layout, with the rule the coin line
+-- keeps on a single string -- nothing is written past the last coin the sum carries, so 834 gold is
+-- "834 g", not "834 g 0 s 0 c". The gold-only rule above holds here too, so the line and the columns of a
+-- window agree on what the folded form writes.
+local function letterMoney(money, deep, plain, font)
+  return coinSeg(ns.FormatNumber(math.floor(money / 10000)), "g", deep, plain, font, true)
+end
+
+-- The same purse in the shape the guild bank's gold coin needs: a figure and the letter that names it, apart
+-- rather than joined, because that window writes its money one coin at a time and colours the letter itself.
+-- Under the first folded step it is the exact gold in a letter, which is what letterMoney writes right above,
+-- so the two windows cannot say different things about the same purse: 834 gold reads "834 g" in both and
+-- never folds into a tenth of a unit of its own in one of them.
+function ns.ShortPurseParts(money)
+  if money < SHORT_FLOOR then return ns.FormatNumber(math.floor(money / 10000)), " " .. ns.CoinLetter("g") end
+  return ns.ShortGoldParts(money)
 end
 
 -- The last field is the face the money is written in, in units. It is what sizes the coin (coinSet above):
@@ -3823,6 +3867,12 @@ end
 -- zeroes included, so a purse of pure gold ends on "0 s 0 c" instead of a hole over the copper column.
 function ns.MoneyParts(money, goldOnly)
   money = money or 0
+  if Bags.goldShort then
+    -- Folded from a thousand gold up; under it the purse is written out in letters, so a window that lines
+    -- copper up under copper gets the three pieces rather than one folded string.
+    if money < SHORT_FLOOR then return letterParts(money, true) end
+    return shortMoney(money, true)
+  end
   local g = math.floor(money / 10000)
   if goldOnly then return coinSeg(ns.FormatNumber(g), "g", true) end
   local sv = math.floor((money % 10000) / 100)
@@ -3836,6 +3886,10 @@ end
 
 function ns.FormatMoney(money, goldOnly, deep, plain, font)
   money = money or 0
+  if Bags.goldShort then
+    if money < SHORT_FLOOR then return letterMoney(money, deep, plain, font) end
+    return shortMoney(money, deep, plain)
+  end
   local g = math.floor(money / 10000)
   if goldOnly == nil then goldOnly = Bags.goldOnly end
   if goldOnly then return coinSeg(ns.FormatNumber(g), "g", deep, plain, font) end

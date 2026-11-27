@@ -737,6 +737,12 @@ end
 -- ours must not promise a click the game would drop, nor walk the player to the currency tab for it.
 local dataAsked = 0
 function Cur.TransferState(id)
+  -- The Forever build has no Warband: no other character to pull a currency from, no transfer menu to walk
+  -- to, and nothing a hint could promise. Gated here instead of left to IsAccountTransferableCurrency,
+  -- which is the client's own answer: a build that carries the question but not the door would otherwise
+  -- print a key for a press it cannot serve. One gate covers the coin's tip, the picker's rows and the
+  -- quick transfer's arm, because all three ask this function first.
+  if ns.IsForever then return nil end
   if not Cur.Transferable(id) then return nil end
   local CI = C_CurrencyInfo
   -- A client that ships no such question keeps the old door: the flag alone decides, which is what the

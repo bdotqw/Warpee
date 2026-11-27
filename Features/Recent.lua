@@ -644,6 +644,9 @@ function Rec:Warm()
     -- 0.85, the alpha the section heads are drawn at: at full strength Clear read as the brighter of the two
     -- words on the line. The colour still answers hover and the empty list, alpha only matches the caption.
     c:SetAlpha(0.85)
+    -- Azure lifted the way the heading beside it is: the word stands on that heading's line, and the two
+    -- hues have to be held off the item numbers by the same rule.
+    c.wpeHeadingInk = true
     c:SetScript("OnClick", function(s) if s.wpeOn then Rec:Wipe() end end)
     c:Hide()
     self.clear = c
@@ -689,7 +692,7 @@ function Rec:Height(size)
   if not self:BagsOn() then return 0 end
   if not self:Armed() then return 0 end
   local d = ns.Density(size)
-  return d.labelH + d.labelGap + (tonumber(size) or 0) + 6
+  return ns.HeadSize(d.labelH) + d.labelGap + (tonumber(size) or 0) + 6
 end
 
 function Rec:Feed(n)
@@ -816,14 +819,18 @@ function Rec:Apply(bags, x, top, size, gap)
     ns.LocalText(fs, "Recent")
     self.label = fs
   end
-  self.label:SetFont(bags.fontPath or ns.Fonts:Current(), d.font - 4, ns.OutlineFlags())
+  self.label:SetFont(bags.fontPath or ns.Fonts:Current(), ns.HeadSize(d.font - 4), ns.OutlineFlags())
+  -- The ink the captions below are painted with, not the raw accent: HeadingInk lifts a hue that would
+  -- read as an item number under it, and a head left at the saturated accent beside lifted captions is
+  -- the one blue left on the page.
+  self.label:SetTextColor(ns.HeadingInk("accent"))
   self.label:ClearAllPoints()
   ns.SnapPoint(self.label, "TOPLEFT", frame, "TOPLEFT", x, -top)
   self.label:Show()
-  local rowY = top + d.labelH + d.labelGap
+  local rowY = top + ns.HeadSize(d.labelH) + d.labelGap
   if self.clear then
-    self.clear.Text:SetFont(bags.fontPath or ns.Fonts:Current(), d.font - 5, ns.OutlineFlags())
-    self.clear:SetSize(math.ceil(self.clear.Text:GetStringWidth()) + 8, d.labelH)
+    self.clear.Text:SetFont(bags.fontPath or ns.Fonts:Current(), ns.HeadSize(d.font - 5), ns.OutlineFlags())
+    self.clear:SetSize(math.ceil(self.clear.Text:GetStringWidth()) + 8, ns.HeadSize(d.labelH))
     self.clear:ClearAllPoints()
     -- Hung off the head, centre to centre: the caption and Clear share one baseline, where measuring both
     -- from the frame's top left Clear a pixel low, its shorter font box centring inside a button's height.
@@ -869,7 +876,7 @@ function Rec:Apply(bags, x, top, size, gap)
     end
   end
   self:Cooldowns()
-  return d.labelH + d.labelGap + size
+  return ns.HeadSize(d.labelH) + d.labelGap + size
 end
 function Rec:Refresh()
   local a = self.args

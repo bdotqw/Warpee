@@ -2089,3 +2089,21 @@ function ns.Fonts:Reapply()
     dressObject(o, p, o.wpeSize, o.wpeFlags)
   end
 end
+
+-- How much larger than the layout asks a heading is drawn, in points, set by the player on the
+-- Appearance page under Font. Nothing about a face can be measured here: the client hands over a path,
+-- a size and flags, and no glyph metrics at all, so a light cut and a bold cut saved under the same
+-- filename are the same font to the API. Which weight a heading needs is therefore the player's call,
+-- once per profile. Section captions, list heads, bag names and the group band all take these points;
+-- body text keeps the size the layout asks for.
+local HEAD_MAX = 4
+
+function ns.HeadBoost()
+  local v = tonumber(WarpeeDB and WarpeeDB.headingSize) or 0
+  if v < 0 then v = 0 elseif v > HEAD_MAX then v = HEAD_MAX end
+  return math.floor(v + 0.5)
+end
+
+function ns.HeadSize(base)
+  return (tonumber(base) or 11) + ns.HeadBoost()
+end

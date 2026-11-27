@@ -624,10 +624,10 @@ local function buildPage(parent, list)
         local sy = ns.SnapValue(row, y)
         if spec.col then
           local total = spec.of or 2
-          local colW = total == 3 and thirdW or halfW
+          local colW = (total == 3 and thirdW) or halfW
+          local gut = total == 3 and 10 or 14
           row:SetWidth(ns.SnapValue(row, colW))
-          ns.SnapPoint(row, "TOPLEFT", page, "TOPLEFT",
-            (spec.col - 1) * (colW + (total == 3 and 10 or 14)), -sy)
+          ns.SnapPoint(row, "TOPLEFT", page, "TOPLEFT", (spec.col - 1) * (colW + gut), -sy)
           local nextCol = nx and nx.col
           if spec.col >= total or not nextCol or nextCol <= spec.col then
             advance(ROW_GAP)

@@ -232,7 +232,13 @@ local STRINGS = {
   ["Hide X/Y fields"] = "Ocultar campos X/Y",
   ["Capacity bar"] = "Barra de capacidade",
   ["Hide minimap icon"] = "Ocultar ícone do minimapa",
-  ["Gold format"] = "Formato dos valores",
+  ["Separator"] = "Separador",
+  ["Compact amounts"] = "Valores compactos",
+  ["Commas (1,234)"] = "Virgulas (1,234)",
+  ["Dots (1.234)"] = "Pontos (1.234)",
+  ["Spaces (1 234)"] = "Espacos (1 234)",
+  ["None (1234)"] = "Nenhum (1234)",
+  ["Apostrophe (1'234)"] = "Apóstrofo (1'234)",
   ["Gold only"] = "Somente ouro",
   ["Coin letters"] = "Letras das moedas",
   ["Clear search on close"] = "Limpar a busca ao fechar",
@@ -245,6 +251,9 @@ local STRINGS = {
   ["Color scheme for the whole addon."] = "Esquema de cores de todo o addon.",
   ["Used for every label Warpee draws. Other addons can add to this list."] =
     "Usada em todos os textos exibidos pelo Warpee. Outros addons podem adicionar fontes a esta lista.",
+  ["Heading size"] = "Tamanho dos títulos",
+  ["How many points larger section names, list heads and the group band are drawn. A thin face usually reads better a point or two up."] =
+    "Quantos pontos a mais são desenhados os nomes de seção, os cabeçalhos de lista e a faixa de grupo. Uma fonte fina fica mais legível um ou dois pontos acima.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Idioma dos textos do addon. Os nomes dos itens sempre vêm do jogo.",
   ["Freeze the bags and the bank in place. Unlocked, they show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
@@ -254,7 +263,10 @@ local STRINGS = {
   ["Fill bar in the bags header showing how full they are."] =
     "Barra no cabeçalho das bolsas que mostra o quanto estão cheias.",
   ["Takes the Warpee button off the minimap."] = "Remove o botão do Warpee do minimapa.",
-  ["How amounts are written in chat. Short turns 1200 into 1.2 K."] = "Como os valores são escritos no chat. Curto transforma 1200 em 1,2 mil.",
+  ["What sits between the hundreds of a large amount, and the decimal sign of the compact form. Only a comma or a dot can stand in a fraction, so Spaces, None and Apostrophe leave the compact form its own language's sign."] =
+    "O que fica entre as centenas de um valor grande e o sinal decimal da forma compacta. Só uma vírgula ou um ponto podem ficar numa fração, então Espaços, Nenhum e Apóstrofo deixam a forma compacta com o sinal do próprio idioma.",
+  ["Fold 1000 into 1 K. A compact amount writes its own unit and no coin, so the coin switches below are off while it is on."] =
+    "Transforma 1000 em 1 mil. Um valor compacto escreve a propria unidade e nenhuma moeda, entao os interruptores de moeda abaixo ficam desligados enquanto ele esta ativo.",
   ["Show gold only, hide silver and copper."] = "Mostra somente ouro, ocultando prata e cobre.",
   ["On = g/s/c letters. Off = coin icons."] = "Ativo: letras o/p/c. Desativado: ícones das moedas.",
   ["Blizzard icons"] = "Ícones da Blizzard",
@@ -377,6 +389,9 @@ local STRINGS = {
   ["A copper coin on gray junk: the coin the Sell button wears in gold, copper because the rules would sell it, not you."] = "Uma moeda de cobre nos itens cinzas: a mesma que o botão Vender usa em ouro, em cobre porque as regras venderiam, não você.",
   ["Tint the item level number with the item's quality color."] =
     "Colore o nível do item com a cor da qualidade.",
+  ["Item level by track"] = "Nível do item por trilha",
+  ["Tint the item level number by its upgrade track, Explorer through Myth; a crafted piece takes the hue of the tier it was made at."] =
+    "Colore o nível do item pela trilha de aprimoramento, de Explorador a Mito; uma peça fabricada usa a cor do nível em que foi feita.",
   ["ALT-click to lock it from the vendor"] = "ALT + clique esquerdo para proteger contra venda",
   ["Alt + LMB to mark it for sale"] = "Alt + BE marca o item para venda",
   ["Marked for sale. Alt + LMB to lock it from sale"] = "Marcado para venda. Alt + BE protege contra venda",

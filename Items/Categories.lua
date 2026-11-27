@@ -1558,6 +1558,12 @@ local function reconcile(b, prev, live)
     if key and (held[key] or 0) > 0 then held[key] = held[key] - 1
     elseif key then fresh = true; break end
   end
+  -- A rebuild keeps the fresh sort. The memory is only there to hold places for pieces that left, and on a
+  -- pass that brought a piece the category did not hold the piece belongs at its sorted spot, not appended
+  -- after the remembered order, which is what put an arrival at the end of the section until the memory
+  -- reset. Returning here leaves b.slots as the sorted list, and the caller's capture stores that order as
+  -- the next memory, so a later removal still holds its place.
+  if fresh then return end
   -- Round one, for every remembered piece at once: the live slot in the very bag and slot it was
   -- remembered in is that piece. It has to be a round of its own rather than a preference inside the
   -- loop below. Two identical stacks carry the same itemID and a stack's GUID shifts when it moves, so
@@ -1595,7 +1601,7 @@ local function reconcile(b, prev, live)
     local k = claim[i] or pick[i]
     if k then
       out[#out + 1] = slots[k]
-    elseif not (fresh or onScreen(live, p)) then
+    elseif not onScreen(live, p) then
       local d = { dummy = true, guid = p.guid, nokey = p.nokey, count = p.count,
                   bag = p.bag, slot = p.slot }
       -- A hole stands for a piece that left the window's containers: a deposit, a sale, a destroy. The
@@ -1605,10 +1611,11 @@ local function reconcile(b, prev, live)
       if not p.dummy then b.left = (b.left or 0) + 1 end
       out[#out + 1] = d
     end
-    -- The other two ways out leave no hole at all, and neither is a removal: the pass is a rebuild (fresh,
-    -- something new arrived in this category), or the piece is still on screen somewhere else in this
-    -- window — it changed category, or moved within this one. A gap in that case would be a mark nothing
-    -- could take, standing over a piece the player can see two cells away.
+    -- The other way out leaves no hole at all, and it is not a removal: the piece is still on screen
+    -- somewhere else in this window, it changed category or moved within this one. A gap there would be a
+    -- mark nothing could take, standing over a piece the player can see two cells away. A rebuild never
+    -- reaches this loop: it returns above and keeps the sorted list, so an arrival is never put after the
+    -- remembered order.
   end
   for k = 1, #slots do
     if not used[k] then out[#out + 1] = slots[k] end

@@ -98,9 +98,10 @@ local function goldDigits(text)
 end
 
 local function groupGold(n)
-  local mode = WarpeeDB and WarpeeDB.goldFormat or "commas"
-  local sep = (mode == "dots" and ".") or (mode == "spaces" and " ") or ","
+  local sep = ns.GoldSep()
   local out = tostring(math.floor(n))
+  -- No separator means nothing to group; without this the pattern matches its own output forever.
+  if sep == nil or sep == "" then return out end
   local k
   repeat out, k = out:gsub("^(%d+)(%d%d%d)", "%1" .. sep .. "%2") until k == 0
   return out
@@ -193,7 +194,7 @@ function factories.money(parent, spec)
     local raw = box:GetText() or ""
     -- A display form is not an edit: a letter left in the field (an old save, a text set from outside)
     -- must not be parsed as its digits, which would commit 500 for "500 к". Revert instead of guessing.
-    if raw:find("[^%d%s%.,]") then row.Refresh(); return end
+    if raw:find("[^%d%s%.,']") then row.Refresh(); return end
     local g = goldDigits(raw)
     if cap and g > cap then g = cap end
     spec.set(g * 10000)

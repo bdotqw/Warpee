@@ -35,6 +35,7 @@ Features\Currencies.lua
 Features\CurrencyPicker.lua
 Items\Protected.lua
 Items\ItemRules.lua
+Items\TrackColors.lua
 Items\ItemButton.lua
 Windows\Bags.lua
 Items\Categories.lua

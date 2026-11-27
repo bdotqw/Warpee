@@ -246,7 +246,13 @@ local STRINGS = {
   ["Hide X/Y fields"] = "Masquer les champs X/Y",
   ["Capacity bar"] = "Barre de remplissage",
   ["Hide minimap icon"] = "Masquer l'icône de la minicarte",
-  ["Gold format"] = "Format des sommes",
+  ["Separator"] = "Separateur",
+  ["Compact amounts"] = "Montants compacts",
+  ["Commas (1,234)"] = "Virgules (1,234)",
+  ["Dots (1.234)"] = "Points (1.234)",
+  ["Spaces (1 234)"] = "Espaces (1 234)",
+  ["None (1234)"] = "Aucun separateur (1234)",
+  ["Apostrophe (1'234)"] = "Apostrophe (1'234)",
   ["Gold only"] = "Or uniquement",
   ["Coin letters"] = "Lettres au lieu des pièces",
   ["Clear search on close"] = "Vider la recherche à la fermeture",
@@ -259,6 +265,9 @@ local STRINGS = {
   ["Color scheme for the whole addon."] = "Palette de couleurs de tout l'addon.",
   ["Used for every label Warpee draws. Other addons can add to this list."] =
     "Utilisée pour tous les textes affichés par Warpee. D'autres addons peuvent enrichir cette liste.",
+  ["Heading size"] = "Taille des en-têtes",
+  ["How many points larger section names, list heads and the group band are drawn. A thin face usually reads better a point or two up."] =
+    "De combien de points les noms de section, les en-têtes de liste et la bande de groupe sont dessinés plus grands. Une police fine se lit mieux un ou deux points plus haut.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Langue des textes de l'addon. Les noms d'objets viennent toujours du jeu.",
   ["Freeze the bags and the bank in place. Unlocked, they show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
@@ -268,7 +277,10 @@ local STRINGS = {
   ["Fill bar in the bags header showing how full they are."] =
     "Barre dans l'en-tête des sacs indiquant leur remplissage.",
   ["Takes the Warpee button off the minimap."] = "Retire le bouton Warpee de la minicarte.",
-  ["How amounts are written in chat. Short turns 1200 into 1.2 K."] = "Comment les montants s'écrivent dans le chat. Court transforme 1200 en 1,2 k.",
+  ["What sits between the hundreds of a large amount, and the decimal sign of the compact form. Only a comma or a dot can stand in a fraction, so Spaces, None and Apostrophe leave the compact form its own language's sign."] =
+    "Ce qui separe les centaines d un grand montant, et le signe decimal de la forme compacte. Seule une virgule ou un point peuvent figurer dans une fraction ; Espaces, Aucun et Apostrophe laissent donc a la forme compacte le signe de sa langue.",
+  ["Fold 1000 into 1 K. A compact amount writes its own unit and no coin, so the coin switches below are off while it is on."] =
+    "Transforme 1000 en 1 k. Un montant compact ecrit sa propre unite et aucune piece, les reglages de piece ci-dessous sont donc desactives tant qu il est actif.",
   ["Show gold only, hide silver and copper."] = "N'afficher que l'or, sans l'argent ni le cuivre.",
   ["On = g/s/c letters. Off = coin icons."] = "Activé : lettres o/a/c. Désactivé : icônes des pièces.",
   ["Blizzard icons"] = "Icônes Blizzard",
@@ -391,6 +403,9 @@ local STRINGS = {
   ["A copper coin on gray junk: the coin the Sell button wears in gold, copper because the rules would sell it, not you."] = "Une pièce de cuivre sur le gris à vendre : la même que le bouton Vendre porte en or, en cuivre parce que les règles la vendraient, pas vous.",
   ["Tint the item level number with the item's quality color."] =
     "Colore le niveau d'objet selon la qualité de l'objet.",
+  ["Item level by track"] = "Niveau d'objet selon la piste",
+  ["Tint the item level number by its upgrade track, Explorer through Myth; a crafted piece takes the hue of the tier it was made at."] =
+    "Colore le niveau d'objet selon sa piste d'amélioration, d'Explorateur à Mythe ; une pièce fabriquée prend la teinte du palier auquel elle a été créée.",
   ["ALT-click to lock it from the vendor"] = "ALT + clic gauche bloque la vente",
   ["Alt + LMB to mark it for sale"] = "Alt + CG marque l'objet pour la vente",
   ["Marked for sale. Alt + LMB to lock it from sale"] = "Marqué pour la vente. Alt + CG bloque la vente",

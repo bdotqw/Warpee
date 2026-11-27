@@ -2024,7 +2024,11 @@ function ns.CreateTextButton(parent, size)
   b.Text = fs
   b.Paint = function(s)
     local key = (not s.wpeOn and "faint") or (s.wpeHot and "accent") or "azure"
-    s.Text:SetTextColor(Theme:C(key))
+    -- A verb set on a heading's own line borrows the heading's ink: azure lifted where it would otherwise
+    -- read as an item number under the caption beside it. Only the resting colour is lifted; hover and the
+    -- off state keep the colours that make them read as states.
+    if s.wpeHeadingInk and key == "azure" then s.Text:SetTextColor(ns.HeadingInk(key))
+    else s.Text:SetTextColor(Theme:C(key)) end
   end
   b.SetOn = function(s, on)
     s.wpeOn = on and true or nil

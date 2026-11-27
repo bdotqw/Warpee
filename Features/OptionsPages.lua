@@ -21,10 +21,6 @@ local sLinkSet, sizeGet, sizeSet, styleField = H.sLinkSet, H.sizeGet, H.sizeSet,
 local styleGet, styleSet, themeGet, themeLabel = H.styleGet, H.styleSet, H.themeGet, H.themeLabel
 local themeSet, zoomGet, zoomSet = H.themeSet, H.zoomGet, H.zoomSet
 
-local questGet, questSet     = styleField("questMarks")
-local newGet, newSet         = styleField("newItemGlow")
-local junkGet, junkSet       = styleField("junkCoin")
-local unusableGet, unusableSet = styleField("unusableBorder")
 local function gridAlphaGet() return tonumber(WarpeeDB and WarpeeDB.gridAlpha) or 0 end
 local function gridAlphaSet(v) WarpeeDB.gridAlpha = v; Theme:ApplyGridAlpha() end
 local function winAlphaGet() return tonumber(WarpeeDB and WarpeeDB.transparency) or 0 end
@@ -104,15 +100,34 @@ local lettersGet, lettersSet = field("goldLetters")
 local onlyGet, onlySet       = field("goldOnly")
 local blizzGet, blizzSet     = field("goldBlizzard")
 
-local GOLD_FORMATS = { "commas", "dots", "spaces", "short" }
-local GOLD_FORMAT_LABELS = {
-  commas = "Commas (5,000,000)",
-  dots   = "Dots (5.000.000)",
-  spaces = "Spaces (5 000 000)",
-  short  = "Short (5 M, 284.4 K)",
+-- The separator is what is left of the old gold format list: it decides the digits between the hundreds of
+-- a grouped amount, and, where it is a comma or a dot, the decimal sign the folded form writes too. Spaces,
+-- no separator at all and an apostrophe cannot stand in a fraction ("1 2 M" reads as two numbers, "1'2 M"
+-- as two words), so with those three the compact form keeps the sign its own language uses, which is the
+-- sign it had before the two settings were split.
+-- The list opens on the shipped answer and then widens from nothing to a mark: no grouping at all, then the
+-- four marks from the lightest to the heaviest (a space, a comma, a dot, an apostrophe). A player reading the
+-- dropdown top to bottom reads the setting the same way the digits do, and the first entry is the default.
+local SEP_FORMATS = { "none", "spaces", "commas", "dots", "apostrophe" }
+local SEP_LABELS = {
+  commas     = "Commas (1,234)",
+  dots       = "Dots (1.234)",
+  spaces     = "Spaces (1 234)",
+  none       = "None (1234)",
+  apostrophe = "Apostrophe (1'234)",
 }
-local function goldFmtGet() return WarpeeDB.goldFormat or "commas" end
-local function goldFmtSet(v) WarpeeDB.goldFormat = v; relayout() end
+local function sepGet()
+  local v = WarpeeDB and WarpeeDB.goldFormat
+  -- Anything the list no longer holds reads as the shipped answer: a save written by another version, or one
+  -- whose value this build dropped, must leave the dropdown on a real pick instead of a raw key.
+  return (v and SEP_LABELS[v]) and v or "none"
+end
+local function sepSet(v) WarpeeDB.goldFormat = v; relayout() end
+-- The folded form is a switch of its own now, not a fourth separator: commas in the hundreds and folded big
+-- numbers are two answers. While it is on, the three coin rows below go off, because the compact sum writes
+-- its own unit and no coin, so a coin or a letter beside it could only contradict the figure.
+local function shortGet() return Bags.goldShort end
+local shortSet = ns.Setting("goldShort", relayout, Bags)
 -- Drag-to-pin mode for the grouped view: whether dropping a piece on a section pins it there. Off keeps
 -- the editor the only way to pin; Alt (the default) pins only while Alt is held, so a plain drag never
 -- leaves a surprise pin; Always pins on every section drop.
@@ -124,8 +139,6 @@ local PIN_DRAG_LABELS = {
 }
 local function pinDragGet() return WarpeeDB.catPinDrag or "alt" end
 local function pinDragSet(v) WarpeeDB.catPinDrag = v end
-local qColorGet, qColorSet   = styleField("qualityColorIlvl")
-local qBorderGet, qBorderSet = styleField("qualityBorder")
 local bankColsGet, bankColsSet = dbField("bankCols")
 local wbColsGet, wbColsSet     = dbField("warbandCols")
 local bankSizeGet, bankIconSizeSet = dbField("bankIconSize")
@@ -188,10 +201,25 @@ local GENERAL_PAGE = {
         set = function(v) fontSet(v); Options:ApplyFont() end,
         keys = fontKeys, label = function(k) return k end,
         desc = "Used for every label Warpee draws. Other addons can add to this list." },
-      { type = "range", name = "Plate opacity", min = 0, max = 1, step = 0.01,
+      -- Points added to the heads alone. The client cannot tell how heavy a face is (a font arrives as a
+      -- path, a size and flags, with no glyph metrics), so a light cut and a bold one saved under the same
+      -- filename are the same font to it, and the weight a heading needs is the player's call.
+      { type = "range", name = "Heading size", min = 0, max = 4, step = 1,
+        get = function() return tonumber(WarpeeDB and WarpeeDB.headingSize) or 0 end,
+        set = function(v)
+          WarpeeDB.headingSize = math.max(0, math.min(4, math.floor((tonumber(v) or 0) + 0.5)))
+          -- A new style generation, so the bank, the pocket and the two list heads rebuild their cached
+          -- picture instead of keeping the heights they drew at the old size.
+          Bags.styleGen = (Bags.styleGen or 0) + 1
+          relayout()
+        end,
+        desc = "How many points larger section names, list heads and the group band are drawn. A thin face usually reads better a point or two up." },
+      -- The two window transparencies share a row, plate on the left and the window itself on the right:
+      -- both are drawn by the same plate under the same items, so they are read as one pair.
+      { type = "range", name = "Plate opacity", min = 0, max = 1, step = 0.01, half = "left",
         get = gridAlphaGet, set = gridAlphaSet,
         desc = "The plate behind the items, over the window's own background. At 0 it is invisible; raised, it covers the window up to the header." },
-      { type = "range", name = "Transparency", min = 0, max = 1, step = 0.01,
+      { type = "range", name = "Transparency", min = 0, max = 1, step = 0.01, half = "right",
         get = winAlphaGet, set = winAlphaSet,
         desc = "See-through windows." },
       -- The bag windows' own search boxes, ahead of the lock that hangs the windows they search.
@@ -201,22 +229,57 @@ local GENERAL_PAGE = {
         desc = "While both windows are open, typing in either box searches both at once." },
       { type = "toggle", name = "Hide minimap icon", get = mmHideGet, set = mmHideSet,
         desc = "Takes the Warpee button off the minimap." },
+      -- The block reads in the order the answers depend on one another: the separator is the digits
+      -- themselves (the hundreds' grouping and the folded decimal) and holds in both modes, so it opens the
+      -- block. The switches are added below, in two columns of two where the fold is offered and as one row
+      -- of three where it is not.
       { type = "header", name = "Money" },
-      { type = "select", name = "Gold format", get = goldFmtGet, set = goldFmtSet,
-        keys = function() return GOLD_FORMATS end, label = function(k) return GOLD_FORMAT_LABELS[k] or k end,
-        desc = "How amounts are written in chat. Short turns 1200 into 1.2 K." },
-      { type = "toggle", name = "Gold only", col = 1, get = onlyGet, set = onlySet,
-        desc = "Show gold only, hide silver and copper." },
-      { type = "toggle", name = "Coin letters", col = 2, get = lettersGet, set = lettersSet,
-        desc = "On = g/s/c letters. Off = coin icons." },
-      -- The coin the money line draws when the letters are off. Off (the default) is Warpee's own coin,
-      -- on is the coin the client writes every other amount in the game with. Gated by the row above
-      -- because a letter outranks both coins -- with letters on there is no coin to choose.
-      { type = "toggle", name = "Blizzard icons", col = 1, get = blizzGet, set = blizzSet,
-        disabled = function() return lettersGet() end,
-        desc = "Coin on the money line while the letters are off: the client's own icons, or Warpee's. Game tooltips keep the client's coin either way." },
+      { type = "select", name = "Separator", get = sepGet, set = sepSet,
+        keys = function() return SEP_FORMATS end, label = function(k) return SEP_LABELS[k] or k end,
+        desc = "What sits between the hundreds of a large amount, and the decimal sign of the compact form. Only a comma or a dot can stand in a fraction, so Spaces, None and Apostrophe leave the compact form its own language's sign." },
   },
 }
+
+-- The money switches: the left column and the right one hold two each, in the order they apply -- the
+-- switch that folds and greys the others, then the purse (which coins, and how they are written), then the
+-- coin art, which only says anything while the letters are off.
+-- Forever is offered no fold at all: it writes the exact purse at every amount, so there is no switch to
+-- offer, and the three that remain stand on one row instead of leaving a hole in the column it would have
+-- held.
+do
+  local rows
+  if ns.IsForever then
+    rows = {
+      { type = "toggle", name = "Gold only", col = 1, of = 3, get = onlyGet, set = onlySet,
+        desc = "Show gold only, hide silver and copper." },
+      { type = "toggle", name = "Coin letters", col = 2, of = 3, get = lettersGet, set = lettersSet,
+        desc = "On = g/s/c letters. Off = coin icons." },
+      -- The coin the money line draws when the letters are off. Off (the default) is Warpee's own coin, on
+      -- is the coin the client writes every other amount in the game with. Gated by the letters: a letter
+      -- outranks both coins.
+      { type = "toggle", name = "Blizzard icons", col = 3, of = 3, get = blizzGet, set = blizzSet,
+        disabled = function() return lettersGet() end,
+        desc = "Coin on the money line while the letters are off: the client's own icons, or Warpee's. Game tooltips keep the client's coin either way." },
+    }
+  else
+    rows = {
+      { type = "toggle", name = "Compact amounts", col = 1, of = 2, get = shortGet, set = shortSet,
+        desc = "Fold 1000 into 1 K. A compact amount writes its own unit and no coin, so the coin switches below are off while it is on." },
+      { type = "toggle", name = "Gold only", col = 2, of = 2, get = onlyGet, set = onlySet,
+        disabled = function() return shortGet() end,
+        desc = "Show gold only, hide silver and copper." },
+      { type = "toggle", name = "Coin letters", col = 1, of = 2, get = lettersGet, set = lettersSet,
+        disabled = function() return shortGet() end,
+        desc = "On = g/s/c letters. Off = coin icons." },
+      -- The coin the money line draws when the letters are off, standing beside them: a letter outranks both
+      -- coins, and a compact sum writes no coin at all.
+      { type = "toggle", name = "Blizzard icons", col = 2, of = 2, get = blizzGet, set = blizzSet,
+        disabled = function() return shortGet() or lettersGet() end,
+        desc = "Coin on the money line while the letters are off: the client's own icons, or Warpee's. Game tooltips keep the client's coin either way." },
+    }
+  end
+  for _, row in ipairs(rows) do GENERAL_PAGE.list[#GENERAL_PAGE.list + 1] = row end
+end
 
 local POCKET_PAGE = {
   { type = "toggle", name = "Pocket window", col = 1, get = fav.pkGet, set = fav.pkSet,
@@ -278,12 +341,56 @@ local POCKET_PAGE = {
 
 -- Skipping Forever's ammo switch must not leave an empty half-row on Retail.
 local function markerRows()
-  -- The craft tier's pair is made here rather than at the top of the chunk: this chunk spends all 200
-  -- locals Lua allows it, and two more stopped the whole file from compiling -- the window then opened
-  -- with no pages at all (Options.pages nil in Build). A getter and a setter that one row reads are this
-  -- function's own business, and here they cost the chunk nothing.
+  -- The craft tier's pair, the track color's and the six marker switches are made here rather than at the
+  -- top of the chunk: this chunk spends all 200 locals Lua allows it, and one pair more stopped the whole
+  -- file from compiling -- the window then opened with no pages at all (and the client warned about the 200
+  -- local limit). A getter and a setter that this page's rows read are this function's own business, and
+  -- here they cost the chunk nothing.
   local craftGet, craftSet = styleField("craftTier")
+  local tColorGet, tColorSet = styleField("trackColorIlvl")
+  local questGet, questSet     = styleField("questMarks")
+  local newGet, newSet         = styleField("newItemGlow")
+  local junkGet, junkSet       = styleField("junkCoin")
+  local unusableGet, unusableSet = styleField("unusableBorder")
+  local qColorGet, qColorSet   = styleField("qualityColorIlvl")
+  local qBorderGet, qBorderSet = styleField("qualityBorder")
+  -- The page reads in two halves. First the number the cell prints and the marks that sit on the item
+  -- itself, then the edge of the cell. Inside each half every pair is a left and a right column that belong
+  -- together, so the eye can walk down one thing and find its neighbour beside it.
   local rows = {
+    -- The number, left and right: the quality it came with on the left, the track it sits on on the right.
+    -- These two lead because everything below is a mark around the icon rather than the item's own digits.
+    { type = "toggle", name = "Item level by quality", col = 1, get = qColorGet, set = qColorSet,
+      disabled = function() return not ns.Badge("ilvl").on end,
+      desc = "Tint the item level number with the item's quality color." },
+    -- The Forever build has no upgrade tracks: its gear carries a level and a quality and nothing above them,
+    -- so a switch that colors by track would offer a choice that can never show. The row is not built there
+    -- at all, the way the craft rank row is not built on retail.
+    { type = "toggle", name = "Item level by track", col = 2, get = tColorGet, set = tColorSet,
+      disabled = function() return not ns.Badge("ilvl").on end,
+      hidden = function() return ns.IsForever end,
+      desc = "Tint the item level number by its upgrade track, Explorer through Myth; a crafted piece takes the hue of the tier it was made at." },
+    -- Marks on the item itself, in the order a player reads them: what is new, what a quest wants, what the
+    -- rules would sell, what a craft rolled.
+    { type = "toggle", name = "New item glow", col = 1, get = newGet, set = newSet,
+      desc = "Quality-colored glow on items the game still counts as new." },
+    { type = "toggle", name = "Quest marker", col = 2, get = questGet, set = questSet,
+      desc = "The exclamation mark on items for quests you have not picked up yet. Not shown in the warband bank." },
+    { type = "toggle", name = "Junk coin", col = 1, get = junkGet, set = junkSet,
+      desc = "A copper coin on gray junk: the coin the Sell button wears in gold, copper because the rules would sell it, not you." },
+    -- Gear is the one place the ceiling is the game's own window: a crafted piece wears its rhombus only
+    -- while the professions window stands. The item button carries a flag that outranks the window, and the
+    -- row is that flag on every gear cell. Consumables and reagents are not in it -- they wear their rank
+    -- with the row off just the same, which is the look those cells have always had.
+    { type = "toggle", name = "Gear craft rank", col = 2, hidden = function() return ns.IsForever end,
+      get = craftGet, set = craftSet,
+      desc = "The rhombus in the corner of crafted armor, weapons and profession equipment: the rank the piece rolled. Kept on the cell in the bags even with the professions window closed; consumables and reagents wear theirs either way." },
+    -- Then the edge: the ring around the cell, the rule that overrides it, and the two container tints that
+    -- paint a whole run of slots rather than one item.
+    { type = "toggle", name = "Quality border", col = 1, get = qBorderGet, set = qBorderSet,
+      desc = "A border in the item's quality color; quest items take the quest yellow. Reagent and unwearable borders come first." },
+    { type = "toggle", name = "Unwearable border", col = 2, get = unusableGet, set = unusableSet,
+      desc = "Red border around gear your character cannot wear." },
     { type = "toggle", name = "Reagent border", col = 1,
       get = function() return Bags.reagentTint end,
       set = function(v)
@@ -305,26 +412,6 @@ local function markerRows()
         relayout()
       end,
       desc = "Tint the slots of the quiver, the ammo pouch and the soul bag, in the grouped view too." },
-    { type = "toggle", name = "Quality border", col = 1, get = qBorderGet, set = qBorderSet,
-      desc = "A border in the item's quality color; quest items take the quest yellow. Reagent and unwearable borders come first." },
-    -- Gear is the one place the ceiling is the game's own window: a crafted piece wears its rhombus only
-    -- while the professions window stands. The item button carries a flag that outranks the window, and the
-    -- row is that flag on every gear cell. Consumables and reagents are not in it -- they wear their rank
-    -- with the row off just the same, which is the look those cells have always had.
-    { type = "toggle", name = "Gear craft rank", col = 2, hidden = function() return ns.IsForever end,
-      get = craftGet, set = craftSet,
-      desc = "The rhombus in the corner of crafted armor, weapons and profession equipment: the rank the piece rolled. Kept on the cell in the bags even with the professions window closed; consumables and reagents wear theirs either way." },
-    { type = "toggle", name = "Quest marker", col = 2, get = questGet, set = questSet,
-      desc = "The exclamation mark on items for quests you have not picked up yet. Not shown in the warband bank." },
-    { type = "toggle", name = "New item glow", col = 1, get = newGet, set = newSet,
-      desc = "Quality-colored glow on items the game still counts as new." },
-    { type = "toggle", name = "Item level by quality", col = 2, get = qColorGet, set = qColorSet,
-      disabled = function() return not ns.Badge("ilvl").on end,
-      desc = "Tint the item level number with the item's quality color." },
-    { type = "toggle", name = "Unwearable border", col = 1, get = unusableGet, set = unusableSet,
-      desc = "Red border around gear your character cannot wear." },
-    { type = "toggle", name = "Junk coin", col = 2, get = junkGet, set = junkSet,
-      desc = "A copper coin on gray junk: the coin the Sell button wears in gold, copper because the rules would sell it, not you." },
     { type = "range", name = "Border thickness", min = 1, max = 6, step = 1,
       get = edgeGet, set = edgeSet,
       desc = "Thickness of the slot border." },
@@ -692,24 +779,28 @@ local GRID_PAGE = {
   },
 }
 
-local function tipOnGet() return WarpeeDB.tipCounts ~= false end
-local function tipOnSet(v) WarpeeDB.tipCounts = v and true or false end
-local function tipBankGet() return WarpeeDB.tipBank ~= false end
-local function tipBankSet(v) WarpeeDB.tipBank = v and true or false end
-local function tipWbGet() return WarpeeDB.tipWarband ~= false end
-local function tipWbSet(v) WarpeeDB.tipWarband = v and true or false end
-local function tipGoldGet() return WarpeeDB.tipGold ~= false end
-local function tipGoldSet(v) WarpeeDB.tipGold = v and true or false end
+-- The tooltip page's switches, gathered the way the vendor and pocket pages gather theirs: a page whose rows
+-- are one table reads its getters off one table too, which is what keeps this chunk inside Lua's 200 locals
+-- (it spends every one of them) and what keeps a page's own answers next to each other.
+local tip = {}
+tip.on      = function() return WarpeeDB.tipCounts ~= false end
+tip.onSet   = function(v) WarpeeDB.tipCounts = v and true or false end
+tip.bank    = function() return WarpeeDB.tipBank ~= false end
+tip.bankSet = function(v) WarpeeDB.tipBank = v and true or false end
+tip.wb      = function() return WarpeeDB.tipWarband ~= false end
+tip.wbSet   = function(v) WarpeeDB.tipWarband = v and true or false end
+tip.gold    = function() return WarpeeDB.tipGold ~= false end
+tip.goldSet = function(v) WarpeeDB.tipGold = v and true or false end
 -- The threshold the gold tooltip hides purses under, held in copper like every other amount here but
 -- offered in gold: the list is what a player would name, not a copper figure.
-local function goldMinGet() return math.floor((tonumber(WarpeeDB.goldMin) or 0) / 10000) end
-local function goldMinSet(v) WarpeeDB.goldMin = math.max(0, math.floor(tonumber(v) or 0)) * 10000 end
+tip.min     = function() return math.floor((tonumber(WarpeeDB.goldMin) or 0) / 10000) end
+tip.minSet  = function(v) WarpeeDB.goldMin = math.max(0, math.floor(tonumber(v) or 0)) * 10000 end
 -- One list, handed over by a function: the Forever build answers with its own scale -- its purses are
 -- counted in single coins, where 1k is already everything a player owns -- and needs no second row.
 -- Up to a million: past that a threshold stops filtering anything -- a purse that big is a main, not an
 -- alt to leave out -- and the entry would only make the list longer. The quarter steps are here because
 -- the gap between 100k and a million is where a player's own numbers actually land.
-local function goldMinKeys()
+tip.minKeys = function()
   -- Forever's purses are counted in single coins: a few gold is what a character carries, a hundred is a
   -- main, and the retail list starts at a thousand -- a threshold nobody there is under, which would hide
   -- no one and read as the switch doing nothing. Its own scale, then, in whole gold, and no second row.
@@ -718,11 +809,11 @@ local function goldMinKeys()
 end
 -- 0 is the "show everyone" entry and reads as a word. The rest are written the way the addon writes money
 -- everywhere else, so the menu and the money line cannot disagree about 100000 being "100k".
-local function goldMinLabel(k)
+tip.minLabel = function(k)
   return k <= 0 and T("Off") or ns.FormatNumber(k)
 end
-local function tipOff() return not tipOnGet() end
-local function tipGoldOff() return not tipGoldGet() end
+tip.off     = function() return not tip.on() end
+tip.goldOff = function() return not tip.gold() end
 
 local snap = {}
 -- The three keep-open switches share one redraw; declared through the settings layer so the store and the
@@ -739,16 +830,16 @@ snap.wbSet = function(v) setKeepWb(v and true or false) end
 
 local CHARS_PAGE = {
   { type = "header", name = "Tooltips",
-    state = function() return onOf({ tipOnGet, tipBankGet, tipWbGet, tipGoldGet }) end },
-  { type = "toggle", name = "Count across characters", col = 1, get = tipOnGet, set = tipOnSet,
+    state = function() return onOf({ tip.on, tip.bank, tip.wb, tip.gold }) end },
+  { type = "toggle", name = "Count across characters", col = 1, get = tip.on, set = tip.onSet,
     desc = "Adds an Inventory block to item tooltips: how many each character carries." },
-  { type = "toggle", name = "Include bank", col = 2, get = tipBankGet, set = tipBankSet,
-    disabled = tipOff,
+  { type = "toggle", name = "Include bank", col = 2, get = tip.bank, set = tip.bankSet,
+    disabled = tip.off,
     desc = "Count each character's bank too. Off = bags only." },
-  { type = "toggle", name = "Include Warband", col = 1, get = tipWbGet, set = tipWbSet,
-    disabled = tipOff, hidden = ns.ForeverOnly,
+  { type = "toggle", name = "Include Warband", col = 1, get = tip.wb, set = tip.wbSet,
+    disabled = tip.off, hidden = ns.ForeverOnly,
     desc = "Count the shared Warband bank on its own line." },
-  { type = "toggle", name = "Gold tooltip", col = ns.IsForever and 1 or 2, get = tipGoldGet, set = tipGoldSet,
+  { type = "toggle", name = "Gold tooltip", col = ns.IsForever and 1 or 2, get = tip.gold, set = tip.goldSet,
     desc = ns.IsForever
       and "Gold tooltip over the money in the window corner: every character's gold and the total."
       or "Gold tooltip over the money in the window corner: every character's gold, the Warband bank, the total and the WoW Token price." },
@@ -757,8 +848,8 @@ local CHARS_PAGE = {
   -- being snapped to the nearest entry behind the player's back. The left column, like every other
   -- dropdown on the page: it starts the line under the switch above it.
   { type = "select", name = "Hide gold below", col = 1,
-    get = goldMinGet, set = goldMinSet, keys = goldMinKeys, label = goldMinLabel,
-    disabled = tipGoldOff,
+    get = tip.min, set = tip.minSet, keys = tip.minKeys, label = tip.minLabel,
+    disabled = tip.goldOff,
     desc = "Characters with less gold than this are left out of the tooltip. The total still counts every character." },
   { type = "header", name = "Snapshots",
     state = function() return onOf({ snap.bagsGet, snap.bankGet, snap.wbGet }) end },
@@ -777,12 +868,6 @@ local CHARS_PAGE = {
   { type = "chars" },
 }
 
-local function vIlvlGet() return tonumber(WarpeeDB.vendorIlvl) or 0 end
-local function vIlvlSet(v)
-  WarpeeDB.vendorIlvl = tonumber(v) or 0
-  if Bags and Bags.VendorState then Bags:VendorState() end
-  if Bags and Bags.RefreshSellCoin then Bags:RefreshSellCoin() end
-end
 -- A sell-rule change moves what Vendor:Scan would take, so the header coin re-reads the bags: turning the
 -- grey rule off, raising the ilvl floor and so on lights or darkens the coin while the panel is open and
 -- the bags sit behind it. Cheaper than VendorState (no lock sweep), since only the coin's read changed.
@@ -790,6 +875,12 @@ local function vendorRuleChanged()
   if Bags and Bags.RefreshSellCoin then Bags:RefreshSellCoin() end
 end
 local V = {}
+function V.ilvl() return tonumber(WarpeeDB.vendorIlvl) or 0 end
+function V.ilvlSet(v)
+  WarpeeDB.vendorIlvl = tonumber(v) or 0
+  if Bags and Bags.VendorState then Bags:VendorState() end
+  if Bags and Bags.RefreshSellCoin then Bags:RefreshSellCoin() end
+end
 function V.boeGet() return WarpeeDB.vendorKeepBoE ~= false end
 function V.boeSet(v) WarpeeDB.vendorKeepBoE = v and true or false; vendorRuleChanged() end
 function V.wbGet() return WarpeeDB.vendorKeepWarbound ~= false end
@@ -847,7 +938,7 @@ local VENDOR_MAIN = {
     desc = "Where the repair money comes from. The guild bank is used only if your withdraw limit covers the whole bill." },
   { type = "header", name = "The coin button",
     state = function()
-      local min, max = V.minGet(), vIlvlGet()
+      local min, max = V.minGet(), V.ilvl()
       if max > 0 and min >= max then return L["Invalid range"] end
       if not V.autoGet() then return nil end
       local parts = {}
@@ -873,7 +964,7 @@ local VENDOR_MAIN = {
     get = V.minGet, set = V.minSet,
     desc = "Gear at or above this item level is sold." },
   { type = "input", name = "Item level under", col = 2, min = 0, max = 9999,
-    get = vIlvlGet, set = vIlvlSet,
+    get = V.ilvl, set = V.ilvlSet,
     desc = "Gear under this item level is sold. Zero keeps every piece." },
   { type = "toggle", name = "Legion relics", col = 1, get = V.relicGet, set = V.relicSet,
     hidden = ns.ForeverOnly,
@@ -1012,7 +1103,10 @@ local CONFIRM_KEYS = { "never", "poor", "common", "uncommon", "rare", "epic", "l
 -- names pick one and stop guessing; Vendor only is the list with no auction side at all.
 local AUCTION_LABEL = { auto = "Auto", auctionator = "Auctionator", tsm = "TSM", vendor = "Vendor only" }
 
-local function qualityLabel(k)
+-- The Cheap page's switches, gathered the same way the tooltip page's are: this chunk sits on Lua's limit,
+-- and a page's own getters kept in one table cost it a single local instead of seventeen.
+local cheap = {}
+cheap.label = function(k)
   if k == "never" then return T("Never") end
   return (ns.TokenDisplay and ns.TokenDisplay(k)) or k
 end
@@ -1020,56 +1114,56 @@ end
 -- The window's master switch reads the same way as every other window's ("Pocket window", "Recent in bags"):
 -- on means the window is there. The key behind it stays `cheapShow`, so a save written under the old, negative
 -- row means exactly what it did before.
-local function cheapShowGet() return not (WarpeeDB and WarpeeDB.cheapShow == false) end
-local function cheapShowSet(v) if ns.Cheap then ns.Cheap:SetShown(v) end end
-local function cheapCutGet() return not (WarpeeDB and WarpeeDB.cheapCut == false) end
-local function cheapCutSet(v) if ns.Cheap then ns.Cheap:SetCut(v) end end
-local function cheapMaxGet() return (WarpeeDB and WarpeeDB.cheapMaxQuality) or "uncommon" end
-local function cheapMaxSet(v) if ns.Cheap then ns.Cheap:SetMaxQuality(v) end end
-local function cheapConfGet() return (WarpeeDB and WarpeeDB.cheapConfirm) or "common" end
-local function cheapConfSet(v) if ns.Cheap then ns.Cheap:SetConfirm(v) end end
+cheap.show    = function() return not (WarpeeDB and WarpeeDB.cheapShow == false) end
+cheap.showSet = function(v) if ns.Cheap then ns.Cheap:SetShown(v) end end
+cheap.cut     = function() return not (WarpeeDB and WarpeeDB.cheapCut == false) end
+cheap.cutSet  = function(v) if ns.Cheap then ns.Cheap:SetCut(v) end end
+cheap.max     = function() return (WarpeeDB and WarpeeDB.cheapMaxQuality) or "uncommon" end
+cheap.maxSet  = function(v) if ns.Cheap then ns.Cheap:SetMaxQuality(v) end end
+cheap.conf    = function() return (WarpeeDB and WarpeeDB.cheapConfirm) or "common" end
+cheap.confSet = function(v) if ns.Cheap then ns.Cheap:SetConfirm(v) end end
 
 -- Only the addons that are actually installed are offered: a player without TSM is never asked to pick it, and
 -- a choice left over from one that has since been turned off reads as Auto instead of as a dead row.
-local function cheapSrcKeys()
+cheap.srcKeys = function()
   if ns.Cheap and ns.Cheap.AuctionChoices then return ns.Cheap:AuctionChoices() end
   return { "auto", "vendor" }
 end
 
-local function cheapSrcGet()
+cheap.src = function()
   local v = (WarpeeDB and WarpeeDB.cheapAuctionSource) or "auto"
   if ns.Cheap and ns.Cheap.AuctionChoiceAvailable and not ns.Cheap:AuctionChoiceAvailable(v) then return "auto" end
   return v
 end
 
-local function cheapSrcSet(v) if ns.Cheap then ns.Cheap:SetAuctionSource(v) end end
+cheap.srcSet = function(v) if ns.Cheap then ns.Cheap:SetAuctionSource(v) end end
 
 -- The kinds the list leaves alone. Absent reads as on, so a save from before these switches keeps protecting
 -- what the shipped answer protects; the module reads the same keys and treats them the same way.
-local function cheapKeepGet(key) return not (WarpeeDB and WarpeeDB[key] == false) end
-local function cheapKeepSet(key, v) if ns.Cheap then ns.Cheap:SetKeep(key, v) end end
+cheap.keep    = function(key) return not (WarpeeDB and WarpeeDB[key] == false) end
+cheap.keepSet = function(key, v) if ns.Cheap then ns.Cheap:SetKeep(key, v) end end
 
 local CHEAP_PAGE = {
   { type = "description",
     name = "The list that opens with the bags: the stacks a merchant pays least for, cheapest first. A stack the auction house values above its vendor price is marked AH." },
-  { type = "toggle", name = "Cheap window", col = 1, of = 2, get = cheapShowGet, set = cheapShowSet,
+  { type = "toggle", name = "Cheap window", col = 1, of = 2, get = cheap.show, set = cheap.showSet,
     desc = "The list opens and closes with the bags. Off leaves its settings as they are; switching it back on brings the window with the bags again." },
   -- With the window switched off nothing below it has a screen to act on, so every rule is greyed the way the
   -- pocket's page greys its own; the master row above keeps its place and is never gated.
-  { type = "toggle", name = "Subtract the auction cut", col = 2, of = 2, get = cheapCutGet, set = cheapCutSet,
-    disabled = function() return not cheapShowGet() end,
+  { type = "toggle", name = "Subtract the auction cut", col = 2, of = 2, get = cheap.cut, set = cheap.cutSet,
+    disabled = function() return not cheap.show() end,
     desc = "The auction house keeps 5% of every sale, so the auction side of a row shows what you would really get: the listed price less 5%. Switch it off to compare against the raw price." },
-  { type = "select", name = "Highest quality shown", get = cheapMaxGet, set = cheapMaxSet,
-    disabled = function() return not cheapShowGet() end,
-    keys = function() return QUALITY_KEYS end, label = qualityLabel,
+  { type = "select", name = "Highest quality shown", get = cheap.max, set = cheap.maxSet,
+    disabled = function() return not cheap.show() end,
+    keys = function() return QUALITY_KEYS end, label = cheap.label,
     desc = "The best quality that earns a row. Anything above it is left out, so the list stays about what is worth throwing away." },
-  { type = "select", name = "Ask before deleting", get = cheapConfGet, set = cheapConfSet,
-    disabled = function() return not cheapShowGet() end,
-    keys = function() return CONFIRM_KEYS end, label = qualityLabel,
+  { type = "select", name = "Ask before deleting", get = cheap.conf, set = cheap.confSet,
+    disabled = function() return not cheap.show() end,
+    keys = function() return CONFIRM_KEYS end, label = cheap.label,
     desc = "The quality a delete asks about first: below it a click throws the stack away at once, at it and above the game asks yes or no. Never turns the question off." },
-  { type = "select", name = "Auction prices from", get = cheapSrcGet, set = cheapSrcSet,
-    disabled = function() return not cheapShowGet() end,
-    keys = cheapSrcKeys, label = function(k) return T(AUCTION_LABEL[k] or k) end,
+  { type = "select", name = "Auction prices from", get = cheap.src, set = cheap.srcSet,
+    disabled = function() return not cheap.show() end,
+    keys = cheap.srcKeys, label = function(k) return T(AUCTION_LABEL[k] or k) end,
     desc = "Which addon the auction side reads. Auto takes Auctionator when it is installed and TSM after it. Vendor only shows every row at the merchant's price, and a gray stack is never asked at an auction house." },
   -- The kinds a delete leaves alone. A kind is the client's own class rather than a list of ids, so a potion
   -- written by the next expansion is protected the day it drops. The switches cover the destroy only: a piece
@@ -1078,19 +1172,19 @@ local CHEAP_PAGE = {
   { type = "description",
     name = "A row is a stack one click from being destroyed, so these kinds never get one. Untick a kind to list it again; a merchant buys them whatever the switches say." },
   { type = "toggle", name = "Potions and food", col = 1, of = 3,
-    get = function() return cheapKeepGet("cheapKeepConsumable") end,
-    set = function(v) cheapKeepSet("cheapKeepConsumable", v) end,
-    disabled = function() return not cheapShowGet() end,
+    get = function() return cheap.keep("cheapKeepConsumable") end,
+    set = function(v) cheap.keepSet("cheapKeepConsumable", v) end,
+    disabled = function() return not cheap.show() end,
     desc = "Potions, elixirs, flasks, food and drink, bandages, weapon oils and scrolls: no row, so a buff or a meal is never one click from being destroyed. Unticked, they are listed again." },
   { type = "toggle", name = "Recipes", col = 2, of = 3,
-    get = function() return cheapKeepGet("cheapKeepRecipe") end,
-    set = function(v) cheapKeepSet("cheapKeepRecipe", v) end,
-    disabled = function() return not cheapShowGet() end,
+    get = function() return cheap.keep("cheapKeepRecipe") end,
+    set = function(v) cheap.keepSet("cheapKeepRecipe", v) end,
+    disabled = function() return not cheap.show() end,
     desc = "Recipes, plans and patterns: no row, because they are learned or sold, not destroyed. Unticked, they are listed again." },
   { type = "toggle", name = "Toys, mounts and pets", col = 3, of = 3,
-    get = function() return cheapKeepGet("cheapKeepCollectible") end,
-    set = function(v) cheapKeepSet("cheapKeepCollectible", v) end,
-    disabled = function() return not cheapShowGet() end,
+    get = function() return cheap.keep("cheapKeepCollectible") end,
+    set = function(v) cheap.keepSet("cheapKeepCollectible", v) end,
+    disabled = function() return not cheap.show() end,
     desc = "Toys, mounts and battle pets: no row, because a destroyed one cannot be got back. Unticked, they are listed again." },
   -- The list of what the window was told to skip: the same shape as the marked-for-sale list beside it, because
   -- it is the same kind of thing -- item ids saved by hand, with the minus that takes each one back out.
@@ -1098,7 +1192,7 @@ local CHEAP_PAGE = {
     state = function() return ns.LN("%d items", (ns.Cheap and ns.Cheap:IgnoredCount()) or 0) end },
   { type = "description", section = "cheapignored",
     name = "Click the - on an item's icon in the list to leave it out of it. The list never offers it again; the minus here puts it back." },
-  { type = "cheaplist", section = "cheapignored", disabled = function() return not cheapShowGet() end },
+  { type = "cheaplist", section = "cheapignored", disabled = function() return not cheap.show() end },
 }
 
 local VENDOR_SUBS = { { name = "Merchant", list = VENDOR_MAIN } }

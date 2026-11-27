@@ -248,7 +248,13 @@ local STRINGS = {
   ["Hide X/Y fields"] = "X/Y-Felder ausblenden",
   ["Capacity bar"] = "Füllstandsleiste",
   ["Hide minimap icon"] = "Minikartensymbol ausblenden",
-  ["Gold format"] = "Zahlenformat",
+  ["Separator"] = "Trennzeichen",
+  ["Compact amounts"] = "Kompakte Betraege",
+  ["Commas (1,234)"] = "Kommas (1,234)",
+  ["Dots (1.234)"] = "Punkte (1.234)",
+  ["Spaces (1 234)"] = "Leerzeichen (1 234)",
+  ["None (1234)"] = "Kein Trennzeichen (1234)",
+  ["Apostrophe (1'234)"] = "Apostroph (1'234)",
   ["Gold only"] = "Nur Gold",
   ["Coin letters"] = "Münzbuchstaben",
   ["Clear search on close"] = "Suche beim Schließen leeren",
@@ -261,6 +267,9 @@ local STRINGS = {
   ["Color scheme for the whole addon."] = "Farbschema für das ganze Addon.",
   ["Used for every label Warpee draws. Other addons can add to this list."] =
     "Wird für jeden Text verwendet, den Warpee zeichnet. Andere Addons können diese Liste erweitern.",
+  ["Heading size"] = "Größe der Überschriften",
+  ["How many points larger section names, list heads and the group band are drawn. A thin face usually reads better a point or two up."] =
+    "Um wie viele Punkte Abschnittsnamen, Listenköpfe und die Gruppenleiste größer gezeichnet werden. Eine dünne Schrift liest sich meist ein bis zwei Punkte größer besser.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Sprache für die Texte des Addons. Gegenstandsnamen kommen immer aus dem Spiel.",
   ["Freeze the bags and the bank in place. Unlocked, they show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
@@ -270,7 +279,10 @@ local STRINGS = {
   ["Fill bar in the bags header showing how full they are."] =
     "Leiste in der Kopfzeile der Taschen, die zeigt, wie voll sie sind.",
   ["Takes the Warpee button off the minimap."] = "Entfernt den Warpee-Knopf von der Minikarte.",
-  ["How amounts are written in chat. Short turns 1200 into 1.2 K."] = "Wie Beträge im Chat geschrieben werden. Kurz macht aus 1200 ein 1,2 k.",
+  ["What sits between the hundreds of a large amount, and the decimal sign of the compact form. Only a comma or a dot can stand in a fraction, so Spaces, None and Apostrophe leave the compact form its own language's sign."] =
+    "Was zwischen den Hundertern eines grossen Betrags steht und welches Zeichen die kompakte Form als Dezimalzeichen nimmt. Nur ein Komma oder ein Punkt kann im Bruch stehen, deshalb lassen Leerzeichen, Kein Trennzeichen und Apostroph der kompakten Form das Zeichen ihrer Sprache.",
+  ["Fold 1000 into 1 K. A compact amount writes its own unit and no coin, so the coin switches below are off while it is on."] =
+    "Macht aus 1000 ein 1 k. Eine kompakte Zahl schreibt ihre eigene Einheit und keine Muenze, darum sind die Muenzschalter darunter aus, solange sie an ist.",
   ["Show gold only, hide silver and copper."] = "Nur Gold anzeigen, Silber und Kupfer ausblenden.",
   ["On = g/s/c letters. Off = coin icons."] = "Ein: Buchstaben G/S/K. Aus: Münzsymbole.",
   ["Blizzard icons"] = "Blizzard-Symbole",
@@ -393,6 +405,9 @@ local STRINGS = {
   ["A copper coin on gray junk: the coin the Sell button wears in gold, copper because the rules would sell it, not you."] = "Eine Kupfermünze auf grauem Plunder: dieselbe Münze, die der Verkaufen-Knopf in Gold trägt, hier in Kupfer, weil die Regeln ihn verkaufen würden, nicht Ihr.",
   ["Tint the item level number with the item's quality color."] =
     "Färbt die Gegenstandsstufe in der Qualitätsfarbe des Gegenstands.",
+  ["Item level by track"] = "Gegenstandsstufe nach Pfad",
+  ["Tint the item level number by its upgrade track, Explorer through Myth; a crafted piece takes the hue of the tier it was made at."] =
+    "Färbt die Gegenstandsstufe in der Farbe ihrer Aufwertungsstufe, von Forscher bis Mythos; ein hergestellter Gegenstand nimmt die Farbe seiner Herstellungsstufe.",
   ["ALT-click to lock it from the vendor"] = "ALT + Linksklick sperrt den Verkauf",
   ["Alt + LMB to mark it for sale"] = "Alt + LM markiert den Gegenstand für den Verkauf",
   ["Marked for sale. Alt + LMB to lock it from sale"] = "Zum Verkauf markiert. Alt + LM sperrt den Verkauf",

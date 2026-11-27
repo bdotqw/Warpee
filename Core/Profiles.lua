@@ -126,6 +126,7 @@ function P:Apply(name)
   if not WarpeeDB then return false end
   local t = WarpeeDB[LIST] and WarpeeDB[LIST][name]
   if name ~= RESERVED and not t then return false end
+  if t then ns.MigrateMoney(t) end
   ns.WipeConfig(WarpeeDB)
   if t then
     for k, v in pairs(t) do

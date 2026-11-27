@@ -161,14 +161,6 @@ local tokenWatch
 local tokenTick = false
 local TIP_PAD, TIP_GAP = 8, 16
 local TIP_FONT_MIN = 8
--- A coin's room on a line, in units: coinSet in Windows/Bags.lua draws it at 12 when the caller hands no face
--- (the gold tooltip hands none). The money labels measure that coin themselves; this number is only the inset
--- the last column keeps from the panel's border, so the outer coin is never painted into the edge.
-local COIN_W = 15
--- The money leans this far into the panel's padding, so the rightmost coin sits a hair off the border instead of
--- a coin's width inside it. Without the lean the padding and the coin's own air added up to a band of empty panel
--- beside the numbers on every row, retail's single gold column the most visible of all.
-local COIN_BLEED = 5
 -- What sits between two columns: the money labels already carry their coins -- a coin's own advance is part of
 -- what the label measures -- so this is air, not a second coin's room. Five units is what the cheap list puts
 -- between its money columns; a coin's worth on top of a measured coin left a wide band between the units.
@@ -183,8 +175,8 @@ local function tipRow(t, i, size)
   l:SetJustifyH("LEFT")
   -- The money is three labels, not one: gold, silver and copper each own a column, so a copper sits under the
   -- copper above it however many coins the row carries. Their right anchors are set once the widest of each
-  -- column is known (see the column block in showGoldTip); a coin is a texture the font string does not measure,
-  -- so every column also keeps COIN_W of room on its own -- the one thing widening the panel could never fix.
+  -- column is known (see the column block in showGoldTip); each column offsets by the width the label itself
+  -- measured, coin included, and COL_GAP of air.
   r.Left = l
   for _, key in ipairs({ "G", "S", "C" }) do
     local v = Theme:Label(r, size, "text")
@@ -356,9 +348,12 @@ local function showGoldTip(anchor)
   end
 
   for i = n + 1, #t.rows do t.rows[i]:Hide() end
-  -- The columns, counted from the row's right edge: copper first, then silver, then gold. The last column leans
-  -- COIN_BLEED into the padding, so the panel's border is a hair past its coin rather than a band beyond it.
-  local colC = COIN_W - COIN_BLEED
+  -- The columns, counted from the row's right edge: copper first, then silver, then gold. The money labels carry
+  -- their own coins -- a coin's advance is part of what the label measures -- so the last column ends exactly
+  -- where the row does, and the panel's padding is all the air its coin needs. A coin's width kept on top of
+  -- that padding left a band of empty panel beside every number; retail's single gold column, where the coin is
+  -- the last thing on the line, showed it widest.
+  local colC = 0
   -- A gap belongs only between two columns that are really drawn. On retail every row is gold alone, so silver
   -- and copper carry no width at all; charging both gaps anyway pushed the gold a whole band in from the edge and
   -- widened the panel with it. A column that is never filled costs nothing.

@@ -41,7 +41,7 @@ local pocketSize = ns.PocketIconSize
 local function applyDensity()
   local d = ns.Density(pocketSize())
   PAD, BAND = d.pocketPad + Theme:ContentPad("side"), d.pocketBand
-  LABEL_H, LABEL_GAP = d.labelH, d.labelGap
+  LABEL_H, LABEL_GAP = ns.HeadSize(d.labelH), d.labelGap
   BOX_H, BOX_GAP = d.searchH, d.pocketGap
   PICK_SIZE, PICK_GAP, PICK_PAD = d.pickSize, d.pickGap, d.pickPad
   FONT, PICK_MINW = d.font, d.pickMinW
@@ -887,11 +887,17 @@ function Pocket:Build()
   rec:SetAlpha(0.85)
   rec:SetJustifyH("LEFT")
   ns.LocalText(rec, "Recent")
+  -- The same ink the bags' heads and captions take, kept on the theme and not only set in Layout: the
+  -- pocket has no restyle pass of its own, so a head painted only at layout time would hold the raw
+  -- accent beside lifted captions until the window was reopened.
+  Theme:Track(rec, function(s) s:SetTextColor(ns.HeadingInk("accent")) end)
   rec:Hide()
   self.recLabel = rec
 
   local clr = ns.CreateTextButton(w, 10)
   ns.LocalText(clr.Text, "Clear")
+  -- Same ink as the bags' own Clear and the Recent head it stands beside.
+  clr.wpeHeadingInk = true
   clr:SetScript("OnClick", function(s)
     if s.wpeOn and ns.Recent then ns.Recent:Wipe() end
   end)
@@ -1149,14 +1155,16 @@ function Pocket:Layout()
   local recOn = (R and R:PocketOn()) and true or false
   local y = head
   if recOn then
-    self.recLabel:SetFont(path, FONT - 4, ns.OutlineFlags())
+    self.recLabel:SetFont(path, ns.HeadSize(FONT - 4), ns.OutlineFlags())
+    -- The bags' own caption ink: same lift, so the pocket's head matches the window's list heads.
+    self.recLabel:SetTextColor(ns.HeadingInk("accent"))
     self.recLabel:ClearAllPoints()
     ns.SnapPoint(self.recLabel, "TOPLEFT", w, "TOPLEFT", PAD, -y)
     self.recLabel:Show()
     local capY = y
     y = y + LABEL_H + LABEL_GAP
     local feed = R:Feed(recCount)
-    self.recWipe.Text:SetFont(path, FONT - 5, ns.OutlineFlags())
+    self.recWipe.Text:SetFont(path, ns.HeadSize(FONT - 5), ns.OutlineFlags())
     self.recWipe:SetSize(math.ceil(self.recWipe.Text:GetStringWidth()) + 8, LABEL_H)
     self.recWipe:ClearAllPoints()
     ns.SnapPoint(self.recWipe, "TOPLEFT", w, "TOPLEFT",

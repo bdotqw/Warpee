@@ -11,8 +11,8 @@ local SLOT_RENAMES = { quality = "deep", frost = "deep", ridged = "deep", marble
 local PICKS = {
   slotStyle      = { def = "plate", ok = { flat = true, plate = true, deep = true },
                      map = SLOT_RENAMES },
-  goldFormat     = { def = "short",
-                     ok = { commas = true, dots = true, spaces = true, short = true } },
+  goldFormat     = { def = "none",
+                     ok = { commas = true, dots = true, spaces = true, none = true, apostrophe = true } },
   vendorRepairBy = { def = "player", ok = { player = true, guild = true, both = true } },
 }
 
@@ -24,9 +24,12 @@ ns.PocketRowsDefault, ns.PocketColsDefault = POCKET_ROWS, POCKET_COLS
 local DEFAULTS = {
   cols = 16, gap = 4, iconSize = 37, slotStyle = "plate", theme = "blizzard",
   font = "Rubik Bold",
+  -- Points added to the headings only (section names, list heads, the group band). Zero keeps the
+  -- sizes the layout was drawn for; a light face usually reads better one or two points up.
+  headingSize = 0,
   iconZoom = 1, borderWidth = 1, gridAlpha = 0, transparency = 0, showGauge = false,
   favShow = true, recentBags = true, recentPocket = true, recentClearClose = false,
-  qualityColorIlvl = true, qualityBorder = true, mergeReagents = false,
+  qualityColorIlvl = true, trackColorIlvl = true, qualityBorder = true, mergeReagents = false,
   reagentTop = false, hideReagents = false,
   -- The other two containers of the window, one switch each plus the quiver's own merge. They live here
   -- and not as bare reads off WarpeeDB so that a reset to the shipped settings puts them back like every
@@ -81,7 +84,14 @@ local DEFAULTS = {
   catPinDrag = "alt",
   -- goldBlizzard: the money line's coin is Warpee's own unless this says otherwise (the client's icons
   -- are the ones the rest of the game writes, kept for anyone who wants the window to match them).
-  goldFormat = "short", goldLetters = false, goldOnly = false, goldBlizzard = false, goldMin = 0,
+  -- goldShort: the folded form ("1.2 K"), a switch of its own rather than a fourth separator, so a player
+  -- can keep commas in the hundreds and still fold. It writes its own unit and no coin, which is why the
+  -- coin switches are gated while it is on. The separator still names its decimal sign, except that spaces,
+  -- nothing at all and an apostrophe leave the short form the sign its language uses.
+  -- The shipped answer for a fresh save (and for a profile reset) is plain digits and not one switch on:
+  -- "1 000 000" is the amount a player can check against the client's own window, and each shortening is
+  -- something they ask for rather than something they have to undo.
+  goldFormat = "none", goldShort = false, goldLetters = false, goldOnly = false, goldBlizzard = false, goldMin = 0,
   -- The cheap list (Forever): the best quality it shows and the quality a delete asks about first. Stored by
   -- name, like the gold style, so the saved variables say what was chosen rather than a bare number.
   cheapMaxQuality = "uncommon", cheapConfirm = "common", cheapAuctionSource = "auto",
@@ -222,6 +232,14 @@ end
 
 ns.FillComputed = fillComputed
 
+-- Read the old separator before defaults fill in the missing checkbox.
+function ns.MigrateMoney(db)
+  local mode = db.goldFormat
+  if not PICKS.goldFormat.ok[mode] and mode ~= "short" then return end
+  if db.goldShort == nil then db.goldShort = mode == "short" end
+  if mode == "short" then db.goldFormat = "spaces" end
+end
+
 local function sanitizeConfig(db)
   if not ns.Theme.THEMES[db.theme] then db.theme = "blizzard" end
   for key, pick in pairs(PICKS) do
@@ -243,6 +261,9 @@ function ns.PushConfig()
   Bags.slotStyle = WarpeeDB.slotStyle
   Bags.iconZoom = WarpeeDB.iconZoom
   Bags.borderWidth = WarpeeDB.borderWidth
+  -- Forever is offered no short form: its settings page has no switch for it, and a save carried over from the
+  -- other client must not fold money in a window that cannot turn it off.
+  Bags.goldShort = WarpeeDB.goldShort and not ns.IsForever
   Bags.goldLetters = WarpeeDB.goldLetters
   Bags.goldOnly = WarpeeDB.goldOnly
   Bags.goldBlizzard = WarpeeDB.goldBlizzard
@@ -251,6 +272,7 @@ function ns.PushConfig()
   Bags.showGauge = WarpeeDB.showGauge
   Bags.badge = WarpeeDB.badge
   Bags.qualityColorIlvl = WarpeeDB.qualityColorIlvl
+  Bags.trackColorIlvl   = WarpeeDB.trackColorIlvl
   Bags.qualityBorder    = WarpeeDB.qualityBorder
   Bags.mergeReagents    = WarpeeDB.mergeReagents
   Bags.reagentTop       = WarpeeDB.reagentTop
@@ -814,6 +836,8 @@ local function onLogin()
     WarpeeDB.goldOnly = WarpeeDB.goldMode == "gold"
   end
   WarpeeDB.goldMode = nil
+
+  ns.MigrateMoney(WarpeeDB)
 
   -- Recent was one switch for both windows, and it is two now. The split has to happen
   -- before the defaults are filled in, because that is what would otherwise write two

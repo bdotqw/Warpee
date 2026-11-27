@@ -298,14 +298,29 @@ end
 -- (see ns.FormatNumber): an amount folds into the language's own units. The value is floored to the
 -- shown decimal, never rounded up -- "4.9K" for 4875 would claim more than is owned. A count badge
 -- does not ride this form: it folds through ns.ShortCount below, which is built to fit a corner.
-function ns.ShortNumber(n)
+-- The folded figure and its unit, apart: a money line paints the unit in the metal's own colour and
+-- needs the two pieces separately, while a caller with nothing to colour wants them joined (ShortNumber
+-- below). A number below the first unit comes back as itself with no unit at all.
+--
+-- foldSmall asks for the ladder's first unit even below its step: a gold table where every row ends in "K"
+-- and one row in a bare "834" read as a number whose unit fell off, so the short form folds that row too,
+-- at the same one decimal and by the same floor. Under a hundred there is nothing to show at one decimal
+-- (0.0 K claims a figure it does not have), so those stay exact.
+function ns.ShortUnits(n, foldSmall)
   n = math.floor(n or 0)
-  if n < 1000 then return tostring(n) end
   local form = ns.ShortForm()
+  local dec = ns.ShortDec(form)
   local units = form.units
   local gap = form.gap
   if gap == nil then gap = true end
   local tail = gap and " " or ""
+  if n < 1000 then
+    if foldSmall and n >= 100 and #units > 0 then
+      local r = math.floor(n / 100) / 10
+      return (string.format("%.1f", r):gsub("%.", dec)), tail .. units[#units][2]
+    end
+    return tostring(n), nil
+  end
   for i, u in ipairs(units) do
     local scale, suf = u[1], u[2]
     if n >= scale then
@@ -314,11 +329,38 @@ function ns.ShortNumber(n)
         scale, suf = units[i - 1][1], units[i - 1][2]
         r = math.floor(n / scale * 10 + 1e-9) / 10
       end
-      if r == math.floor(r) then return string.format("%d%s%s", r, tail, suf) end
-      return (string.format("%.1f", r):gsub("%.", form.dec)) .. tail .. suf
+      if r == math.floor(r) then return string.format("%d", r), tail .. suf end
+      return (string.format("%.1f", r):gsub("%.", dec)), tail .. suf
     end
   end
-  return tostring(n)
+  return tostring(n), nil
+end
+
+-- The separator the grouped form writes between the hundreds, and the one fact it still shares with the
+-- short form: only a comma or a dot can stand in a fraction. Spaces, nothing at all and an apostrophe
+-- cannot ("1 2 M" reads as two numbers, "1'2 M" as two words), so with those three the short form keeps
+-- the sign its own language uses. One pair of functions, because the options page, the gold field and the
+-- money line would otherwise each spell the rule out and drift.
+function ns.GoldSep()
+  local mode = WarpeeDB and WarpeeDB.goldFormat
+  if mode == "dots" then return "." end
+  if mode == "commas" then return "," end
+  if mode == "apostrophe" then return "'" end
+  if mode == "spaces" then return " " end
+  -- "None", and the answer for anything unreadable: the digits run on with nothing between them.
+  return ""
+end
+
+function ns.ShortDec(form)
+  local mode = WarpeeDB and WarpeeDB.goldFormat
+  if mode == "dots" then return "." end
+  if mode == "commas" then return "," end
+  return (form and form.dec) or "."
+end
+
+function ns.ShortNumber(n)
+  local num, unit = ns.ShortUnits(n)
+  return unit and (num .. unit) or num
 end
 
 -- A count as a cell badge shows it: up to four digits the figure is written out exactly (a badge

@@ -620,7 +620,7 @@ function Fav:Apply(bags, x, top, size, gap)
   -- The item is not gone, it is on the cursor. The drop clears the cursor and asks again -- the
   -- frame-late pass in Drop, and PinFromCursor for a drop on a cell -- so waiting loses nothing.
   if self.lifted and CursorHasItem() then
-    return d.labelH + d.labelGap + size + 6
+    return ns.HeadSize(d.labelH) + d.labelGap + size + 6
   end
   if not self:Enabled() then
     self:Hide()
@@ -639,7 +639,11 @@ function Fav:Apply(bags, x, top, size, gap)
     ns.LocalText(fs, "Favorites")
     self.label = fs
   end
-  self.label:SetFont(bags.fontPath or ns.Fonts:Current(), d.font - 4, ns.OutlineFlags())
+  self.label:SetFont(bags.fontPath or ns.Fonts:Current(), ns.HeadSize(d.font - 4), ns.OutlineFlags())
+  -- The ink the captions below are painted with, not the raw accent: HeadingInk lifts a hue that would
+  -- read as an item number under it, and a head left at the saturated accent beside lifted captions is
+  -- the one blue left on the page.
+  self.label:SetTextColor(ns.HeadingInk("accent"))
   self.label:ClearAllPoints()
   ns.SnapPoint(self.label, "TOPLEFT", frame, "TOPLEFT", x, -top)
   self.label:Show()
@@ -657,6 +661,9 @@ function Fav:Apply(bags, x, top, size, gap)
     -- so the pair sits on one ink; hover and the disabled state still move the colour, which the alpha does
     -- not touch.
     c:SetAlpha(0.85)
+    -- Azure lifted the way the heading beside it is: the word stands on that heading's line, and the two
+    -- hues have to be held off the item numbers by the same rule.
+    c.wpeHeadingInk = true
     c:SetScript("OnClick", function() Fav:OpenPicks() end)
     c:SetOn(true)
     ns.AddTip(c, "Popular", "top")
@@ -666,8 +673,8 @@ function Fav:Apply(bags, x, top, size, gap)
   -- Hung off the head itself, centre on centre, so the two share a baseline at every density. Measured from
   -- the frame's top instead it sat a pixel low: a button's height and a font box are not the same number, and
   -- the difference lands under the smaller text. A step smaller than the head, as Clear is beside Recent.
-  self.add.Text:SetFont(bags.fontPath or ns.Fonts:Current(), d.font - 5, ns.OutlineFlags())
-  self.add:SetSize(math.ceil(self.add.Text:GetStringWidth()) + 8, d.labelH)
+  self.add.Text:SetFont(bags.fontPath or ns.Fonts:Current(), ns.HeadSize(d.font - 5), ns.OutlineFlags())
+  self.add:SetSize(math.ceil(self.add.Text:GetStringWidth()) + 8, ns.HeadSize(d.labelH))
   ns.SnapPoint(self.add, "LEFT", self.label, "RIGHT", 8, 0)
   -- Read-only view of another character's vault: this section is that character's, and a list this window
   -- only shows is not something to write into from here.
@@ -676,7 +683,7 @@ function Fav:Apply(bags, x, top, size, gap)
   local cols = bags.cols or 14
   local n = math.min(cols, MAX_SLOTS)
   if not self.warmed then self:Warm() end
-  local rowY = top + d.labelH + d.labelGap
+  local rowY = top + ns.HeadSize(d.labelH) + d.labelGap
   local list = self:List()
   local last = math.max(self.max or 0, n)
   self.max = last
@@ -752,7 +759,7 @@ function Fav:Apply(bags, x, top, size, gap)
   -- until the next cooldown event. One pass after placing the cells closes that gap,
   -- and the cached start and duration keep an unchanged one nearly free.
   self:Cooldowns()
-  return d.labelH + d.labelGap + size + 6
+  return ns.HeadSize(d.labelH) + d.labelGap + size + 6
 end
 
 local ev = CreateFrame("Frame")

@@ -532,13 +532,19 @@ function View:DropCatMemory()
   for _, st in pairs(self.state or {}) do st.catMemory = nil end
 end
 
+-- The face a block caption is drawn in, and the one its band is drawn in: the body font less two points
+-- and one, raised by "Heading size" the way every other heading in the addon is. The setter and the room
+-- measured for it both read these two, so a caption can never be drawn in one face and placed in another.
+function View:CapFont() return ns.HeadSize(math.max(7, (self.fontBase or 13) - 2)) end
+function View:BandFont() return ns.HeadSize(math.max(8, (self.fontBase or 13) - 1)) end
+
 function View:Label(st, i, color)
   local l = st.labels[i]
   if not l then
     l = Theme:Label(st.content, 11, color or "faint")
     st.labels[i] = l
   end
-  if self.fontPath then l:SetFont(self.fontPath, math.max(7, (self.fontBase or 13) - 2), ns.OutlineFlags()) end
+  if self.fontPath then l:SetFont(self.fontPath, self:CapFont(), ns.OutlineFlags()) end
   l:SetTextColor(Theme:C(color or "faint"))
   return l
 end
@@ -2132,6 +2138,7 @@ function View:PaintKey(size)
   -- flag names. In the key, the switch rebuilds every cell once, whatever else the view moved.
   return table.concat({ size, Bags.slotStyle or "tile", Bags.styleGen or 0,
                         Bags.qualityBorder and 1 or 0, Bags.qualityColorIlvl and 1 or 0,
+                        Bags.trackColorIlvl and 1 or 0,
                         Bags.junkCoin and 1 or 0, Bags.reagentTint and 1 or 0, Bags.ammoTint and 1 or 0,
                         Bags.unusableBorder and 1 or 0, self:CatMode() and "cat" or "grid",
                         (self.tabSel and self.tabSel[self.mode]) or 0 }, ":")
@@ -2288,7 +2295,10 @@ function View:PlanCats(st, size, cols, gap, light)
   st.planCache = { b = buckets, used = used, total = total }
   end
   local gridW = gridWidth(size, cols, gap)
-  local capH = DIV
+  -- The room a caption takes is measured off the first name the pass draws, rather than taken from the
+  -- density's DIV alone: the floor cannot follow "Heading size", and a name raised by it ran into the first
+  -- row of the cells under it. Nil here so the first band still reads the floor, exactly as before.
+  local capH
   -- The group caption sits at labelX with its caret to the left. A section caption sits at capX,
   -- flush with the left edge of its own first cell, so the name heads the items directly beneath it
   -- rather than floating off to their right. Mirrors the bags: the per-section caret is gone and
@@ -2347,7 +2357,8 @@ function View:PlanCats(st, size, cols, gap, light)
     -- whole of the heading and the band starts right below it.
     if band.key then
       gi = gi + 1
-      local gcapH = math.max(capH, self:FontSize() + 5)
+      -- The band's own room grows with the points "Heading size" adds, the same way its face does.
+      local gcapH = math.max(capH or DIV, self:FontSize() + 5 + ns.HeadBoost())
       local top = shelfY
       local textY = shelfY
       local isHead = ns.Categories.IsHead(band.key)
@@ -2421,6 +2432,9 @@ function View:PlanCats(st, size, cols, gap, light)
       -- the whole caption (indent, name up to a cap, gap, count), so a one-item section still reads its
       -- name instead of a lone glyph; past the cap the name truncates. Mirrors the bags.
       label:SetText(ns.Upper(b.name or ""))
+      -- Four points stand between the shelf's top edge and the name, and two more keep it clear of the cells
+      -- it heads. Measured once a pass: every caption here is set in the same face.
+      if not capH then capH = math.max(DIV, math.ceil(label:GetStringHeight() or 0) + 6) end
       local fullNameW = label:GetStringWidth()
       local nameCap = math.min(gridW, 6 * step)
       local floorNeed = capX + math.min(fullNameW, nameCap) + 6 + countW
@@ -2556,7 +2570,7 @@ function View:CatGLabel(st, i)
     fs:SetJustifyH("LEFT")
     st.gLabels[i] = fs
   end
-  if self.fontPath then fs:SetFont(self.fontPath, math.max(8, (self.fontBase or 13) - 1), ns.OutlineFlags()) end
+  if self.fontPath then fs:SetFont(self.fontPath, self:BandFont(), ns.OutlineFlags()) end
   fs:SetTextColor(Theme:C("azure"))
   return fs
 end
@@ -2602,7 +2616,7 @@ function View:CatCount(st, i)
     fs:SetJustifyH("LEFT")
     st.catCounts[i] = fs
   end
-  if self.fontPath then fs:SetFont(self.fontPath, math.max(7, (self.fontBase or 13) - 2), ns.OutlineFlags()) end
+  if self.fontPath then fs:SetFont(self.fontPath, self:CapFont(), ns.OutlineFlags()) end
   fs:SetTextColor(Theme:C("dim"))
   return fs
 end
@@ -3190,22 +3204,26 @@ function View:Plan(st, size, cols, gap, light)
       -- than the slot spacing, so the tabs stay as far apart as their own cells when the split's gap
       -- slider is left at zero (matching the bags grid).
       local cap = (sec.title or sec.label) and not only
-      local blockGap = cap and math.max(gapSplit, CAP_ROOM) or math.max(gapSplit, gap)
-      local secTop = bottom
+      local lbl, capH = nil, 0
       if cap then
         li = li + 1
-        local lbl = self:Label(st, li, sec.color)
+        lbl = self:Label(st, li, sec.color)
         lbl:ClearAllPoints()
         lbl:SetText(sec.title or ns.L[sec.label])
-        if bottom == 0 then
-          -- The first block opens the content and takes only its own caption's room over its cells, never
-          -- the inter-block gap, or the gap slider would pile empty air over the topmost tab.
-          local h = math.ceil(lbl:GetStringHeight() or 0)
-          if h <= 0 then h = 14 end
-          secTop = h + 8
-        else
-          secTop = bottom + blockGap
-        end
+        capH = math.ceil(lbl:GetStringHeight() or 0)
+        if capH <= 0 then capH = FONT end
+      end
+      -- Measured, never the standing floor alone: "Heading size" raises the tab's name and leaves CAP_ROOM
+      -- where it was, so a raised name ran up into the last row of the tab above it. Six points over its own
+      -- cells and two of air under the block above, whatever the heads are set to; the gap slider opens the
+      -- air above the name rather than under it.
+      local capRoom = capH > 0 and (capH + 8) or 0
+      local blockGap = cap and math.max(gapSplit, CAP_ROOM, capRoom) or math.max(gapSplit, gap)
+      local secTop = bottom
+      if cap then
+        -- The first block opens the content and takes only its own caption's room over its cells, never the
+        -- inter-block gap, or the gap slider would pile empty air over the topmost tab.
+        if bottom == 0 then secTop = capRoom else secTop = bottom + blockGap end
         lbl:SetPoint("BOTTOMLEFT", st.content, "TOPLEFT", 2, -(secTop - 6))
         lbl:Show()
       elseif bottom > 0 then

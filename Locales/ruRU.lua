@@ -304,7 +304,13 @@ local STRINGS = {
   ["Hide X/Y fields"] = "Скрыть поля X/Y",
   ["Capacity bar"] = "Полоса заполнения",
   ["Hide minimap icon"] = "Скрыть иконку у миникарты",
-  ["Gold format"] = "Формат сумм",
+  ["Separator"] = "Разделитель",
+  ["Compact amounts"] = "Компактные суммы",
+  ["Commas (1,234)"] = "Запятые (1,234)",
+  ["Dots (1.234)"] = "Точки (1.234)",
+  ["Spaces (1 234)"] = "Пробелы (1 234)",
+  ["None (1234)"] = "Без разделителя (1234)",
+  ["Apostrophe (1'234)"] = "Апостроф (1'234)",
   ["Gold only"] = "Только золото",
   ["Coin letters"] = "Буквы вместо монет",
   ["Clear search on close"] = "Очищать поиск при закрытии",
@@ -317,6 +323,9 @@ local STRINGS = {
   ["Color scheme for the whole addon."] = "Цветовая схема всего аддона.",
   ["Used for every label Warpee draws. Other addons can add to this list."] =
     "Используется для всех надписей Warpee. Другие аддоны могут добавлять шрифты в этот список.",
+  ["Heading size"] = "Размер заголовков",
+  ["How many points larger section names, list heads and the group band are drawn. A thin face usually reads better a point or two up."] =
+    "Насколько крупнее обычного рисуются названия разделов, заголовки списков и групп. Тонкому шрифту обычно нужно на 1-2 пункта больше.",
   ["Language for the addon's own text. Item names always come from the game."] =
     "Язык текста самого аддона. Названия предметов всегда берутся из игры.",
   ["Freeze the bags and the bank in place. Unlocked, they show X/Y fields along their bottom edge. Type a value, or nudge with the arrows (Shift = 10)."] =
@@ -326,7 +335,10 @@ local STRINGS = {
   ["Fill bar in the bags header showing how full they are."] =
     "Полоса в шапке сумок, показывающая, насколько они заполнены.",
   ["Takes the Warpee button off the minimap."] = "Убирает кнопку Warpee с миникарты.",
-  ["How amounts are written in chat. Short turns 1200 into 1.2 K."] = "Как суммы пишутся в чате. Коротко превращает 1200 в 1,2 к.",
+  ["What sits between the hundreds of a large amount, and the decimal sign of the compact form. Only a comma or a dot can stand in a fraction, so Spaces, None and Apostrophe leave the compact form its own language's sign."] =
+    "Что стоит между сотнями в крупной сумме и какой знак берёт компактная сумма как десятичный. В дробной части могут стоять только запятая или точка, поэтому «Пробелы», «Без разделителя» и «Апостроф» оставляют компактной сумме знак её языка.",
+  ["Fold 1000 into 1 K. A compact amount writes its own unit and no coin, so the coin switches below are off while it is on."] =
+    "Превращает 1000 в 1 тыс. Компактная сумма пишет свою единицу и не пишет монету, поэтому переключатели монет ниже выключены, пока она включена.",
   ["Show gold only, hide silver and copper."] = "Показывать только золото, без серебра и меди.",
   ["On = g/s/c letters. Off = coin icons."] = "Вкл. — буквы з/с/м вместо иконок монет.",
   ["Blizzard icons"] = "Иконки Blizzard",
@@ -449,6 +461,9 @@ local STRINGS = {
   ["A copper coin on gray junk: the coin the Sell button wears in gold, copper because the rules would sell it, not you."] = "Медная монета на сером хламе: та же монета, что у кнопки «Продать» золотая, здесь медная — продают его правила, а не вы.",
   ["Tint the item level number with the item's quality color."] =
     "Окрашивать уровень предмета в цвет его качества.",
+  ["Item level by track"] = "Уровень предмета по треку",
+  ["Tint the item level number by its upgrade track, Explorer through Myth; a crafted piece takes the hue of the tier it was made at."] =
+    "Окрашивать уровень предмета в цвет его трека улучшения; крафтовая вещь получает цвет трека, на котором сделана.",
   ["ALT-click to lock it from the vendor"] = "ALT + ЛКМ, чтобы защитить от продажи",
   ["Alt + LMB to mark it for sale"] = "Alt + ЛКМ отмечает предмет на продажу",
   ["Marked for sale. Alt + LMB to lock it from sale"] = "Отмечен на продажу. Alt + ЛКМ запрещает продажу",
@@ -935,7 +950,10 @@ local STRINGS = {
 
 ns.AddLocale("ruRU", "Russian", {
   coin = { g = "з", s = "с", c = "м" },
-  short = { dec = ",", gap = true, units = { { 1e6, "кк" }, { 1e3, "к" } } },
+  -- The ladder is written out in Russian words rather than the "к"/"кк" slang: the coin line puts its own
+  -- letter after the unit ("1,2 тыс. з"), and a doubled к read as a stutter next to it.
+  short = { dec = ",", gap = true,
+            units = { { 1e12, "трлн" }, { 1e9, "млрд" }, { 1e6, "млн" }, { 1e3, "тыс." } } },
   words = WORDS,
   primary = PRIMARY,
   strings = STRINGS,

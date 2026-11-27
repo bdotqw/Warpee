@@ -2288,11 +2288,9 @@ function ns.UpdateItemButton(b)
     local iq = info and info.quality
     if kc then
       b.ilvl:SetTextColor(kc.r, kc.g, kc.b)
-    elseif ns.Bags.qualityColorIlvl and iq and ITEM_QUALITY_COLORS[iq] then
-      local c = ITEM_QUALITY_COLORS[iq]
-      b.ilvl:SetTextColor(c.r, c.g, c.b)
     else
-      b.ilvl:SetTextColor(Theme:C("overlay"))
+      local c = ns.IlvlHue(hl, iq)
+      if c then b.ilvl:SetTextColor(c.r, c.g, c.b) else b.ilvl:SetTextColor(Theme:C("overlay")) end
     end
   end
   -- The link the game's own quality call is about to be given: what the craft tier mirror below is stamped
@@ -2688,12 +2686,8 @@ function ns.PaintVaultButton(b, d, bagID, forceCount, kind)
     local shown = (lvl and lvl > 1) and ns.Badge("ilvl").on and lvl or nil
     b.ilvl:SetText(shown or "")
     ns.FitIlvl(b, shown)
-    if ns.Bags.qualityColorIlvl and q and ITEM_QUALITY_COLORS[q] then
-      local c = ITEM_QUALITY_COLORS[q]
-      b.ilvl:SetTextColor(c.r, c.g, c.b)
-    else
-      b.ilvl:SetTextColor(Theme:C("overlay"))
-    end
+    local c = ns.IlvlHue(link, q)
+    if c then b.ilvl:SetTextColor(c.r, c.g, c.b) else b.ilvl:SetTextColor(Theme:C("overlay")) end
   end
   ns.SetSlotBorder(b, Theme:C("emptyLine"))
   -- Grouped view rings a reagent by its item class; the grid rings the bag the cell stands in. A snapshot cell
@@ -3540,8 +3534,9 @@ function ns.PaintPin(g, pin, t, btn)
     if g.ilvl then
       if lvl and lvl > 1 then
         ns.ApplyBadge(g, "ilvl")
-        local q = (ns.Bags and ns.Bags.qualityColorIlvl) and pinQuality(pin)
-        local qc = q and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+        -- A pin kept as a plain id has no link to read a track from, so it wears whatever the
+        -- quality switch says, the way the badge wore before tracks were read at all.
+        local qc = ns.IlvlHue(type(pin) == "string" and pin or nil, pinQuality(pin))
         if qc then
           g.ilvl:SetTextColor(qc.r, qc.g, qc.b)
         else

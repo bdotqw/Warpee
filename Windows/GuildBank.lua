@@ -603,9 +603,14 @@ end
 -- The letter is not written into the digits: inside the string it would push the whole amount along, because the
 -- string is anchored by its right end. In the icon's seat the digits keep their place and the width the game
 -- gave the button stays as it was.
-local function coinMark(btn, letter, r, g, b, a)
+local function coinMark(btn, letter, r, g, b, a, short)
   local art = btn.GetNormalTexture and btn:GetNormalTexture()
   local fs = btn.wpeMark
+  if short then
+    if fs then fs:Hide() end
+    if art then art:SetAlpha(0) end
+    return
+  end
   local letters = ns.Bags and ns.Bags.goldLetters
   local ours = not letters and not (ns.Bags and ns.Bags.goldBlizzard)
   -- Left to the client: the art the game drew goes back on and our string stands down. This is the
@@ -649,7 +654,7 @@ local function coinMark(btn, letter, r, g, b, a)
   fs:Show()
 end
 
-local function coinText(btn, value, letter)
+local function coinText(btn, value, letter, shortMoney)
   local fs = btn and btn.Text
   if not fs then return end
   -- The coin art is what the game made the button wider than the digits in it, and it is read
@@ -666,10 +671,24 @@ local function coinText(btn, value, letter)
   local r, g, b, a = inkOf(btn.GetNormalFontObject and btn:GetNormalFontObject())
   if not r then r, g, b, a = fs:GetTextColor() end
   ns.SetOutlined(fs, 12)
-  fs:SetText(ns.FormatNumber(value))
+  if shortMoney then
+    -- The bags own reading of the purse, below the first folded step included (see ns.ShortPurseParts): a
+    -- gold coin under a thousand gold says "834 g" here for the same reason the bags header does, instead of
+    -- folding it into a tenth of a unit of its own.
+    local num, unit = ns.ShortPurseParts(shortMoney)
+    -- The space before the unit stays outside the paint, the way the coin mark writes it: "834 g" is a number
+    -- and a unit, and the letter wears the gold while the gap between them wears the digits ink.
+    if unit and plainInk(btn) then
+      local sp = unit:match("^%s*") or ""
+      unit = sp .. "|cff" .. ns.COIN_HEX.g .. unit:sub(#sp + 1) .. "|r"
+    end
+    fs:SetText(num .. (unit or ""))
+  else
+    fs:SetText(ns.FormatNumber(value))
+  end
   if r then fs:SetTextColor(r, g, b, a) end
   btn:SetWidth((fs:GetStringWidth() or 0) + math.max(0, icon))
-  coinMark(btn, letter, r, g, b, a)
+  coinMark(btn, letter, r, g, b, a, shortMoney)
 end
 
 -- The silver and copper coins of the guild bank do nothing: the pickup dialog one of them opens
@@ -685,14 +704,18 @@ end
 local GOLD_ANYWAY = { GuildBankFrameTabCostMoneyFrame = true }
 local GOLD_BY_SETTING = { GuildBankMoneyFrame = true, GuildBankWithdrawMoneyFrame = true }
 
-local function onlyGold(frame)
+local function onlyGold(frame, short)
   local name = frame.GetName and frame:GetName()
-  if not GOLD_ANYWAY[name] and not (GOLD_BY_SETTING[name] and ns.Bags and ns.Bags.goldOnly) then
-    -- The two coins of a frame that was read in gold a moment ago and is not any more are put
-    -- back by the game's own update and by nothing else, so it is asked for one. The frame is
-    -- dressed by that same update a moment later, which is why the flag goes first.
+  if not short and not GOLD_ANYWAY[name] and not (GOLD_BY_SETTING[name] and ns.Bags and ns.Bags.goldOnly) then
+    -- Let the client choose which smaller coins to show after the full layout is restored.
     if frame.wpeGold then
+      local old, gold = frame.wpeGold, frame.GoldButton
       frame.wpeGold = nil
+      if old[1] then
+        gold:ClearAllPoints()
+        gold:SetPoint(old[1], old[2], old[3], old[4], old[5])
+      end
+      if old.width then frame:SetWidth(old.width) end
       if type(MoneyFrame_Update) == "function" then
         try(MoneyFrame_Update, name, frame.staticMoney)
       end
@@ -701,7 +724,13 @@ local function onlyGold(frame)
   end
   local gold = frame.GoldButton
   if not (gold and gold.ClearAllPoints and gold.SetPoint) then return end
-  frame.wpeGold = true
+  -- Non-collapsing money frames do not restore the gold anchor or frame width on update.
+  if not frame.wpeGold then
+    local old = { gold:GetPoint() }
+    old.width = frame:GetWidth()
+    frame.wpeGold = old
+  end
+  if short then gold:Show() end
   local silver, copper = frame.SilverButton, frame.CopperButton
   if silver then silver:Hide() end
   if copper then copper:Hide() end
@@ -727,12 +756,13 @@ local function dressMoney(target, amount)
   -- runs on every money update in the whole interface, so the first thing it does is leave.
   if not (frame and frame.GetName and MONEY_FRAMES[frame:GetName()]) then return end
   local money = amount or 0
-  coinText(frame.GoldButton, math.floor(money / 10000), "g")
-  coinText(frame.SilverButton, math.floor((money % 10000) / 100), "s")
-  coinText(frame.CopperButton, money % 100, "c")
-  -- The game's own update is what puts the two smaller coins back on the line on every money
-  -- event, so the pass that dresses the amounts is also the pass that puts them away.
-  try(onlyGold, frame)
+  local short = ns.Bags.goldShort
+  coinText(frame.GoldButton, math.floor(money / 10000), "g", short and money)
+  if not short then
+    coinText(frame.SilverButton, math.floor((money % 10000) / 100), "s")
+    coinText(frame.CopperButton, money % 100, "c")
+  end
+  try(onlyGold, frame, short)
 end
 
 -- The hook only fires when the game puts a new amount there, so the faces are put back on the
@@ -1040,7 +1070,7 @@ local function paintBadges(b, link, count, q)
   if b.ilvl then
     ns.FitIlvl(b, shown)
     b.ilvl:SetText(shown or "")
-    local c = (shown and ns.Bags.qualityColorIlvl and q) and ITEM_QUALITY_COLORS[q] or nil
+    local c = shown and ns.IlvlHue(link, q) or nil
     if c then b.ilvl:SetTextColor(c.r, c.g, c.b) else b.ilvl:SetTextColor(Theme:C("overlay")) end
   end
   -- The binds that read off the item itself: account binding, and BoE on a piece that is not
